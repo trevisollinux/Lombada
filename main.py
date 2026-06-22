@@ -1,12 +1,14 @@
 """
 Lombada — arquivo único.
 Open Library (busca + edições) + Google Books (capa) + MercadoEditorial (tradutor + capa).
-Busca BR-first + proxy de capa same-origin (/api/capa) + login (email/senha, sessão por cookie).
-Prateleira agora é POR USUÁRIO. Obra/Edição seguem globais (catálogo).
+Busca BR-first + proxy de capa (/api/capa) + IDENTIDADE ANÔNIMA (handle fofo, sem login).
+Primeira visita já cria um usuário com handle único; prateleira é por usuário; o handle
+viaja estampado no card. email/senha ficam pra um "garantir conta" futuro (opcionais).
 Front é o index.html ao lado.
 """
 import os
 import socket
+import random
 import ipaddress
 import unicodedata
 import concurrent.futures as _fut
@@ -17,7 +19,6 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-import bcrypt
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
@@ -28,7 +29,6 @@ from starlette.middleware.sessions import SessionMiddleware
 
 # ───────────────────────── banco ─────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lombada.db")
-# alguns provedores (Render/Heroku) entregam "postgres://" — o SQLAlchemy 2.x quer "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 _args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -39,8 +39,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "troque-isto-em-producao-por-uma-string-ale
 
 class Usuario(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True, unique=True)
-    senha_hash: str
+    handle: str = Field(index=True, unique=True)        # nome fofo, sempre presente
+    email: Optional[str] = Field(default=None, index=True, unique=True)  # só ao "garantir conta"
+    senha_hash: Optional[str] = None
     nome: str = ""
     criado_em: datetime = Field(default_factory=datetime.utcnow)
 
@@ -77,16 +78,36 @@ class Leitura(SQLModel, table=True):
     criado_em: datetime = Field(default_factory=datetime.utcnow)
 
 
-# ──────────────────── senha (bcrypt direto) ────────────────────
-def hash_senha(senha):
-    return bcrypt.hashpw(senha.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+# ──────────────────── handle fofo ────────────────────
+_BICHO = ["capivara", "coruja", "raposa", "tatu", "lontra", "perereca", "jaguatirica",
+          "tucano", "sagui", "quati", "arara", "preguica", "tamandua", "bemtevi"]
+_ADJ = ["sonolenta", "curiosa", "saudosa", "serena", "faminta", "valente", "distraida",
+        "noturna", "errante", "teimosa", "sonhadora", "melancolica", "leitora", "vadia"]
 
 
-def confere_senha(senha, hashed):
-    try:
-        return bcrypt.checkpw(senha.encode("utf-8")[:72], hashed.encode("utf-8"))
-    except Exception:
-        return False
+def _gera_handle(s):
+    for _ in range(40):
+        h = f"{random.choice(_BICHO)}-{random.choice(_ADJ)}-{random.randint(10, 999)}"
+        if not s.exec(select(Usuario).where(Usuario.handle == h)).first():
+            return h
+    return f"leitor-{int(datetime.utcnow().timestamp())}"
+
+
+def criar_anonimo(s):
+    u = Usuario(handle=_gera_handle(s))
+    s.add(u); s.commit(); s.refresh(u)
+    return u
+
+
+def usuario_sessao(request, s):
+    """Devolve o usuário da sessão; se não houver, cria um anônimo e guarda no cookie.
+    Sem portão de login — todo visitante já é um usuário."""
+    uid = request.session.get("uid")
+    u = s.get(Usuario, uid) if uid else None
+    if not u:
+        u = criar_anonimo(s)
+        request.session["uid"] = u.id
+    return u
 
 
 # ──────────────────── fontes de dados ────────────────────
@@ -95,7 +116,6 @@ COVERS = "https://covers.openlibrary.org"
 GBOOKS = "https://www.googleapis.com/books/v1/volumes"
 MERCADOEDITORIAL = "https://api.mercadoeditorial.org/api/v1.2/book"
 TIMEOUT = 12.0
-# Open Library pede um User-Agent identificável pra quem usa a API.
 _UA = {"User-Agent": "Lombada/1.0 (diario de leitura; github.com/trevisollinux/lombada)"}
 LANG = {"por": "Português", "eng": "Inglês", "rus": "Russo", "fre": "Francês",
         "spa": "Espanhol", "ger": "Alemão", "ita": "Italiano", "jpn": "Japonês"}
@@ -111,7 +131,6 @@ def _sem_acento(s):
 
 
 def _nome_contrib(g):
-    """Extrai um nome dos formatos variados que o ME pode devolver."""
     if isinstance(g, str):
         return g.strip()
     if isinstance(g, dict):
@@ -123,7 +142,6 @@ def _nome_contrib(g):
 
 @lru_cache(maxsize=512)
 def _gbooks_capa(isbn):
-    """Capa BR pelo ISBN via Google Books (sem cadastro). '' se não achar."""
     if not isbn:
         return ""
     try:
@@ -142,8 +160,6 @@ def _gbooks_capa(isbn):
 
 @lru_cache(maxsize=512)
 def _mercadoeditorial(isbn):
-    """Consulta pública do MercadoEditorial por ISBN (sem cadastro).
-    Retorna (tradutor, capa_url). Defensivo: ('','') se não achar/quebrar."""
     if not isbn:
         return ("", "")
     try:
@@ -182,7 +198,6 @@ def _mercadoeditorial(isbn):
 
 
 def _capa_br(isbn):
-    """Melhor capa brasileira pra um ISBN: ME → Google Books → Open Library."""
     if not isbn:
         return ""
     _, capa_me = _mercadoeditorial(isbn)
@@ -191,9 +206,6 @@ def _capa_br(isbn):
 
 @lru_cache(maxsize=256)
 def _melhor_edicao_pt(work_key):
-    """Acha a melhor edição em português de uma obra e devolve (titulo_pt, capa_br).
-    Usada na BUSCA pra mostrar a cara brasileira do livro na grade.
-    ('','') se não houver edição PT ou der ruim — aí o front mantém o original."""
     if not work_key:
         return ("", "")
     try:
@@ -219,15 +231,12 @@ def _melhor_edicao_pt(work_key):
 
     if not pt:
         return ("", "")
-    # melhor PT: com ISBN primeiro (dá capa BR), depois mais nova
     pt.sort(key=lambda e: (e["isbn"] == "", -(e["ano"] or 0)))
     best = pt[0]
     return (best["titulo"], _capa_br(best["isbn"]))
 
 
 def _relevancia(titulo_resultado, titulo_busca):
-    """Quão perto o título do resultado está do que foi buscado.
-    0 = igual, 1 = começa com, 2 = contém, 3 = nem contém."""
     tr = _sem_acento(titulo_resultado)
     tb = _sem_acento(titulo_busca)
     if not tb:
@@ -244,7 +253,6 @@ def _relevancia(titulo_resultado, titulo_busca):
 def ol_buscar(q, limite=10):
     fields = "key,title,author_name,first_publish_year,cover_i,language"
 
-    # separa "titulo, autor" → usa o autor pra FILTRAR (não só descartar)
     titulo_q, autor_q = q, ""
     if "," in q:
         partes = q.split(",", 1)
@@ -259,7 +267,6 @@ def ol_buscar(q, limite=10):
             return r.json().get("docs", [])
 
     docs = _query(q)
-    # nada veio e tinha vírgula? tenta só o título
     if not docs and autor_q:
         docs = _query(titulo_q)
 
@@ -279,7 +286,6 @@ def ol_buscar(q, limite=10):
             "capa_url": f"{COVERS}/b/id/{cover_i}-L.jpg" if cover_i else "",
         })
 
-    # filtro por autor: se o usuário informou autor, descarta quem não casa.
     if autor_q:
         tokens = [t for t in _sem_acento(autor_q).split() if len(t) >= 3]
         if tokens:
@@ -291,12 +297,10 @@ def ol_buscar(q, limite=10):
             if filtrados:
                 out = filtrados
 
-    # ordena: relevância de título → PT primeiro → ano mais novo
     out.sort(key=lambda o: (_relevancia(o["titulo"], titulo_q),
                             0 if o["tem_pt"] else 1,
                             -(o["ano"] or 0)))
 
-    # superpoder BR: pra cada obra com edição PT, troca título + capa pela versão brasileira.
     pt_idx = [i for i, o in enumerate(out) if o.get("tem_pt")]
     if pt_idx:
         def _br(i):
@@ -374,7 +378,6 @@ def ol_edicoes(work_key, limite=20):
 
 # ───────────── proxy de capa (same-origin pro card) ─────────────
 def _host_publico(host):
-    """True só se o host resolve pra IP público (anti-SSRF)."""
     if not host:
         return False
     try:
@@ -393,7 +396,6 @@ def _host_publico(host):
 
 
 def proxy_capa(url):
-    """Busca a capa de fora e serve do nosso domínio (canvas do card não fica 'sujo')."""
     p = urlparse(url or "")
     if p.scheme != "https" or not _host_publico(p.hostname):
         raise HTTPException(400, "url de capa inválida")
@@ -411,9 +413,15 @@ def proxy_capa(url):
 
 # ──────────────────────── app ────────────────────────
 def _migrar():
-    """Migração leve: adiciona leitura.usuario_id se a tabela já existia sem a coluna.
-    Roda em transação própria pra não abortar o resto se a coluna já existir."""
-    for ddl in ("ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",):
+    """Migração leve e idempotente. Cada DDL em transação própria; o que já existir,
+    falha em silêncio. Cobre o upgrade do banco antigo (com login) pro modelo anônimo."""
+    ddls = [
+        "ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",
+        "ALTER TABLE usuario ADD COLUMN handle VARCHAR",
+        "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL",
+        "ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL",
+    ]
+    for ddl in ddls:
         try:
             with engine.begin() as conn:
                 conn.execute(text(ddl))
@@ -438,62 +446,11 @@ def get_session():
         yield s
 
 
-def usuario_atual(request, s):
-    uid = request.session.get("uid")
-    if not uid:
-        return None
-    return s.get(Usuario, uid)
-
-
-def exigir_usuario(request, s):
-    u = usuario_atual(request, s)
-    if not u:
-        raise HTTPException(401, "faça login")
-    return u
-
-
-# ───────────── auth ─────────────
-class Credenciais(BaseModel):
-    email: str
-    senha: str
-    nome: str = ""
-
-
-@app.post("/api/registrar")
-def registrar(c: Credenciais, request: Request, s: Session = Depends(get_session)):
-    email = (c.email or "").strip().lower()
-    if "@" not in email or "." not in email:
-        raise HTTPException(400, "email inválido")
-    if len(c.senha or "") < 6:
-        raise HTTPException(400, "a senha precisa de no mínimo 6 caracteres")
-    if s.exec(select(Usuario).where(Usuario.email == email)).first():
-        raise HTTPException(409, "já existe uma conta com esse email")
-    u = Usuario(email=email, senha_hash=hash_senha(c.senha), nome=(c.nome or "").strip())
-    s.add(u); s.commit(); s.refresh(u)
-    request.session["uid"] = u.id
-    return {"email": u.email, "nome": u.nome}
-
-
-@app.post("/api/login")
-def login(c: Credenciais, request: Request, s: Session = Depends(get_session)):
-    email = (c.email or "").strip().lower()
-    u = s.exec(select(Usuario).where(Usuario.email == email)).first()
-    if not u or not confere_senha(c.senha or "", u.senha_hash):
-        raise HTTPException(401, "email ou senha incorretos")
-    request.session["uid"] = u.id
-    return {"email": u.email, "nome": u.nome}
-
-
-@app.post("/api/sair")
-def sair(request: Request):
-    request.session.clear()
-    return {"ok": True}
-
-
+# ───────────── identidade ─────────────
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
-    u = exigir_usuario(request, s)
-    return {"email": u.email, "nome": u.nome}
+    u = usuario_sessao(request, s)
+    return {"handle": u.handle, "nome": u.nome, "email": u.email}
 
 
 # ───────────── catálogo (público) ─────────────
@@ -523,7 +480,7 @@ def capa(url: str = Query(..., min_length=8)):
         raise HTTPException(502, f"capa indisponível: {e}")
 
 
-# ───────────── prateleira (por usuário) ─────────────
+# ───────────── prateleira (por usuário, anônimo incluso) ─────────────
 class EntradaPrateleira(BaseModel):
     work_key: str
     titulo: str
@@ -545,7 +502,7 @@ class EntradaPrateleira(BaseModel):
 
 @app.post("/api/prateleira")
 def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_session)):
-    u = exigir_usuario(request, s)
+    u = usuario_sessao(request, s)
 
     obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
     if not obra:
@@ -571,7 +528,7 @@ def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_s
 
 @app.get("/api/prateleira")
 def listar(request: Request, s: Session = Depends(get_session)):
-    u = exigir_usuario(request, s)
+    u = usuario_sessao(request, s)
     rows = s.exec(select(Leitura, Edicao, Obra)
                   .join(Edicao, Leitura.edicao_id == Edicao.id)
                   .join(Obra, Edicao.obra_id == Obra.id)
