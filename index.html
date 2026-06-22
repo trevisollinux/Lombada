@@ -3,7 +3,7 @@
   <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lombada — diário de leituras com tradutor</title>
+  <title>Lombada — leituras, edições e histórias</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -108,7 +108,7 @@
   .field input:focus,.field textarea:focus{border-color:var(--ink)}
   .field textarea{min-height:120px;resize:vertical;line-height:1.5}
   .field.translator{padding:14px;background:var(--paper-2);border:1px solid var(--ink);position:relative}
-  .field.translator::before{content:"o diferencial";position:absolute;right:10px;top:-8px;background:var(--gold);color:var(--paper);font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;padding:2px 6px}
+  .field.translator::before{display:none}
   .field.translator input{background:var(--paper);border:0;border-bottom:1.5px solid var(--gold);padding:8px 2px;font-family:"Fraunces",serif;font-style:italic;font-size:20px}
   .field.translator input:focus{border-color:var(--ink)}
   .field .hint{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.03em;color:var(--dim);line-height:1.5}
@@ -155,10 +155,10 @@
     <!-- BUSCA -->
     <section id="view-busca">
       <div class="home-hero">
-        <div class="label kicker">um diário de leituras · com tradutor</div>
+        <div class="label kicker">leituras, edições e histórias</div>
         <h1 class="h-display">o que você<br>está lendo<span class="q">?</span></h1>
         <div class="search">
-          <input id="q" type="text" placeholder="título, autor, tradutor…" autocomplete="off"
+          <input id="q" type="text" placeholder="Busque por título, autor ou ISBN" autocomplete="off"
             onkeydown="if(event.key==='Enter')buscar()" />
           <button onclick="buscar()">buscar</button>
         </div>
@@ -250,10 +250,15 @@
     let r; try{ r=await fetch('/api/buscar?q='+encodeURIComponent(q)); }catch(e){
       $('resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
     docs=await r.json();
-    if(!docs.length){$('resultados').innerHTML='<div class="empty">nada encontrado pra "'+esc(q)+'".</div>';return;}
-    $('resultados').innerHTML='<div class="label" style="margin:24px 0 4px">resultados</div><div class="wall">'+
+    const isbnBusca = docs.some(d=>d.isbn_match);
+    if(!docs.length){
+      const pareceIsbn = /^[-\s0-9Xx]+$/.test(q) && q.replace(/[^0-9Xx]/g,'').length>=10;
+      $('resultados').innerHTML='<div class="empty">'+(pareceIsbn?'Não encontrei esse ISBN. Tente buscar pelo título ou autor.':'nada encontrado pra "'+esc(q)+'".')+'</div>';return;
+    }
+    $('resultados').innerHTML='<div class="label" style="margin:24px 0 4px">'+(isbnBusca?'Edição encontrada por ISBN':'resultados')+'</div><div class="wall">'+
       docs.map((d,i)=>`<div class="book" onclick="verEdicoes(${i})">
         ${coverHTML(d.titulo, d.capa_url, d.tem_pt?'<span class="pt">PT</span>':'')}
+        ${d.isbn_match?'<div class="label" style="margin-top:10px">Edição encontrada por ISBN</div>':''}
         <div class="t">${esc(d.titulo)}</div>
         <div class="a">${esc(d.autor)}${d.ano?' · '+d.ano:''}</div>
       </div>`).join('')+'</div>';
@@ -268,9 +273,13 @@
     $('form').innerHTML='';
     $('edicoes').innerHTML='<div class="loading">carregando edições…</div>';
     window.scrollTo({top:0,behavior:'smooth'});
-    let r; try{ r=await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key)); }catch(e){
-      $('edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
-    eds=await r.json();
+    if(escolha.isbn_match && escolha.edicao_isbn){
+      eds=[escolha.edicao_isbn];
+    }else{
+      let r; try{ r=await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key)); }catch(e){
+        $('edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
+      eds=await r.json();
+    }
     const head=`<div class="work-head">
         <div style="width:96px;flex:0 0 96px">${coverHTML(escolha.titulo, escolha.capa_url, escolha.tem_pt?'<span class="pt">PT</span>':'')}</div>
         <div class="wmeta">
@@ -282,7 +291,7 @@
       </div>`;
     if(!eds.length){$('edicoes').innerHTML=head+'<div class="empty">sem edições listadas pra essa obra.</div>';return;}
     $('edicoes').innerHTML=head+
-      '<div class="label" style="margin:4px 0 10px">edições brasileiras</div>'+
+      '<div class="label" style="margin:4px 0 10px">'+(escolha.isbn_match?'Edição encontrada por ISBN':'edições brasileiras')+'</div>'+
       '<ul class="editions">'+eds.map((e,j)=>{
         const titPt = e.titulo_edicao ? `<div class="te">${esc(e.titulo_edicao)}</div>`:'';
         const trad = e.tradutor
@@ -318,7 +327,7 @@
           <input id="f_trad" value="${esc(edicaoSel.tradutor)}" placeholder="ex: Lia Wyler">
           <div class="hint ${edicaoSel.tradutor?'':'gold'}">${edicaoSel.tradutor
             ? 'veio das fontes — confere se tá certo.'
-            : 'não veio das fontes. preenche aqui — é o que nenhum outro app guarda.'}</div>
+            : 'não veio das fontes. você pode preencher se quiser.'}</div>
         </div>
 
         <div class="field">

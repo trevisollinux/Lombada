@@ -9,6 +9,7 @@ Front é o index.html ao lado.
 import os
 import socket
 import random
+import re
 import ipaddress
 import unicodedata
 import concurrent.futures as _fut
@@ -120,6 +121,29 @@ _UA = {"User-Agent": "Lombada/1.0 (diario de leitura; github.com/trevisollinux/l
 LANG = {"por": "Português", "eng": "Inglês", "rus": "Russo", "fre": "Francês",
         "spa": "Espanhol", "ger": "Alemão", "ita": "Italiano", "jpn": "Japonês"}
 
+
+
+def normalizar_isbn(q):
+    """Normaliza ISBN-10/13, preservando X final de ISBN-10 quando houver."""
+    bruto = (q or "").strip()
+    if not bruto:
+        return ""
+    compactado = re.sub(r"[^0-9Xx]", "", bruto).upper()
+    if len(compactado) == 10 and re.fullmatch(r"[0-9]{9}[0-9X]", compactado):
+        return compactado
+    if len(compactado) == 13 and re.fullmatch(r"[0-9]{13}", compactado):
+        return compactado
+    return ""
+
+
+def _isbn_exato(isbn, candidatos):
+    alvo = normalizar_isbn(isbn)
+    return bool(alvo and alvo in {normalizar_isbn(c) for c in (candidatos or [])})
+
+
+def _ano_de_data(data):
+    m = re.search(r"\b(\d{4})\b", data or "")
+    return int(m.group(1)) if m else None
 
 def _lang(code):
     return LANG.get(code, code)
@@ -317,6 +341,88 @@ def ol_buscar(q, limite=10):
     return out
 
 
+
+def _edicao_por_isbn(isbn):
+    isbn = normalizar_isbn(isbn)
+    if not isbn:
+        return None
+
+    def _base_doc(titulo, autor, ano, capa_url, work_key, edition):
+        return {
+            "work_key": work_key,
+            "titulo": titulo or "Edição sem título",
+            "autor": autor or "—",
+            "ano": ano,
+            "idioma_original": edition.get("idioma", ""),
+            "tem_pt": edition.get("idioma") == "Português",
+            "capa_url": capa_url or edition.get("capa_url", ""),
+            "isbn_match": True,
+            "edicao_isbn": edition,
+        }
+
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.get(GBOOKS, params={"q": f"isbn:{isbn}", "country": "BR"})
+            r.raise_for_status()
+            items = r.json().get("items", [])
+    except Exception:
+        items = []
+
+    for item in items:
+        info = item.get("volumeInfo", {}) or {}
+        ids = [i.get("identifier", "") for i in (info.get("industryIdentifiers") or [])]
+        if not _isbn_exato(isbn, ids):
+            continue
+        img = info.get("imageLinks") or {}
+        capa = (img.get("thumbnail") or img.get("smallThumbnail") or "").replace("http://", "https://")
+        autores = info.get("authors") or []
+        lang = _lang(info.get("language") or "")
+        edition = {
+            "ol_edition_key": "google:" + (item.get("id") or isbn),
+            "titulo_edicao": info.get("title", ""),
+            "editora": info.get("publisher", ""),
+            "tradutor": "",
+            "isbn": isbn,
+            "idioma": lang,
+            "ano": _ano_de_data(info.get("publishedDate", "")),
+            "capa_url": capa or _capa_br(isbn),
+            "encontrada_por_isbn": True,
+        }
+        return _base_doc(info.get("title", ""), (autores or ["—"])[0], edition["ano"], edition["capa_url"], "isbn:" + isbn, edition)
+
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+            r = c.get(f"{BASE}/isbn/{isbn}.json")
+            if r.status_code == 404:
+                return None
+            r.raise_for_status()
+            ed = r.json()
+    except Exception:
+        return None
+
+    isbns = (ed.get("isbn_13") or []) + (ed.get("isbn_10") or [])
+    if isbns and not _isbn_exato(isbn, isbns):
+        return None
+    lang_code = ""
+    if ed.get("languages"):
+        lang_code = ed["languages"][0].get("key", "").rsplit("/", 1)[-1]
+    edition = {
+        "ol_edition_key": ed.get("key", ""),
+        "titulo_edicao": ed.get("title", ""),
+        "editora": (ed.get("publishers") or [""])[0],
+        "tradutor": _tradutor(ed),
+        "isbn": isbn,
+        "idioma": _lang(lang_code),
+        "ano": _ano_de_data(ed.get("publish_date", "")),
+        "capa_url": _capa_br(isbn),
+        "encontrada_por_isbn": True,
+    }
+    work_key = "isbn:" + isbn
+    if ed.get("works"):
+        work_key = ed["works"][0].get("key") or work_key
+    return _base_doc(ed.get("title", ""), "—", edition["ano"], edition["capa_url"], work_key, edition)
+
+
 def _tradutor(ed):
     for ctr in ed.get("contributors", []) or []:
         role = _sem_acento(ctr.get("role") or "")
@@ -456,6 +562,13 @@ def eu(request: Request, s: Session = Depends(get_session)):
 # ───────────── catálogo (público) ─────────────
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2)):
+    isbn = normalizar_isbn(q)
+    if isbn:
+        try:
+            achado = _edicao_por_isbn(isbn)
+            return [achado] if achado else []
+        except Exception as e:
+            raise HTTPException(502, f"Busca por ISBN indisponível: {e}")
     try:
         return ol_buscar(q)
     except Exception as e:
