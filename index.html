@@ -158,7 +158,7 @@
         <div class="label kicker">um diário de leituras · com tradutor</div>
         <h1 class="h-display">o que você<br>está lendo<span class="q">?</span></h1>
         <div class="search">
-          <input id="q" type="text" placeholder="título, autor, tradutor…" autocomplete="off"
+          <input id="q" type="text" placeholder="Busque por título, autor ou ISBN" autocomplete="off"
             onkeydown="if(event.key==='Enter')buscar()" />
           <button onclick="buscar()">buscar</button>
         </div>
@@ -250,10 +250,15 @@
     let r; try{ r=await fetch('/api/buscar?q='+encodeURIComponent(q)); }catch(e){
       $('resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
     docs=await r.json();
-    if(!docs.length){$('resultados').innerHTML='<div class="empty">nada encontrado pra "'+esc(q)+'".</div>';return;}
-    $('resultados').innerHTML='<div class="label" style="margin:24px 0 4px">resultados</div><div class="wall">'+
+    const isbnBusca = docs.some(d=>d.isbn_match);
+    if(!docs.length){
+      const pareceIsbn = /^[-\s0-9Xx]+$/.test(q) && q.replace(/[^0-9Xx]/g,'').length>=10;
+      $('resultados').innerHTML='<div class="empty">'+(pareceIsbn?'Não encontrei esse ISBN. Tente buscar pelo título ou autor.':'nada encontrado pra "'+esc(q)+'".')+'</div>';return;
+    }
+    $('resultados').innerHTML='<div class="label" style="margin:24px 0 4px">'+(isbnBusca?'Edição encontrada por ISBN':'resultados')+'</div><div class="wall">'+
       docs.map((d,i)=>`<div class="book" onclick="verEdicoes(${i})">
         ${coverHTML(d.titulo, d.capa_url, d.tem_pt?'<span class="pt">PT</span>':'')}
+        ${d.isbn_match?'<div class="label" style="margin-top:10px">Edição encontrada por ISBN</div>':''}
         <div class="t">${esc(d.titulo)}</div>
         <div class="a">${esc(d.autor)}${d.ano?' · '+d.ano:''}</div>
       </div>`).join('')+'</div>';
@@ -268,9 +273,13 @@
     $('form').innerHTML='';
     $('edicoes').innerHTML='<div class="loading">carregando edições…</div>';
     window.scrollTo({top:0,behavior:'smooth'});
-    let r; try{ r=await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key)); }catch(e){
-      $('edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
-    eds=await r.json();
+    if(escolha.isbn_match && escolha.edicao_isbn){
+      eds=[escolha.edicao_isbn];
+    }else{
+      let r; try{ r=await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key)); }catch(e){
+        $('edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
+      eds=await r.json();
+    }
     const head=`<div class="work-head">
         <div style="width:96px;flex:0 0 96px">${coverHTML(escolha.titulo, escolha.capa_url, escolha.tem_pt?'<span class="pt">PT</span>':'')}</div>
         <div class="wmeta">
@@ -282,7 +291,7 @@
       </div>`;
     if(!eds.length){$('edicoes').innerHTML=head+'<div class="empty">sem edições listadas pra essa obra.</div>';return;}
     $('edicoes').innerHTML=head+
-      '<div class="label" style="margin:4px 0 10px">edições brasileiras</div>'+
+      '<div class="label" style="margin:4px 0 10px">'+(escolha.isbn_match?'Edição encontrada por ISBN':'edições brasileiras')+'</div>'+
       '<ul class="editions">'+eds.map((e,j)=>{
         const titPt = e.titulo_edicao ? `<div class="te">${esc(e.titulo_edicao)}</div>`:'';
         const trad = e.tradutor
