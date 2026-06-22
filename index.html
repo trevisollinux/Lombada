@@ -140,41 +140,15 @@
   .card-actions button{border:1px solid var(--paper);padding:11px 15px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;background:transparent;color:var(--paper)}
   .card-actions button.solid{background:var(--gold-2);color:var(--ink);border-color:var(--gold-2)}
 
-  /* portão de login */
-  .authgate{position:fixed;inset:0;z-index:60;background:var(--paper);display:none;align-items:center;justify-content:center;padding:24px}
-  .authgate.open{display:flex}
-  .authbox{width:100%;max-width:360px;display:flex;flex-direction:column;gap:13px;position:relative;z-index:2}
-  .authbox .wordmark{font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:30px;text-align:center;margin-bottom:2px}
-  .authbox .wordmark .dot{color:var(--gold)}
-  .authbox .sub{font-family:"Fraunces",serif;font-style:italic;font-size:18px;text-align:center;color:var(--ink-2);margin-bottom:8px}
-  .authbox input{background:var(--paper-2);border:1px solid var(--ink);padding:13px 12px;font-family:"Spectral",serif;font-size:16px;outline:none}
-  .authbox input:focus{border-color:var(--gold)}
-  .authbox .go{background:var(--ink);color:var(--paper);padding:15px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin-top:2px}
-  .authbox .alt{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.05em;color:var(--dim);text-align:center;text-decoration:underline;margin-top:2px}
-  .authbox .erro{color:#9C3B3B;font-family:"Space Mono",monospace;font-size:11px;text-align:center;min-height:14px}
   </style>
   </head>
   <body>
-  <div class="authgate open" id="authgate">
-    <div class="authbox">
-      <div class="wordmark">LOMBADA<span class="dot">.</span></div>
-      <div class="sub" id="auth-title">entrar na sua estante</div>
-      <input id="au_nome" placeholder="seu nome" autocomplete="name" style="display:none">
-      <input id="au_email" type="email" placeholder="email" autocomplete="email"
-        onkeydown="if(event.key==='Enter')autenticar()">
-      <input id="au_senha" type="password" placeholder="senha (mín. 6)" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter')autenticar()">
-      <button class="go" id="au_go" onclick="autenticar()">entrar</button>
-      <button class="alt" id="au_alt" onclick="alternarAuth()">não tem conta? criar uma</button>
-      <div class="erro" id="auth-erro"></div>
-    </div>
-  </div>
   <div class="app">
     <div class="topbar">
       <div class="wordmark">LOMBADA<span class="dot">.</span></div>
       <div style="display:flex;align-items:center;gap:12px">
         <div class="crumb" id="crumb">estante</div>
-        <button class="back" onclick="sair()">sair</button>
+        <div class="crumb" id="meuhandle"></div>
       </div>
     </div>
 
@@ -235,7 +209,7 @@
 
   <script>
   const $ = (id)=>document.getElementById(id);
-  let escolha=null, edicaoSel=null, notaSel=0, statusSel='Lido', eds=[], docs=[], prateleira=[], cardAtual=null;
+  let escolha=null, edicaoSel=null, notaSel=0, statusSel='Lido', eds=[], docs=[], prateleira=[], cardAtual=null, meuHandle='';
 
   function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
   function hueFromTitle(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
@@ -414,7 +388,6 @@
     };
     let r; try{ r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
     catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
-    if(r.status===401){ $('authgate').classList.add('open'); return; }
     $('q').value='';$('resultados').innerHTML='';$('edicoes').innerHTML='';$('form').innerHTML='';
     irPara('prateleira');
   }
@@ -422,7 +395,6 @@
   function estrelasTxt(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+= i<=n?'★':(i-0.5===n?'⯪':'☆');return o;}
   async function carregarPrateleira(){
     let r; try{ r=await fetch('/api/prateleira'); }catch(e){ return; }
-    if(r.status===401){ $('authgate').classList.add('open'); return; }
     prateleira=await r.json();
     $('shelf-count').textContent = prateleira.length
       ? prateleira.length+(prateleira.length===1?' livro':' livros') : '—';
@@ -481,6 +453,7 @@
       ctx.fillText('lombada',W/2,yc+64);
       // pingo dourado no fim do wordmark
       const wmW=ctx.measureText('lombada').width;ctx.fillStyle=C_GOLD;ctx.fillText('.',W/2+wmW/2+6,yc+64);
+      if(meuHandle){ctx.fillStyle=C_INK2;ctx.font="400 24px 'Space Mono',monospace";ctx.fillText('@'+meuHandle,W/2,yc+110);}
       ctx.textAlign='left';
     };
 
@@ -549,39 +522,13 @@
     baixarBlob(blob);
   }
 
-  /* ---------- login (email/senha, sessão por cookie) ---------- */
-  let modoAuth='login';
-  function alternarAuth(){
-    modoAuth = modoAuth==='login' ? 'registro' : 'login';
-    $('auth-title').textContent = modoAuth==='login' ? 'entrar na sua estante' : 'criar sua estante';
-    $('au_go').textContent = modoAuth==='login' ? 'entrar' : 'criar conta';
-    $('au_alt').textContent = modoAuth==='login' ? 'não tem conta? criar uma' : 'já tem conta? entrar';
-    $('au_nome').style.display = modoAuth==='registro' ? 'block' : 'none';
-    $('auth-erro').textContent='';
-  }
-  async function autenticar(){
-    const email=$('au_email').value.trim(), senha=$('au_senha').value;
-    if(!email || senha.length<6){ $('auth-erro').textContent='preenche email e senha (mín. 6).'; return; }
-    const rota = modoAuth==='login' ? '/api/login' : '/api/registrar';
-    const body = {email, senha, nome:$('au_nome').value.trim()};
-    let r; try{ r=await fetch(rota,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    catch(e){ $('auth-erro').textContent='sem conexão.'; return; }
-    if(!r.ok){ const d=await r.json().catch(()=>({})); $('auth-erro').textContent=d.detail||'não rolou, tenta de novo.'; return; }
-    $('au_senha').value=''; $('auth-erro').textContent='';
-    $('authgate').classList.remove('open');
-    irPara('prateleira');
-  }
-  async function sair(){
-    try{ await fetch('/api/sair',{method:'POST'}); }catch(e){}
-    prateleira=[]; $('prateleira').innerHTML=''; $('shelf-count').textContent='—';
-    $('authgate').classList.add('open');
-    window.scrollTo({top:0});
-  }
+  /* ---------- identidade anônima (handle fofo, sem login) ---------- */
   async function init(){
-    let logado=false;
-    try{ const r=await fetch('/api/eu'); logado=r.ok; }catch(e){}
-    if(logado){ $('authgate').classList.remove('open'); carregarPrateleira(); }
-    else { $('authgate').classList.add('open'); }
+    try{
+      const r=await fetch('/api/eu');
+      if(r.ok){ const u=await r.json(); meuHandle=u.handle||''; if(meuHandle)$('meuhandle').textContent='@'+meuHandle; }
+    }catch(e){}
+    carregarPrateleira();
   }
   init();
   </script>
