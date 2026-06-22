@@ -122,7 +122,6 @@ LANG = {"por": "Português", "eng": "Inglês", "rus": "Russo", "fre": "Francês"
         "spa": "Espanhol", "ger": "Alemão", "ita": "Italiano", "jpn": "Japonês"}
 
 
-
 def normalizar_isbn(q):
     """Normaliza ISBN-10/13, preservando X final de ISBN-10 quando houver."""
     bruto = (q or "").strip()
@@ -144,6 +143,7 @@ def _isbn_exato(isbn, candidatos):
 def _ano_de_data(data):
     m = re.search(r"\b(\d{4})\b", data or "")
     return int(m.group(1)) if m else None
+
 
 def _lang(code):
     return LANG.get(code, code)
@@ -341,7 +341,6 @@ def ol_buscar(q, limite=10):
     return out
 
 
-
 def _edicao_por_isbn(isbn):
     isbn = normalizar_isbn(isbn)
     if not isbn:
@@ -349,8 +348,8 @@ def _edicao_por_isbn(isbn):
 
     def _base_doc(titulo, autor, ano, capa_url, work_key, edition):
         return {
-            "work_key": work_key,
-            "titulo": titulo or "Edição sem título",
+            "work_key": work_key or ("isbn:" + isbn),
+            "titulo": titulo or edition.get("titulo_edicao") or "Edição sem título",
             "autor": autor or "—",
             "ano": ano,
             "idioma_original": edition.get("idioma", ""),
@@ -360,55 +359,80 @@ def _edicao_por_isbn(isbn):
             "edicao_isbn": edition,
         }
 
+    # 1) Google Books
     try:
-        with httpx.Client(timeout=TIMEOUT) as c:
-            r = c.get(GBOOKS, params={"q": f"isbn:{isbn}", "country": "BR"})
+        with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
+            r = c.get(GBOOKS, params={"q": f"isbn:{isbn}"})
+            print("ISBN_DEBUG gbooks_status", r.status_code)
             r.raise_for_status()
-            items = r.json().get("items", [])
-    except Exception:
+            payload = r.json()
+            items = payload.get("items", []) or []
+            print("ISBN_DEBUG gbooks_total", payload.get("totalItems"), "items", len(items))
+    except Exception as e:
+        print("ISBN_DEBUG gbooks_error", repr(e))
         items = []
 
     for item in items:
         info = item.get("volumeInfo", {}) or {}
         ids = [i.get("identifier", "") for i in (info.get("industryIdentifiers") or [])]
-        if not _isbn_exato(isbn, ids):
+
+        # Normalmente valida pelo ISBN exato.
+        # Mas se o Google devolveu só 1 item para q=isbn:{isbn}, aceitamos também,
+        # porque às vezes identifiers vêm incompletos.
+        if ids and not _isbn_exato(isbn, ids) and len(items) != 1:
             continue
+
         img = info.get("imageLinks") or {}
         capa = (img.get("thumbnail") or img.get("smallThumbnail") or "").replace("http://", "https://")
         autores = info.get("authors") or []
         lang = _lang(info.get("language") or "")
+        ano = _ano_de_data(info.get("publishedDate", ""))
+
         edition = {
             "ol_edition_key": "google:" + (item.get("id") or isbn),
-            "titulo_edicao": info.get("title", ""),
-            "editora": info.get("publisher", ""),
+            "titulo_edicao": info.get("title", "") or "",
+            "editora": info.get("publisher", "") or "",
             "tradutor": "",
             "isbn": isbn,
             "idioma": lang,
-            "ano": _ano_de_data(info.get("publishedDate", "")),
+            "ano": ano,
             "capa_url": capa or _capa_br(isbn),
             "encontrada_por_isbn": True,
         }
-        return _base_doc(info.get("title", ""), (autores or ["—"])[0], edition["ano"], edition["capa_url"], "isbn:" + isbn, edition)
 
+        return _base_doc(
+            info.get("title", ""),
+            (autores or ["—"])[0],
+            ano,
+            edition["capa_url"],
+            "isbn:" + isbn,
+            edition,
+        )
+
+    # 2) Open Library fallback
     try:
-        with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
             r = c.get(f"{BASE}/isbn/{isbn}.json")
+            print("ISBN_DEBUG openlibrary_status", r.status_code)
             if r.status_code == 404:
                 return None
             r.raise_for_status()
             ed = r.json()
-    except Exception:
+    except Exception as e:
+        print("ISBN_DEBUG openlibrary_error", repr(e))
         return None
 
     isbns = (ed.get("isbn_13") or []) + (ed.get("isbn_10") or [])
     if isbns and not _isbn_exato(isbn, isbns):
         return None
+
     lang_code = ""
     if ed.get("languages"):
         lang_code = ed["languages"][0].get("key", "").rsplit("/", 1)[-1]
+
     edition = {
         "ol_edition_key": ed.get("key", ""),
-        "titulo_edicao": ed.get("title", ""),
+        "titulo_edicao": ed.get("title", "") or "",
         "editora": (ed.get("publishers") or [""])[0],
         "tradutor": _tradutor(ed),
         "isbn": isbn,
@@ -417,10 +441,19 @@ def _edicao_por_isbn(isbn):
         "capa_url": _capa_br(isbn),
         "encontrada_por_isbn": True,
     }
+
     work_key = "isbn:" + isbn
     if ed.get("works"):
         work_key = ed["works"][0].get("key") or work_key
-    return _base_doc(ed.get("title", ""), "—", edition["ano"], edition["capa_url"], work_key, edition)
+
+    return _base_doc(
+        ed.get("title", ""),
+        "—",
+        edition["ano"],
+        edition["capa_url"],
+        work_key,
+        edition,
+    )
 
 
 def _tradutor(ed):
@@ -563,16 +596,80 @@ def eu(request: Request, s: Session = Depends(get_session)):
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2)):
     isbn = normalizar_isbn(q)
+
     if isbn:
         try:
             achado = _edicao_por_isbn(isbn)
             return [achado] if achado else []
         except Exception as e:
-            raise HTTPException(502, f"Busca por ISBN indisponível: {e}")
+            print("ISBN_DEBUG buscar_error", repr(e))
+            return []
+
     try:
         return ol_buscar(q)
     except Exception as e:
         raise HTTPException(502, f"Open Library indisponível: {e}")
+
+
+@app.get("/api/debug/isbn")
+def debug_isbn(q: str = Query(..., min_length=2)):
+    isbn = normalizar_isbn(q)
+
+    debug = {
+        "isbn_original": q,
+        "isbn_normalizado": isbn,
+        "detectou_isbn": bool(isbn),
+        "gbooks_status_code": None,
+        "gbooks_total_items": None,
+        "gbooks_primeiro_titulo": None,
+        "gbooks_identifiers": [],
+        "passou_validacao_isbn_exato": False,
+        "openlibrary_status_code": None,
+        "openlibrary_title": None,
+        "resultado_final": None,
+        "erro": None,
+    }
+
+    if not isbn:
+        return debug
+
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
+            r = c.get(GBOOKS, params={"q": f"isbn:{isbn}"})
+            debug["gbooks_status_code"] = r.status_code
+            r.raise_for_status()
+            payload = r.json()
+            items = payload.get("items", []) or []
+            debug["gbooks_total_items"] = payload.get("totalItems", len(items))
+
+            if items:
+                info = items[0].get("volumeInfo", {}) or {}
+                debug["gbooks_primeiro_titulo"] = info.get("title")
+                ids = [i.get("identifier", "") for i in (info.get("industryIdentifiers") or [])]
+                debug["gbooks_identifiers"] = ids
+                debug["passou_validacao_isbn_exato"] = _isbn_exato(isbn, ids)
+
+    except Exception as e:
+        debug["erro"] = "gbooks: " + repr(e)
+
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
+            r = c.get(f"{BASE}/isbn/{isbn}.json")
+            debug["openlibrary_status_code"] = r.status_code
+            if r.status_code != 404:
+                r.raise_for_status()
+                ed = r.json()
+                debug["openlibrary_title"] = ed.get("title")
+    except Exception as e:
+        debug["erro"] = (debug["erro"] or "") + " openlibrary: " + repr(e)
+
+    try:
+        resultado = _edicao_por_isbn(isbn)
+        debug["resultado_final"] = resultado
+    except Exception as e:
+        debug["erro"] = (debug["erro"] or "") + " resultado: " + repr(e)
+
+    return debug
 
 
 @app.get("/api/edicoes")
