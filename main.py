@@ -1,0 +1,591 @@
+"""
+Lombada — arquivo único.
+Open Library (busca + edições) + Google Books (capa) + MercadoEditorial (tradutor + capa).
+Busca BR-first + proxy de capa same-origin (/api/capa) + login (email/senha, sessão por cookie).
+Prateleira agora é POR USUÁRIO. Obra/Edição seguem globais (catálogo).
+Front é o index.html ao lado.
+"""
+import os
+import socket
+import ipaddress
+import unicodedata
+import concurrent.futures as _fut
+from contextlib import asynccontextmanager
+from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
+from urllib.parse import urlparse
+
+import bcrypt
+import httpx
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlmodel import SQLModel, Field, create_engine, Session, select
+from starlette.middleware.sessions import SessionMiddleware
+
+# ───────────────────────── banco ─────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lombada.db")
+# alguns provedores (Render/Heroku) entregam "postgres://" — o SQLAlchemy 2.x quer "postgresql://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, echo=False, connect_args=_args)
+
+SECRET_KEY = os.getenv("SECRET_KEY", "troque-isto-em-producao-por-uma-string-aleatoria")
+
+
+class Usuario(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True)
+    senha_hash: str
+    nome: str = ""
+    criado_em: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Obra(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ol_work_key: str = Field(index=True, unique=True)
+    titulo: str
+    autor: str = ""
+    idioma_original: str = ""
+    ano: Optional[int] = None
+
+
+class Edicao(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    obra_id: int = Field(foreign_key="obra.id", index=True)
+    ol_edition_key: Optional[str] = Field(default=None, index=True)
+    editora: str = ""
+    tradutor: str = ""
+    isbn: str = ""
+    idioma: str = ""
+    ano: Optional[int] = None
+    capa_url: str = ""
+
+
+class Leitura(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    edicao_id: int = Field(foreign_key="edicao.id", index=True)
+    usuario_id: Optional[int] = Field(default=None, foreign_key="usuario.id", index=True)
+    status: str = "Lido"
+    nota: Optional[float] = None
+    relato: str = ""
+    data: str = ""
+    criado_em: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ──────────────────── senha (bcrypt direto) ────────────────────
+def hash_senha(senha):
+    return bcrypt.hashpw(senha.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+
+def confere_senha(senha, hashed):
+    try:
+        return bcrypt.checkpw(senha.encode("utf-8")[:72], hashed.encode("utf-8"))
+    except Exception:
+        return False
+
+
+# ──────────────────── fontes de dados ────────────────────
+BASE = "https://openlibrary.org"
+COVERS = "https://covers.openlibrary.org"
+GBOOKS = "https://www.googleapis.com/books/v1/volumes"
+MERCADOEDITORIAL = "https://api.mercadoeditorial.org/api/v1.2/book"
+TIMEOUT = 12.0
+# Open Library pede um User-Agent identificável pra quem usa a API.
+_UA = {"User-Agent": "Lombada/1.0 (diario de leitura; github.com/trevisollinux/lombada)"}
+LANG = {"por": "Português", "eng": "Inglês", "rus": "Russo", "fre": "Francês",
+        "spa": "Espanhol", "ger": "Alemão", "ita": "Italiano", "jpn": "Japonês"}
+
+
+def _lang(code):
+    return LANG.get(code, code)
+
+
+def _sem_acento(s):
+    return "".join(c for c in unicodedata.normalize("NFD", s or "")
+                   if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def _nome_contrib(g):
+    """Extrai um nome dos formatos variados que o ME pode devolver."""
+    if isinstance(g, str):
+        return g.strip()
+    if isinstance(g, dict):
+        return (g.get("nome") or g.get("name") or "").strip()
+    if isinstance(g, list) and g:
+        return _nome_contrib(g[0])
+    return ""
+
+
+@lru_cache(maxsize=512)
+def _gbooks_capa(isbn):
+    """Capa BR pelo ISBN via Google Books (sem cadastro). '' se não achar."""
+    if not isbn:
+        return ""
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.get(GBOOKS, params={"q": f"isbn:{isbn}", "country": "BR"})
+            r.raise_for_status()
+            items = r.json().get("items", [])
+        if not items:
+            return ""
+        img = items[0].get("volumeInfo", {}).get("imageLinks") or {}
+        url = img.get("thumbnail") or img.get("smallThumbnail") or ""
+        return url.replace("http://", "https://")
+    except Exception:
+        return ""
+
+
+@lru_cache(maxsize=512)
+def _mercadoeditorial(isbn):
+    """Consulta pública do MercadoEditorial por ISBN (sem cadastro).
+    Retorna (tradutor, capa_url). Defensivo: ('','') se não achar/quebrar."""
+    if not isbn:
+        return ("", "")
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.get(MERCADOEDITORIAL, params={"isbn": isbn})
+            r.raise_for_status()
+            data = r.json()
+        books = data.get("books") or data.get("book") or []
+        if isinstance(books, dict):
+            books = [books]
+        if not books:
+            return ("", "")
+        livro = books[0]
+
+        tradutor = ""
+        contrib = livro.get("contribuicao") or livro.get("contribuicoes") or {}
+        if isinstance(contrib, dict):
+            for papel, gente in contrib.items():
+                if "tradu" in _sem_acento(papel):
+                    tradutor = _nome_contrib(gente)
+                    break
+        elif isinstance(contrib, list):
+            for item in contrib:
+                papel = _sem_acento(str(item.get("codigo_contribuicao")
+                                        or item.get("tipo") or item.get("papel") or ""))
+                if "tradu" in papel or item.get("codigo_contribuicao") == "B06":
+                    tradutor = _nome_contrib(item)
+                    break
+
+        capa = livro.get("imagem_primeira_capa") or ""
+        if capa:
+            capa = capa.replace("http://", "https://")
+        return (tradutor, capa)
+    except Exception:
+        return ("", "")
+
+
+def _capa_br(isbn):
+    """Melhor capa brasileira pra um ISBN: ME → Google Books → Open Library."""
+    if not isbn:
+        return ""
+    _, capa_me = _mercadoeditorial(isbn)
+    return capa_me or _gbooks_capa(isbn) or f"{COVERS}/b/isbn/{isbn}-L.jpg"
+
+
+@lru_cache(maxsize=256)
+def _melhor_edicao_pt(work_key):
+    """Acha a melhor edição em português de uma obra e devolve (titulo_pt, capa_br).
+    Usada na BUSCA pra mostrar a cara brasileira do livro na grade.
+    ('','') se não houver edição PT ou der ruim — aí o front mantém o original."""
+    if not work_key:
+        return ("", "")
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+            r = c.get(f"{BASE}{work_key}/editions.json", params={"limit": 50})
+            r.raise_for_status()
+            entries = r.json().get("entries", [])
+    except Exception:
+        return ("", "")
+
+    pt = []
+    for ed in entries:
+        langs = [l.get("key", "").rsplit("/", 1)[-1] for l in (ed.get("languages") or [])]
+        if "por" not in langs:
+            continue
+        isbn = (ed.get("isbn_13") or ed.get("isbn_10") or [""])[0]
+        ano = None
+        for tok in (ed.get("publish_date", "") or "").replace(",", " ").split():
+            if tok.isdigit() and len(tok) == 4:
+                ano = int(tok)
+                break
+        pt.append({"titulo": ed.get("title", ""), "isbn": isbn, "ano": ano})
+
+    if not pt:
+        return ("", "")
+    # melhor PT: com ISBN primeiro (dá capa BR), depois mais nova
+    pt.sort(key=lambda e: (e["isbn"] == "", -(e["ano"] or 0)))
+    best = pt[0]
+    return (best["titulo"], _capa_br(best["isbn"]))
+
+
+def _relevancia(titulo_resultado, titulo_busca):
+    """Quão perto o título do resultado está do que foi buscado.
+    0 = igual, 1 = começa com, 2 = contém, 3 = nem contém."""
+    tr = _sem_acento(titulo_resultado)
+    tb = _sem_acento(titulo_busca)
+    if not tb:
+        return 2
+    if tr == tb:
+        return 0
+    if tr.startswith(tb):
+        return 1
+    if tb in tr:
+        return 2
+    return 3
+
+
+def ol_buscar(q, limite=10):
+    fields = "key,title,author_name,first_publish_year,cover_i,language"
+
+    # separa "titulo, autor" → usa o autor pra FILTRAR (não só descartar)
+    titulo_q, autor_q = q, ""
+    if "," in q:
+        partes = q.split(",", 1)
+        titulo_q = partes[0].strip()
+        autor_q = partes[1].strip()
+
+    def _query(termo):
+        with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+            r = c.get(f"{BASE}/search.json",
+                      params={"q": termo, "fields": fields, "limit": limite})
+            r.raise_for_status()
+            return r.json().get("docs", [])
+
+    docs = _query(q)
+    # nada veio e tinha vírgula? tenta só o título
+    if not docs and autor_q:
+        docs = _query(titulo_q)
+
+    out = []
+    for d in docs:
+        cover_i = d.get("cover_i")
+        langs = d.get("language") or []
+        autores = d.get("author_name") or []
+        out.append({
+            "work_key": d.get("key", ""),
+            "titulo": d.get("title", ""),
+            "autor": (autores or ["—"])[0],
+            "_autores": autores,
+            "ano": d.get("first_publish_year"),
+            "idioma_original": _lang((langs or [""])[0]),
+            "tem_pt": "por" in langs,
+            "capa_url": f"{COVERS}/b/id/{cover_i}-L.jpg" if cover_i else "",
+        })
+
+    # filtro por autor: se o usuário informou autor, descarta quem não casa.
+    if autor_q:
+        tokens = [t for t in _sem_acento(autor_q).split() if len(t) >= 3]
+        if tokens:
+            filtrados = []
+            for o in out:
+                alvo = _sem_acento(" ".join(o["_autores"]))
+                if any(t in alvo for t in tokens):
+                    filtrados.append(o)
+            if filtrados:
+                out = filtrados
+
+    # ordena: relevância de título → PT primeiro → ano mais novo
+    out.sort(key=lambda o: (_relevancia(o["titulo"], titulo_q),
+                            0 if o["tem_pt"] else 1,
+                            -(o["ano"] or 0)))
+
+    # superpoder BR: pra cada obra com edição PT, troca título + capa pela versão brasileira.
+    pt_idx = [i for i, o in enumerate(out) if o.get("tem_pt")]
+    if pt_idx:
+        def _br(i):
+            titulo_pt, capa_br = _melhor_edicao_pt(out[i]["work_key"])
+            if titulo_pt:
+                out[i]["titulo"] = titulo_pt
+            if capa_br:
+                out[i]["capa_url"] = capa_br
+        with _fut.ThreadPoolExecutor(max_workers=8) as ex:
+            list(ex.map(_br, pt_idx))
+
+    for o in out:
+        o.pop("_autores", None)
+    return out
+
+
+def _tradutor(ed):
+    for ctr in ed.get("contributors", []) or []:
+        role = _sem_acento(ctr.get("role") or "")
+        if "translat" in role or "tradu" in role:
+            return ctr.get("name", "")
+    by = ed.get("by_statement") or ""
+    plano = _sem_acento(by)
+    for marca in ("traducao de ", "translated by ", "trad. ", "traducao "):
+        if marca in plano:
+            i = plano.find(marca) + len(marca)
+            return by[i:].strip(" .;,")
+    return ""
+
+
+def ol_edicoes(work_key, limite=20):
+    with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+        r = c.get(f"{BASE}{work_key}/editions.json", params={"limit": limite})
+        r.raise_for_status()
+        entries = r.json().get("entries", [])
+    out = []
+    for ed in entries:
+        isbn = (ed.get("isbn_13") or ed.get("isbn_10") or [""])[0]
+        lang_code = ""
+        if ed.get("languages"):
+            lang_code = ed["languages"][0].get("key", "").rsplit("/", 1)[-1]
+        ano = None
+        for tok in (ed.get("publish_date", "") or "").replace(",", " ").split():
+            if tok.isdigit() and len(tok) == 4:
+                ano = int(tok)
+                break
+        out.append({
+            "ol_edition_key": ed.get("key", ""),
+            "titulo_edicao": ed.get("title", ""),
+            "editora": (ed.get("publishers") or [""])[0],
+            "tradutor": _tradutor(ed),
+            "isbn": isbn,
+            "idioma": _lang(lang_code),
+            "ano": ano,
+            "capa_url": f"{COVERS}/b/isbn/{isbn}-L.jpg" if isbn else "",
+        })
+    out.sort(key=lambda e: (e["idioma"] != "Português", e["editora"] == "", -(e["ano"] or 0)))
+
+    alvo = [e for e in out if e["isbn"] and e["idioma"] == "Português"]
+    if alvo:
+        def _enriquecer(e):
+            trad_me, capa_me = _mercadoeditorial(e["isbn"])
+            if trad_me and not e["tradutor"]:
+                e["tradutor"] = trad_me
+            capa = capa_me or _gbooks_capa(e["isbn"])
+            if capa:
+                e["capa_url"] = capa
+            return e
+
+        with _fut.ThreadPoolExecutor(max_workers=6) as ex:
+            list(ex.map(_enriquecer, alvo))
+
+    return out
+
+
+# ───────────── proxy de capa (same-origin pro card) ─────────────
+def _host_publico(host):
+    """True só se o host resolve pra IP público (anti-SSRF)."""
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    for fam, _, _, _, sockaddr in infos:
+        try:
+            ip = ipaddress.ip_address(sockaddr[0])
+        except ValueError:
+            return False
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
+def proxy_capa(url):
+    """Busca a capa de fora e serve do nosso domínio (canvas do card não fica 'sujo')."""
+    p = urlparse(url or "")
+    if p.scheme != "https" or not _host_publico(p.hostname):
+        raise HTTPException(400, "url de capa inválida")
+    with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
+        r = c.get(url)
+        r.raise_for_status()
+    ct = r.headers.get("content-type", "")
+    if not ct.startswith("image/"):
+        raise HTTPException(415, "isso não é uma imagem")
+    if len(r.content) > 6 * 1024 * 1024:
+        raise HTTPException(413, "capa grande demais")
+    return Response(content=r.content, media_type=ct,
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
+# ──────────────────────── app ────────────────────────
+def _migrar():
+    """Migração leve: adiciona leitura.usuario_id se a tabela já existia sem a coluna.
+    Roda em transação própria pra não abortar o resto se a coluna já existir."""
+    for ddl in ("ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(app):
+    SQLModel.metadata.create_all(engine)
+    _migrar()
+    yield
+
+
+app = FastAPI(title="Lombada", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax", https_only=False)
+AQUI = Path(__file__).resolve().parent
+
+
+def get_session():
+    with Session(engine) as s:
+        yield s
+
+
+def usuario_atual(request, s):
+    uid = request.session.get("uid")
+    if not uid:
+        return None
+    return s.get(Usuario, uid)
+
+
+def exigir_usuario(request, s):
+    u = usuario_atual(request, s)
+    if not u:
+        raise HTTPException(401, "faça login")
+    return u
+
+
+# ───────────── auth ─────────────
+class Credenciais(BaseModel):
+    email: str
+    senha: str
+    nome: str = ""
+
+
+@app.post("/api/registrar")
+def registrar(c: Credenciais, request: Request, s: Session = Depends(get_session)):
+    email = (c.email or "").strip().lower()
+    if "@" not in email or "." not in email:
+        raise HTTPException(400, "email inválido")
+    if len(c.senha or "") < 6:
+        raise HTTPException(400, "a senha precisa de no mínimo 6 caracteres")
+    if s.exec(select(Usuario).where(Usuario.email == email)).first():
+        raise HTTPException(409, "já existe uma conta com esse email")
+    u = Usuario(email=email, senha_hash=hash_senha(c.senha), nome=(c.nome or "").strip())
+    s.add(u); s.commit(); s.refresh(u)
+    request.session["uid"] = u.id
+    return {"email": u.email, "nome": u.nome}
+
+
+@app.post("/api/login")
+def login(c: Credenciais, request: Request, s: Session = Depends(get_session)):
+    email = (c.email or "").strip().lower()
+    u = s.exec(select(Usuario).where(Usuario.email == email)).first()
+    if not u or not confere_senha(c.senha or "", u.senha_hash):
+        raise HTTPException(401, "email ou senha incorretos")
+    request.session["uid"] = u.id
+    return {"email": u.email, "nome": u.nome}
+
+
+@app.post("/api/sair")
+def sair(request: Request):
+    request.session.clear()
+    return {"ok": True}
+
+
+@app.get("/api/eu")
+def eu(request: Request, s: Session = Depends(get_session)):
+    u = exigir_usuario(request, s)
+    return {"email": u.email, "nome": u.nome}
+
+
+# ───────────── catálogo (público) ─────────────
+@app.get("/api/buscar")
+def buscar(q: str = Query(..., min_length=2)):
+    try:
+        return ol_buscar(q)
+    except Exception as e:
+        raise HTTPException(502, f"Open Library indisponível: {e}")
+
+
+@app.get("/api/edicoes")
+def edicoes(work_key: str):
+    try:
+        return ol_edicoes(work_key)
+    except Exception as e:
+        raise HTTPException(502, f"Open Library indisponível: {e}")
+
+
+@app.get("/api/capa")
+def capa(url: str = Query(..., min_length=8)):
+    try:
+        return proxy_capa(url)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"capa indisponível: {e}")
+
+
+# ───────────── prateleira (por usuário) ─────────────
+class EntradaPrateleira(BaseModel):
+    work_key: str
+    titulo: str
+    autor: str = ""
+    idioma_original: str = ""
+    ano_obra: Optional[int] = None
+    ol_edition_key: Optional[str] = None
+    editora: str = ""
+    tradutor: str = ""
+    isbn: str = ""
+    idioma: str = ""
+    ano_edicao: Optional[int] = None
+    capa_url: str = ""
+    status: str = "Lido"
+    nota: Optional[float] = None
+    relato: str = ""
+    data: str = ""
+
+
+@app.post("/api/prateleira")
+def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_session)):
+    u = exigir_usuario(request, s)
+
+    obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
+    if not obra:
+        obra = Obra(ol_work_key=e.work_key, titulo=e.titulo, autor=e.autor,
+                    idioma_original=e.idioma_original, ano=e.ano_obra)
+        s.add(obra); s.commit(); s.refresh(obra)
+
+    edicao = None
+    if e.ol_edition_key:
+        edicao = s.exec(select(Edicao).where(
+            Edicao.ol_edition_key == e.ol_edition_key)).first()
+    if not edicao:
+        edicao = Edicao(obra_id=obra.id, ol_edition_key=e.ol_edition_key,
+                        editora=e.editora, tradutor=e.tradutor, isbn=e.isbn,
+                        idioma=e.idioma, ano=e.ano_edicao, capa_url=e.capa_url)
+        s.add(edicao); s.commit(); s.refresh(edicao)
+
+    leitura = Leitura(edicao_id=edicao.id, usuario_id=u.id, status=e.status,
+                      nota=e.nota, relato=e.relato, data=e.data)
+    s.add(leitura); s.commit(); s.refresh(leitura)
+    return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
+
+
+@app.get("/api/prateleira")
+def listar(request: Request, s: Session = Depends(get_session)):
+    u = exigir_usuario(request, s)
+    rows = s.exec(select(Leitura, Edicao, Obra)
+                  .join(Edicao, Leitura.edicao_id == Edicao.id)
+                  .join(Obra, Edicao.obra_id == Obra.id)
+                  .where(Leitura.usuario_id == u.id)
+                  .order_by(Leitura.criado_em.desc())).all()
+    return [{
+        "leitura_id": l.id, "status": l.status, "nota": l.nota,
+        "relato": l.relato, "data": l.data,
+        "titulo": o.titulo, "autor": o.autor,
+        "editora": ed.editora, "tradutor": ed.tradutor,
+        "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,
+    } for (l, ed, o) in rows]
+
+
+@app.get("/")
+def home():
+    return FileResponse(AQUI / "index.html")
