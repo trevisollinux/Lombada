@@ -50,6 +50,27 @@ def _cache_set(q: str, resultados: list, s: Session) -> None:
 
 # ─── quality score ────────────────────────────────────────
 _FONTE_SCORE = {"me": 25, "gb": 10, "hardcover": 8, "ol": 5}
+_RUIDO_TITULO = (
+    "anais",
+    "congresso",
+    "seminario",
+    "simposio",
+    "coloquio",
+    "tese",
+    "dissertacao",
+    "sociedades mediatizadas",
+)
+
+
+def _parece_ruido(titulo: str) -> bool:
+    titulo_norm = _sem_acento(titulo or "")
+    return any(termo in titulo_norm for termo in _RUIDO_TITULO)
+
+
+def _busca_titulo_curto_sem_autor(q: str) -> bool:
+    titulo_q, autor_q = _split_q(q)
+    tokens = [t for t in _query_norm(titulo_q).split() if t]
+    return not autor_q and 1 <= len(tokens) <= 5
 
 
 def quality_score(doc: dict, busca: str = "") -> dict:
@@ -81,6 +102,9 @@ def quality_score(doc: dict, busca: str = "") -> dict:
         score -= 25
     if not capa:  score -= 20
     if not isbn:  score -= 15
+
+    if _busca_titulo_curto_sem_autor(busca) and rel > 0 and _parece_ruido(titulo):
+        score -= 45
 
     score += _FONTE_SCORE.get(doc.get("_fonte", ""), 0)
     doc["quality_score"] = max(score, 0)
@@ -132,10 +156,24 @@ def _filtrar_relevancia(obras: list, q: str) -> list:
     return filtrados or obras
 
 
+def _deve_consultar_ol(q: str, obras_gb: list) -> bool:
+    if normalizar_isbn(q):
+        return False
+    if not obras_gb:
+        return True
+    titulo_q, autor_q = _split_q(q)
+    if autor_q:
+        return True
+    tokens = [t for t in _query_norm(titulo_q).split() if t]
+    return 1 <= len(tokens) <= 5
+
+
 # ─── orquestração ─────────────────────────────────────────
 def buscar_titulo_v2(q: str) -> list:
     # Espinha: Google Books (BR-first, capa + ISBN, agrupado em obras sem segunda chamada).
-    obras = gbooks_buscar(q, limite=18)
+    obras_gb = gbooks_buscar(q, limite=18)
+    obras_ol = ol_buscar(q) if _deve_consultar_ol(q, obras_gb) else []
+    obras = obras_gb + obras_ol
 
     # Fallback: Open Library quando GB volta vazio (clássicos mal catalogados).
     if not obras:
