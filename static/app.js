@@ -6,6 +6,8 @@ const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O
 
 let meuHandle='', escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], edicoesAtual=[], prateleira=[], cardAtual=null, notaEdit=0;
+let navAtual={aba:'buscar',busca:'home'};
+let restaurandoHistorico=false;
 
 function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
 function hue(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
@@ -22,32 +24,59 @@ function coverHTML(titulo,autor,capa,extra){
 }
 
 /* navegação entre abas */
-function irPara(aba){
+function estadoNav(aba=navAtual.aba,busca=navAtual.busca){
+  return {lombada:true,aba,busca};
+}
+function registrarHistorico(aba,busca,replace=false){
+  navAtual={aba,busca};
+  if(restaurandoHistorico)return;
+  const estado=estadoNav(aba,busca);
+  if(replace) history.replaceState(estado,'');
+  else history.pushState(estado,'');
+}
+function irPara(aba,opcoes={}){
+  const resetBusca=opcoes.resetBusca ?? aba==='buscar';
+  const registrar=opcoes.registrar ?? true;
   const secs={buscar:'#secBuscar',estante:'#secEstante',diario:'#secDiario',perfil:'#secPerfil'};
   for(const k in secs) $(secs[k]).style.display = (k===aba)?'':'none';
   $('#tabBuscar').classList.toggle('active',aba==='buscar');
   $('#tabEstante').classList.toggle('active',aba==='estante');
   $('#tabDiario').classList.toggle('active',aba==='diario');
   $('#tabPerfil').classList.toggle('active',aba==='perfil');
-  if(aba==='buscar'){ $('#q').value=''; limparBusca(); mostrarBusca('home'); }
+  if(aba==='buscar' && resetBusca){ $('#q').value=''; limparBusca(); mostrarBusca('home',{registrar:false}); }
   if(aba==='estante') carregarPrateleira();
   if(aba==='diario') renderDiario();
   if(aba==='perfil') renderPerfil();
+  navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home'};
+  if(registrar) registrarHistorico(navAtual.aba,navAtual.busca);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
 /* pilha de telas DENTRO da aba buscar: home → resultados → edicoes → form.
    mostra exatamente uma de cada vez (mata o "carrega embaixo"). */
-function mostrarBusca(tela){
+function mostrarBusca(tela,opcoes={}){
+  const registrar=opcoes.registrar ?? tela!=='home';
   const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form'};
   for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
+  navAtual={aba:'buscar',busca:tela};
+  if(registrar) registrarHistorico('buscar',tela);
   window.scrollTo({top:0,behavior:'smooth'});
 }
+function aplicarHistorico(estado){
+  const proximo=estado && estado.lombada ? estado : estadoNav('buscar','home');
+  restaurandoHistorico=true;
+  irPara(proximo.aba,{registrar:false,resetBusca:false});
+  if(proximo.aba==='buscar') mostrarBusca(proximo.busca||'home',{registrar:false});
+  navAtual={aba:proximo.aba,busca:proximo.busca||'home'};
+  restaurandoHistorico=false;
+}
+window.onpopstate=e=>aplicarHistorico(e.state);
+
 
 /* mostra/esconde feed da home conforme há busca */
 function onQInput(){
   const v=$('#q').value.trim();
-  if(!v){ limparBusca(); mostrarBusca('home'); }
+  if(!v){ limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home'); }
 }
 function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML='';$('#form').innerHTML=''; }
 
@@ -189,7 +218,7 @@ async function salvar(){
   };
   try{ await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
-  limparBusca(); $('#q').value=''; mostrarBusca('home');
+  limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
   await carregarPrateleira();
   irPara('estante');
 }
@@ -392,6 +421,7 @@ async function removerLeitura(){
 
 /* init */
 async function init(){
+  registrarHistorico('buscar','home',true);
   renderChips();
   try{
     const me=await (await fetch('/api/eu')).json();
