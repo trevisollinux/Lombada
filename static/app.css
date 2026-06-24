@@ -266,3 +266,12 @@ input,textarea,select{font:inherit;color:inherit}
 .shelf-row-status{font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);letter-spacing:.05em;margin-top:5px}
 .shelf-row-meta,.shelf-row-date{font-family:"Space Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.04em;margin-top:4px;line-height:1.35}
 @media(max-width:420px){.shelf-tools{flex-direction:column;gap:9px}.shelf-view{align-self:flex-start}.shelf-pill,.shelf-view-btn{min-height:38px}}
+
+/* convite discreto de login após salvar leitura */
+.login-hint{margin:10px 0 16px;border:1px solid rgba(168,132,47,.55);background:rgba(201,162,75,.13);padding:14px;box-shadow:var(--shadow-sm)}
+.login-hint p{font-size:15px;color:var(--ink-2);font-style:italic;line-height:1.35;margin-bottom:12px}
+.login-hint-actions{display:flex;gap:8px;flex-wrap:wrap}
+.login-hint-primary,.login-hint-secondary{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:10px 12px;border:1px solid var(--ink)}
+.login-hint-primary{background:var(--ink);color:var(--paper)}
+.login-hint-secondary{background:var(--paper);color:var(--ink-2);border-color:var(--rule)}
+@media(max-width:420px){.login-hint-actions{flex-direction:column}.login-hint-primary,.login-hint-secondary{width:100%}}

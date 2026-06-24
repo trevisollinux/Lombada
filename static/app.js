@@ -10,9 +10,39 @@ let filtroEstante='Todos';
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
+const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
+let conviteLoginPendente=false;
 
 function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
 function hue(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
+
+function loginHintDispensado(){
+  return localStorage.getItem(LOGIN_HINT_KEY)==='1';
+}
+function deveMostrarConviteLogin(){
+  return conviteLoginPendente && !minhaConta.logado && !loginHintDispensado();
+}
+function conectarGoogle(){
+  location.href='/api/auth/google/login';
+}
+function continuarSemConta(){
+  localStorage.setItem(LOGIN_HINT_KEY,'1');
+  conviteLoginPendente=false;
+  renderPrateleira();
+}
+function conviteLoginHTML(){
+  if(!deveMostrarConviteLogin()) return '';
+  return `<div class="login-hint" role="status">
+    <p>sua leitura foi salva. conecte o Google para não perder sua estante.</p>
+    <div class="login-hint-actions">
+      <button class="login-hint-primary" onclick="conectarGoogle()">conectar Google</button>
+      <button class="login-hint-secondary" onclick="continuarSemConta()">continuar sem conta</button>
+    </div>
+  </div>`;
+}
+function marcarConviteLoginAposSalvar(){
+  conviteLoginPendente=!minhaConta.logado && !loginHintDispensado();
+}
 
 function toast(msg){
   const antigo=$('#toast');
@@ -320,6 +350,7 @@ fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
 {registrar:false});
+marcarConviteLoginAposSalvar();
 await carregarPrateleira();
 irPara('estante');
 }
@@ -369,7 +400,7 @@ async function salvarManual(){
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
-  await carregarPrateleira(); irPara('estante');
+  marcarConviteLoginAposSalvar(); await carregarPrateleira(); irPara('estante');
 }
 
 /* estante */
@@ -427,7 +458,7 @@ function renderPrateleira(){
           <div class="a">${esc(l.autor)}</div>
           ${l.tradutor?`<div class="e">trad. ${esc(l.tradutor)}</div>`:''}
         </div>`).join('')}</div>`;
-  $('#prateleira').innerHTML=controlesEstante()+(itens.length?corpo:vazio);
+  $('#prateleira').innerHTML=conviteLoginHTML()+controlesEstante()+(itens.length?corpo:vazio);
 }
 async function carregarPrateleira(){
   try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
