@@ -6,6 +6,8 @@ const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], edicoesAtual=[], prateleira=[], cardAtual=null, notaEdit=0;
+let filtroEstante='Todos';
+let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
 
@@ -67,6 +69,7 @@ function trocarParaCapaArte(img){
   const extra=el.querySelector('.pt,.stars-overlay')?.outerHTML||'';
   let html=coverFallbackHTML(title,author,extra);
   if(el.classList.contains('dcover')) html=html.replace('class="cover','class="dcover');
+  if(el.classList.contains('shelf-cover')) html=html.replace('class="cover','class="shelf-cover');
   el.outerHTML=html;
 }
 function coverHTML(titulo,autor,capa,extra){
@@ -370,22 +373,66 @@ async function salvarManual(){
 }
 
 /* estante */
-async function carregarPrateleira(){
-  try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
-  renderLendoAgora();
+function mudarFiltroEstante(status){
+  filtroEstante=status;
+  renderPrateleira();
+}
+function mudarVisualizacaoEstante(modo){
+  visualizacaoEstante=modo==='lista'?'lista':'grade';
+  localStorage.setItem('lombada_view_estante',visualizacaoEstante);
+  renderPrateleira();
+}
+function controlesEstante(){
+  const filtros=['Todos','Lido','Lendo','Quero ler'];
+  return `<div class="shelf-tools">
+    <div class="shelf-filters" aria-label="filtrar estante por status">${filtros.map(f=>
+      `<button class="shelf-pill ${filtroEstante===f?'active':''}" onclick="mudarFiltroEstante('${f}')">${esc(f)}</button>`
+    ).join('')}</div>
+    <div class="shelf-view" aria-label="visualização da estante">
+      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">grade</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">lista</button>
+    </div>
+  </div>`;
+}
+function metaListaEstante(l){
+  return [l.editora?`ed. ${esc(l.editora)}`:'',l.tradutor?`trad. ${esc(l.tradutor)}`:'',l.isbn?`ISBN ${esc(l.isbn)}`:''].filter(Boolean).join(' · ');
+}
+function renderPrateleira(){
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
       <p>sua estante ainda está vazia.<br>busque um livro, escolha a edição e registre sua primeira leitura.</p>
       <button class="btn-cta" onclick="irPara('buscar')">buscar meu primeiro livro →</button></div>`;
     return;
   }
-  $('#prateleira').innerHTML='<div class="wall">'+prateleira.map((l,i)=>`
-    <div class="book" onclick="abrirCard(${i})">
-      ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString('pt-BR')}</span></span>`:'')}
-      <div class="t">${esc(l.titulo)}</div>
-      <div class="a">${esc(l.autor)}</div>
-      ${l.tradutor?`<div class="e">trad. ${esc(l.tradutor)}</div>`:''}
-    </div>`).join('')+'</div>';
+  const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
+  const vazio=`<div class="empty shelf-empty">nenhum livro em “${esc(filtroEstante)}” por enquanto.</div>`;
+  const corpo=visualizacaoEstante==='lista'
+    ? `<ul class="shelf-list">${itens.map(({l,i})=>{
+        const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
+        const statusNota=[l.status,l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString('pt-BR')}`:'sem nota'].filter(Boolean).join(' · ');
+        const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
+        return `<li class="shelf-row" onclick="abrirCard(${i})">${cap}
+          <div class="shelf-row-body">
+            <div class="shelf-row-title">${esc(l.titulo)}</div>
+            <div class="shelf-row-author">${esc(l.autor)}</div>
+            <div class="shelf-row-status">${esc(statusNota)}</div>
+            ${metaListaEstante(l)?`<div class="shelf-row-meta">${metaListaEstante(l)}</div>`:''}
+            ${dataAno?`<div class="shelf-row-date">${esc(dataAno)}</div>`:''}
+          </div></li>`;
+      }).join('')}</ul>`
+    : `<div class="wall">${itens.map(({l,i})=>`
+        <div class="book" onclick="abrirCard(${i})">
+          ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString('pt-BR')}</span></span>`:'')}
+          <div class="t">${esc(l.titulo)}</div>
+          <div class="a">${esc(l.autor)}</div>
+          ${l.tradutor?`<div class="e">trad. ${esc(l.tradutor)}</div>`:''}
+        </div>`).join('')}</div>`;
+  $('#prateleira').innerHTML=controlesEstante()+(itens.length?corpo:vazio);
+}
+async function carregarPrateleira(){
+  try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
+  renderLendoAgora();
+  renderPrateleira();
 }
 
 /* diário — linha do tempo */
