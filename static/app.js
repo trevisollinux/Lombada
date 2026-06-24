@@ -236,12 +236,13 @@ async function salvar(){
   };
   try{ await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
-  fecharModalParaNavegacao();
+fecharModalParaNavegacao();
 
-limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
+limparBusca(); $('#q').value=''; mostrarBusca('home',
+{registrar:false});
 await carregarPrateleira();
 irPara('estante');
-
+}
 /* estante */
 async function carregarPrateleira(){
   try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
