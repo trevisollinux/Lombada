@@ -24,13 +24,27 @@ function coverHTML(titulo,autor,capa,extra){
 }
 
 /* navegação entre abas */
-function estadoNav(aba=navAtual.aba,busca=navAtual.busca){
-  return {lombada:true,aba,busca};
+function estadoNav(aba=navAtual.aba,busca=navAtual.busca,modal=false){
+  return {lombada:true,aba,busca,modal};
+}
+function modalAberto(){
+  return $('#modal')?.classList.contains('open');
+}
+function fecharModalDireto(){
+  $('#modal')?.classList.remove('open');
+  $('#editPanel').style.display='none';
+}
+function fecharModalParaNavegacao(){
+  if(!modalAberto())return;
+  const estado=estadoNav(navAtual.aba,navAtual.busca,false);
+  fecharModalDireto();
+  if(history.state && history.state.lombada && history.state.modal) history.replaceState(estado,'');
 }
 function registrarHistorico(aba,busca,replace=false){
+  if(!restaurandoHistorico) fecharModalParaNavegacao();
   navAtual={aba,busca};
   if(restaurandoHistorico)return;
-  const estado=estadoNav(aba,busca);
+  const estado=estadoNav(aba,busca,false);
   if(replace) history.replaceState(estado,'');
   else history.pushState(estado,'');
 }
@@ -64,11 +78,14 @@ function mostrarBusca(tela,opcoes={}){
 }
 function aplicarHistorico(estado){
   const proximo=estado && estado.lombada ? estado : estadoNav('buscar','home');
+  const deveReabrirModal=!!proximo.modal;
+  if(modalAberto() && !deveReabrirModal) fecharModalDireto();
   restaurandoHistorico=true;
   irPara(proximo.aba,{registrar:false,resetBusca:false});
   if(proximo.aba==='buscar') mostrarBusca(proximo.busca||'home',{registrar:false});
   navAtual={aba:proximo.aba,busca:proximo.busca||'home'};
   restaurandoHistorico=false;
+  if(deveReabrirModal && Number.isInteger(proximo.card) && prateleira[proximo.card]) abrirCard(proximo.card,{registrar:false});
 }
 window.onpopstate=e=>aplicarHistorico(e.state);
 
@@ -291,14 +308,24 @@ async function compartilharEstante(){
 }
 
 /* ---------- card / modal ---------- */
-async function abrirCard(i){
+async function abrirCard(i,opcoes={}){
+  const registrar=opcoes.registrar ?? true;
   cardAtual=prateleira[i];
   $('#editPanel').style.display='none';
   $('#modal').classList.add('open');
+  if(registrar && !restaurandoHistorico){
+    history.pushState({...estadoNav(navAtual.aba,navAtual.busca,true),card:i},'');
+  }
   try{ await document.fonts.ready; }catch(e){}
   drawCard(cardAtual);
 }
-function fecharModal(){ $('#modal').classList.remove('open'); }
+function fecharModal(){
+  if(history.state && history.state.lombada && history.state.modal){
+    history.back();
+    return;
+  }
+  fecharModalDireto();
+}
 
 function starPath(cx,cy,r){const p=new Path2D();let rot=-Math.PI/2;const st=Math.PI/5;
   p.moveTo(cx+Math.cos(rot)*r,cy+Math.sin(rot)*r);
@@ -410,13 +437,13 @@ async function salvarEdicao(){
     relato:$('#e_relato').value.trim(), data:$('#e_data').value.trim() };
   try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
   catch(e){ alert('não consegui salvar a edição.'); return; }
-  fecharModal(); await carregarPrateleira();
+  fecharModalParaNavegacao(); await carregarPrateleira();
 }
 async function removerLeitura(){
   if(!confirm('Remover "'+(cardAtual.titulo||'')+'" da estante?'))return;
   try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'DELETE'}); }
   catch(e){ alert('não consegui remover.'); return; }
-  fecharModal(); await carregarPrateleira();
+  fecharModalParaNavegacao(); await carregarPrateleira();
 }
 
 /* init */
