@@ -6,6 +6,7 @@ import socket
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 from urllib.parse import urlparse
 
 import httpx
@@ -149,25 +150,60 @@ class EntradaPrateleira(BaseModel):
     data:            str           = ""
 
 
-@app.post("/api/prateleira")
-def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_session)):
-    u = usuario_sessao(request, s)
-    obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
+STATUS_LEITURA = {"Lido", "Lendo", "Quero ler"}
+
+
+def _validar_entrada_leitura(e):
+    if not e.titulo.strip() or not e.autor.strip():
+        raise HTTPException(422, "título e autor são obrigatórios")
+    if e.status not in STATUS_LEITURA:
+        raise HTTPException(422, "status inválido")
+
+
+def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool = False):
+    _validar_entrada_leitura(e)
+    obra = None
+    if e.work_key:
+        obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
+    if not obra and reutilizar_obra_manual:
+        obra = s.exec(
+            select(Obra).where(Obra.titulo == e.titulo.strip(), Obra.autor == e.autor.strip())
+        ).first()
     if not obra:
-        obra = Obra(ol_work_key=e.work_key, titulo=e.titulo, autor=e.autor,
-                    idioma_original=e.idioma_original, ano=e.ano_obra)
+        obra = Obra(ol_work_key=e.work_key or f"manual:{uuid4().hex}",
+                    titulo=e.titulo.strip(), autor=e.autor.strip(),
+                    idioma_original=e.idioma_original.strip(), ano=e.ano_obra)
         s.add(obra); s.commit(); s.refresh(obra)
     edicao = None
     if e.ol_edition_key:
         edicao = s.exec(select(Edicao).where(Edicao.ol_edition_key == e.ol_edition_key)).first()
     if not edicao:
         edicao = Edicao(obra_id=obra.id, ol_edition_key=e.ol_edition_key,
-                        editora=e.editora, tradutor=e.tradutor, isbn=e.isbn,
-                        idioma=e.idioma, ano=e.ano_edicao, capa_url=e.capa_url)
+                        editora=e.editora.strip(), tradutor=e.tradutor.strip(), isbn=e.isbn.strip(),
+                        idioma=e.idioma.strip(), ano=e.ano_edicao, capa_url=e.capa_url.strip())
         s.add(edicao); s.commit(); s.refresh(edicao)
-    leitura = Leitura(edicao_id=edicao.id, usuario_id=u.id, status=e.status,
-                      nota=e.nota, relato=e.relato, data=e.data)
+    leitura = Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status=e.status,
+                      nota=e.nota, relato=e.relato.strip(), data=e.data.strip())
     s.add(leitura); s.commit(); s.refresh(leitura)
+    return leitura, obra, edicao
+
+
+@app.post("/api/prateleira")
+def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    leitura, obra, edicao = _criar_leitura(e, u.id, s)
+    return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
+
+
+class EntradaManual(EntradaPrateleira):
+    work_key: str = ""
+    titulo_edicao: str = ""
+
+
+@app.post("/api/manual")
+def adicionar_manual(e: EntradaManual, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    leitura, obra, edicao = _criar_leitura(e, u.id, s, reutilizar_obra_manual=True)
     return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
 
 
