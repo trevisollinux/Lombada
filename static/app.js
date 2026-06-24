@@ -4,13 +4,36 @@ const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
 
 const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O Aleph','O Morro dos Ventos Uivantes'];
 
-let meuHandle='', escolha=null, edicaoSel=null, notaSel=0;
+let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], edicoesAtual=[], prateleira=[], cardAtual=null, notaEdit=0;
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
 
 function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
 function hue(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
+
+function toast(msg){
+  const antigo=$('#toast');
+  if(antigo) antigo.remove();
+  const el=document.createElement('div');
+  el.id='toast';
+  el.className='toast';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
+}
+function tratarMensagemConta(){
+  const params=new URLSearchParams(location.search);
+  const conta=params.get('conta');
+  if(conta==='ok') toast('conta conectada com sucesso');
+  if(conta==='erro') toast('não foi possível conectar sua conta');
+  if(conta){
+    params.delete('conta');
+    const qs=params.toString();
+    history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
+  }
+}
 
 function coverHTML(titulo,autor,capa,extra){
   const h=hue(titulo);
@@ -361,11 +384,29 @@ function renderDiario(){
 function renderPerfil(){
   const url=location.origin+'/u/'+meuHandle;
   const n=prateleira.length;
+  const logado=!!minhaConta.logado;
+  const nome=(minhaConta.nome||'').trim();
+  const email=(minhaConta.email||'').trim();
+  const contaHTML=logado
+    ? `<div class="account-box connected">
+        <div class="label">conta</div>
+        <p>sua estante está vinculada ao Google</p>
+        ${nome?`<div class="account-line">${esc(nome)}</div>`:''}
+        ${email?`<div class="account-line muted">${esc(email)}</div>`:''}
+        <a class="account-logout" href="/api/auth/logout">sair</a>
+      </div>`
+    : `<div class="account-box">
+        <div class="label">conta</div>
+        <p>você está usando a Lombada sem conta</p>
+        <p class="muted">entre com Google para guardar sua estante e recuperá-la depois</p>
+        <a class="pbtn solid" href="/api/auth/google/login">entrar com Google</a>
+      </div>`;
   $('#perfil').innerHTML=`
     <div class="pcard">
       <div class="label">sua estante pública</div>
       <div class="phandle">@${esc(meuHandle)}</div>
       <div class="pcount">${n} ${n===1?'livro':'livros'}</div>
+      ${contaHTML}
       <div class="pactions">
         <button class="pbtn solid" onclick="compartilharEstante()">compartilhar estante</button>
         <a class="pbtn" href="${esc(url)}" target="_blank">abrir estante pública</a>
@@ -528,9 +569,11 @@ async function removerLeitura(){
 /* init */
 async function init(){
   registrarHistorico('buscar','home',true);
+  tratarMensagemConta();
   renderChips();
   try{
     const me=await (await fetch('/api/eu')).json();
+    minhaConta=me||{logado:false,provedor:'anonimo'};
     meuHandle=me.handle||'';
     $('#meuhandle').textContent='@'+meuHandle;
     $('#crumb').classList.add('visible');

@@ -7,13 +7,10 @@ Dois modos, na mesma sessão de cookie:
                anônimo atual; se aquele Google já existe noutro usuário,
                MIGRA as leituras e descarta o órfão (merge de estante).
 
-O id_token vem direto do token endpoint do Google por canal TLS server-to-server,
-então validamos aud/iss/exp (sem precisar de verificação de assinatura/JWKS).
+Os dados de perfil vêm do endpoint userinfo do Google usando o access_token
+retornado na troca server-to-server do authorization code.
 """
 import os
-import json
-import time
-import base64
 import random
 import secrets
 from datetime import datetime
@@ -36,6 +33,7 @@ GOOGLE_REDIRECT_URI  = os.getenv(
 )
 GOOGLE_AUTH  = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo"
 _TIMEOUT = 12.0
 
 
@@ -77,33 +75,25 @@ def usuario_sessao(request, s: Session) -> Usuario:
 
 
 # ─── helpers OAuth ────────────────────────────────────────
-def _decode_jwt_payload(token: str) -> dict:
-    """Decodifica o payload do JWT (sem verificar assinatura — canal TLS confiável)."""
-    parts = (token or "").split(".")
-    if len(parts) != 3:
-        raise HTTPException(400, "id_token malformado")
-    seg = parts[1] + "=" * (-len(parts[1]) % 4)
+def _userinfo_google(access_token: str) -> dict:
+    if not access_token:
+        raise HTTPException(400, "access_token ausente na resposta do Google")
     try:
-        return json.loads(base64.urlsafe_b64decode(seg))
-    except Exception:
-        raise HTTPException(400, "id_token ilegível")
-
-
-def _claims_validas(id_token: str) -> dict:
-    claims = _decode_jwt_payload(id_token)
-    if claims.get("aud") != GOOGLE_CLIENT_ID:
-        raise HTTPException(400, "id_token: aud não confere")
-    if claims.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
-        raise HTTPException(400, "id_token: iss inválido")
-    try:
-        exp = float(claims.get("exp", 0))
-    except (TypeError, ValueError):
-        exp = 0
-    if exp < time.time():
-        raise HTTPException(400, "id_token expirado")
-    if not claims.get("sub"):
-        raise HTTPException(400, "id_token sem sub")
-    return claims
+        with httpx.Client(timeout=_TIMEOUT) as c:
+            r = c.get(
+                GOOGLE_USERINFO,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            r.raise_for_status()
+            info = r.json()
+    except httpx.HTTPStatusError as e:
+        detalhe = e.response.text[:200] if e.response is not None else str(e)
+        raise HTTPException(502, f"falha ao buscar perfil no Google: {detalhe}")
+    except Exception as e:
+        raise HTTPException(502, f"falha ao buscar perfil no Google: {e}")
+    if not info.get("sub"):
+        raise HTTPException(400, "perfil do Google sem sub")
+    return info
 
 
 def _email_em_uso(s: Session, email: str, exceto_id) -> bool:
@@ -175,10 +165,10 @@ def google_callback(request: Request, code: str = "", state: str = "",
     except Exception as e:
         raise HTTPException(502, f"falha ao trocar token com o Google: {e}")
 
-    claims = _claims_validas(tok.get("id_token") or "")
-    sub   = claims["sub"]
-    email = (claims.get("email") or "").strip()
-    nome  = (claims.get("name") or "").strip()
+    info = _userinfo_google(tok.get("access_token") or "")
+    sub   = info["sub"]
+    email = (info.get("email") or "").strip()
+    nome  = (info.get("name") or "").strip()
 
     # ─── merge de estante ───
     canonico = s.exec(select(Usuario).where(Usuario.google_sub == sub)).first()
@@ -204,12 +194,21 @@ def google_callback(request: Request, code: str = "", state: str = "",
             s.add(novo); s.commit(); s.refresh(novo)
             destino = novo
     elif canonico.id == atual.id:
+        if nome and not canonico.nome:
+            canonico.nome = nome
+            s.add(canonico); s.commit()
         destino = canonico  # já vinculado, nada a fazer
     else:
         # Google já existe noutro usuário → migra leituras do atual e descarta o órfão
         _mover_leituras(s, atual.id, canonico.id)
+        mudou = False
         if email and not canonico.email and not _email_em_uso(s, email, canonico.id):
             canonico.email = email
+            mudou = True
+        if nome and not canonico.nome:
+            canonico.nome = nome
+            mudou = True
+        if mudou:
             s.add(canonico); s.commit()
         s.delete(atual); s.commit()
         destino = canonico
