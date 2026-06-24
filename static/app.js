@@ -13,6 +13,28 @@ let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
+
+const THEME_KEY='lombada_theme';
+function temaInicial(){
+  const salvo=localStorage.getItem(THEME_KEY);
+  return salvo==='dark'?'dark':'light';
+}
+function aplicarTema(tema){
+  const t=tema==='dark'?'dark':'light';
+  document.body.classList.toggle('theme-dark',t==='dark');
+  document.body.classList.toggle('theme-light',t==='light');
+  document.body.setAttribute('data-theme',t);
+  const btn=$('#themeToggle');
+  if(btn){ btn.textContent=t==='dark'?'☀':'☾'; btn.setAttribute('aria-label',t==='dark'?'usar tema claro':'usar tema escuro'); }
+}
+function alternarTema(){
+  const atual=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
+  const prox=atual==='dark'?'light':'dark';
+  localStorage.setItem(THEME_KEY,prox);
+  aplicarTema(prox);
+}
+aplicarTema(temaInicial());
+
 let conviteLoginPendente=false;
 
 function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
@@ -202,17 +224,26 @@ function renderChips(){
        ${coverHTML(s,'','')}
        <div class="t">${esc(s)}</div></div>`).join('');
 }
+function lendoAgoraCard(l,idx,compacto=false){
+  const progresso=l.status==='Lendo'?(l.nota?Math.min(100,Math.round(Number(l.nota)*20)):62):0;
+  return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
+    <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
+    <div class="reading-copy">
+      <div class="label">lendo agora</div>
+      <h3>${esc(l.titulo)}</h3>
+      <p>${esc(l.autor)}</p>
+      <div class="reading-spacer"></div>
+      <div class="reading-meta">${progresso}% concluído</div>
+      <div class="reading-progress"><span style="width:${progresso}%"></span></div>
+    </div>
+  </div>`;
+}
 function renderLendoAgora(){
   const lendo = prateleira.filter(l=>l.status==='Lendo');
   const box=$('#lendoAgora');
   if(!lendo.length){ box.innerHTML=''; return; }
-  box.innerHTML=`<div class="section-head"><div class="label">lendo agora</div><span class="more" onclick="irPara('estante')">ver estante →</span></div>
-    <div class="rail">`+lendo.map((l,i)=>{
-      const idx=prateleira.indexOf(l);
-      const ov=l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString('pt-BR')}</span></span>`:'';
-      return `<div class="book" onclick="abrirCard(${idx})">${coverHTML(l.titulo,l.autor,l.capa_url,ov)}
-        <div class="t">${esc(l.titulo)}</div><div class="a">${esc(l.autor)}</div></div>`;
-    }).join('')+`</div>`;
+  const l=lendo[0], idx=prateleira.indexOf(l);
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">Continue sua leitura</h2><span class="more" onclick="irPara('estante')">ver estante →</span></div>${lendoAgoraCard(l,idx)}`;
 }
 
 /* busca */
@@ -456,6 +487,18 @@ function controlesEstante(){
 function metaListaEstante(l){
   return [l.editora?`ed. ${esc(l.editora)}`:'',l.tradutor?`trad. ${esc(l.tradutor)}`:'',l.isbn?`ISBN ${esc(l.isbn)}`:''].filter(Boolean).join(' · ');
 }
+function resumoEstante(){
+  const total=prateleira.length;
+  const lidos=prateleira.filter(l=>l.status==='Lido').length;
+  const lendo=prateleira.filter(l=>l.status==='Lendo').length;
+  const quero=prateleira.filter(l=>l.status==='Quero ler').length;
+  return `${total} ${total===1?'livro':'livros'} · ${lidos} lidos · ${lendo} lendo · ${quero} quero ler`;
+}
+function blocoLendoEstante(){
+  const l=prateleira.find(x=>x.status==='Lendo');
+  if(!l) return '';
+  return `<section class="shelf-now"><div class="label">lendo agora</div>${lendoAgoraCard(l,prateleira.indexOf(l),true)}</section>`;
+}
 function renderPrateleira(){
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
@@ -486,7 +529,7 @@ function renderPrateleira(){
           <div class="a">${esc(l.autor)}</div>
           ${l.tradutor?`<div class="e">trad. ${esc(l.tradutor)}</div>`:''}
         </div>`).join('')}</div>`;
-  $('#prateleira').innerHTML=conviteLoginHTML()+controlesEstante()+(itens.length?corpo:vazio);
+  $('#prateleira').innerHTML=`<p class="shelf-summary">${resumoEstante()}</p>`+conviteLoginHTML()+blocoLendoEstante()+controlesEstante()+(itens.length?corpo:vazio);
 }
 async function carregarPrateleira(){
   try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
@@ -507,10 +550,11 @@ function renderDiario(){
     return `<li onclick="abrirCard(${i})">
       ${cap}
       <div class="dbody">
-        <div class="dtop"><span class="dt">${esc(l.titulo)}</span><span class="dwhen">${esc(l.data||l.status||'')}</span></div>
+        <div class="dmeta"><span>${esc(l.status||'Lido')}</span>${l.autor?` · ${esc(l.autor)}`:''}</div>
+        <div class="dtop"><span class="dt">${esc(l.titulo)}</span><span class="dwhen">${esc(l.data||'')}</span></div>
         ${l.nota?`<div class="dstars">${estrelasStr(l.nota)} ${l.nota.toLocaleString('pt-BR')}</div>`:''}
         ${l.tradutor?`<div class="dtr">trad. ${esc(l.tradutor)}</div>`:''}
-        ${l.relato?`<div class="drelato">"${esc(l.relato)}"</div>`:''}
+        ${l.relato?`<div class="drelato">${esc(l.relato)}</div>`:''}
       </div></li>`;
   }).join('')+'</ul>';
 }
@@ -522,6 +566,8 @@ function renderPerfil(){
   const logado=!!minhaConta.logado;
   const nome=(minhaConta.nome||'').trim();
   const email=(minhaConta.email||'').trim();
+  const lidos=prateleira.filter(l=>l.status==='Lido').length, lendo=prateleira.filter(l=>l.status==='Lendo').length, quero=prateleira.filter(l=>l.status==='Quero ler').length;
+  const inicial=(nome||meuHandle||'L').trim().charAt(0).toUpperCase();
   const contaHTML=logado
     ? `<div class="account-box connected">
         <div class="label">conta</div>
@@ -538,9 +584,10 @@ function renderPerfil(){
       </div>`;
   $('#perfil').innerHTML=`
     <div class="pcard">
-      <div class="label">sua estante pública</div>
-      <div class="phandle">@${esc(meuHandle)}</div>
-      <div class="pcount">${n} ${n===1?'livro':'livros'}</div>
+      <div class="profile-avatar">${esc(inicial)}</div>
+      <div class="phandle">${nome?esc(nome):'Leitor Lombada'}</div>
+      <div class="pcount">@${esc(meuHandle)} · ${n} ${n===1?'livro':'livros'}</div>
+      <div class="profile-metrics"><div><strong>${lidos}</strong><span>lidos</span></div><div><strong>${lendo}</strong><span>lendo</span></div><div><strong>${quero}</strong><span>quero ler</span></div></div>
       ${contaHTML}
       <div class="pactions">
         <button class="pbtn solid" onclick="compartilharEstante()">compartilhar estante</button>
