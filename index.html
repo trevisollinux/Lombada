@@ -10,14 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="theme-light">
 <div class="app">
   <header class="topbar">
     <div class="brand">
       <div class="seal">L</div>
       <div class="wordmark">Lombada<span class="dot">.</span></div>
     </div>
-    <div class="crumb" id="crumb">estante<b id="meuhandle"></b></div>
+    <div class="top-actions"><div class="crumb" id="crumb">diário de leitura<b id="meuhandle"></b></div><button class="theme-toggle" id="themeToggle" type="button" onclick="alternarTema()" aria-label="alternar tema">☾</button></div>
   </header>
 
   <!-- ABA BUSCAR -->
@@ -54,7 +54,7 @@
   <!-- ABA ESTANTE -->
   <section id="secEstante" style="display:none">
     <div class="screen-head">
-      <h2 class="h-section">sua estante</h2>
+      <h2 class="h-section">Estante</h2>
       <button class="btn-share" onclick="compartilharEstante()">compartilhar</button>
     </div>
     <div id="prateleira"></div>
@@ -63,7 +63,7 @@
   <!-- ABA DIÁRIO -->
   <section id="secDiario" style="display:none">
     <div class="screen-head">
-      <h2 class="h-section">seu diário</h2>
+      <div><h2 class="h-section">Diário</h2><p class="screen-subtitle">seus relatos de leitura</p></div>
     </div>
     <div id="diario"></div>
   </section>
