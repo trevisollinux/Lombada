@@ -88,6 +88,7 @@ def migrar():
         "ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",
         "ALTER TABLE usuario ADD COLUMN handle VARCHAR",
         "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR",
+        "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''",
         "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL",
         "ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_usuario_google_sub ON usuario (google_sub)",

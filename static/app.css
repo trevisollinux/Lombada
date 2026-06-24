@@ -212,3 +212,14 @@ input,textarea,select{font:inherit;color:inherit}
 .edition .te{margin-top:2px}
 .edition .tr,.edition .ln{margin-top:4px}
 @media(max-width:420px){.row{flex-direction:column;gap:0}.edition{padding:10px 0}}
+
+/* conta / login */
+.account-box{margin-top:18px;border:1px solid var(--rule);background:var(--paper);padding:16px;text-align:left}
+.account-box p{font-size:15px;color:var(--ink-2);font-style:italic;margin-top:8px;line-height:1.35}
+.account-box .muted,.account-line.muted{color:var(--dim)}
+.account-box .pbtn{display:block;text-align:center;margin-top:14px}
+.account-box.connected{background:rgba(168,132,47,.08)}
+.account-line{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.04em;margin-top:8px;word-break:break-word}
+.account-logout{display:inline-block;margin-top:12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:1px}
+.toast{position:fixed;left:50%;bottom:86px;z-index:80;max-width:min(420px,calc(100vw - 32px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--paper);box-shadow:var(--shadow-sm);padding:12px 14px;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:center;transition:opacity .22s ease,transform .22s ease}
+.toast.show{opacity:1;transform:translate(-50%,0)}

@@ -2,6 +2,7 @@
 Lombada — app FastAPI e rotas.
 """
 import ipaddress
+import os
 import socket
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +25,7 @@ from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_p
 from publica import render_estante_publica, _leituras_de, _pagina, _esc
 
 AQUI = Path(__file__).resolve().parent
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 
 
 # ─── lifespan ─────────────────────────────────────────────
@@ -35,7 +37,12 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Lombada", lifespan=lifespan)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax", https_only=False)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    same_site="lax",
+    https_only=COOKIE_SECURE,
+)
 app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 app.include_router(auth_router)
 
@@ -79,7 +86,14 @@ def proxy_capa(url: str) -> Response:
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    return {"handle": u.handle, "nome": u.nome, "email": u.email}
+    logado = bool(u.google_sub)
+    return {
+        "handle": u.handle,
+        "nome": u.nome,
+        "email": u.email,
+        "logado": logado,
+        "provedor": "google" if logado else "anonimo",
+    }
 
 
 @app.get("/api/buscar")
