@@ -7,6 +7,8 @@ const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], edicoesAtual=[], prateleira=[], cardAtual=null, notaEdit=0;
 let filtroEstante='Todos';
+let ultimoLivroSalvo=null;
+let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
@@ -150,12 +152,13 @@ function irPara(aba,opcoes={}){
   $('#tabDiario').classList.toggle('active',aba==='diario');
   $('#tabPerfil').classList.toggle('active',aba==='perfil');
   if(aba==='buscar' && resetBusca){ $('#q').value=''; limparBusca(); mostrarBusca('home',{registrar:false}); }
-  if(aba==='estante') carregarPrateleira();
+  const recarregarEstante=opcoes.recarregar ?? true;
+  if(aba==='estante' && recarregarEstante) carregarPrateleira();
   if(aba==='diario') renderDiario();
   if(aba==='perfil') renderPerfil();
   navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home'};
   if(registrar) registrarHistorico(navAtual.aba,navAtual.busca);
-  window.scrollTo({top:0,behavior:'smooth'});
+  if(opcoes.scrollTop !== false) window.scrollTo({top:0,behavior:'smooth'});
 }
 
 /* pilha de telas DENTRO da aba buscar: home → resultados → edicoes → form.
@@ -214,10 +217,19 @@ function renderLendoAgora(){
 
 /* busca */
 function buscarTermo(t){$('#q').value=t;buscar();}
+function renderBuscaSkeleton(){
+  const item=()=>`<div class="book busca-skeleton-item" aria-hidden="true">
+    <div class="cover busca-skeleton-cover"></div>
+    <div class="busca-skeleton-line title"></div>
+    <div class="busca-skeleton-line author"></div>
+    <div class="busca-skeleton-line meta-line"></div>
+  </div>`;
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">buscando</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
+}
 async function buscar(){
   const q=$('#q').value.trim(); if(q.length<2)return;
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
-  $('#resultados').innerHTML='<div class="empty">buscando…</div>';
+  renderBuscaSkeleton();
   mostrarBusca('resultados');
   let docs;
   try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
@@ -354,8 +366,10 @@ fecharModalParaNavegacao();
 limparBusca(); $('#q').value=''; mostrarBusca('home',
 {registrar:false});
 marcarConviteLoginAposSalvar();
+marcarLivroSalvo(body);
+toast('salvo na sua estante');
 await carregarPrateleira();
-irPara('estante');
+irPara('estante',{recarregar:false});
 }
 function abrirManual(){
   notaSel=0;
@@ -403,10 +417,21 @@ async function salvarManual(){
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
-  marcarConviteLoginAposSalvar(); await carregarPrateleira(); irPara('estante');
+  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast('salvo na sua estante'); await carregarPrateleira(); irPara('estante',{recarregar:false});
 }
 
 /* estante */
+function chaveLivro(l){
+  return `${(l?.titulo||'').trim().toLowerCase()}|${(l?.autor||'').trim().toLowerCase()}`;
+}
+function marcarLivroSalvo(l){
+  ultimoLivroSalvo=chaveLivro(l);
+  if(timerDestaqueLivro) clearTimeout(timerDestaqueLivro);
+  timerDestaqueLivro=setTimeout(()=>{ ultimoLivroSalvo=null; timerDestaqueLivro=null; renderPrateleira(); },4200);
+}
+function livroEstaDestacado(l){
+  return ultimoLivroSalvo && chaveLivro(l)===ultimoLivroSalvo;
+}
 function mudarFiltroEstante(status){
   filtroEstante=status;
   renderPrateleira();
@@ -445,7 +470,7 @@ function renderPrateleira(){
         const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
         const statusNota=[l.status,l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString('pt-BR')}`:'sem nota'].filter(Boolean).join(' · ');
         const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
-        return `<li class="shelf-row" onclick="abrirCard(${i})">${cap}
+        return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">${cap}
           <div class="shelf-row-body">
             <div class="shelf-row-title">${esc(l.titulo)}</div>
             <div class="shelf-row-author">${esc(l.autor)}</div>
@@ -455,7 +480,7 @@ function renderPrateleira(){
           </div></li>`;
       }).join('')}</ul>`
     : `<div class="wall">${itens.map(({l,i})=>`
-        <div class="book" onclick="abrirCard(${i})">
+        <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">
           ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString('pt-BR')}</span></span>`:'')}
           <div class="t">${esc(l.titulo)}</div>
           <div class="a">${esc(l.autor)}</div>
