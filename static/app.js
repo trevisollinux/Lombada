@@ -32,7 +32,8 @@ function modalAberto(){
 }
 function fecharModalDireto(){
   $('#modal')?.classList.remove('open');
-  $('#editPanel').style.display='none';
+  const editPanel=$('#editPanel');
+  if(editPanel) editPanel.style.display='none';
 }
 function fecharModalParaNavegacao(){
   if(!modalAberto())return;
@@ -235,10 +236,11 @@ async function salvar(){
   };
   try{ await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
-  limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
-  await carregarPrateleira();
-  irPara('estante');
-}
+  fecharModalParaNavegacao();
+
+limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
+await carregarPrateleira();
+irPara('estante');
 
 /* estante */
 async function carregarPrateleira(){
@@ -313,9 +315,14 @@ async function abrirCard(i,opcoes={}){
   cardAtual=prateleira[i];
   $('#editPanel').style.display='none';
   $('#modal').classList.add('open');
-  if(registrar && !restaurandoHistorico){
-    history.pushState({...estadoNav(navAtual.aba,navAtual.busca,true),card:i},'');
+ if(registrar && !restaurandoHistorico){
+  const estadoModal={...estadoNav(navAtual.aba,navAtual.busca,true),card:i};
+  if(history.state && history.state.lombada && history.state.modal){
+    history.replaceState(estadoModal,'');
+  }else{
+    history.pushState(estadoModal,'');
   }
+}
   try{ await document.fonts.ready; }catch(e){}
   drawCard(cardAtual);
 }
