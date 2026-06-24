@@ -180,3 +180,13 @@ input,textarea,select{font:inherit;color:inherit}
 .modal-actions .btn-danger{background:transparent;color:var(--danger);padding:10px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:center;border:1px solid rgba(122,46,34,.25)}
 .edit-panel{background:var(--paper);padding:16px}
 .edit-panel h3{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:18px;margin-bottom:14px}
+
+/* cadastro manual / ajustes finos */
+.link-manual{display:inline-block;margin-top:8px;color:var(--gold);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--gold);padding-bottom:1px}
+.form-block{padding:0 0 14px;margin-bottom:18px;border-bottom:1px solid var(--rule)}
+.form-block:last-of-type{border-bottom:0;margin-bottom:6px}
+.form-block>.label{margin-bottom:12px;color:var(--gold)}
+.edition{padding:11px 2px}
+.edition .te{margin-top:2px}
+.edition .tr,.edition .ln{margin-top:4px}
+@media(max-width:420px){.row{flex-direction:column;gap:0}.edition{padding:10px 0}}

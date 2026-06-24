@@ -71,7 +71,7 @@ function irPara(aba,opcoes={}){
    mostra exatamente uma de cada vez (mata o "carrega embaixo"). */
 function mostrarBusca(tela,opcoes={}){
   const registrar=opcoes.registrar ?? tela!=='home';
-  const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form'};
+  const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form',manual:'#manual'};
   for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
   navAtual={aba:'buscar',busca:tela};
   if(registrar) registrarHistorico('buscar',tela);
@@ -96,12 +96,12 @@ function onQInput(){
   const v=$('#q').value.trim();
   if(!v){ limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home'); }
 }
-function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML='';$('#form').innerHTML=''; }
+function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML='';$('#form').innerHTML='';$('#manual').innerHTML=''; }
 
 /* feed da home — obras populares como mini estante (lista curada) */
 function renderChips(){
   if(!$('#searchHint')){
-    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">comece buscando pelo título, autor ou ISBN. depois escolha a edição certa.</p>');
+    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">comece buscando pelo título, autor ou ISBN. depois escolha a edição certa.<br><button class="link-manual" onclick="abrirManual()">não encontrou seu livro? cadastrar manualmente</button></p>');
   }
   $('#populares').innerHTML = SUGESTOES.map(s=>
     `<div class="book" onclick="buscarTermo('${esc(s).replace(/'/g,"\\'")}')">
@@ -134,8 +134,8 @@ async function buscar(){
   resultadosArr=docs||[];
   if(!resultadosArr.length){
     $('#resultados').innerHTML=`<div class="empty-rich"><div class="ei">⌕</div>
-      <p>não encontrei nada para “${esc(q)}”.<br>tente buscar por título, autor ou ISBN.</p>
-      <button class="btn-secondary" onclick="alert('cadastro manual vem no próximo passo')">cadastrar manualmente em breve</button></div>`;
+      <p>não encontrei nada para “${esc(q)}”.</p>
+      <button class="btn-secondary" onclick="abrirManual()">cadastrar manualmente</button></div>`;
     return;
   }
   $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
@@ -197,8 +197,22 @@ function escolherEdicao(j){
     <div class="card-form">
       <div style="font-family:'Fraunces',serif;font-style:italic;font-size:19px">${esc(titulo)}</div>
       <div class="meta" style="margin:4px 0 16px">${[edicaoSel.editora,edicaoSel.ano].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="field"><label class="label">editora</label>
+        <input type="text" id="f_editora" value="${esc(edicaoSel.editora)}" placeholder="editora" /></div>
       <div class="field"><label class="label">tradutor(a)</label>
         <input type="text" id="f_trad" value="${esc(edicaoSel.tradutor)}" placeholder="quem traduziu" /></div>
+      <div class="row">
+        <div class="field"><label class="label">ISBN</label>
+          <input type="text" id="f_isbn" value="${esc(edicaoSel.isbn)}" placeholder="ISBN" /></div>
+        <div class="field"><label class="label">idioma</label>
+          <input type="text" id="f_idioma" value="${esc(edicaoSel.idioma)}" placeholder="ex: Português" /></div>
+      </div>
+      <div class="row">
+        <div class="field"><label class="label">ano da edição</label>
+          <input type="text" id="f_ano_edicao" value="${esc(edicaoSel.ano)}" placeholder="ex: 2019" /></div>
+        <div class="field"><label class="label">URL da capa</label>
+          <input type="text" id="f_capa_url" value="${esc(edicaoSel.capa_url)}" placeholder="https://..." /></div>
+      </div>
       <div class="field"><label class="label">sua nota</label><div class="stars" id="f_stars"></div></div>
       <div class="row">
         <div class="field"><label class="label">status</label>
@@ -236,13 +250,13 @@ async function salvar(){
   const body={
     work_key:escolha.work_key, titulo:escolha.titulo, autor:escolha.autor||'',
     idioma_original:escolha.idioma_original||'', ano_obra:escolha.ano||null,
-    ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
-    tradutor:$('#f_trad').value.trim(), isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
-    ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||'',
+    ol_edition_key:edicaoSel.ol_edition_key||null, editora:$('#f_editora').value.trim(),
+    tradutor:$('#f_trad').value.trim(), isbn:$('#f_isbn').value.trim(), idioma:$('#f_idioma').value.trim(),
+    ano_edicao:parseInt($('#f_ano_edicao').value,10)||null, capa_url:$('#f_capa_url').value.trim(),
     status:$('#f_status').value, nota:notaSel||null,
     relato:$('#f_relato').value.trim(), data:$('#f_data').value.trim()
   };
-  try{ await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  try{ const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 
@@ -251,6 +265,55 @@ limparBusca(); $('#q').value=''; mostrarBusca('home',
 await carregarPrateleira();
 irPara('estante');
 }
+function abrirManual(){
+  notaSel=0;
+  const q=$('#q')?.value.trim()||'';
+  $('#manual').innerHTML=`
+    <div class="busca-back" onclick="history.back()">‹ voltar</div>
+    <div class="section-head"><h2 class="h-section">cadastro manual</h2></div>
+    <div class="card-form">
+      <div class="form-block"><div class="label">livro</div>
+        <div class="field"><label class="label">título da obra *</label><input type="text" id="m_titulo" value="${esc(q)}" /></div>
+        <div class="field"><label class="label">autor *</label><input type="text" id="m_autor" /></div>
+        <div class="row"><div class="field"><label class="label">ano da obra</label><input type="text" id="m_ano_obra" /></div>
+        <div class="field"><label class="label">idioma original</label><input type="text" id="m_idioma_original" /></div></div>
+      </div>
+      <div class="form-block"><div class="label">edição</div>
+        <div class="field"><label class="label">título da edição</label><input type="text" id="m_titulo_edicao" /></div>
+        <div class="field"><label class="label">editora</label><input type="text" id="m_editora" /></div>
+        <div class="field"><label class="label">tradutor(a)</label><input type="text" id="m_tradutor" /></div>
+        <div class="row"><div class="field"><label class="label">ISBN</label><input type="text" id="m_isbn" /></div>
+        <div class="field"><label class="label">idioma</label><input type="text" id="m_idioma" /></div></div>
+        <div class="row"><div class="field"><label class="label">ano da edição</label><input type="text" id="m_ano_edicao" /></div>
+        <div class="field"><label class="label">URL da capa</label><input type="text" id="m_capa_url" /></div></div>
+      </div>
+      <div class="form-block"><div class="label">sua leitura</div>
+        <div class="row"><div class="field"><label class="label">status</label><select id="m_status"><option>Lido</option><option>Lendo</option><option>Quero ler</option></select></div>
+        <div class="field"><label class="label">data</label><input type="text" id="m_data" placeholder="ex: jun 2026" /></div></div>
+        <div class="field"><label class="label">nota</label><div class="stars" id="m_stars"></div></div>
+        <div class="field"><label class="label">relato</label><textarea id="m_relato" maxlength="160"></textarea></div>
+      </div>
+      <button class="btn-primary" onclick="salvarManual()">salvar na estante</button>
+    </div>`;
+  mostrarBusca('manual');
+  montarStars('m_stars',()=>notaSel,v=>notaSel=v);
+}
+
+async function salvarManual(){
+  const titulo=$('#m_titulo').value.trim(), autor=$('#m_autor').value.trim();
+  if(!titulo||!autor){ alert('título e autor são obrigatórios.'); return; }
+  const body={
+    titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
+    titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
+    isbn:$('#m_isbn').value.trim(), idioma:$('#m_idioma').value.trim(), ano_edicao:parseInt($('#m_ano_edicao').value,10)||null,
+    capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
+  };
+  try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
+  catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
+  fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
+  await carregarPrateleira(); irPara('estante');
+}
+
 /* estante */
 async function carregarPrateleira(){
   try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
