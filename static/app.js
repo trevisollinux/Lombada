@@ -20,7 +20,7 @@ function loginHintDispensado(){
   return localStorage.getItem(LOGIN_HINT_KEY)==='1';
 }
 function deveMostrarConviteLogin(){
-  return conviteLoginPendente && !minhaConta.logado && !loginHintDispensado();
+  return !minhaConta.logado && prateleira.length > 0 && !loginHintDispensado();
 }
 function conectarGoogle(){
   location.href='/api/auth/google/login';
@@ -32,8 +32,11 @@ function continuarSemConta(){
 }
 function conviteLoginHTML(){
   if(!deveMostrarConviteLogin()) return '';
+  const texto=conviteLoginPendente
+    ? 'sua leitura foi salva. conecte o Google para não perder sua estante.'
+    : 'conecte o Google para não perder sua estante.';
   return `<div class="login-hint" role="status">
-    <p>sua leitura foi salva. conecte o Google para não perder sua estante.</p>
+    <p>${texto}</p>
     <div class="login-hint-actions">
       <button class="login-hint-primary" onclick="conectarGoogle()">conectar Google</button>
       <button class="login-hint-secondary" onclick="continuarSemConta()">continuar sem conta</button>
