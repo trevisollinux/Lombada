@@ -17,7 +17,7 @@ const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const THEME_KEY='lombada_theme';
 function temaInicial(){
   const salvo=localStorage.getItem(THEME_KEY);
-  return salvo==='dark'?'dark':'light';
+  return salvo==='light'?'light':'dark';
 }
 function aplicarTema(tema){
   const t=tema==='dark'?'dark':'light';
@@ -104,7 +104,7 @@ function hashLivro(titulo,autor){
 }
 function capaArteDados(titulo,autor,variacao=0){
   const h=hashLivro(titulo,autor)+variacao;
-  const layout=['split','classic','block'][h%3];
+  const layout=['classic','modern','minimal','bold','stripe'][h%5];
   const tinta=TINTAS_CAPA[h%TINTAS_CAPA.length];
   const tinta2=TINTAS_CAPA[Math.floor(h/7)%TINTAS_CAPA.length];
   return {hash:h,layout,tinta,tinta2,papel:PAPEL_CAPA};
@@ -112,7 +112,7 @@ function capaArteDados(titulo,autor,variacao=0){
 function coverFallbackHTML(titulo,autor,extra='',variacao=0){
   const d=capaArteDados(titulo,autor,variacao);
   const meta=autor?`<div class="cover-art-author">${esc(autor).toUpperCase()}</div>`:'';
-  return `<div class="cover cover-art ${d.layout}" style="--cover-ink:${d.tinta};--cover-ink-2:${d.tinta2};--cover-paper:${d.papel}">
+  return `<div class="cover cover-art ${d.layout}" data-initial="${esc((titulo||'?').charAt(0).toUpperCase())}" style="--cover-ink:${d.tinta};--cover-ink-2:${d.tinta2};--cover-paper:${d.papel}">
     <div class="cover-art-rule"></div>
     ${meta}
     <div class="cover-art-title">${esc(titulo)}</div>
