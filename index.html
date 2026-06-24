@@ -95,14 +95,13 @@
 <!-- MODAL CARD -->
 <div class="modal" id="modal" onclick="if(event.target===this)fecharModal()">
   <div class="modal-card">
-    <canvas id="cardCanvas" width="1080" height="1920"></canvas>
+    <button class="modal-x" type="button" onclick="fecharModal()" aria-label="fechar detalhe">×</button>
+    <div id="bookDetail" class="book-detail"></div>
+    <canvas id="cardCanvas" class="share-canvas" width="1080" height="1920" aria-hidden="true"></canvas>
     <div class="modal-actions">
       <button class="btn-share-card" onclick="compartilharCard()">compartilhar card</button>
-      <div class="btn-row">
-        <button class="btn-secondary" onclick="abrirEditar()">editar</button>
-        <button class="btn-close" onclick="fecharModal()">fechar</button>
-      </div>
-      <button class="btn-danger" onclick="removerLeitura()">remover da estante</button>
+      <button class="btn-secondary" onclick="abrirEditar()">editar leitura</button>
+      <button class="btn-danger" onclick="removerLeitura()">remover</button>
     </div>
     <div id="editPanel" class="edit-panel" style="display:none"></div>
   </div>

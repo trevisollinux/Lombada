@@ -382,10 +382,49 @@ async function compartilharEstante(){
 }
 
 /* ---------- card / modal ---------- */
+
+function renderDetalheLivro(l){
+  const campos=[
+    ['editora',l.editora],
+    ['tradutor',l.tradutor],
+    ['ano',l.ano_edicao||l.ano],
+    ['idioma',l.idioma],
+    ['ISBN',l.isbn]
+  ].filter(([,v])=>v);
+  const nota=Number(l.nota)||0;
+  const notaTxt=nota ? `<span class="detail-rating-number">${nota.toLocaleString('pt-BR')}</span>` : '<span class="detail-muted">sem nota</span>';
+  const relato=l.relato ? `<blockquote>${esc(l.relato)}</blockquote>` : '<p class="detail-empty">sem relato ainda</p>';
+  const dados=campos.length
+    ? `<dl class="edition-data">${campos.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${campos.length<3?'<p class="detail-empty edition-note">dados da edição incompletos</p>':''}`
+    : '<p class="detail-empty edition-note">dados da edição incompletos</p>';
+  $('#bookDetail').innerHTML=`
+    <section class="detail-head">
+      <div class="detail-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
+      <div class="detail-titleblock">
+        <div class="label">detalhe do livro</div>
+        <h2>${esc(l.titulo)}</h2>
+        <p class="detail-author">${esc(l.autor)}</p>
+        <span class="status-tag">${esc(l.status||'Lido')}</span>
+      </div>
+    </section>
+    <section class="detail-section detail-rating">
+      <div class="detail-stars" aria-label="nota">${estrelasStr(nota)}</div>
+      ${notaTxt}
+    </section>
+    <section class="detail-section">
+      <div class="label">relato</div>
+      <div class="detail-quote">${relato}</div>
+    </section>
+    <section class="detail-section">
+      <div class="label">dados da edição</div>
+      ${dados}
+    </section>`;
+}
 async function abrirCard(i,opcoes={}){
   const registrar=opcoes.registrar ?? true;
   cardAtual=prateleira[i];
   $('#editPanel').style.display='none';
+  renderDetalheLivro(cardAtual);
   $('#modal').classList.add('open');
  if(registrar && !restaurandoHistorico){
   const estadoModal={...estadoNav(navAtual.aba,navAtual.busca,true),card:i};
