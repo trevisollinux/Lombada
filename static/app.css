@@ -86,6 +86,23 @@ input,textarea,select{font:inherit;color:inherit}
 .cover.fallback{display:flex;align-items:flex-end;padding:14px 12px}
 .cover.fallback .ft{font-family:"Fraunces",serif;font-style:italic;font-size:21px;line-height:1.04;color:rgba(26,23,20,.78)}
 .cover.fallback::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:rgba(26,23,20,.18)}
+.cover-art{display:flex;flex-direction:column;justify-content:space-between;padding:14px 12px;background:var(--cover-paper);color:var(--cover-ink);isolation:isolate}
+.cover-art::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(0,0,0,.10));mix-blend-mode:multiply}
+.cover-art-rule{height:5px;width:38%;background:currentColor;margin-bottom:8px}
+.cover-art-author{font-family:"Space Mono",monospace;font-size:9px;line-height:1.2;letter-spacing:.18em;text-transform:uppercase}
+.cover-art-title{font-family:"Fraunces",serif;font-weight:700;font-style:italic;font-size:20px;line-height:1.02;letter-spacing:-.02em;overflow-wrap:anywhere}
+.cover-art-meta{font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;opacity:.72}
+.cover-art.split{background:linear-gradient(90deg,var(--cover-ink) 0 30%,var(--cover-paper) 30%);color:var(--cover-ink)}
+.cover-art.split .cover-art-rule{position:absolute;left:0;top:0;width:30%;height:100%;background:var(--cover-ink);z-index:-1}
+.cover-art.split .cover-art-author{margin-left:32%;color:var(--cover-ink-2)}
+.cover-art.split .cover-art-title{margin-left:32%}
+.cover-art.split .cover-art-meta{margin-left:32%}
+.cover-art.classic{align-items:center;text-align:center;border:8px solid var(--cover-paper);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cover-ink),transparent 35%)}
+.cover-art.classic .cover-art-rule{width:55%;height:2px;margin-top:12px}
+.cover-art.classic .cover-art-title{font-size:21px;margin:auto 0;color:var(--cover-ink)}
+.cover-art.block{background:var(--cover-ink);color:var(--cover-paper)}
+.cover-art.block .cover-art-rule{width:62%;height:9px;background:var(--cover-ink-2)}
+.cover-art.block .cover-art-title{font-size:22px;text-transform:uppercase;letter-spacing:.01em}
 .book .t{margin-top:9px;font-family:"Fraunces",serif;font-style:italic;font-size:15px;line-height:1.15}
 .book .a{font-size:12px;color:var(--dim);margin-top:2px}
 .book .e{font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);margin-top:5px;letter-spacing:.04em;border-bottom:1px solid rgba(168,132,47,.35);display:inline-block;padding-bottom:1px}
@@ -139,8 +156,10 @@ input,textarea,select{font:inherit;color:inherit}
 .diary li{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--rule);cursor:pointer}
 .diary .dcover{width:54px;flex:0 0 54px;aspect-ratio:2/3;box-shadow:var(--shadow-sm);overflow:hidden;background:var(--paper-3)}
 .diary .dcover img{width:100%;height:100%;object-fit:cover}
-.diary .dcover.fallback{display:flex;align-items:flex-end;padding:5px}
-.diary .dcover.fallback .ft{font-family:"Fraunces",serif;font-style:italic;font-size:10px;line-height:1.02;color:rgba(26,23,20,.7)}
+.diary .dcover.cover-art{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:6px 5px}
+.diary .dcover .cover-art-author,.diary .dcover .cover-art-meta{display:none}
+.diary .dcover .cover-art-title{font-size:10px;line-height:1.02}
+.diary .dcover .cover-art-rule{height:3px;margin-bottom:2px}
 .diary .dbody{flex:1;min-width:0}
 .diary .dtop{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .diary .dt{font-family:"Fraunces",serif;font-style:italic;font-size:16px;line-height:1.15}
