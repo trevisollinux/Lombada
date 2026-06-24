@@ -100,6 +100,9 @@ function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML=''
 
 /* feed da home — obras populares como mini estante (lista curada) */
 function renderChips(){
+  if(!$('#searchHint')){
+    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">comece buscando pelo título, autor ou ISBN. depois escolha a edição certa.</p>');
+  }
   $('#populares').innerHTML = SUGESTOES.map(s=>
     `<div class="book" onclick="buscarTermo('${esc(s).replace(/'/g,"\\'")}')">
        ${coverHTML(s,'','')}
@@ -129,7 +132,12 @@ async function buscar(){
   try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
   catch(e){ $('#resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
   resultadosArr=docs||[];
-  if(!resultadosArr.length){$('#resultados').innerHTML='<div class="empty">nada encontrado pra "'+esc(q)+'".</div>';return;}
+  if(!resultadosArr.length){
+    $('#resultados').innerHTML=`<div class="empty-rich"><div class="ei">⌕</div>
+      <p>não encontrei nada para “${esc(q)}”.<br>tente buscar por título, autor ou ISBN.</p>
+      <button class="btn-secondary" onclick="alert('cadastro manual vem no próximo passo')">cadastrar manualmente em breve</button></div>`;
+    return;
+  }
   $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
     resultadosArr.map((d,i)=>`<div class="book" onclick="verEdicoes(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
@@ -249,8 +257,8 @@ async function carregarPrateleira(){
   renderLendoAgora();
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
-      <p>sua estante está vazia.<br>busca um livro pra começar.</p>
-      <button class="btn-cta" onclick="irPara('buscar')">buscar livros →</button></div>`;
+      <p>sua estante ainda está vazia.<br>busque um livro, escolha a edição e registre sua primeira leitura.</p>
+      <button class="btn-cta" onclick="irPara('buscar')">buscar meu primeiro livro →</button></div>`;
     return;
   }
   $('#prateleira').innerHTML='<div class="wall">'+prateleira.map((l,i)=>`
@@ -266,7 +274,7 @@ async function carregarPrateleira(){
 function renderDiario(){
   if(!prateleira.length){
     $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div>
-      <p>nenhuma leitura registrada ainda.</p>
+      <p>seu diário começa quando você registra uma leitura.<br>adicione nota, status ou relato para lembrar do que ficou.</p>
       <button class="btn-cta" onclick="irPara('buscar')">registrar leitura →</button></div>`;
     return;
   }
