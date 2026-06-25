@@ -1087,7 +1087,7 @@ function trocarCapaCard(){
   cardCoverUserChanged=true;
   cardCoverIndex=(cardCoverIndex+1)%5;
   atualizarControleCapaCard();
-  drawCard(cardAtual);
+  updateShareCardPreview(cardAtual);
   toast(nomeCapaCard());
 }
 function usarCapaGeradaPorBaixaResolucao(){
@@ -1129,6 +1129,7 @@ function renderDetalheLivro(l){
       <div class="label">${t('card_visual')}</div>
       <p>${t('card_visual_hint')}</p>
       <button class="btn-cover-card" type="button" onclick="trocarCapaCard()">${t('change_card_cover')} · <span id="cardCoverModeLabel">${nomeCapaCard()}</span></button>
+      <canvas id="shareCardPreview" class="share-card-preview" width="1080" height="1920" aria-label="${t('share_card')}"></canvas>
     </section>
     <section class="detail-section detail-rating">
       <div class="detail-stars" aria-label="${t('rating')}">${estrelasStr(nota)}</div>
@@ -1166,7 +1167,7 @@ async function abrirCard(i,opcoes={}){
   }
 }
   try{ await document.fonts.ready; }catch(e){}
-  drawCard(cardAtual);
+  updateShareCardPreview(cardAtual);
 }
 function fecharModal(){
   if(history.state && history.state.lombada && history.state.modal){
@@ -1226,58 +1227,97 @@ function drawCoverArt(ctx,l,x,y,w,h,variacao=0){
   ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
 }
 
-function drawCard(l){
-  const cv=$('#cardCanvas'),ctx=cv.getContext('2d'),W=1080,H=1920;
+function getSelectedShareCover(l){
+  const index=Math.max(0,Math.min(4,Number(cardCoverIndex)||0));
+  return {
+    index,
+    type:index===0?'original':'lombada',
+    url:index===0?(l?.capa_url||''):'',
+    variacao:Math.max(0,index-1)
+  };
+}
+function loadShareCardImage(src){
+  return new Promise(resolve=>{
+    if(!src){resolve(null);return;}
+    const im=new Image();
+    im.crossOrigin='anonymous';
+    im.onload=()=>resolve(im.naturalWidth>=5?im:null);
+    im.onerror=()=>resolve(null);
+    im.src=src;
+  });
+}
+function drawShareCardBase(ctx,l,W,H){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#ECE4D4';ctx.fillRect(0,0,W,H);
+}
+function drawShareCardText(ctx,l,W,H,cy,ch){
+  let y=cy+ch+118;ctx.textAlign='left';
+  ctx.fillStyle='#3A322A';ctx.font="500 italic 80px Fraunces, serif";
+  y=wrapLeft(ctx,l.titulo||'',110,y,W-220,88,2);
+  y+=68;ctx.fillStyle='#6F6655';ctx.font="italic 46px Spectral, serif";
+  ctx.fillText(l.autor||'',110,y);
+  y+=86;drawStars(ctx,110,y,l.nota||0,44,20,'#A8842F');
+  if(l.relato){y+=110;ctx.fillStyle='#3A322A';ctx.font="italic 44px Spectral, serif";
+    wrapLeft(ctx,'"'+l.relato+'"',110,y,W-220,56,3);}
+  const yc=H-160;ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(110,yc-46);ctx.lineTo(W-110,yc-46);ctx.stroke();
+  ctx.fillStyle='#6F6655';ctx.font="400 28px 'Space Mono', monospace";
+  const col=[l.tradutor?`${t('translator_abbr')} ${l.tradutor}`:null,l.editora||null,l.ano_edicao||l.ano||null].filter(Boolean).join('   ·   ');
+  ctx.fillText(col,110,yc);
+  ctx.fillText('@'+(meuHandle||''),110,yc+44);
+  ctx.fillStyle='#A8842F';ctx.font="600 italic 40px Fraunces, serif";
+  ctx.fillText('lombada.',110,yc+98);
+}
+async function renderShareCardCanvas(l,options={}){
+  const cv=options.canvas || $('#cardCanvas');
+  if(!cv || !l)return null;
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
   const cx=110,cy=120,cw=W-220,ch=1120;
-  const txt=()=>{
-    let y=cy+ch+118;ctx.textAlign='left';
-    ctx.fillStyle='#3A322A';ctx.font="500 italic 80px Fraunces, serif";
-    y=wrapLeft(ctx,l.titulo||'',110,y,W-220,88,2);
-    y+=68;ctx.fillStyle='#6F6655';ctx.font="italic 46px Spectral, serif";
-    ctx.fillText(l.autor||'',110,y);
-    y+=86;drawStars(ctx,110,y,l.nota||0,44,20,'#A8842F');
-    if(l.relato){y+=110;ctx.fillStyle='#3A322A';ctx.font="italic 44px Spectral, serif";
-      y=wrapLeft(ctx,'"'+l.relato+'"',110,y,W-220,56,3);}
-    const yc=H-160;ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(110,yc-46);ctx.lineTo(W-110,yc-46);ctx.stroke();
-    ctx.fillStyle='#6F6655';ctx.font="400 28px 'Space Mono', monospace";
-    const col=[l.tradutor?`${t('translator_abbr')} ${l.tradutor}`:null,l.editora||null,l.ano||null].filter(Boolean).join('   ·   ');
-    ctx.fillText(col,110,yc);
-    ctx.fillText('@'+(meuHandle||''),110,yc+44);
-    ctx.fillStyle='#A8842F';ctx.font="600 italic 40px Fraunces, serif";
-    ctx.fillText('lombada.',110,yc+98);
-  };
-  const fb=()=>{drawCoverArt(ctx,l,cx,cy,cw,ch,Math.max(0,cardCoverIndex-1));ctx.textAlign='left';txt();};
-  if(cardCoverIndex>0){fb();return;}
-  if(l.capa_url){
-    const im=new Image();im.crossOrigin='anonymous';
-    im.onload=()=>{ if(im.naturalWidth<5){fb();return;}
-      if(im.naturalWidth<500 || im.naturalHeight<700){usarCapaGeradaPorBaixaResolucao();fb();return;}
+  const selected=options.selectedCover || getSelectedShareCover(l);
+  drawShareCardBase(ctx,l,W,H);
+  const drawGenerated=()=>drawCoverArt(ctx,l,cx,cy,cw,ch,selected.type==='lombada'?selected.variacao:0);
+  if(selected.type==='original' && selected.url){
+    const im=await loadShareCardImage(capaProxy(selected.url));
+    if(im && im.naturalWidth>=500 && im.naturalHeight>=700){
       ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(cx+16,cy+20,cw,ch);
       ctx.save();ctx.beginPath();ctx.rect(cx,cy,cw,ch);ctx.clip();
       const ir=im.width/im.height,wr=cw/ch;let dw,dh,dx,dy;
       if(ir>wr){dh=ch;dw=ch*ir;dx=cx-(dw-cw)/2;dy=cy;}else{dw=cw;dh=cw/ir;dx=cx;dy=cy-(dh-ch)/2;}
       ctx.drawImage(im,dx,dy,dw,dh);ctx.restore();
       ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(cx,cy,cw,ch);
-      txt();
-    };
-    im.onerror=fb;
-    im.src=capaProxy(l.capa_url);
-  } else { fb(); }
+    }else{
+      if(im && !cardCoverUserChanged && !cardCoverAutoLowRes) usarCapaGeradaPorBaixaResolucao();
+      drawCoverArt(ctx,l,cx,cy,cw,ch,0);
+    }
+  }else{
+    drawGenerated();
+  }
+  drawShareCardText(ctx,l,W,H,cy,ch);
+  return cv;
+}
+async function updateShareCardPreview(l){
+  const preview=$('#shareCardPreview');
+  if(!preview || !l)return;
+  const selected=getSelectedShareCover(l);
+  await renderShareCardCanvas(l,{canvas:preview,selectedCover:selected});
+  await renderShareCardCanvas(l,{canvas:$('#cardCanvas'),selectedCover:selected});
+}
+function drawCard(l){
+  updateShareCardPreview(l);
 }
 
+function canvasToPngBlob(cv){
+  return new Promise(resolve=>cv.toBlob(resolve,'image/png'));
+}
 async function compartilharCard(){
-  const cv=$('#cardCanvas');
-  cv.toBlob(async blob=>{
-    if(!blob){alert(t('card_generation_error'));return;}
-    const file=new File([blob],'lombada.png',{type:'image/png'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      try{ await navigator.share({files:[file],text:t('reading_card_share_text')}); return; }catch(e){}
-    }
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lombada.png';a.click();
-  },'image/png');
+  const cv=await renderShareCardCanvas(cardAtual,{canvas:$('#cardCanvas'),selectedCover:getSelectedShareCover(cardAtual)});
+  const blob=cv ? await canvasToPngBlob(cv) : null;
+  if(!blob){alert(t('card_generation_error'));return;}
+  const file=new File([blob],'lombada.png',{type:'image/png'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],text:t('reading_card_share_text')}); return; }catch(e){}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lombada.png';a.click();
 }
 
 /* editar / remover */
