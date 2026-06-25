@@ -511,11 +511,19 @@ function edicaoSocial(e){
     return sig && s2 && sig===s2;
   }) || null;
 }
+function revelarSpoiler(btn){
+  const card=btn.closest('.review-card');
+  if(card) card.classList.add('spoiler-open');
+}
 function criticasHTML(){
   const recentes=obraSocial?.criticas||[];
   const destaques=obraSocial?.destaques||[];
   if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" onclick="registrarLeituraObra()">${t('register_my_reading')}</button></div></section>`;
-  const card=c=>`<article class="review-card"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div><p>${esc(c.relato)}</p><div class="review-meta">${[c.edicao?.editora,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ')}</div></article>`;
+  const edicaoMeta=c=>[c.status&&statusLabel(c.status),c.edicao?.editora&&`${t('publisher_abbr')} ${c.edicao.editora}`,c.edicao?.tradutor&&`${t('translator_abbr')} ${c.edicao.tradutor}`,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ');
+  const corpo=c=>c.spoiler
+    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
+    : `<p>${esc(c.relato)}</p>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}<div class="review-meta">${edicaoMeta(c)}</div></article>`;
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
 function registrarLeituraObra(){
@@ -578,6 +586,11 @@ function escolherEdicao(j){
       </div>
       <div class="field"><label class="label">${t('reading_note')}</label>
         <textarea id="f_relato" maxlength="160" placeholder="${t('reading_note_placeholder')}"></textarea></div>
+      <div class="visibility-box"><div class="label">${t('visibility')}</div>
+        <label class="check-line"><input type="checkbox" id="f_publico"> <span>${t('make_review_public')}</span></label>
+        <p class="muted">${t('public_review_hint')}</p>
+        <label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label>
+      </div>
       <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
     </div>`;
   mostrarBusca('form');
@@ -610,7 +623,7 @@ async function salvar(){
     tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
     ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||'',
     status:$('#f_status').value, nota:notaSel||null,
-    relato:$('#f_relato').value.trim(), data:$('#f_data').value.trim()
+    relato:$('#f_relato').value.trim(), publico:$('#f_publico').checked, spoiler:$('#f_spoiler').checked, data:$('#f_data').value.trim()
   };
   const duplicadoLocal=encontrarLeituraDuplicada(body);
   if(duplicadoLocal){ avisarDuplicado(duplicadoLocal.leitura_id); return; }
@@ -927,6 +940,10 @@ function renderDetalheLivro(l){
       <div class="detail-quote">${relato}</div>
     </section>
     <section class="detail-section">
+      <div class="label">${t('visibility')}</div>
+      <p class="detail-empty">${l.publico?t('public_review'):t('private_review')}${l.spoiler?' · '+t('contains_spoiler'):''}</p>
+    </section>
+    <section class="detail-section">
       <div class="label">${t('edition')}</div>
       ${dados}
     </section>`;
@@ -1082,6 +1099,11 @@ function abrirEditar(){
     </div>
     <div class="field"><label class="label">${t('reading_note')}</label>
       <textarea id="e_relato" maxlength="160">${esc(l.relato)}</textarea></div>
+    <div class="visibility-box"><div class="label">${t('visibility')}</div>
+      <label class="check-line"><input type="checkbox" id="e_publico" ${l.publico?'checked':''}> <span>${t('make_review_public')}</span></label>
+      <p class="muted">${t('public_review_hint')}</p>
+      <label class="check-line"><input type="checkbox" id="e_spoiler" ${l.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label>
+    </div>
     <button class="btn-primary" onclick="salvarEdicao()">${t('save_changes')}</button>`;
   p.style.display='';
   montarStars('e_stars',()=>notaEdit,v=>notaEdit=v);
@@ -1089,7 +1111,7 @@ function abrirEditar(){
 }
 async function salvarEdicao(){
   const body={ status:$('#e_status').value, nota:notaEdit||null,
-    relato:$('#e_relato').value.trim(), data:$('#e_data').value.trim() };
+    relato:$('#e_relato').value.trim(), publico:$('#e_publico').checked, spoiler:$('#e_spoiler').checked, data:$('#e_data').value.trim() };
   try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
   catch(e){ alert(t('edit_save_error')); return; }
   fecharModalParaNavegacao(); await carregarPrateleira();

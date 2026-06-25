@@ -26,7 +26,7 @@ def _leituras_de(s: Session, usuario_id: int) -> list:
         .order_by(Leitura.criado_em.desc())
     ).all()
     return [{
-        "status": l.status, "nota": l.nota, "relato": l.relato, "data": l.data,
+        "status": l.status, "nota": l.nota, "relato": l.relato if l.publico else "", "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data,
         "titulo": o.titulo, "autor": o.autor,
         "editora": ed.editora, "tradutor": ed.tradutor,
         "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,

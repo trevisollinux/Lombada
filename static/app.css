@@ -648,3 +648,12 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 .brand .lang-switch{margin-left:2px;align-self:center;flex:0 0 auto}
 @media(max-width:420px){.brand{gap:8px}.brand .lang-switch{margin-left:auto}.lang-switch button{font-size:8px;letter-spacing:.08em;padding:3px}.wordmark{flex:0 1 auto}}
 @media(min-width:900px){.brand{align-items:flex-end}.brand .lang-switch{align-self:flex-end;margin:0 0 7px 6px}.lang-switch button{font-size:10px;padding:4px 5px}}
+.visibility-box{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 0;margin:8px 0 16px}
+.check-line{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:14px;color:var(--ink-2)}
+.check-line input{margin-top:2px;accent-color:var(--gold)}
+.review-card.has-spoiler .spoiler-box{border:1px solid var(--rule);background:var(--paper-2);padding:12px;margin-top:10px}
+.spoiler-box strong{display:block;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.spoiler-box button{margin-top:8px;background:var(--ink);color:var(--paper);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:9px 11px}
+.spoiler-box p{display:none;margin-top:12px}
+.review-card.spoiler-open .spoiler-box p{display:block}
+.review-card.spoiler-open .spoiler-box button{display:none}
