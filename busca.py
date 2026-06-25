@@ -56,15 +56,100 @@ _RUIDO_TITULO = (
     "seminario",
     "simposio",
     "coloquio",
+    "artigo",
     "tese",
     "dissertacao",
+    "thesis",
+    "dissertation",
+    "seminar",
+    "study",
+    "studies",
+    "essays",
+    "critique",
+    "analysis",
+    "biography",
+    "lettres",
+    "correspondance",
+    "etudes",
+    "resumo",
+    "analise",
+    "ensaio",
+    "biografia",
+    "estudo critico",
     "sociedades mediatizadas",
 )
+_TITULOS_PT_SINAIS = (
+    "crime e castigo",
+    "irmaos karamazov",
+    "os irmaos karamazov",
+    "a montanha magica",
+    "memorias do subsolo",
+    "o idiota",
+    "os demonios",
+    "notas do subsolo",
+)
+_IDIOMAS_PT = {"portugues", "pt", "por", "pt-br", "br"}
+_ISBN_PREFIXOS_BR = ("97885", "97865")
 
 
 def _parece_ruido(titulo: str) -> bool:
     titulo_norm = _sem_acento(titulo or "")
     return any(termo in titulo_norm for termo in _RUIDO_TITULO)
+
+
+def _idioma_norm(idioma: str) -> str:
+    return _sem_acento(idioma or "").replace("_", "-")
+
+
+def _eh_portugues(idioma: str) -> bool:
+    idioma_norm = _idioma_norm(idioma)
+    return idioma_norm in _IDIOMAS_PT or "portugues" in idioma_norm
+
+
+def _titulo_parece_pt(titulo: str) -> bool:
+    titulo_norm = _query_norm(titulo)
+    return any(sinal in titulo_norm for sinal in _TITULOS_PT_SINAIS)
+
+
+def _isbn_parece_br(isbn: str) -> bool:
+    isbn_norm = normalizar_isbn(isbn)
+    return bool(isbn_norm and isbn_norm.startswith(_ISBN_PREFIXOS_BR))
+
+
+def _tokens_busca(q: str) -> list[str]:
+    return [t for t in _query_norm(q).split() if len(t) >= 3]
+
+
+def _match_tokens(texto: str, tokens: list[str]) -> int:
+    alvo = _query_norm(texto)
+    return sum(1 for t in tokens if t in alvo)
+
+
+def _score_match_busca(titulo: str, autor: str, busca: str) -> int:
+    titulo_q, autor_q = _split_q(busca)
+    tokens_titulo = _tokens_busca(titulo_q)
+    tokens_autor = _tokens_busca(autor_q)
+    todos_tokens = _tokens_busca(busca)
+    score = 0
+
+    rel = _relevancia(titulo, titulo_q)
+    score += {0: 55, 1: 40, 2: 25}.get(rel, 0)
+
+    titulo_hits = _match_tokens(titulo, tokens_titulo)
+    autor_hits = _match_tokens(autor, tokens_autor or todos_tokens)
+    if tokens_titulo and titulo_hits == len(tokens_titulo):
+        score += 25
+    elif titulo_hits:
+        score += 8 * titulo_hits
+    if autor_hits:
+        score += 35 + (8 * autor_hits)
+
+    # Em buscas só por autor, obras do próprio autor devem ganhar de estudos sobre ele.
+    if not autor_q and autor_hits and not titulo_hits:
+        score += 20
+    if not autor_q and not autor_hits and _parece_ruido(titulo):
+        score -= 35
+    return score
 
 
 def _busca_titulo_curto_sem_autor(q: str) -> bool:
@@ -84,27 +169,34 @@ def quality_score(doc: dict, busca: str = "") -> dict:
     editora = _sem_acento(ed.get("editora") or "")
     tradutor= ed.get("tradutor") or ""
     ano     = ed.get("ano") or doc.get("ano")
-    rel     = _relevancia(titulo, busca)
 
     if isbn:     score += 40
     if capa:     score += 35
-    if idioma == "Português": score += 30
-    score += {0: 30, 1: 20, 2: 10}.get(rel, 0)
+    if _eh_portugues(idioma) or doc.get("tem_pt"): score += 45
+    if _titulo_parece_pt(titulo) or _titulo_parece_pt(ed.get("titulo_edicao") or ""):
+        score += 20
+    score += _score_match_busca(titulo, autor, busca)
     if autor and autor != "—":                          score += 20
     if any(e in editora for e in EDITORAS_BR_FORTES):   score += 20
+    if _isbn_parece_br(isbn):                            score += 18
     if ano:      score += 10
     if tradutor: score += 15
 
     qn = _query_norm(busca)
-    if idioma in ("Inglês", "Espanhol") and not any(
-        x in qn for x in ("english", "ingles", "espanol", "espanhol")
+    if not _eh_portugues(idioma) and idioma and not any(
+        x in qn for x in (
+            "english", "ingles", "espanol", "espanhol", "frances", "francais",
+            "french", "russo", "russian", "alemao", "german", "italiano",
+        )
     ):
         score -= 25
     if not capa:  score -= 20
     if not isbn:  score -= 15
 
-    if _busca_titulo_curto_sem_autor(busca) and rel > 0 and _parece_ruido(titulo):
-        score -= 45
+    if _parece_ruido(titulo):
+        score -= 55
+    if _busca_titulo_curto_sem_autor(busca) and _relevancia(titulo, busca) > 0 and _parece_ruido(titulo):
+        score -= 35
 
     score += _FONTE_SCORE.get(doc.get("_fonte", ""), 0)
     doc["quality_score"] = max(score, 0)
