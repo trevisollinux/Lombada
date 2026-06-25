@@ -22,7 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -182,6 +182,7 @@ def _profile_social_payload(s: Session, perfil: Usuario, atual: Usuario | None =
     atual_id = atual.id if atual else None
     return {
         **_follow_counts(s, perfil.id),
+        **_user_edition_counts(s, perfil.id),
         "is_following": _is_following(s, atual_id, perfil.id),
         "is_me": bool(atual_id and atual_id == perfil.id),
     }
@@ -222,6 +223,46 @@ def _assert_not_own_review(l: Leitura, u: Usuario, action: str = "interagir"):
     if l.usuario_id == u.id:
         raise HTTPException(400, f"você não pode {action} sua própria crítica")
 
+
+class EditionStatePayload(BaseModel):
+    tenho: Optional[bool] = None
+    quero: Optional[bool] = None
+
+
+def _edition_read_by_user(s: Session, edicao_id: int, usuario_id: int | None) -> bool:
+    if not usuario_id:
+        return False
+    return bool(s.exec(select(Leitura).where(Leitura.edicao_id == edicao_id, Leitura.usuario_id == usuario_id)).first())
+
+
+def _edition_state_payload(s: Session, edicao_id: int, usuario_id: int | None) -> dict:
+    rel = None
+    if usuario_id:
+        rel = s.exec(select(UserEdition).where(UserEdition.edicao_id == edicao_id, UserEdition.usuario_id == usuario_id)).first()
+    return {"edicao_id": edicao_id, "tenho": bool(rel and rel.tenho), "quero": bool(rel and rel.quero), "li": _edition_read_by_user(s, edicao_id, usuario_id)}
+
+
+def _edition_stats(s: Session, edicao_id: int) -> dict:
+    leituras = s.exec(select(Leitura).where(Leitura.edicao_id == edicao_id)).all()
+    notas = [l.nota for l in leituras if l.nota is not None]
+    tem = s.exec(select(func.count()).select_from(UserEdition).where(UserEdition.edicao_id == edicao_id, UserEdition.tenho == True)).one()
+    querem = s.exec(select(func.count()).select_from(UserEdition).where(UserEdition.edicao_id == edicao_id, UserEdition.quero == True)).one()
+    return {"leituras": len(leituras), "tem": tem, "querem": querem, "media": round(sum(notas) / len(notas), 2) if notas else None}
+
+
+def _edition_relation_map(s: Session, usuario_id: int | None, edicao_ids: list[int]) -> dict[int, dict]:
+    if not usuario_id or not edicao_ids:
+        return {}
+    rels = s.exec(select(UserEdition).where(UserEdition.usuario_id == usuario_id, UserEdition.edicao_id.in_(edicao_ids))).all()
+    return {r.edicao_id: {"tenho": bool(r.tenho), "quero": bool(r.quero)} for r in rels}
+
+
+def _user_edition_counts(s: Session, usuario_id: int) -> dict:
+    return {
+        "edicoes_possui": s.exec(select(func.count()).select_from(UserEdition).where(UserEdition.usuario_id == usuario_id, UserEdition.tenho == True)).one(),
+        "edicoes_desejadas": s.exec(select(func.count()).select_from(UserEdition).where(UserEdition.usuario_id == usuario_id, UserEdition.quero == True)).one(),
+    }
+
 # ─── rotas ────────────────────────────────────────────────
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
@@ -234,6 +275,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
         "logado": logado,
         "provedor": "google" if logado else "anonimo",
         **_follow_counts(s, u.id),
+        **_user_edition_counts(s, u.id),
     }
 
 
@@ -302,7 +344,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
     criticas = []
     minha = None
     for l, ed, _o, u in rows:
-        bucket = por_edicao.setdefault(ed.id, {"leituras": 0, "notas": []})
+        bucket = por_edicao.setdefault(ed.id, {"leituras": 0, "notas": [], "editora": ed.editora, "tradutor": ed.tradutor})
         bucket["leituras"] += 1
         if l.nota is not None:
             bucket["notas"].append(l.nota)
@@ -321,18 +363,40 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
             })
     edicoes = []
     ed_por_id = {ed.id: ed for (_l, ed, _o, _u) in rows}
+    all_ed_ids = list(ed_por_id.keys())
+    rel_map = _edition_relation_map(s, usuario_id, all_ed_ids)
+    social_counts = {ed_id: _edition_stats(s, ed_id) for ed_id in all_ed_ids}
     for ed_id, st in por_edicao.items():
         ed = ed_por_id.get(ed_id)
+        counts = social_counts.get(ed_id, {})
         edicoes.append({
             "edicao_id": ed_id,
             "leituras": st["leituras"],
+            "tem": counts.get("tem", 0),
+            "querem": counts.get("querem", 0),
             "media": round(sum(st["notas"]) / len(st["notas"]), 2) if st["notas"] else None,
+            "estado": {**rel_map.get(ed_id, {"tenho": False, "quero": False}), "li": _edition_read_by_user(s, ed_id, usuario_id)},
             "edicao": {
                 "editora": ed.editora if ed else "", "ano": ed.ano if ed else None,
                 "tradutor": ed.tradutor if ed else "", "isbn": ed.isbn if ed else "",
                 "idioma": ed.idioma if ed else "", "capa_url": ed.capa_url if ed else "",
             },
         })
+    destaques_edicao = {
+        "mais_lida": max(edicoes, key=lambda e: e.get("leituras") or 0) if any(e.get("leituras") for e in edicoes) else None,
+        "mais_desejada": max(edicoes, key=lambda e: e.get("querem") or 0) if any(e.get("querem") for e in edicoes) else None,
+        "mais_possuida": max(edicoes, key=lambda e: e.get("tem") or 0) if any(e.get("tem") for e in edicoes) else None,
+    }
+    trad_counts = {}
+    pub_counts = {}
+    for ed in edicoes:
+        meta = ed.get("edicao") or {}
+        if meta.get("tradutor") and ed.get("leituras"):
+            trad_counts[meta["tradutor"]] = trad_counts.get(meta["tradutor"], 0) + ed.get("leituras", 0)
+        if meta.get("editora") and ed.get("leituras"):
+            pub_counts[meta["editora"]] = pub_counts.get(meta["editora"], 0) + ed.get("leituras", 0)
+    destaques_edicao["traducao_mais_lida"] = max(trad_counts.items(), key=lambda x: x[1])[0] if trad_counts else None
+    destaques_edicao["editora_mais_lida"] = max(pub_counts.items(), key=lambda x: x[1])[0] if pub_counts else None
     return {
         "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor},
         "estatisticas": {
@@ -343,6 +407,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
         "edicoes": edicoes,
         "criticas": criticas[:8],
         "destaques": sorted(criticas, key=lambda c: ((c.get("nota") or 0), len(c.get("relato") or "")), reverse=True)[:3],
+        "destaques_edicao": destaques_edicao,
         "minha_leitura": minha,
     }
 
@@ -363,10 +428,54 @@ def obra_social(work_key: str = "", titulo: str = "", autor: str = "", request: 
         return {
             "obra": {"work_key": work_key, "titulo": titulo, "autor": autor},
             "estatisticas": {"leituras": 0, "criticas": 0, "media": None},
-            "edicoes": [], "criticas": [], "destaques": [], "minha_leitura": None,
+            "edicoes": [], "criticas": [], "destaques": [], "destaques_edicao": {}, "minha_leitura": None,
         }
     return _obra_social_payload(obra, s, u.id)
 
+
+
+@app.get("/api/edicoes/{edicao_id}/estado")
+def estado_edicao(edicao_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    if not s.get(Edicao, edicao_id):
+        raise HTTPException(404, "edição não encontrada")
+    return _edition_state_payload(s, edicao_id, u.id)
+
+
+@app.patch("/api/edicoes/{edicao_id}/estado")
+def atualizar_estado_edicao(edicao_id: int, payload: EditionStatePayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para marcar edições.", 401)
+    if not s.get(Edicao, edicao_id):
+        raise HTTPException(404, "edição não encontrada")
+    rel = s.exec(select(UserEdition).where(UserEdition.edicao_id == edicao_id, UserEdition.usuario_id == u.id)).first()
+    if not rel:
+        rel = UserEdition(edicao_id=edicao_id, usuario_id=u.id)
+    data = payload.model_dump(exclude_unset=True)
+    if "tenho" in data:
+        rel.tenho = bool(data["tenho"])
+        if rel.tenho:
+            rel.quero = False
+    if "quero" in data:
+        rel.quero = bool(data["quero"])
+    if rel.tenho and rel.quero:
+        rel.quero = False
+    rel.updated_at = datetime.utcnow()
+    s.add(rel); s.commit()
+    return _edition_state_payload(s, edicao_id, u.id)
+
+
+@app.get("/api/edicoes/{edicao_id}/social")
+def social_edicao(edicao_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    ed = s.get(Edicao, edicao_id)
+    if not ed:
+        raise HTTPException(404, "edição não encontrada")
+    return {
+        "edicao_id": edicao_id,
+        "estatisticas": _edition_stats(s, edicao_id),
+        "estado": _edition_state_payload(s, edicao_id, u.id),
+        "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano, "isbn": ed.isbn, "idioma": ed.idioma, "capa_url": ed.capa_url},
+    }
 
 
 class ReviewReportPayload(BaseModel):
@@ -449,6 +558,8 @@ class EntradaPrateleira(BaseModel):
     publico:         bool          = False
     spoiler:         bool          = False
     data:            str           = ""
+    tenho_edicao:    bool          = False
+    quero_edicao:    bool          = False
 
 
 STATUS_LEITURA = {"Lido", "Lendo", "Quero ler"}
@@ -547,7 +658,18 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
     leitura = Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status=e.status,
                       nota=e.nota, relato=e.relato.strip(), publico=bool(e.publico),
                       spoiler=bool(e.spoiler), data=e.data.strip())
-    s.add(leitura); s.commit(); s.refresh(leitura)
+    s.add(leitura)
+    rel = s.exec(select(UserEdition).where(UserEdition.usuario_id == usuario_id, UserEdition.edicao_id == edicao.id)).first()
+    if not rel and (getattr(e, "tenho_edicao", False) or getattr(e, "quero_edicao", False)):
+        rel = UserEdition(usuario_id=usuario_id, edicao_id=edicao.id)
+    if rel:
+        if getattr(e, "tenho_edicao", False):
+            rel.tenho = True; rel.quero = False
+        elif getattr(e, "quero_edicao", False):
+            rel.quero = True
+        rel.updated_at = datetime.utcnow()
+        s.add(rel)
+    s.commit(); s.refresh(leitura)
     return leitura, obra, edicao
 
 
@@ -592,6 +714,8 @@ def listar(request: Request, s: Session = Depends(get_session)):
     except SQLAlchemyError as exc:
         print(f"[api/prateleira GET error] {exc}")
         raise HTTPException(500, "erro ao carregar estante; verifique as migrações do banco")
+    ed_ids = [ed.id for (_l, ed, _o) in rows]
+    rel_map = _edition_relation_map(s, u.id, ed_ids)
     return [{
         "leitura_id": l.id, "status": l.status, "nota": l.nota,
         "relato": l.relato, "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data,
@@ -599,6 +723,9 @@ def listar(request: Request, s: Session = Depends(get_session)):
         "edicao_id": ed.id, "ol_edition_key": ed.ol_edition_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
         "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,
+        "tenho_edicao": rel_map.get(ed.id, {}).get("tenho", False),
+        "quero_edicao": rel_map.get(ed.id, {}).get("quero", False),
+        "li_edicao": True,
     } for (l, ed, o) in rows]
 
 

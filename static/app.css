@@ -677,3 +677,10 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 body.theme-dark .shelf-segment-btn.active{background:var(--paper-2);color:var(--ink)}
 @media(min-width:900px){.shelf-segment-btn{font-family:"Spectral",serif;font-size:16px;letter-spacing:0;text-transform:none;padding:10px 18px}}
 @media(max-width:420px){.shelf-head{gap:12px}.shelf-segment{margin-top:10px}.shelf-segment-btn{font-size:9px;padding:7px 11px}.tabs-inner{grid-template-columns:repeat(4,1fr)}}
+.edition-social-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.edition-social-btn{border:1px solid var(--rule);padding:7px 10px;border-radius:999px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);background:transparent}
+.edition-social-btn.active{border-color:var(--wine);background:rgba(139,14,32,.10);color:var(--wine)}
+.edition-relation-note,.shelf-edition-flags{margin-top:6px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.06em;color:var(--wine)}
+.work-edition-highlights{border:1px solid var(--rule);background:var(--paper-2);padding:14px 16px;margin:12px 0 14px}
+.work-edition-highlights p{margin:5px 0;color:var(--ink-2);font-size:14px}
+@media(min-width:920px){#edicoes .work-edition-highlights{grid-column:2}}
