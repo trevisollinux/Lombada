@@ -41,10 +41,11 @@ LANG2 = {
     "es": "Espanhol", "de": "Alemão", "it": "Italiano", "ja": "Japonês",
 }
 EDITORAS_BR_FORTES = [
-    "editora 34", "companhia das letras", "penguin", "martin claret",
-    "todavia", "record", "rocco", "intrinseca", "autentica",
-    "hedra", "carambaia", "cosac", "nova fronteira", "globo",
-    "principis", "garnier", "l&pm", "lp&m", "lepm",
+    "editora 34", "companhia das letras", "penguin", "penguin companhia",
+    "martin claret", "antofagica", "todavia", "nova fronteira",
+    "jose olympio", "record", "rocco", "intrinseca", "autentica",
+    "hedra", "carambaia", "cosac", "globo", "principis", "garnier",
+    "l&pm", "lp&m", "lepm",
 ]
 
 
