@@ -84,6 +84,36 @@ function toast(msg){
   requestAnimationFrame(()=>el.classList.add('show'));
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
 }
+
+function normalizarDuplicidade(v){ return (v||'').toString().trim().toLowerCase().replace(/\s+/g,' '); }
+function normalizarIsbnLocal(v){ return (v||'').toString().replace(/[^0-9Xx]/g,'').toUpperCase(); }
+function chaveFallbackLeitura(x){
+  return [normalizarDuplicidade(x.work_key||x.titulo),normalizarDuplicidade(x.editora),x.ano||'',normalizarDuplicidade(x.tradutor)].join('|');
+}
+function encontrarLeituraDuplicada(body){
+  const isbn=normalizarIsbnLocal(body.isbn);
+  return prateleira.find(l=>
+    (body.edicao_id&&l.edicao_id===body.edicao_id)||
+    (body.ol_edition_key&&l.ol_edition_key===body.ol_edition_key)||
+    (isbn&&normalizarIsbnLocal(l.isbn)===isbn)||
+    (chaveFallbackLeitura(l)===chaveFallbackLeitura({work_key:body.work_key,titulo:body.titulo,editora:body.editora,ano:body.ano_edicao,tradutor:body.tradutor}))
+  );
+}
+function avisarDuplicado(leituraId){
+  toast('Este livro já está na sua estante.');
+  fecharModalParaNavegacao();
+  limparBusca();
+  mostrarBusca('home',{registrar:false});
+  irPara('estante',{recarregar:false});
+  setTimeout(()=>{
+    const idx=prateleira.findIndex(l=>l.leitura_id===leituraId);
+    if(idx>=0) abrirCard(idx,{registrar:false});
+  },120);
+}
+async function payloadErro(r){
+  try{ return await r.json(); }catch(e){ return null; }
+}
+
 function tratarMensagemConta(){
   const params=new URLSearchParams(location.search);
   const conta=params.get('conta');
@@ -552,7 +582,20 @@ async function salvar(){
     status:$('#f_status').value, nota:notaSel||null,
     relato:$('#f_relato').value.trim(), data:$('#f_data').value.trim()
   };
-  try{ const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
+  const duplicadoLocal=encontrarLeituraDuplicada(body);
+  if(duplicadoLocal){ avisarDuplicado(duplicadoLocal.leitura_id); return; }
+  try{
+    const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){
+      const erro=await payloadErro(r);
+      const detalhe=erro?.detail||erro||{};
+      if(r.status===409&&(detalhe.duplicado||erro?.duplicado)){
+        avisarDuplicado(detalhe.leitura_id||erro.leitura_id);
+        return;
+      }
+      throw new Error(JSON.stringify(erro)||r.statusText);
+    }
+  }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 

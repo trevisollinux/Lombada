@@ -337,6 +337,66 @@ def _validar_entrada_leitura(e):
         raise HTTPException(422, "status inválido")
 
 
+
+
+def _norm_texto(valor):
+    return " ".join((valor or "").strip().casefold().split())
+
+
+def _isbn_norm(valor):
+    return normalizar_isbn(valor or "")
+
+
+def _fallback_edicao_match(obra_id: int, e):
+    return (
+        Edicao.obra_id == obra_id,
+        func.lower(func.trim(Edicao.editora)) == _norm_texto(e.editora),
+        Edicao.ano == e.ano_edicao,
+        func.lower(func.trim(Edicao.tradutor)) == _norm_texto(e.tradutor),
+    )
+
+
+def _buscar_edicao_existente(e, obra: Obra, s: Session):
+    if e.ol_edition_key:
+        edicao = s.exec(select(Edicao).where(Edicao.ol_edition_key == e.ol_edition_key)).first()
+        if edicao:
+            return edicao
+    isbn = _isbn_norm(e.isbn)
+    if isbn:
+        edicao = s.exec(select(Edicao).where(Edicao.isbn == isbn)).first()
+        if edicao:
+            return edicao
+    return s.exec(select(Edicao).where(*_fallback_edicao_match(obra.id, e))).first()
+
+
+def _buscar_leitura_duplicada(usuario_id: int, e, obra: Obra, edicao: Edicao, s: Session):
+    leitura = s.exec(select(Leitura).where(Leitura.usuario_id == usuario_id, Leitura.edicao_id == edicao.id)).first()
+    if leitura:
+        return leitura, edicao
+    if e.ol_edition_key:
+        row = s.exec(
+            select(Leitura, Edicao)
+            .join(Edicao, Leitura.edicao_id == Edicao.id)
+            .where(Leitura.usuario_id == usuario_id, Edicao.ol_edition_key == e.ol_edition_key)
+        ).first()
+        if row:
+            return row
+    isbn = _isbn_norm(e.isbn)
+    if isbn:
+        row = s.exec(
+            select(Leitura, Edicao)
+            .join(Edicao, Leitura.edicao_id == Edicao.id)
+            .where(Leitura.usuario_id == usuario_id, Edicao.isbn == isbn)
+        ).first()
+        if row:
+            return row
+    row = s.exec(
+        select(Leitura, Edicao)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .where(Leitura.usuario_id == usuario_id, *_fallback_edicao_match(obra.id, e))
+    ).first()
+    return row or (None, None)
+
 def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool = False):
     _validar_entrada_leitura(e)
     obra = None
@@ -351,14 +411,15 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
                     titulo=e.titulo.strip(), autor=e.autor.strip(),
                     idioma_original=e.idioma_original.strip(), ano=e.ano_obra)
         s.add(obra); s.commit(); s.refresh(obra)
-    edicao = None
-    if e.ol_edition_key:
-        edicao = s.exec(select(Edicao).where(Edicao.ol_edition_key == e.ol_edition_key)).first()
+    edicao = _buscar_edicao_existente(e, obra, s)
     if not edicao:
         edicao = Edicao(obra_id=obra.id, ol_edition_key=e.ol_edition_key,
-                        editora=e.editora.strip(), tradutor=e.tradutor.strip(), isbn=e.isbn.strip(),
+                        editora=e.editora.strip(), tradutor=e.tradutor.strip(), isbn=_isbn_norm(e.isbn),
                         idioma=e.idioma.strip(), ano=e.ano_edicao, capa_url=e.capa_url.strip())
         s.add(edicao); s.commit(); s.refresh(edicao)
+    leitura_existente, edicao_existente = _buscar_leitura_duplicada(usuario_id, e, obra, edicao, s)
+    if leitura_existente:
+        raise HTTPException(409, {"duplicado": True, "leitura_id": leitura_existente.id, "edicao_id": edicao_existente.id})
     leitura = Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status=e.status,
                       nota=e.nota, relato=e.relato.strip(), data=e.data.strip())
     s.add(leitura); s.commit(); s.refresh(leitura)
@@ -398,7 +459,8 @@ def listar(request: Request, s: Session = Depends(get_session)):
     return [{
         "leitura_id": l.id, "status": l.status, "nota": l.nota,
         "relato": l.relato, "data": l.data,
-        "titulo": o.titulo, "autor": o.autor,
+        "titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key,
+        "edicao_id": ed.id, "ol_edition_key": ed.ol_edition_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
         "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,
     } for (l, ed, o) in rows]
