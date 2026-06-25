@@ -12,7 +12,7 @@ let feedItems=[], feedFollowingCount=0;
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
-let navAtual={aba:'buscar',busca:'home'};
+let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const NAV_STATE_KEY='lombada_nav_state';
@@ -88,7 +88,10 @@ function continuarSemConta(){
   localStorage.setItem(LOGIN_HINT_KEY,'1');
   conviteLoginPendente=false;
   renderPrateleira();
+  renderDiario();
+  aplicarSubabaEstante(navAtual.estanteSub||'shelf');
 }
+
 function conviteLoginHTML(){
   if(!deveMostrarConviteLogin()) return '';
   const texto=conviteLoginPendente
@@ -204,8 +207,8 @@ function coverHTML(titulo,autor,capa,extra){
 }
 
 /* navegação entre abas */
-function estadoNav(aba=navAtual.aba,busca=navAtual.busca,modal=false){
-  return {lombada:true,aba,busca,modal,q:$('#q')?.value||'',work_key:escolha?.work_key||'',obraIndexAtual:Number.isInteger(obrasAgrupadas.indexOf(escolha))?obrasAgrupadas.indexOf(escolha):-1};
+function estadoNav(aba=navAtual.aba,busca=navAtual.busca,modal=false,estanteSub=navAtual.estanteSub||'shelf'){
+  return {lombada:true,aba,busca,modal,estanteSub,q:$('#q')?.value||'',work_key:escolha?.work_key||'',obraIndexAtual:Number.isInteger(obrasAgrupadas.indexOf(escolha))?obrasAgrupadas.indexOf(escolha):-1};
 }
 function salvarEstadoNav(estado=estadoNav()){
   try{ sessionStorage.setItem(NAV_STATE_KEY,JSON.stringify({...estado,timestamp:Date.now()})); }catch(e){}
@@ -232,33 +235,49 @@ function fecharModalParaNavegacao(){
   fecharModalDireto();
   if(history.state && history.state.lombada && history.state.modal) history.replaceState(estado,'');
 }
-function registrarHistorico(aba,busca,replace=false){
+function registrarHistorico(aba,busca,replace=false,estanteSub=navAtual.estanteSub||'shelf'){
   if(!restaurandoHistorico) fecharModalParaNavegacao();
-  navAtual={aba,busca};
+  navAtual={aba,busca,estanteSub};
   if(restaurandoHistorico)return;
-  const estado=estadoNav(aba,busca,false);
+  const estado=estadoNav(aba,busca,false,estanteSub);
   salvarEstadoNav(estado);
   if(replace) history.replaceState(estado,'');
   else history.pushState(estado,'');
 }
+function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
+  const ativa=subaba==='diario'?'diario':'shelf';
+  navAtual.estanteSub=ativa;
+  const prateleiraEl=$('#prateleira');
+  const diarioEl=$('#diario');
+  if(prateleiraEl) prateleiraEl.style.display=ativa==='shelf'?'':'none';
+  if(diarioEl) diarioEl.style.display=ativa==='diario'?'':'none';
+  $('#subtabShelf')?.classList.toggle('active',ativa==='shelf');
+  $('#subtabDiario')?.classList.toggle('active',ativa==='diario');
+  $('#subtabShelf')?.setAttribute('aria-selected',ativa==='shelf'?'true':'false');
+  $('#subtabDiario')?.setAttribute('aria-selected',ativa==='diario'?'true':'false');
+}
 function irPara(aba,opcoes={}){
+  if(aba==='diario'){ aba='estante'; opcoes={...opcoes,subaba:'diario'}; }
   const resetBusca=opcoes.resetBusca ?? aba==='buscar';
   const registrar=opcoes.registrar ?? true;
-  const secs={buscar:'#secBuscar',feed:'#secFeed',estante:'#secEstante',diario:'#secDiario',perfil:'#secPerfil'};
+  const estanteSub=aba==='estante' ? (opcoes.subaba||navAtual.estanteSub||'shelf') : (navAtual.estanteSub||'shelf');
+  const secs={buscar:'#secBuscar',feed:'#secFeed',estante:'#secEstante',perfil:'#secPerfil'};
   for(const k in secs) $(secs[k]).style.display = (k===aba)?'':'none';
   $('#tabBuscar').classList.toggle('active',aba==='buscar');
   $('#tabFeed')?.classList.toggle('active',aba==='feed');
   $('#tabEstante').classList.toggle('active',aba==='estante');
-  $('#tabDiario').classList.toggle('active',aba==='diario');
   $('#tabPerfil').classList.toggle('active',aba==='perfil');
   if(aba==='buscar' && resetBusca){ $('#q').value=''; limparBusca(); mostrarBusca('home',{registrar:false}); }
   const recarregarEstante=opcoes.recarregar ?? true;
   if(aba==='feed') carregarFeed();
-  if(aba==='estante' && recarregarEstante) carregarPrateleira();
-  if(aba==='diario') renderDiario();
+  if(aba==='estante'){
+    aplicarSubabaEstante(estanteSub);
+    if(recarregarEstante) carregarPrateleira();
+    else renderDiario();
+  }
   if(aba==='perfil') renderPerfil();
-  navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home'};
-  if(registrar) registrarHistorico(navAtual.aba,navAtual.busca);
+  navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home',estanteSub};
+  if(registrar) registrarHistorico(navAtual.aba,navAtual.busca,false,navAtual.estanteSub);
   if(opcoes.scrollTop !== false) window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -268,7 +287,7 @@ function mostrarBusca(tela,opcoes={}){
   const registrar=opcoes.registrar ?? tela!=='home';
   const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form',manual:'#manual'};
   for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
-  navAtual={aba:'buscar',busca:tela};
+  navAtual={...navAtual,aba:'buscar',busca:tela};
   if(registrar) registrarHistorico('buscar',tela);
   salvarEstadoNav();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -278,13 +297,13 @@ function aplicarHistorico(estado){
   const deveReabrirModal=!!proximo.modal;
   if(modalAberto() && !deveReabrirModal) fecharModalDireto();
   restaurandoHistorico=true;
-  irPara(proximo.aba,{registrar:false,resetBusca:false});
+  irPara(proximo.aba,{registrar:false,resetBusca:false,subaba:proximo.estanteSub||'shelf'});
   if(proximo.aba==='buscar'){
     if(proximo.q) $('#q').value=proximo.q;
     mostrarBusca(proximo.busca||'home',{registrar:false});
     if(proximo.busca==='resultados' && proximo.q) buscar();
   }
-  navAtual={aba:proximo.aba,busca:proximo.busca||'home'};
+  navAtual={aba:proximo.aba,busca:proximo.busca||'home',estanteSub:proximo.estanteSub||'shelf'};
   restaurandoHistorico=false;
   if(deveReabrirModal && Number.isInteger(proximo.card) && prateleira[proximo.card]) abrirCard(proximo.card,{registrar:false});
 }
@@ -899,6 +918,8 @@ async function carregarPrateleira(){
   try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
   renderLendoAgora();
   renderPrateleira();
+  renderDiario();
+  aplicarSubabaEstante(navAtual.estanteSub||'shelf');
 }
 
 /* diário — linha do tempo */
