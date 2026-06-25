@@ -773,7 +773,7 @@ async function salvar(){
       throw new Error(JSON.stringify(erro)||r.statusText);
     }
   }
-  catch(e){ alert(t('save_error')); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
@@ -829,7 +829,7 @@ async function salvarManual(){
     capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
   };
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ alert(t('save_error')); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
   marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast(t('manual_success')); irPara('perfil',{recarregar:false});
 }
