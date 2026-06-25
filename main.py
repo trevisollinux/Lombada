@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, CatalogSuggestion, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -186,11 +186,40 @@ def _profile_social_payload(s: Session, perfil: Usuario, atual: Usuario | None =
     }
 
 
-def _require_google_user(request: Request, s: Session) -> Usuario:
+def _require_google_user(request: Request, s: Session, message: str = "Entre com Google para seguir leitores.", status_code: int = 403) -> Usuario:
     u = usuario_sessao(request, s)
     if not u.google_sub:
-        raise HTTPException(403, "Entre com Google para seguir leitores.")
+        raise HTTPException(status_code, message)
     return u
+
+
+def _is_public_review(l: Leitura | None) -> bool:
+    return bool(l and l.publico and (l.relato or "").strip())
+
+
+def _review_or_404(leitura_id: int, s: Session) -> Leitura:
+    l = s.get(Leitura, leitura_id)
+    if not _is_public_review(l):
+        raise HTTPException(404, "crítica pública não encontrada")
+    return l
+
+
+def _likes_count(s: Session, leitura_id: int) -> int:
+    return s.exec(select(func.count()).select_from(ReviewLike).where(ReviewLike.leitura_id == leitura_id)).one()
+
+
+def _review_state(s: Session, leitura_id: int, usuario_id: int | None = None) -> dict:
+    liked = saved = reported = False
+    if usuario_id:
+        liked = bool(s.exec(select(ReviewLike).where(ReviewLike.leitura_id == leitura_id, ReviewLike.usuario_id == usuario_id)).first())
+        saved = bool(s.exec(select(SavedReview).where(SavedReview.leitura_id == leitura_id, SavedReview.usuario_id == usuario_id)).first())
+        reported = bool(s.exec(select(ReviewReport).where(ReviewReport.leitura_id == leitura_id, ReviewReport.usuario_id == usuario_id)).first())
+    return {"likes_count": _likes_count(s, leitura_id), "liked_by_me": liked, "saved_by_me": saved, "reported_by_me": reported}
+
+
+def _assert_not_own_review(l: Leitura, u: Usuario, action: str = "interagir"):
+    if l.usuario_id == u.id:
+        raise HTTPException(400, f"você não pode {action} sua própria crítica")
 
 # ─── rotas ────────────────────────────────────────────────
 @app.get("/api/eu")
@@ -284,7 +313,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 "leitura_id": l.id, "nota": l.nota, "relato": relato, "data": l.data,
                 "status": l.status, "spoiler": bool(l.spoiler),
                 "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
-                "edicao_id": ed.id, "edicao": {
+                "edicao_id": ed.id, **_review_state(s, l.id, usuario_id), "edicao": {
                     "editora": ed.editora, "ano": ed.ano, "tradutor": ed.tradutor,
                     "isbn": ed.isbn, "idioma": ed.idioma, "capa_url": ed.capa_url,
                 }
@@ -337,6 +366,67 @@ def obra_social(work_key: str = "", titulo: str = "", autor: str = "", request: 
         }
     return _obra_social_payload(obra, s, u.id)
 
+
+
+class ReviewReportPayload(BaseModel):
+    motivo: str = "other"
+    detalhe: str = ""
+
+
+@app.post("/api/reviews/{leitura_id}/like")
+def like_review(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para interagir com críticas.", 401)
+    l = _review_or_404(leitura_id, s)
+    _assert_not_own_review(l, u, "curtir")
+    like = s.exec(select(ReviewLike).where(ReviewLike.leitura_id == leitura_id, ReviewLike.usuario_id == u.id)).first()
+    if not like:
+        s.add(ReviewLike(leitura_id=leitura_id, usuario_id=u.id)); s.commit()
+    return {"liked": True, "likes_count": _likes_count(s, leitura_id)}
+
+
+@app.delete("/api/reviews/{leitura_id}/like")
+def unlike_review(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para interagir com críticas.", 401)
+    _review_or_404(leitura_id, s)
+    like = s.exec(select(ReviewLike).where(ReviewLike.leitura_id == leitura_id, ReviewLike.usuario_id == u.id)).first()
+    if like:
+        s.delete(like); s.commit()
+    return {"liked": False, "likes_count": _likes_count(s, leitura_id)}
+
+
+@app.post("/api/reviews/{leitura_id}/save")
+def save_review(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para interagir com críticas.", 401)
+    l = _review_or_404(leitura_id, s)
+    _assert_not_own_review(l, u, "salvar")
+    saved = s.exec(select(SavedReview).where(SavedReview.leitura_id == leitura_id, SavedReview.usuario_id == u.id)).first()
+    if not saved:
+        s.add(SavedReview(leitura_id=leitura_id, usuario_id=u.id)); s.commit()
+    return {"saved": True}
+
+
+@app.delete("/api/reviews/{leitura_id}/save")
+def unsave_review(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para interagir com críticas.", 401)
+    _review_or_404(leitura_id, s)
+    saved = s.exec(select(SavedReview).where(SavedReview.leitura_id == leitura_id, SavedReview.usuario_id == u.id)).first()
+    if saved:
+        s.delete(saved); s.commit()
+    return {"saved": False}
+
+
+@app.post("/api/reviews/{leitura_id}/report")
+def report_review(leitura_id: int, payload: ReviewReportPayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para interagir com críticas.", 401)
+    l = _review_or_404(leitura_id, s)
+    _assert_not_own_review(l, u, "denunciar")
+    motivo = _clean_text(payload.motivo, 80) or "other"
+    detalhe = _clean_text(payload.detalhe, 500)
+    report = s.exec(select(ReviewReport).where(ReviewReport.leitura_id == leitura_id, ReviewReport.usuario_id == u.id)).first()
+    if not report:
+        report = ReviewReport(leitura_id=leitura_id, usuario_id=u.id, motivo=motivo, detalhe=detalhe)
+        s.add(report); s.commit()
+    return {"reported": True}
 
 # ─── prateleira ───────────────────────────────────────────
 class EntradaPrateleira(BaseModel):
@@ -578,8 +668,9 @@ def feed(request: Request, s: Session = Depends(get_session), limit: int = Query
             "livro": {"titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key, "capa_url": ed.capa_url},
             "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
             "leitura": {
-                "status": l.status, "nota": l.nota, "publico": bool(l.publico),
+                "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
                 "spoiler": bool(l.spoiler), "relato": relato_feed,
+                **(_review_state(s, l.id, u.id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False}),
             },
             "created_at": l.criado_em.isoformat(),
         })
@@ -593,6 +684,9 @@ def estante_json(handle: str, request: Request, s: Session = Depends(get_session
         raise HTTPException(404, "estante não encontrada")
     atual = usuario_sessao(request, s)
     leituras = _leituras_de(s, u.id)
+    for l in leituras:
+        if l.get("publico") and (l.get("relato") or "").strip():
+            l.update(_review_state(s, l.get("leitura_id"), atual.id))
     perfil = resumo_perfil_publico(leituras)
     return {"handle": u.handle, "nome": u.nome, "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
 
@@ -643,6 +737,26 @@ def estante_publica(handle: str, request: Request, s: Session = Depends(get_sess
 def admin_page(request: Request, s: Session = Depends(get_session)):
     _require_admin(request, s)
     rows = s.exec(select(CatalogSuggestion).where(CatalogSuggestion.status == "pending").order_by(CatalogSuggestion.created_at.desc())).all()
+    reports = s.exec(
+        select(ReviewReport, Leitura, Edicao, Obra, Usuario)
+        .join(Leitura, ReviewReport.leitura_id == Leitura.id)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .join(Usuario, Leitura.usuario_id == Usuario.id)
+        .where(ReviewReport.status == "pending")
+        .order_by(ReviewReport.created_at.desc())
+    ).all()
+    report_items = []
+    for rep, leitura, ed, obra, autor in reports:
+        report_items.append(
+            f'<article class="card-form" style="margin:16px 0">'
+            f'<div class="meta">#{rep.id} · crítica #{leitura.id} · @{_esc(autor.handle)} · {_esc(rep.motivo)} · {rep.created_at.isoformat()}</div>'
+            f'<strong>{_esc(obra.titulo)}</strong><p>{_esc((leitura.relato or "")[:500])}</p>'
+            f'<p>{_esc(rep.detalhe)}</p>'
+            f'<form method="post" action="/admin/reports/{rep.id}/reviewed" style="display:inline"><button>Marcar revisada</button></form> '
+            f'<form method="post" action="/admin/reports/{rep.id}/dismissed" style="display:inline"><button>Dispensar</button></form>'
+            f'</article>'
+        )
     items = []
     for sug in rows:
         payload = _esc(sug.payload_json or "{}")
@@ -655,9 +769,24 @@ def admin_page(request: Request, s: Session = Depends(get_session)):
             f'<form method="post" action="/admin/suggestions/{sug.id}/duplicate" style="display:inline"><button>Marcar duplicado</button></form>'
             f'</article>'
         )
-    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
+    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
     return HTMLResponse(_pagina("Admin · Lombada", corpo))
 
+
+
+@app.post("/admin/reports/{report_id}/{action}")
+def admin_report_review(report_id: int, action: str, request: Request, s: Session = Depends(get_session)):
+    admin = _require_admin(request, s)
+    rep = s.get(ReviewReport, report_id)
+    if not rep:
+        raise HTTPException(404, "denúncia não encontrada")
+    if action not in {"reviewed", "dismissed"}:
+        raise HTTPException(404, "ação inválida")
+    rep.status = action
+    rep.reviewed_at = datetime.utcnow()
+    rep.reviewed_by = admin.email or admin.handle
+    s.add(rep); s.commit()
+    return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
 
 def _aprovar_sugestao(sug: CatalogSuggestion, admin: Usuario, s: Session):
     if sug.status != "pending":
