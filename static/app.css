@@ -638,3 +638,13 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
   .rail{grid-template-columns:repeat(6,minmax(0,1fr))}
   #prateleira .wall{grid-template-columns:repeat(7,minmax(0,1fr))}
 }
+
+/* Compact language switcher in the header */
+.lang-switch{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.lang-switch button{position:relative;padding:3px 4px;border:0;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:9px;line-height:1;letter-spacing:.12em;text-transform:uppercase}
+.lang-switch button + button::before{content:"·";position:absolute;left:-3px;color:var(--rule)}
+.lang-switch button.active{color:var(--wine);font-weight:700;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.lang-switch button:focus-visible{outline:2px solid var(--wine);outline-offset:2px;border-radius:3px}
+.brand .lang-switch{margin-left:2px;align-self:center;flex:0 0 auto}
+@media(max-width:420px){.brand{gap:8px}.brand .lang-switch{margin-left:auto}.lang-switch button{font-size:8px;letter-spacing:.08em;padding:3px}.wordmark{flex:0 1 auto}}
+@media(min-width:900px){.brand{align-items:flex-end}.brand .lang-switch{align-self:flex-end;margin:0 0 7px 6px}.lang-switch button{font-size:10px;padding:4px 5px}}
