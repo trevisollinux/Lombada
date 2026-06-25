@@ -66,19 +66,18 @@
 
   <!-- ABA ESTANTE -->
   <section id="secEstante" style="display:none">
-    <div class="screen-head">
-      <h2 class="h-section" data-i18n="shelf_title">Estante</h2>
+    <div class="screen-head shelf-head">
+      <div>
+        <h2 class="h-section" data-i18n="shelf_title">Estante</h2>
+        <div class="shelf-segment" role="tablist" aria-label="Estante ou diário" data-i18n-aria-label="shelf_view">
+          <button id="subtabShelf" class="shelf-segment-btn active" type="button" role="tab" onclick="irPara('estante',{subaba:'shelf'})" data-i18n="shelf">Estante</button>
+          <button id="subtabDiario" class="shelf-segment-btn" type="button" role="tab" onclick="irPara('estante',{subaba:'diario'})" data-i18n="diary">Diário</button>
+        </div>
+      </div>
       <button class="btn-share" onclick="compartilharEstante()" data-i18n="share">compartilhar</button>
     </div>
     <div id="prateleira"></div>
-  </section>
-
-  <!-- ABA DIÁRIO -->
-  <section id="secDiario" style="display:none">
-    <div class="screen-head">
-      <div><h2 class="h-section" data-i18n="diary_title">Diário</h2><p class="screen-subtitle" data-i18n="diary_subtitle">seus relatos de leitura</p></div>
-    </div>
-    <div id="diario"></div>
+    <div id="diario" style="display:none"></div>
   </section>
 
   <!-- ABA PERFIL -->
@@ -99,9 +98,6 @@
     <button class="tab" id="tabEstante" onclick="irPara('estante')">
       <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h2v18H6a2 2 0 0 1-2-2z"/><path d="M10 3h2v18h-2z"/><path d="m15 4 4 1-3 15-4-1z"/></svg>
       <span data-i18n="nav_shelf">estante</span></button>
-    <button class="tab" id="tabDiario" onclick="irPara('diario')">
-      <svg viewBox="0 0 24 24"><path d="M4 4h13a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><line x1="8" y1="8" x2="15" y2="8"/><line x1="8" y1="12" x2="15" y2="12"/></svg>
-      <span data-i18n="nav_diary">diário</span></button>
     <button class="tab" id="tabPerfil" onclick="irPara('perfil')">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
       <span data-i18n="nav_profile">perfil</span></button>
