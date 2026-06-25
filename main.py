@@ -537,6 +537,54 @@ def remover_leitura(leitura_id: int, request: Request, s: Session = Depends(get_
     return {"ok": True}
 
 
+
+def _feed_tipo(l: Leitura) -> str:
+    relato = (l.relato or "").strip()
+    if l.publico and relato:
+        return "wrote_review"
+    if l.status == "Lendo":
+        return "started_reading"
+    if l.status == "Quero ler":
+        return "wants_to_read"
+    if l.status == "Lido":
+        return "finished_reading"
+    return "leitura_criada"
+
+
+@app.get("/api/feed")
+def feed(request: Request, s: Session = Depends(get_session), limit: int = Query(30, ge=1, le=50)):
+    u = usuario_sessao(request, s)
+    following_ids = s.exec(select(Follow.following_id).where(Follow.follower_id == u.id)).all()
+    if not following_ids:
+        return {"following_count": 0, "items": []}
+    rows = s.exec(
+        select(Leitura, Edicao, Obra, Usuario)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .join(Usuario, Leitura.usuario_id == Usuario.id)
+        .where(Leitura.usuario_id.in_(following_ids))
+        .order_by(Leitura.criado_em.desc())
+        .limit(limit)
+    ).all()
+    items = []
+    for l, ed, o, autor in rows:
+        relato = (l.relato or "").strip()
+        relato_feed = ""
+        if l.publico and relato:
+            relato_feed = relato[:220]
+        items.append({
+            "tipo": _feed_tipo(l),
+            "usuario": {"handle": autor.handle, "nome": autor.nome},
+            "livro": {"titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key, "capa_url": ed.capa_url},
+            "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
+            "leitura": {
+                "status": l.status, "nota": l.nota, "publico": bool(l.publico),
+                "spoiler": bool(l.spoiler), "relato": relato_feed,
+            },
+            "created_at": l.criado_em.isoformat(),
+        })
+    return {"following_count": len(following_ids), "items": items}
+
 # ─── estante pública ──────────────────────────────────────
 @app.get("/api/u/{handle}")
 def estante_json(handle: str, request: Request, s: Session = Depends(get_session)):
