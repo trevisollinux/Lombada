@@ -25,7 +25,7 @@ from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, CatalogSu
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
-from publica import render_estante_publica, _leituras_de, _pagina, _esc
+from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
@@ -513,7 +513,9 @@ def estante_json(handle: str, s: Session = Depends(get_session)):
     u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
     if not u:
         raise HTTPException(404, "estante não encontrada")
-    return {"handle": u.handle, "nome": u.nome, "leituras": _leituras_de(s, u.id)}
+    leituras = _leituras_de(s, u.id)
+    perfil = resumo_perfil_publico(leituras)
+    return {"handle": u.handle, "nome": u.nome, "leituras": leituras, **perfil}
 
 
 @app.get("/u/{handle}")
