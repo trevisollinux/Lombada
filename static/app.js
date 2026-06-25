@@ -217,7 +217,7 @@ function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML=''
 /* feed da home — obras populares como mini estante (lista curada) */
 function renderChips(){
   if(!$('#searchHint')){
-    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">comece buscando pelo título, autor ou ISBN. depois escolha a edição certa.<br><button class="link-manual" onclick="abrirManual()">não encontrou seu livro? cadastrar manualmente</button></p>');
+    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">Busque por título, autor ou ISBN.<br><button class="link-manual" onclick="abrirManual()">Não encontrou? Cadastrar manualmente</button></p>');
   }
   $('#populares').innerHTML = SUGESTOES.map(s=>
     `<div class="book" onclick="buscarTermo('${esc(s).replace(/'/g,"\\'")}')">
@@ -246,6 +246,36 @@ function renderLendoAgora(){
   box.innerHTML=`<div class="section-head"><h2 class="h-section">Continue sua leitura</h2><span class="more" onclick="irPara('estante')">ver estante →</span></div>${lendoAgoraCard(l,idx)}`;
 }
 
+
+function normBusca(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function buscaPedeIdiomaEstrangeiro(q){
+  const qn=normBusca(q);
+  return ['frances','francais','french','ingles','english','espanhol','spanish','alemao','allemand','german','russo','russian','italiano'].some(t=>qn.includes(t));
+}
+function scoreResultadoBusca(doc,q){
+  if(doc?.isbn_match) return 10000;
+  const ed=doc?.edicao_isbn||{};
+  const edicoes=Array.isArray(doc?.edicoes)?doc.edicoes:[];
+  const texto=normBusca([doc?.titulo,doc?.autor,doc?.idioma_original,ed.titulo_edicao,ed.editora,ed.idioma,...edicoes.flatMap(e=>[e.titulo_edicao,e.editora,e.idioma])].filter(Boolean).join(' '));
+  const qn=normBusca(q);
+  let score=Number(doc?.quality_score||0);
+  const ptSinais=[' portugues ',' portuguese ',' por ',' pt ',' pt-br '];
+  const textoPad=` ${texto} `;
+  const temPt=!!doc?.tem_pt || ptSinais.some(t=>textoPad.includes(t));
+  if(temPt) score+=90;
+  if(edicoes.some(e=>normBusca(e.idioma).includes('portugues'))) score+=55;
+  ['brasil','companhia das letras','editora 34','penguin companhia','martin claret','antofagica','nova fronteira','jose olympio','record','l&pm','l pm','todavia'].forEach(t=>{ if(texto.includes(t)) score+=26; });
+  const estrangeiro=['frances','ingles','espanhol','allemand','french','english','spanish'];
+  if(!buscaPedeIdiomaEstrangeiro(q) && estrangeiro.some(t=>texto.includes(t))) score-=45;
+  ['thesis','dissertation','study','studies','essays','critique','analysis','biography','lettres','correspondance','etudes','resumo','analise','ensaio','tese','dissertacao','seminario','biografia'].forEach(t=>{ if(texto.includes(t)) score-=55; });
+  const titulo=normBusca(doc?.titulo);
+  if(titulo && qn && (titulo===qn || titulo.includes(qn) || qn.includes(titulo))) score+=35;
+  return score;
+}
+function ordenarResultadosBusca(docs,q){
+  return (docs||[]).map((d,i)=>({d,i,s:scoreResultadoBusca(d,q)})).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(x=>x.d);
+}
+
 /* busca */
 function buscarTermo(t){$('#q').value=t;buscar();}
 function renderBuscaSkeleton(){
@@ -265,7 +295,7 @@ async function buscar(){
   let docs;
   try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
   catch(e){ $('#resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
-  resultadosArr=docs||[];
+  resultadosArr=ordenarResultadosBusca(docs||[], q);
   if(!resultadosArr.length){
     $('#resultados').innerHTML=`<div class="empty-rich"><div class="ei">⌕</div>
       <p>não encontrei nada para “${esc(q)}”.</p>
