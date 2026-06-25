@@ -108,6 +108,8 @@ input,textarea,select{font:inherit;color:inherit}
 .book .e{font-family:"Space Mono",monospace;font-size:10px;color:var(--gold);margin-top:5px;letter-spacing:.04em;border-bottom:1px solid rgba(168,132,47,.35);display:inline-block;padding-bottom:1px}
 .book .yr{font-family:"Space Mono",monospace;font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:.06em}
 .book .yr .br{color:var(--ink-2)}
+.work-card .cover{margin-bottom:2px}
+.work-card .e{color:var(--gold)}
 
 /* "lendo agora" — faixa horizontal */
 .rail{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
@@ -123,14 +125,20 @@ input,textarea,select{font:inherit;color:inherit}
 .work-head .wmeta .a{margin-top:4px;color:var(--ink-2);font-size:14px}
 .work-head .wmeta .y{margin-top:8px}
 .editions{list-style:none;display:flex;flex-direction:column}
-.edition{padding:16px 2px;border-bottom:1px solid var(--rule);cursor:pointer;transition:background .12s}
+.edition{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:16px 2px;border-bottom:1px solid var(--rule);cursor:pointer;transition:background .12s}
 .edition:active{background:var(--paper-2)}
+.edition-cover .cover{width:64px;box-shadow:var(--shadow-sm)}
+.edition-cover .cover-art{padding:7px 6px}
+.edition-cover .cover-art-author,.edition-cover .cover-art-meta{display:none}
+.edition-cover .cover-art-title{font-size:11px;line-height:1.04}
+.edition-body{min-width:0}
 .edition .pub{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink)}
 .edition .te{font-family:"Fraunces",serif;font-style:italic;font-size:17px;margin-top:4px}
 .edition .tr{margin-top:6px;font-size:14px}
 .edition .tr b{font-weight:500;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:1px}
 .edition .tr .none{color:var(--dim);font-style:italic;border:0}
 .edition .ln{margin-top:6px}
+.edition-action{display:inline-flex;margin-top:10px;background:var(--ink);color:var(--paper);padding:8px 10px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase}
 
 /* ---------- registrar ---------- */
 .card-form{margin-top:8px;border:1px solid var(--rule);background:var(--paper-2);padding:16px}
