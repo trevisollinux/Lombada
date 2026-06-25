@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Field, UniqueConstraint, CheckConstraint, create_engine, Session
 
 # ─── config ───────────────────────────────────────────────
@@ -143,43 +143,101 @@ def get_session():
         yield s
 
 
+def _is_postgres() -> bool:
+    return engine.dialect.name.startswith("postgres")
+
+
+def _has_column(table: str, column: str) -> bool:
+    try:
+        return column in {c["name"] for c in inspect(engine).get_columns(table)}
+    except Exception as exc:
+        print(f"[migration inspect/error] {table}.{column} -> {exc}")
+        return False
+
+
+def _run_ddl(label: str, ddl: str, *, ignore_existing: bool = False):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(ddl))
+    except Exception as exc:
+        msg = str(exc).lower()
+        expected_existing = (
+            "duplicate column" in msg
+            or "already exists" in msg
+            or "duplicate_object" in msg
+            or "duplicate_table" in msg
+        )
+        if ignore_existing and expected_existing:
+            print(f"[migration skipped] {label} -> {exc}")
+            return
+        print(f"[migration error] {label}: {ddl[:120]} -> {exc}")
+
+
+def _add_column_if_missing(table: str, column: str, ddl: str):
+    if _has_column(table, column):
+        return
+    _run_ddl(f"add {table}.{column}", ddl, ignore_existing=True)
+
+
 def migrar():
-    """Migrations retroativas (idempotentes — falham em silêncio se já aplicadas)."""
+    """Migrações retroativas idempotentes com log de diagnóstico."""
+    postgres = _is_postgres()
+
+    _add_column_if_missing("leitura", "usuario_id", "ALTER TABLE leitura ADD COLUMN usuario_id INTEGER")
+    if postgres:
+        _add_column_if_missing("leitura", "publico", "ALTER TABLE leitura ADD COLUMN IF NOT EXISTS publico BOOLEAN NOT NULL DEFAULT false")
+        _add_column_if_missing("leitura", "spoiler", "ALTER TABLE leitura ADD COLUMN IF NOT EXISTS spoiler BOOLEAN NOT NULL DEFAULT false")
+    else:
+        _add_column_if_missing("leitura", "publico", "ALTER TABLE leitura ADD COLUMN publico BOOLEAN NOT NULL DEFAULT 0")
+        _add_column_if_missing("leitura", "spoiler", "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0")
+
+    _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
+    _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
+    _add_column_if_missing("usuario", "nome", "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''")
+
+    if postgres:
+        _run_ddl("usuario.email nullable", "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL")
+        _run_ddl("usuario.senha_hash nullable", "ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL")
+
     ddls = [
-        "ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",
-        "ALTER TABLE leitura ADD COLUMN publico BOOLEAN NOT NULL DEFAULT 0",
-        "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0",
-        "ALTER TABLE usuario ADD COLUMN handle VARCHAR",
-        "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR",
-        "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''",
-        "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL",
-        "ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_usuario_google_sub ON usuario (google_sub)",
-        "CREATE TABLE IF NOT EXISTS catalogsuggestion (id INTEGER PRIMARY KEY, tipo VARCHAR NOT NULL DEFAULT 'new_book', status VARCHAR NOT NULL DEFAULT 'pending', payload_json VARCHAR NOT NULL DEFAULT '', target_type VARCHAR, target_id INTEGER, user_id INTEGER, user_email VARCHAR, created_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, reviewed_by VARCHAR, review_note VARCHAR NOT NULL DEFAULT '')",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_status ON catalogsuggestion (status)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_tipo ON catalogsuggestion (tipo)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_user_id ON catalogsuggestion (user_id)",
-        "CREATE TABLE IF NOT EXISTS follow (id INTEGER PRIMARY KEY, follower_id INTEGER NOT NULL, following_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(follower_id) REFERENCES usuario(id), FOREIGN KEY(following_id) REFERENCES usuario(id), CONSTRAINT ck_follow_not_self CHECK (follower_id <> following_id))",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_pair ON follow (follower_id, following_id)",
         "CREATE INDEX IF NOT EXISTS ix_follow_follower_id ON follow (follower_id)",
         "CREATE INDEX IF NOT EXISTS ix_follow_following_id ON follow (following_id)",
-        "CREATE TABLE IF NOT EXISTS reviewlike (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_reviewlike_pair ON reviewlike (leitura_id, usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewlike_leitura_id ON reviewlike (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewlike_usuario_id ON reviewlike (usuario_id)",
-        "CREATE TABLE IF NOT EXISTS savedreview (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_savedreview_pair ON savedreview (leitura_id, usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_savedreview_leitura_id ON savedreview (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_savedreview_usuario_id ON savedreview (usuario_id)",
-        "CREATE TABLE IF NOT EXISTS reviewreport (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, motivo VARCHAR NOT NULL DEFAULT 'other', detalhe VARCHAR NOT NULL DEFAULT '', status VARCHAR NOT NULL DEFAULT 'pending', created_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, reviewed_by VARCHAR, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_reviewreport_pair ON reviewreport (leitura_id, usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_leitura_id ON reviewreport (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_usuario_id ON reviewreport (usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_status ON reviewreport (status)",
     ]
     for ddl in ddls:
-        try:
-            with engine.begin() as conn:
-                conn.execute(text(ddl))
-        except Exception:
-            pass
+        _run_ddl("index/social", ddl)
+
+    if postgres:
+        for table in ("catalogsuggestion", "follow", "reviewlike", "savedreview", "reviewreport"):
+            _run_ddl(
+                f"{table}.id identity",
+                f"""
+                DO $$
+                BEGIN
+                  IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = '{table}'
+                      AND column_name = 'id'
+                      AND column_default IS NULL
+                      AND identity_generation IS NULL
+                  ) THEN
+                    ALTER TABLE {table} ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY;
+                  END IF;
+                END $$;
+                """,
+            )

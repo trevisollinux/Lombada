@@ -18,6 +18,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -553,7 +554,14 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
 @app.post("/api/prateleira")
 def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    leitura, obra, edicao = _criar_leitura(e, u.id, s)
+    try:
+        leitura, obra, edicao = _criar_leitura(e, u.id, s)
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        s.rollback()
+        print(f"[api/prateleira POST error] {exc}")
+        raise HTTPException(500, "erro ao salvar leitura; verifique as migrações do banco")
     return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
 
 
@@ -573,13 +581,17 @@ def adicionar_manual(e: EntradaManual, request: Request, s: Session = Depends(ge
 @app.get("/api/prateleira")
 def listar(request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    rows = s.exec(
-        select(Leitura, Edicao, Obra)
-        .join(Edicao, Leitura.edicao_id == Edicao.id)
-        .join(Obra, Edicao.obra_id == Obra.id)
-        .where(Leitura.usuario_id == u.id)
-        .order_by(Leitura.criado_em.desc())
-    ).all()
+    try:
+        rows = s.exec(
+            select(Leitura, Edicao, Obra)
+            .join(Edicao, Leitura.edicao_id == Edicao.id)
+            .join(Obra, Edicao.obra_id == Obra.id)
+            .where(Leitura.usuario_id == u.id)
+            .order_by(Leitura.criado_em.desc())
+        ).all()
+    except SQLAlchemyError as exc:
+        print(f"[api/prateleira GET error] {exc}")
+        raise HTTPException(500, "erro ao carregar estante; verifique as migrações do banco")
     return [{
         "leitura_id": l.id, "status": l.status, "nota": l.nota,
         "relato": l.relato, "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data,
