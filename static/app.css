@@ -430,3 +430,16 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 .library-box{margin-top:16px;text-align:left}
 .library-box .pbtn{display:block;width:100%;margin-top:12px;text-align:center}
 @media(max-width:420px){.manual-cta{margin-top:18px}.manual-cta.prominent{padding:16px}.manual-cta.prominent p{font-size:16px}}
+
+/* busca por obra → edições */
+.works-wall .work-card .cover{aspect-ratio:2/3}
+.work-card .e{margin-top:7px;text-transform:uppercase}
+.edition-card{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:flex-start;padding:14px 0}
+.edition-card .edition-cover{width:64px;flex:0 0 64px}
+.edition-card .edition-cover .cover{width:64px;box-shadow:var(--shadow-sm)}
+.edition-card .edition-cover .cover-art{padding:7px 6px}
+.edition-card .edition-cover .cover-art-author,.edition-card .edition-cover .cover-art-meta{display:none}
+.edition-card .edition-cover .cover-art-title{font-size:11px;line-height:1.04}
+.edition-card .edition-info{min-width:0}
+.edition-action{display:inline-block;margin-top:8px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid rgba(168,132,47,.55);padding-bottom:1px}
+@media(max-width:420px){.edition-card{grid-template-columns:56px 1fr;gap:10px}.edition-card .edition-cover,.edition-card .edition-cover .cover{width:56px}.edition-card .edition-cover .cover-art-title{font-size:10px}}
