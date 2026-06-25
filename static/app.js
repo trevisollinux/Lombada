@@ -8,12 +8,14 @@ let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, ed
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 let filtroEstante='Todos';
+let feedItems=[], feedFollowingCount=0;
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
 let navAtual={aba:'buscar',busca:'home'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
+const NAV_STATE_KEY='lombada_nav_state';
 
 const THEME_KEY='lombada_theme';
 function temaInicial(){
@@ -57,6 +59,7 @@ function mudarIdioma(locale){
   if(navAtual.aba==='buscar' && navAtual.busca==='manual') abrirManual();
   if(cardAtual) renderDetalheLivro(cardAtual);
   if($('#secPerfil')?.style.display!=='none') renderPerfil();
+  if($('#secFeed')?.style.display!=='none') renderFeed();
 }
 function statusLabel(status){
   if(status==='Lido') return t('status_read');
@@ -202,7 +205,18 @@ function coverHTML(titulo,autor,capa,extra){
 
 /* navegação entre abas */
 function estadoNav(aba=navAtual.aba,busca=navAtual.busca,modal=false){
-  return {lombada:true,aba,busca,modal};
+  return {lombada:true,aba,busca,modal,q:$('#q')?.value||'',work_key:escolha?.work_key||'',obraIndexAtual:Number.isInteger(obrasAgrupadas.indexOf(escolha))?obrasAgrupadas.indexOf(escolha):-1};
+}
+function salvarEstadoNav(estado=estadoNav()){
+  try{ sessionStorage.setItem(NAV_STATE_KEY,JSON.stringify({...estado,timestamp:Date.now()})); }catch(e){}
+}
+function lerEstadoNavSalvo(){
+  try{
+    const raw=sessionStorage.getItem(NAV_STATE_KEY); if(!raw)return null;
+    const st=JSON.parse(raw);
+    if(!st || !st.lombada || (Date.now()-(st.timestamp||0)>24*60*60*1000))return null;
+    return st;
+  }catch(e){ return null; }
 }
 function modalAberto(){
   return $('#modal')?.classList.contains('open');
@@ -223,20 +237,23 @@ function registrarHistorico(aba,busca,replace=false){
   navAtual={aba,busca};
   if(restaurandoHistorico)return;
   const estado=estadoNav(aba,busca,false);
+  salvarEstadoNav(estado);
   if(replace) history.replaceState(estado,'');
   else history.pushState(estado,'');
 }
 function irPara(aba,opcoes={}){
   const resetBusca=opcoes.resetBusca ?? aba==='buscar';
   const registrar=opcoes.registrar ?? true;
-  const secs={buscar:'#secBuscar',estante:'#secEstante',diario:'#secDiario',perfil:'#secPerfil'};
+  const secs={buscar:'#secBuscar',feed:'#secFeed',estante:'#secEstante',diario:'#secDiario',perfil:'#secPerfil'};
   for(const k in secs) $(secs[k]).style.display = (k===aba)?'':'none';
   $('#tabBuscar').classList.toggle('active',aba==='buscar');
+  $('#tabFeed')?.classList.toggle('active',aba==='feed');
   $('#tabEstante').classList.toggle('active',aba==='estante');
   $('#tabDiario').classList.toggle('active',aba==='diario');
   $('#tabPerfil').classList.toggle('active',aba==='perfil');
   if(aba==='buscar' && resetBusca){ $('#q').value=''; limparBusca(); mostrarBusca('home',{registrar:false}); }
   const recarregarEstante=opcoes.recarregar ?? true;
+  if(aba==='feed') carregarFeed();
   if(aba==='estante' && recarregarEstante) carregarPrateleira();
   if(aba==='diario') renderDiario();
   if(aba==='perfil') renderPerfil();
@@ -253,15 +270,20 @@ function mostrarBusca(tela,opcoes={}){
   for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
   navAtual={aba:'buscar',busca:tela};
   if(registrar) registrarHistorico('buscar',tela);
+  salvarEstadoNav();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function aplicarHistorico(estado){
-  const proximo=estado && estado.lombada ? estado : estadoNav('buscar','home');
+  const proximo=estado && estado.lombada ? estado : (lerEstadoNavSalvo() || estadoNav('buscar','home'));
   const deveReabrirModal=!!proximo.modal;
   if(modalAberto() && !deveReabrirModal) fecharModalDireto();
   restaurandoHistorico=true;
   irPara(proximo.aba,{registrar:false,resetBusca:false});
-  if(proximo.aba==='buscar') mostrarBusca(proximo.busca||'home',{registrar:false});
+  if(proximo.aba==='buscar'){
+    if(proximo.q) $('#q').value=proximo.q;
+    mostrarBusca(proximo.busca||'home',{registrar:false});
+    if(proximo.busca==='resultados' && proximo.q) buscar();
+  }
   navAtual={aba:proximo.aba,busca:proximo.busca||'home'};
   restaurandoHistorico=false;
   if(deveReabrirModal && Number.isInteger(proximo.card) && prateleira[proximo.card]) abrirCard(proximo.card,{registrar:false});
@@ -318,6 +340,57 @@ function renderLendoAgora(){
   box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx)}`;
 }
 
+
+function feedAction(tipo,status){
+  if(tipo==='wrote_review') return t('wrote_review');
+  if(tipo==='started_reading' || status==='Lendo') return t('started_reading');
+  if(tipo==='wants_to_read' || status==='Quero ler') return t('wants_to_read');
+  if(tipo==='finished_reading' || status==='Lido') return t('finished_reading');
+  return t('activity');
+}
+function dataFeed(iso){
+  if(!iso)return '';
+  const d=new Date(iso); if(Number.isNaN(d.getTime()))return '';
+  const diff=Math.round((Date.now()-d.getTime())/86400000);
+  if(diff<=0)return t('today');
+  if(diff===1)return t('yesterday');
+  return d.toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});
+}
+function revelarFeedSpoiler(i){
+  const item=feedItems[i];
+  const box=document.querySelector(`[data-feed-spoiler="${i}"]`);
+  if(box && item?.leitura?.relato){ box.classList.add('revealed'); box.textContent='“'+item.leitura.relato+'”'; }
+}
+function renderFeed(){
+  const box=$('#feed'); if(!box)return;
+  if(!feedFollowingCount){ box.innerHTML=`<div class="empty">${t('feed_empty_follow_people')}</div>`; return; }
+  if(!feedItems.length){ box.innerHTML=`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
+  box.innerHTML=feedItems.map((it,i)=>{
+    const u=it.usuario||{}, livro=it.livro||{}, ed=it.edicao||{}, l=it.leitura||{};
+    const edition=[ed.editora,ed.tradutor?`${t('translator_abbr')} ${ed.tradutor}`:'',ed.ano].filter(Boolean).join(' · ');
+    const spoiler=l.publico&&l.spoiler;
+    return `<article class="feed-card">
+      <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
+      <div class="feed-copy">
+        <div><span class="feed-user" onclick="abrirPerfilPublico('${esc(u.handle).replace(/'/g,"\'")}')">@${esc(u.handle)}</span><span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></div>
+        <div class="feed-title">${esc(livro.titulo)}</div>
+        <div class="feed-author">${esc(livro.autor)}</div>
+        ${edition?`<div class="feed-edition">${esc(edition)}</div>`:''}
+        ${l.nota?`<div class="feed-stars">${estrelasStr(l.nota)}</div>`:''}
+        ${l.relato&&!spoiler?`<div class="feed-quote">“${esc(l.relato)}”</div>`:''}
+        ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:''}
+        <div class="feed-date">${esc(dataFeed(it.created_at))}</div>
+      </div>
+    </article>`;
+  }).join('');
+}
+async function carregarFeed(){
+  const box=$('#feed'); if(box) box.innerHTML=`<div class="empty">${t('loading_activity')}</div>`;
+  try{ const data=await (await fetch('/api/feed')).json(); feedFollowingCount=data.following_count||0; feedItems=data.items||[]; }
+  catch(e){ feedFollowingCount=1; feedItems=[]; }
+  renderFeed();
+}
+function abrirPerfilPublico(handle){ if(handle) location.href='/u/'+encodeURIComponent(handle); }
 
 
 function normBusca(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
@@ -1148,7 +1221,8 @@ async function removerLeitura(){
 
 /* init */
 async function init(){
-  registrarHistorico('buscar','home',true);
+  const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
+  history.replaceState(estadoInicial,'');
   tratarMensagemConta();
   renderChips();
   atualizarSeletorIdioma();
@@ -1160,5 +1234,6 @@ async function init(){
     $('#crumb').classList.add('visible');
   }catch(e){}
   await carregarPrateleira();
+  aplicarHistorico(estadoInicial);
 }
 init();
