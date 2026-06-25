@@ -260,72 +260,6 @@ function renderLendoAgora(){
 
 
 
-const EDITORAS_BR = ['companhia das letras','editora 34','penguin companhia','martin claret','antofagica','nova fronteira','jose olympio','record','l&pm','l pm','todavia'];
-const TERMOS_NAO_OBRA = ['tese','dissertacao','seminario','estudo critico','resumo','analise','biografia','correspondencia','ensaio sobre','thesis','dissertation','study','studies','essays','critique','analysis','biography','correspondence'];
-function normalizarTextoBase(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
-function normalizarTituloObra(titulo){
-  return normalizarTextoBase(titulo)
-    .replace(/&/g,' e ')
-    .split(':')[0]
-    .replace(/[^a-z0-9\s]/g,' ')
-    .replace(/\b(romance|novel|livro|volume|vol)\b/g,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-function autorPrincipal(autor){return (autor||'').toString().split(/[,;\/]|\be\b|\band\b/i)[0].trim();}
-function normalizarAutorObra(autor){return normalizarTextoBase(autorPrincipal(autor)).replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();}
-function chaveObra(doc){return `${normalizarTituloObra(doc?.titulo||doc?.titulo_edicao)}|${normalizarAutorObra(doc?.autor)}`;}
-function dadosEdicaoDeDoc(doc){
-  const ed=doc?.edicao_isbn||{};
-  return {
-    titulo_edicao:ed.titulo_edicao||doc?.titulo,
-    editora:ed.editora||doc?.editora||'',
-    ano:ed.ano||doc?.ano||'',
-    tradutor:ed.tradutor||doc?.tradutor||'',
-    isbn:ed.isbn||doc?.isbn||'',
-    idioma:ed.idioma||doc?.idioma||doc?.idioma_original||'',
-    capa_url:ed.capa_url||doc?.capa_url||'',
-    ol_edition_key:ed.ol_edition_key||doc?.ol_edition_key||null,
-    pais:ed.pais||doc?.pais||''
-  };
-}
-function edicaoAssinatura(e){return [normalizarTituloObra(e?.titulo_edicao),normalizarTextoBase(e?.editora),e?.ano||'',normalizarTextoBase(e?.isbn)].join('|');}
-function mesclarEdicoesUnicas(destino, edicoes){
-  const vistos=new Set(destino.map(edicaoAssinatura));
-  (edicoes||[]).forEach(e=>{ const sig=edicaoAssinatura(e); if(sig && !vistos.has(sig)){ vistos.add(sig); destino.push(e); } });
-}
-function agruparResultadosPorObra(docs,q){
-  const mapa=new Map();
-  (docs||[]).forEach((doc,idx)=>{
-    const key=chaveObra(doc)||`sem-chave-${idx}`;
-    const eds=Array.isArray(doc?.edicoes)&&doc.edicoes.length ? doc.edicoes : [dadosEdicaoDeDoc(doc)];
-    if(!mapa.has(key)) mapa.set(key,{...doc, key, indices:[], edicoes:[], edicoesEncontradas:0, scoreAgrupamento:scoreResultadoBusca(doc,q)});
-    const obra=mapa.get(key);
-    obra.indices.push(idx);
-    obra.scoreAgrupamento=Math.max(obra.scoreAgrupamento,scoreResultadoBusca(doc,q));
-    if(!obra.capa_url && doc?.capa_url) obra.capa_url=doc.capa_url;
-    if(!obra.autor && doc?.autor) obra.autor=doc.autor;
-    if(!obra.titulo && doc?.titulo) obra.titulo=doc.titulo;
-    if(doc?.tem_pt) obra.tem_pt=true;
-    mesclarEdicoesUnicas(obra.edicoes, eds);
-    obra.edicoesEncontradas=obra.edicoes.length;
-  });
-  return [...mapa.values()].sort((a,b)=>(b.scoreAgrupamento-a.scoreAgrupamento)||(b.edicoesEncontradas-a.edicoesEncontradas));
-}
-function edicaoTemCapa(e){return !!(e?.capa_url);}
-function scoreEdicao(e){
-  const texto=normalizarTextoBase([e?.titulo_edicao,e?.editora,e?.idioma,e?.pais,e?.tradutor].filter(Boolean).join(' '));
-  let score=0;
-  if(texto.includes('portugues')||texto.includes('pt-br')||texto.includes('brasil')) score+=120;
-  if(EDITORAS_BR.some(ed=>texto.includes(ed))) score+=75;
-  if(edicaoTemCapa(e)) score+=35;
-  ['editora','tradutor','isbn','ano','idioma'].forEach(c=>{ if(e?.[c]) score+=12; });
-  if(TERMOS_NAO_OBRA.some(t=>texto.includes(t))) score-=90;
-  if(!(texto.includes('portugues')||texto.includes('brasil')) && /(english|ingles|french|frances|spanish|espanhol|german|alemao)/.test(texto)) score-=35;
-  return score;
-}
-function ordenarEdicoesObra(edicoes){return (edicoes||[]).map((e,i)=>({e,i,s:scoreEdicao(e)})).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(x=>x.e);}
-
 function normBusca(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function buscaPedeIdiomaEstrangeiro(q){
   const qn=normBusca(q);
@@ -343,10 +277,10 @@ function scoreResultadoBusca(doc,q){
   const temPt=!!doc?.tem_pt || ptSinais.some(t=>textoPad.includes(t));
   if(temPt) score+=90;
   if(edicoes.some(e=>normBusca(e.idioma).includes('portugues'))) score+=55;
-  ['brasil','companhia das letras','editora 34','penguin companhia','martin claret','antofagica','nova fronteira','jose olympio','record','l&pm','l pm','todavia'].forEach(t=>{ if(texto.includes(t)) score+=26; });
+  ['brasil',...EDITORAS_BR].forEach(t=>{ if(texto.includes(t)) score+=26; });
   const estrangeiro=['frances','ingles','espanhol','allemand','french','english','spanish'];
   if(!buscaPedeIdiomaEstrangeiro(q) && estrangeiro.some(t=>texto.includes(t))) score-=45;
-  ['thesis','dissertation','study','studies','essays','critique','analysis','biography','lettres','correspondance','etudes','resumo','analise','ensaio','tese','dissertacao','seminario','biografia'].forEach(t=>{ if(texto.includes(t)) score-=55; });
+  TERMOS_PENALIZADOS.forEach(t=>{ if(texto.includes(t)) score-=55; });
   const titulo=normBusca(doc?.titulo);
   if(titulo && qn && (titulo===qn || titulo.includes(qn) || qn.includes(titulo))) score+=35;
   return score;
@@ -360,6 +294,7 @@ const TERMOS_PENALIZADOS = ['tese','dissertacao','seminario','estudo critico','r
 function normalizarTextoObra(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[–—-]/g,' ').replace(/[^\p{L}\p{N}\s:]/gu,' ').replace(/\s+/g,' ').trim();
 }
+const normalizarTextoBase = normalizarTextoObra;
 function normalizarTituloObra(t){
   const base=normalizarTextoObra(t);
   const partes=base.split(':').map(p=>p.trim()).filter(Boolean);
@@ -402,26 +337,33 @@ function scoreEdicao(e,doc={}){
 function ordenarEdicoesObra(edicoes,doc={}){
   return (edicoes||[]).map((e,i)=>({e,i,s:scoreEdicao(e,doc)})).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(x=>x.e);
 }
+function assinaturaEdicaoObra(e){
+  return [normalizarTituloObra(e?.titulo_edicao),normalizarTextoObra(e?.editora),e?.ano||'',normalizarTextoObra(e?.isbn)].join('|');
+}
+function adicionarEdicoesUnicas(destino, edicoes){
+  const vistas=new Set(destino.map(assinaturaEdicaoObra));
+  (edicoes||[]).forEach(e=>{
+    const assinatura=assinaturaEdicaoObra(e);
+    if(assinatura && !vistas.has(assinatura)){ vistas.add(assinatura); destino.push(e); }
+  });
+}
 function agruparResultadosPorObra(docs,q){
   const grupos=[]; const porChave=new Map();
   (docs||[]).forEach((doc,idx)=>{
     const chave=chaveAgrupamentoObra(doc,idx);
     let g=porChave.get(chave);
     if(!g){
-      g={...doc, chave_obra:chave, docs:[], edicoes_encontradas:0, score_obra:0};
+      g={...doc, chave_obra:chave, docs:[], edicoes:[], edicoes_encontradas:0, score_obra:scoreResultadoBusca(doc,q)};
       grupos.push(g); porChave.set(chave,g);
     }
     const eds=edicoesDoDoc(doc);
     g.docs.push(doc);
-    g.edicoes_encontradas += Math.max(eds.length, doc?.isbn_match?1:0, 1);
+    adicionarEdicoesUnicas(g.edicoes, eds);
+    g.edicoes_encontradas=g.edicoes.length || g.docs.length;
     const s=scoreResultadoBusca(doc,q);
     if(s>g.score_obra || !g.capa_url){
       g.score_obra=s; g.titulo=doc.titulo||g.titulo; g.autor=doc.autor||g.autor; g.ano=doc.ano||g.ano; g.capa_url=doc.capa_url||g.capa_url; g.tem_pt=doc.tem_pt||g.tem_pt; g.work_key=doc.work_key||g.work_key; g.idioma_original=doc.idioma_original||g.idioma_original;
     }
-  });
-  grupos.forEach(g=>{
-    const embutidas=g.docs.flatMap(edicoesDoDoc);
-    if(embutidas.length) g.edicoes_encontradas=embutidas.length;
   });
   return grupos.sort((a,b)=>(b.score_obra-a.score_obra)||(b.edicoes_encontradas-a.edicoes_encontradas));
 }
@@ -451,15 +393,15 @@ async function buscar(){
   try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
   catch(e){ $('#resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
   resultadosArr=ordenarResultadosBusca(docs||[], q);
-  obrasBusca=agruparResultadosPorObra(resultadosArr, q);
-  if(!obrasBusca.length){
+  obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
+  if(!obrasAgrupadas.length){
     $('#resultados').innerHTML=manualCtaHTML(true);
     return;
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
-    resultadosArr.map((d,i)=>`<div class="book" onclick="verObraResultado(${i})">
+  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">obras encontradas</h2></div><div class="wall">'+
+    obrasAgrupadas.map((d,i)=>`<div class="book work-card" onclick="verEdicoes(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
@@ -468,11 +410,6 @@ async function buscar(){
 }
 
 /* edições */
-function verObraResultado(i){
-  const doc=resultadosArr[i];
-  escolha=obrasAgrupadas.find(o=>o.indices?.includes(i))||doc;
-  verEdicoes();
-}
 async function carregarSocialObra(){
   obraSocial={estatisticas:{leituras:0,criticas:0,media:null},edicoes:[],criticas:[],destaques:[],minha_leitura:null};
   if(!escolha) return obraSocial;
