@@ -5,7 +5,7 @@ const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
 const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O Aleph','O Morro dos Ventos Uivantes'];
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
-let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], prateleira=[], cardAtual=null, notaEdit=0;
+let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
 let filtroEstante='Todos';
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
@@ -220,6 +220,7 @@ function limparBusca(){
   edicoesAtual=[];
   escolha=null;
   edicaoSel=null;
+  obraSocial=null;
   $('#resultados').innerHTML='';
   $('#edicoes').innerHTML='';
   $('#form').innerHTML='';
@@ -457,8 +458,8 @@ async function buscar(){
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">obras encontradas</h2></div><div class="wall works-wall">'+
-    obrasBusca.map((d,i)=>`<div class="book work-card" onclick="verEdicoes(${i})">
+  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
+    resultadosArr.map((d,i)=>`<div class="book" onclick="verObraResultado(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
@@ -467,12 +468,33 @@ async function buscar(){
 }
 
 /* edições */
+function verObraResultado(i){
+  const doc=resultadosArr[i];
+  escolha=obrasAgrupadas.find(o=>o.indices?.includes(i))||doc;
+  verEdicoes();
+}
+async function carregarSocialObra(){
+  obraSocial={estatisticas:{leituras:0,criticas:0,media:null},edicoes:[],criticas:[],destaques:[],minha_leitura:null};
+  if(!escolha) return obraSocial;
+  const params=new URLSearchParams({work_key:escolha.work_key||'',titulo:escolha.titulo||'',autor:escolha.autor||''});
+  try{ obraSocial=await (await fetch('/api/obra/social?'+params.toString())).json(); }catch(e){}
+  return obraSocial;
+}
 async function verEdicoes(i){
-  escolha=obrasBusca[i];
+  if(Number.isInteger(i)) escolha=obrasAgrupadas[i]||resultadosArr[i];
+  if(!escolha){
+    $('#edicoes').innerHTML='<div class="busca-back" onclick="mostrarBusca(\'resultados\')">‹ resultados</div><div class="empty">não encontrei essa obra. tente buscar de novo.</div>';
+    mostrarBusca('edicoes');
+    return;
+  }
   $('#form').innerHTML='';
-  const embutidas=(escolha.docs||[escolha]).flatMap(edicoesDoDoc);
-  if(embutidas.length){
-    edicoesAtual=ordenarEdicoesObra(embutidas, escolha); renderEdicoes(); mostrarBusca('edicoes'); return;
+  // GB já trouxe as edições embutidas → zero chamada extra
+  if(escolha.edicoes && escolha.edicoes.length){
+    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(escolha.edicoes); renderEdicoes(); mostrarBusca('edicoes'); return;
+  }
+  // busca por ISBN → edição única
+  if(escolha.isbn_match && escolha.edicao_isbn){
+    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra([escolha.edicao_isbn]); renderEdicoes(); mostrarBusca('edicoes'); return;
   }
   // fallback Open Library (obras sem edições embutidas)
   $('#edicoes').innerHTML='<div class="empty">carregando edições…</div>';
@@ -480,31 +502,60 @@ async function verEdicoes(i){
   let eds;
   try{ eds=await (await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key))).json(); }
   catch(e){ $('#edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
-  edicoesAtual=ordenarEdicoesObra(eds||[], escolha); renderEdicoes();
+  await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(eds||[]); renderEdicoes();
+}
+function fmtMedia(n){return n?Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' ★':'sem média';}
+function edicaoSocial(e){
+  const stats=(obraSocial?.edicoes||[]);
+  const sig=normalizarTextoBase([e.editora,e.ano,e.isbn,e.idioma].filter(Boolean).join('|'));
+  return stats.find(st=>st.edicao_id && e.edicao_id===st.edicao_id) || stats.find(st=>{
+    const ed=st.edicao||{};
+    const s2=normalizarTextoBase([ed.editora,ed.ano,ed.isbn,ed.idioma].filter(Boolean).join('|'));
+    return sig && s2 && sig===s2;
+  }) || null;
+}
+function criticasHTML(){
+  const recentes=obraSocial?.criticas||[];
+  const destaques=obraSocial?.destaques||[];
+  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">Críticas da comunidade</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>Ainda não há críticas públicas para esta obra.<br>Seja a primeira pessoa a registrar uma leitura.</p><button class="btn-cta" onclick="registrarLeituraObra()">Registrar minha leitura</button></div></section>`;
+  const card=c=>`<article class="review-card"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):'sem nota'}</span></div><p>${esc(c.relato)}</p><div class="review-meta">${[c.edicao?.editora,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ')}</div></article>`;
+  return `<section class="community-section"><div class="section-head"><h2 class="h-section">Críticas da comunidade</h2></div>${destaques.length?`<div class="label community-label">mais destacadas</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">recentes</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
+}
+function registrarLeituraObra(){
+  if(edicoesAtual.length===1){ escolherEdicao(0); return; }
+  toast('escolha uma edição para registrar sua leitura');
+  document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function verMinhaLeitura(){
+  const idx=prateleira.findIndex(l=>l.leitura_id===obraSocial?.minha_leitura?.leitura_id);
+  if(idx>=0) abrirCard(idx); else irPara('estante');
 }
 function renderEdicoes(){
   if(!edicoesAtual.length){$('#edicoes').innerHTML='<div class="busca-back" onclick="mostrarBusca(\'resultados\')">‹ resultados</div><div class="empty">sem edições listadas.</div>';return;}
+  const st=obraSocial?.estatisticas||{};
+  const media=st.media?fmtMedia(st.media):'sem média ainda';
+  const leituras=st.leituras||0, criticas=st.criticas||0;
   const back=`<div class="busca-back" onclick="mostrarBusca('resultados')">‹ resultados</div>`;
-  const cab=`<div class="work-head">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
+  const cab=`<div class="work-head social-work-head">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
     <div class="wmeta"><div class="label">obra</div><h2>${esc(escolha.titulo)}</h2>
       <div class="a">${esc(escolha.autor)}</div>
-      <div class="meta y">${[escolha.ano?'orig. '+escolha.ano:'',edicoesAtual.length+(edicoesAtual.length===1?' edição':' edições')].filter(Boolean).join(' · ')}</div>
+      <div class="community-score"><strong>${media}</strong><span>${leituras} ${leituras===1?'leitura':'leituras'} · ${criticas} ${criticas===1?'crítica':'críticas'}</span></div>
+      <div class="work-actions"><button onclick="registrarLeituraObra()">Registrar leitura</button><button onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">Ver edições</button><button onclick="abrirManual()">Cadastrar edição manualmente</button></div>
     </div></div>`;
-  $('#edicoes').innerHTML=back+cab+'<div class="label" style="margin-bottom:6px">edições</div><ul class="editions">'+
-    edicoesAtual.map((e,j)=>{
-      const pt=normalizarTextoObra(e.idioma).includes('portugues') || normalizarTextoObra(e.idioma).includes('pt');
-      const tr=e.tradutor?`trad. <b>${esc(e.tradutor)}</b>`:`<span class="none">tradutor não informado</span>`;
-      return `<li class="edition edition-card" onclick="escolherEdicao(${j})">
-        <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url||escolha.capa_url,pt?'<span class="pt">PT</span>':'')}</div>
-        <div class="edition-info">
-          <div class="pub">${esc(e.editora||'editora não informada')}${pt?' · PT/BR':''}</div>
-          <div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div>
-          <div class="tr">${tr}</div>
-          <div class="ln meta">${[e.ano,e.idioma,e.pais,e.isbn].filter(Boolean).map(esc).join('  ·  ')}</div>
-          <div class="edition-action">Adicionar esta edição</div>
-        </div>
-      </li>`;
-    }).join('')+'</ul>';
+  const minhas=obraSocial?.minha_leitura?`<button class="work-my-reading" onclick="verMinhaLeitura()">Ver minha leitura</button>`:`<button class="work-my-reading" onclick="registrarLeituraObra()">Registrar minha leitura</button>`;
+  const maisLida=(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
+  const cards=edicoesAtual.map((e,j)=>{
+    const pt=normalizarTextoBase(e.idioma).includes('portugues')||normalizarTextoBase(e.pais).includes('brasil');
+    const social=edicaoSocial(e);
+    const isMaisLida=social&&maisLida&&social.edicao_id===maisLida.edicao_id;
+    const grupo=isMaisLida?'mais lida':(pt?'português/Brasil':'outras edições');
+    const tr=e.tradutor?`trad. <b>${esc(e.tradutor)}</b>`:`<span class="none">tradutor não informado</span>`;
+    const stats=social?`<div class="edition-stats">${social.leituras||0} leituras${social.media?' · '+fmtMedia(social.media):''}</div>`:'';
+    return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
+      <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
+      <div class="edition-body"><div class="pub">${esc(e.editora||'editora não informada')}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta">${[e.ano,e.idioma,e.pais,e.isbn].filter(Boolean).map(esc).join('  ·  ')}</div>${stats}<button class="edition-action" type="button">Adicionar esta edição</button></div></li>`;
+  }).join('');
+  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>média da comunidade</small></div><div><span>${leituras}</span><small>leituras</small></div><div><span>${criticas}</span><small>críticas públicas</small></div></section>${minhas}<div class="section-head"><h2 class="h-section">Edições</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
 }
 
 /* registrar */

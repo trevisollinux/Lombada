@@ -15,7 +15,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlmodel import SQLModel, Session, select
+from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, get_session, migrar
@@ -143,6 +143,86 @@ def capa(url: str = Query(..., min_length=8)):
         raise
     except Exception as e:
         raise HTTPException(502, f"capa indisponível: {e}")
+
+
+def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
+    rows = s.exec(
+        select(Leitura, Edicao, Obra, Usuario)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .join(Usuario, Leitura.usuario_id == Usuario.id)
+        .where(Obra.id == obra.id)
+        .order_by(Leitura.criado_em.desc())
+    ).all()
+    leituras = [l for (l, _ed, _o, _u) in rows]
+    notas = [l.nota for l in leituras if l.nota is not None]
+    por_edicao: dict[int, dict] = {}
+    criticas = []
+    minha = None
+    for l, ed, _o, u in rows:
+        bucket = por_edicao.setdefault(ed.id, {"leituras": 0, "notas": []})
+        bucket["leituras"] += 1
+        if l.nota is not None:
+            bucket["notas"].append(l.nota)
+        if usuario_id and l.usuario_id == usuario_id and minha is None:
+            minha = {"leitura_id": l.id, "edicao_id": ed.id, "status": l.status}
+        relato = (l.relato or "").strip()
+        if relato:
+            criticas.append({
+                "leitura_id": l.id, "nota": l.nota, "relato": relato, "data": l.data,
+                "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
+                "edicao_id": ed.id, "edicao": {
+                    "editora": ed.editora, "ano": ed.ano, "tradutor": ed.tradutor,
+                    "isbn": ed.isbn, "idioma": ed.idioma, "capa_url": ed.capa_url,
+                }
+            })
+    edicoes = []
+    ed_por_id = {ed.id: ed for (_l, ed, _o, _u) in rows}
+    for ed_id, st in por_edicao.items():
+        ed = ed_por_id.get(ed_id)
+        edicoes.append({
+            "edicao_id": ed_id,
+            "leituras": st["leituras"],
+            "media": round(sum(st["notas"]) / len(st["notas"]), 2) if st["notas"] else None,
+            "edicao": {
+                "editora": ed.editora if ed else "", "ano": ed.ano if ed else None,
+                "tradutor": ed.tradutor if ed else "", "isbn": ed.isbn if ed else "",
+                "idioma": ed.idioma if ed else "", "capa_url": ed.capa_url if ed else "",
+            },
+        })
+    return {
+        "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor},
+        "estatisticas": {
+            "leituras": len(leituras),
+            "criticas": len(criticas),
+            "media": round(sum(notas) / len(notas), 2) if notas else None,
+        },
+        "edicoes": edicoes,
+        "criticas": criticas[:8],
+        "destaques": sorted(criticas, key=lambda c: ((c.get("nota") or 0), len(c.get("relato") or "")), reverse=True)[:3],
+        "minha_leitura": minha,
+    }
+
+
+@app.get("/api/obra/social")
+def obra_social(work_key: str = "", titulo: str = "", autor: str = "", request: Request = None,
+                s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    obra = None
+    if work_key:
+        obra = s.exec(select(Obra).where(Obra.ol_work_key == work_key)).first()
+    if not obra and titulo:
+        stmt = select(Obra).where(func.lower(Obra.titulo) == titulo.lower().strip())
+        if autor:
+            stmt = stmt.where(func.lower(Obra.autor) == autor.lower().strip())
+        obra = s.exec(stmt).first()
+    if not obra:
+        return {
+            "obra": {"work_key": work_key, "titulo": titulo, "autor": autor},
+            "estatisticas": {"leituras": 0, "criticas": 0, "media": None},
+            "edicoes": [], "criticas": [], "destaques": [], "minha_leitura": None,
+        }
+    return _obra_social_payload(obra, s, u.id)
 
 
 # ─── prateleira ───────────────────────────────────────────
