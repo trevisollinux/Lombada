@@ -1,13 +1,16 @@
 """
 Lombada — app FastAPI e rotas.
 """
+import html
 import ipaddress
+import json
 import os
 import socket
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
+from datetime import datetime
 from urllib.parse import urlparse
 
 import httpx
@@ -18,7 +21,7 @@ from pydantic import BaseModel
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, CatalogSuggestion, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -82,6 +85,84 @@ def proxy_capa(url: str) -> Response:
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
+
+ADMIN_EMAILS = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}
+SUGGESTION_TYPES = {"new_book", "new_edition", "correction", "cover"}
+
+
+def _is_admin(u: Usuario) -> bool:
+    return bool(u.email and u.email.lower().strip() in ADMIN_EMAILS)
+
+
+def _require_admin(request: Request, s: Session) -> Usuario:
+    u = usuario_sessao(request, s)
+    if not _is_admin(u):
+        raise HTTPException(403, "admin restrito")
+    return u
+
+
+def _clean_text(v, max_len: int = 240) -> str:
+    if v is None:
+        return ""
+    v = str(v).replace("\x00", "").strip()
+    v = html.escape(v, quote=False)
+    return v[:max_len]
+
+
+def _clean_url(v, max_len: int = 500) -> str:
+    v = _clean_text(v, max_len)
+    if not v:
+        return ""
+    p = urlparse(v)
+    if p.scheme != "https" or not p.netloc:
+        raise HTTPException(422, "URL da capa inválida")
+    return v
+
+
+def _entrada_payload(e: BaseModel) -> dict:
+    d = e.model_dump()
+    for k in ["titulo", "autor", "idioma_original", "titulo_edicao", "editora", "tradutor", "isbn", "idioma", "status", "relato", "data", "work_key"]:
+        if k in d:
+            d[k] = _clean_text(d.get(k), 500 if k == "relato" else 240)
+    if "capa_url" in d:
+        d["capa_url"] = _clean_url(d.get("capa_url"), 500) if d.get("capa_url") else ""
+    return d
+
+
+def _criar_sugestao(e: BaseModel, u: Usuario, s: Session, tipo: str = "new_book", target_type: str | None = None, target_id: int | None = None):
+    if tipo not in SUGGESTION_TYPES:
+        raise HTTPException(422, "tipo de sugestão inválido")
+    payload = _entrada_payload(e)
+    sug = CatalogSuggestion(
+        tipo=tipo, status="pending", payload_json=json.dumps(payload, ensure_ascii=False),
+        target_type=target_type, target_id=target_id, user_id=u.id, user_email=u.email or "",
+    )
+    s.add(sug); s.commit(); s.refresh(sug)
+    return sug
+
+
+def _buscar_catalogo_local(q: str, s: Session) -> list[dict]:
+    termo = f"%{q.lower().strip()}%"
+    rows = s.exec(
+        select(Obra, Edicao)
+        .join(Edicao, Edicao.obra_id == Obra.id)
+        .where((func.lower(Obra.titulo).like(termo)) | (func.lower(Obra.autor).like(termo)) | (func.lower(Edicao.isbn).like(termo)))
+        .limit(10)
+    ).all()
+    docs = []
+    for obra, ed in rows:
+        ed_doc = {
+            "ol_edition_key": ed.ol_edition_key or f"local:{ed.id}", "titulo_edicao": obra.titulo,
+            "editora": ed.editora, "tradutor": ed.tradutor, "isbn": ed.isbn, "idioma": ed.idioma,
+            "ano": ed.ano, "capa_url": ed.capa_url,
+        }
+        docs.append({
+            "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor,
+            "idioma_original": obra.idioma_original, "ano": obra.ano, "tem_pt": ed.idioma == "Português",
+            "capa_url": ed.capa_url, "isbn_match": False, "edicao_isbn": ed_doc, "edicoes": [ed_doc], "_fonte": "local",
+        })
+    return docs
+
 # ─── rotas ────────────────────────────────────────────────
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
@@ -98,31 +179,32 @@ def eu(request: Request, s: Session = Depends(get_session)):
 
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session)):
+    locais = _buscar_catalogo_local(q, s)
     isbn = normalizar_isbn(q)
     if isbn:
         try:
             achado = _edicao_por_isbn(isbn)
         except Exception:
             achado = None
-        return [achado] if achado else []
+        return ([achado] if achado else []) + locais
 
     cache = _cache_get(q, s)
     if cache:
-        return cache
+        return locais + cache
 
     try:
         docs = buscar_titulo_v2(q)
         if docs:
             _cache_set(q, docs, s)
-            return docs
+            return locais + docs
         docs = ol_buscar(q)
         _cache_set(q, docs, s)
-        return docs
+        return locais + docs
     except Exception:
         try:
             docs = ol_buscar(q)
             _cache_set(q, docs, s)
-            return docs
+            return locais + docs
         except Exception as e:
             raise HTTPException(502, f"busca indisponível: {e}")
 
@@ -298,8 +380,9 @@ class EntradaManual(EntradaPrateleira):
 @app.post("/api/manual")
 def adicionar_manual(e: EntradaManual, request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    leitura, obra, edicao = _criar_leitura(e, u.id, s, reutilizar_obra_manual=True)
-    return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
+    _validar_entrada_leitura(e)
+    sug = _criar_sugestao(e, u, s, tipo="new_book")
+    return {"suggestion_id": sug.id, "status": sug.status, "message": "Cadastro enviado para revisão. Se aprovado, aparecerá na Lombada."}
 
 
 @app.get("/api/prateleira")
@@ -373,6 +456,66 @@ def estante_publica(handle: str, s: Session = Depends(get_session)):
         return HTMLResponse(_pagina("estante não encontrada · Lombada", corpo), status_code=404)
     return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id)))
 
+
+
+# ─── admin de catálogo ────────────────────────────────────
+@app.get("/admin")
+def admin_page(request: Request, s: Session = Depends(get_session)):
+    _require_admin(request, s)
+    rows = s.exec(select(CatalogSuggestion).where(CatalogSuggestion.status == "pending").order_by(CatalogSuggestion.created_at.desc())).all()
+    items = []
+    for sug in rows:
+        payload = _esc(sug.payload_json or "{}")
+        items.append(
+            f'<article class="card-form" style="margin:16px 0">'
+            f'<div class="meta">#{sug.id} · {_esc(sug.tipo)} · {_esc(sug.user_email or str(sug.user_id or ""))} · {sug.created_at.isoformat()}</div>'
+            f'<pre style="white-space:pre-wrap;overflow:auto">{payload}</pre>'
+            f'<form method="post" action="/admin/suggestions/{sug.id}/approve" style="display:inline"><button>Aprovar</button></form> '
+            f'<form method="post" action="/admin/suggestions/{sug.id}/reject" style="display:inline"><button>Rejeitar</button></form> '
+            f'<form method="post" action="/admin/suggestions/{sug.id}/duplicate" style="display:inline"><button>Marcar duplicado</button></form>'
+            f'</article>'
+        )
+    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
+    return HTMLResponse(_pagina("Admin · Lombada", corpo))
+
+
+def _aprovar_sugestao(sug: CatalogSuggestion, admin: Usuario, s: Session):
+    if sug.status != "pending":
+        return
+    payload = json.loads(sug.payload_json or "{}")
+    if sug.tipo in {"new_book", "new_edition"}:
+        titulo = _clean_text(payload.get("titulo"), 240)
+        autor = _clean_text(payload.get("autor"), 240)
+        if not titulo or not autor:
+            raise HTTPException(422, "sugestão sem título/autor")
+        obra = s.exec(select(Obra).where(Obra.titulo == titulo, Obra.autor == autor)).first()
+        if not obra:
+            obra = Obra(ol_work_key=payload.get("work_key") or f"manual:{uuid4().hex}", titulo=titulo, autor=autor,
+                        idioma_original=_clean_text(payload.get("idioma_original"), 80), ano=payload.get("ano_obra"))
+            s.add(obra); s.commit(); s.refresh(obra)
+        edicao = Edicao(obra_id=obra.id, ol_edition_key=payload.get("ol_edition_key"), editora=_clean_text(payload.get("editora"), 160),
+                        tradutor=_clean_text(payload.get("tradutor"), 160), isbn=_clean_text(payload.get("isbn"), 32),
+                        idioma=_clean_text(payload.get("idioma"), 80), ano=payload.get("ano_edicao"), capa_url=_clean_url(payload.get("capa_url"), 500) if payload.get("capa_url") else "")
+        s.add(edicao); s.commit()
+    sug.status = "approved"; sug.reviewed_at = datetime.utcnow(); sug.reviewed_by = admin.email or admin.handle
+    s.add(sug); s.commit()
+
+
+@app.post("/admin/suggestions/{suggestion_id}/{action}")
+def admin_review(suggestion_id: int, action: str, request: Request, s: Session = Depends(get_session)):
+    admin = _require_admin(request, s)
+    sug = s.get(CatalogSuggestion, suggestion_id)
+    if not sug:
+        raise HTTPException(404, "sugestão não encontrada")
+    if action == "approve":
+        _aprovar_sugestao(sug, admin, s)
+    elif action in {"reject", "duplicate"}:
+        sug.status = "rejected" if action == "reject" else "duplicate"
+        sug.reviewed_at = datetime.utcnow(); sug.reviewed_by = admin.email or admin.handle
+        s.add(sug); s.commit()
+    else:
+        raise HTTPException(404, "ação inválida")
+    return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
 
 @app.get("/")
 def home():
