@@ -6,6 +6,7 @@ const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
+let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 let filtroEstante='Todos';
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
@@ -825,6 +826,30 @@ async function compartilharEstante(){
 
 /* ---------- card / modal ---------- */
 
+function nomeCapaCard(){
+  return cardCoverIndex===0 ? 'capa original' : `capa Lombada ${cardCoverIndex}`;
+}
+function atualizarControleCapaCard(){
+  const label=$('#cardCoverModeLabel');
+  if(label) label.textContent=nomeCapaCard();
+}
+function trocarCapaCard(){
+  if(!cardAtual)return;
+  cardCoverAutoLowRes=false;
+  cardCoverUserChanged=true;
+  cardCoverIndex=(cardCoverIndex+1)%5;
+  atualizarControleCapaCard();
+  drawCard(cardAtual);
+  toast(nomeCapaCard());
+}
+function usarCapaGeradaPorBaixaResolucao(){
+  if(cardCoverIndex!==0 || cardCoverAutoLowRes || cardCoverUserChanged)return;
+  cardCoverAutoLowRes=true;
+  cardCoverIndex=1;
+  atualizarControleCapaCard();
+  toast('capa baixa: usando capa Lombada 1');
+}
+
 function renderDetalheLivro(l){
   const campos=[
     ['editora',l.editora],
@@ -841,13 +866,21 @@ function renderDetalheLivro(l){
     : '<p class="detail-empty edition-note">dados da edição incompletos</p>';
   $('#bookDetail').innerHTML=`
     <section class="detail-head">
-      <div class="detail-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
+      <div class="detail-cover card-cover-toggle" role="button" tabindex="0" onclick="trocarCapaCard()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();trocarCapaCard()}" aria-label="trocar visual da capa no card compartilhável">
+        ${coverHTML(l.titulo,l.autor,l.capa_url,'')}
+        <span class="card-cover-hint">visual do card</span>
+      </div>
       <div class="detail-titleblock">
         <div class="label">detalhe do livro</div>
         <h2>${esc(l.titulo)}</h2>
         <p class="detail-author">${esc(l.autor)}</p>
         <span class="status-tag">${esc(l.status||'Lido')}</span>
       </div>
+    </section>
+    <section class="detail-section card-cover-control">
+      <div class="label">visual do card</div>
+      <p>toque na capa para trocar o visual do card</p>
+      <button class="btn-cover-card" type="button" onclick="trocarCapaCard()">trocar capa do card · <span id="cardCoverModeLabel">${nomeCapaCard()}</span></button>
     </section>
     <section class="detail-section detail-rating">
       <div class="detail-stars" aria-label="nota">${estrelasStr(nota)}</div>
@@ -865,6 +898,9 @@ function renderDetalheLivro(l){
 async function abrirCard(i,opcoes={}){
   const registrar=opcoes.registrar ?? true;
   cardAtual=prateleira[i];
+  cardCoverIndex=0;
+  cardCoverAutoLowRes=false;
+  cardCoverUserChanged=false;
   $('#editPanel').style.display='none';
   renderDetalheLivro(cardAtual);
   $('#modal').classList.add('open');
@@ -960,10 +996,12 @@ function drawCard(l){
     ctx.fillStyle='#A8842F';ctx.font="600 italic 40px Fraunces, serif";
     ctx.fillText('lombada.',110,yc+98);
   };
-  const fb=()=>{drawCoverArt(ctx,l,cx,cy,cw,ch);ctx.textAlign='left';txt();};
+  const fb=()=>{drawCoverArt(ctx,l,cx,cy,cw,ch,Math.max(0,cardCoverIndex-1));ctx.textAlign='left';txt();};
+  if(cardCoverIndex>0){fb();return;}
   if(l.capa_url){
     const im=new Image();im.crossOrigin='anonymous';
     im.onload=()=>{ if(im.naturalWidth<5){fb();return;}
+      if(im.naturalWidth<500 || im.naturalHeight<700){usarCapaGeradaPorBaixaResolucao();fb();return;}
       ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(cx+16,cy+20,cw,ch);
       ctx.save();ctx.beginPath();ctx.rect(cx,cy,cw,ch);ctx.clip();
       const ir=im.width/im.height,wr=cw/ch;let dw,dh,dx,dy;

@@ -203,6 +203,11 @@ input,textarea,select{font:inherit;color:inherit}
 .book-detail{display:flex;flex-direction:column;gap:16px;padding:4px 2px 0}
 .detail-head{display:grid;grid-template-columns:104px 1fr;gap:16px;align-items:start;padding-right:32px}
 .detail-cover .cover{width:104px;box-shadow:var(--shadow-sm)}
+.card-cover-toggle{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;cursor:pointer;color:inherit}
+.card-cover-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.card-cover-toggle .cover{transition:transform .18s ease,box-shadow .18s ease}
+.card-cover-toggle:hover .cover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(26,23,20,.22)}
+.card-cover-hint{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
 .detail-cover .cover.fallback{padding:10px 8px}
 .detail-cover .cover.fallback .ft{font-size:16px}
 .detail-titleblock{min-width:0;padding-top:2px}
@@ -211,6 +216,9 @@ input,textarea,select{font:inherit;color:inherit}
 .status-tag{display:inline-flex;margin-top:12px;border:1px solid rgba(168,132,47,.55);color:var(--ink-2);background:rgba(201,162,75,.12);padding:5px 8px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
 .detail-section{border-top:1px solid var(--rule);padding-top:14px}
 .detail-rating{display:flex;align-items:baseline;gap:10px;border-top:0;padding-top:0}
+.card-cover-control{display:grid;gap:8px}
+.card-cover-control p{color:var(--dim);font-size:14px;font-style:italic}
+.btn-cover-card{justify-self:start;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink-2);padding:10px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
 .detail-stars{font-family:"Space Mono",monospace;color:var(--gold);font-size:26px;letter-spacing:.05em;line-height:1}
 .detail-rating-number{font-family:"Space Mono",monospace;color:var(--ink-2);font-size:13px;letter-spacing:.06em}
 .detail-muted,.detail-empty{color:var(--dim);font-size:14px;font-style:italic}
