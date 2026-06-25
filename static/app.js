@@ -214,7 +214,17 @@ function onQInput(){
   const v=$('#q').value.trim();
   if(!v){ limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home'); }
 }
-function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML='';$('#form').innerHTML='';$('#manual').innerHTML=''; }
+function limparBusca(){
+  resultadosArr=[];
+  obrasAgrupadas=[];
+  edicoesAtual=[];
+  escolha=null;
+  edicaoSel=null;
+  $('#resultados').innerHTML='';
+  $('#edicoes').innerHTML='';
+  $('#form').innerHTML='';
+  $('#manual').innerHTML='';
+}
 
 /* feed da home — obras populares como mini estante (lista curada) */
 function renderChips(){
@@ -389,6 +399,11 @@ async function buscar(){
 /* edições */
 async function verEdicoes(i){
   escolha=obrasAgrupadas[i]||resultadosArr[i];
+  if(!escolha){
+    $('#edicoes').innerHTML='<div class="busca-back" onclick="mostrarBusca(\'resultados\')">‹ resultados</div><div class="empty">não encontrei essa obra. tente buscar de novo.</div>';
+    mostrarBusca('edicoes');
+    return;
+  }
   $('#form').innerHTML='';
   // GB já trouxe as edições embutidas → zero chamada extra
   if(escolha.edicoes && escolha.edicoes.length){
