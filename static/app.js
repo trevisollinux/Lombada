@@ -857,8 +857,8 @@ function renderPerfil(){
     <div class="pcard">
       <div class="profile-avatar">${esc(inicial)}</div>
       <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
-      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')}</div>
-      <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${lendo}</strong><span>${t('status_reading')}</span></div><div><strong>${quero}</strong><span>${t('status_want')}</span></div></div>
+      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · ${t('followers_count',{count:minhaConta.followers_count||0})} · ${t('following_count',{count:minhaConta.following_count||0})}</div>
+      <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${minhaConta.followers_count||0}</strong><span>${t('followers')}</span></div><div><strong>${minhaConta.following_count||0}</strong><span>${t('following')}</span></div></div>
       ${previewHTML}
       ${contaHTML}
       <div class="account-box theme-box">

@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, CatalogSuggestion, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, CatalogSuggestion, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -163,6 +163,35 @@ def _buscar_catalogo_local(q: str, s: Session) -> list[dict]:
         })
     return docs
 
+
+def _follow_counts(s: Session, usuario_id: int) -> dict:
+    return {
+        "followers_count": s.exec(select(func.count()).select_from(Follow).where(Follow.following_id == usuario_id)).one(),
+        "following_count": s.exec(select(func.count()).select_from(Follow).where(Follow.follower_id == usuario_id)).one(),
+    }
+
+
+def _is_following(s: Session, follower_id: int | None, following_id: int) -> bool:
+    if not follower_id or follower_id == following_id:
+        return False
+    return bool(s.exec(select(Follow).where(Follow.follower_id == follower_id, Follow.following_id == following_id)).first())
+
+
+def _profile_social_payload(s: Session, perfil: Usuario, atual: Usuario | None = None) -> dict:
+    atual_id = atual.id if atual else None
+    return {
+        **_follow_counts(s, perfil.id),
+        "is_following": _is_following(s, atual_id, perfil.id),
+        "is_me": bool(atual_id and atual_id == perfil.id),
+    }
+
+
+def _require_google_user(request: Request, s: Session) -> Usuario:
+    u = usuario_sessao(request, s)
+    if not u.google_sub:
+        raise HTTPException(403, "Entre com Google para seguir leitores.")
+    return u
+
 # ─── rotas ────────────────────────────────────────────────
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
@@ -174,6 +203,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
         "email": u.email,
         "logado": logado,
         "provedor": "google" if logado else "anonimo",
+        **_follow_counts(s, u.id),
     }
 
 
@@ -509,17 +539,44 @@ def remover_leitura(leitura_id: int, request: Request, s: Session = Depends(get_
 
 # ─── estante pública ──────────────────────────────────────
 @app.get("/api/u/{handle}")
-def estante_json(handle: str, s: Session = Depends(get_session)):
+def estante_json(handle: str, request: Request, s: Session = Depends(get_session)):
     u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
     if not u:
         raise HTTPException(404, "estante não encontrada")
+    atual = usuario_sessao(request, s)
     leituras = _leituras_de(s, u.id)
     perfil = resumo_perfil_publico(leituras)
-    return {"handle": u.handle, "nome": u.nome, "leituras": leituras, **perfil}
+    return {"handle": u.handle, "nome": u.nome, "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
+
+
+@app.post("/api/u/{handle}/follow")
+def seguir_usuario(handle: str, request: Request, s: Session = Depends(get_session)):
+    atual = _require_google_user(request, s)
+    alvo = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    if not alvo:
+        raise HTTPException(404, "perfil não encontrado")
+    if atual.id == alvo.id:
+        raise HTTPException(400, "você não pode seguir a si mesmo")
+    follow = s.exec(select(Follow).where(Follow.follower_id == atual.id, Follow.following_id == alvo.id)).first()
+    if not follow:
+        s.add(Follow(follower_id=atual.id, following_id=alvo.id)); s.commit()
+    return {"following": True, **_follow_counts(s, alvo.id)}
+
+
+@app.delete("/api/u/{handle}/follow")
+def deixar_de_seguir_usuario(handle: str, request: Request, s: Session = Depends(get_session)):
+    atual = _require_google_user(request, s)
+    alvo = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    if not alvo:
+        raise HTTPException(404, "perfil não encontrado")
+    follow = s.exec(select(Follow).where(Follow.follower_id == atual.id, Follow.following_id == alvo.id)).first()
+    if follow:
+        s.delete(follow); s.commit()
+    return {"following": False, **_follow_counts(s, alvo.id)}
 
 
 @app.get("/u/{handle}")
-def estante_publica(handle: str, s: Session = Depends(get_session)):
+def estante_publica(handle: str, request: Request, s: Session = Depends(get_session)):
     u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
     if not u:
         corpo = (
@@ -528,7 +585,8 @@ def estante_publica(handle: str, s: Session = Depends(get_session)):
             '<a class="cta" href="/">criar a minha estante →</a>'
         )
         return HTMLResponse(_pagina("estante não encontrada · Lombada", corpo), status_code=404)
-    return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id)))
+    atual = usuario_sessao(request, s)
+    return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id), _profile_social_payload(s, u, atual)))
 
 
 
