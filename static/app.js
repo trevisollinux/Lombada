@@ -24,14 +24,16 @@ function aplicarTema(tema){
   document.body.classList.toggle('theme-dark',t==='dark');
   document.body.classList.toggle('theme-light',t==='light');
   document.body.setAttribute('data-theme',t);
-  const btn=$('#themeToggle');
-  if(btn){ btn.textContent=t==='dark'?'☀':'☾'; btn.setAttribute('aria-label',t==='dark'?'usar tema claro':'usar tema escuro'); }
+  document.querySelectorAll('[name=\"themeChoice\"]').forEach(input=>{ input.checked=input.value===t; });
+}
+function definirTema(tema){
+  const prox=tema==='light'?'light':'dark';
+  localStorage.setItem(THEME_KEY,prox);
+  aplicarTema(prox);
 }
 function alternarTema(){
   const atual=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
-  const prox=atual==='dark'?'light':'dark';
-  localStorage.setItem(THEME_KEY,prox);
-  aplicarTema(prox);
+  definirTema(atual==='dark'?'light':'dark');
 }
 aplicarTema(temaInicial());
 
@@ -216,9 +218,8 @@ function limparBusca(){ $('#resultados').innerHTML='';$('#edicoes').innerHTML=''
 
 /* feed da home — obras populares como mini estante (lista curada) */
 function renderChips(){
-  if(!$('#searchHint')){
-    document.querySelector('.search').insertAdjacentHTML('afterend', '<p id="searchHint" class="search-hint">Busque por título, autor ou ISBN.<br><button class="link-manual" onclick="abrirManual()">Não encontrou? Cadastrar manualmente</button></p>');
-  }
+  const hint=$('#searchHint');
+  if(hint) hint.remove();
   $('#populares').innerHTML = SUGESTOES.map(s=>
     `<div class="book" onclick="buscarTermo('${esc(s).replace(/'/g,"\\'")}')">
        ${coverHTML(s,'','')}
@@ -287,6 +288,11 @@ function renderBuscaSkeleton(){
   </div>`;
   $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">buscando</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
 }
+function manualCtaHTML(destaque=false){
+  return destaque
+    ? `<div class="manual-cta prominent"><p>Não encontramos uma edição boa para essa busca.</p><button class="link-manual" onclick="abrirManual()">Cadastrar livro manualmente</button></div>`
+    : `<div class="manual-cta"><p>Não encontrou o livro?</p><button class="link-manual" onclick="abrirManual()">Cadastrar manualmente</button></div>`;
+}
 async function buscar(){
   const q=$('#q').value.trim(); if(q.length<2)return;
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
@@ -297,17 +303,17 @@ async function buscar(){
   catch(e){ $('#resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
   resultadosArr=ordenarResultadosBusca(docs||[], q);
   if(!resultadosArr.length){
-    $('#resultados').innerHTML=`<div class="empty-rich"><div class="ei">⌕</div>
-      <p>não encontrei nada para “${esc(q)}”.</p>
-      <button class="btn-secondary" onclick="abrirManual()">cadastrar manualmente</button></div>`;
+    $('#resultados').innerHTML=manualCtaHTML(true);
     return;
   }
-  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
+  const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
+  const precisaDestaque=melhorScore<40;
+  $('#resultados').innerHTML=(precisaDestaque?manualCtaHTML(true):'')+'<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
     resultadosArr.map((d,i)=>`<div class="book" onclick="verEdicoes(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
-      <div class="yr">${d.ano||''}${d.tem_pt?' · <span class="br">ed. BR</span>':''}</div></div>`).join('')+'</div>';
+      <div class="yr">${d.ano||''}${d.tem_pt?' · <span class="br">ed. BR</span>':''}</div></div>`).join('')+'</div>'+manualCtaHTML(false);
 }
 
 /* edições */
@@ -434,6 +440,7 @@ irPara('estante',{recarregar:false});
 }
 function abrirManual(){
   notaSel=0;
+  if($('#secBuscar')?.style.display==='none') irPara('buscar',{resetBusca:false,registrar:false,scrollTop:false});
   const q=$('#q')?.value.trim()||'';
   $('#manual').innerHTML=`
     <div class="busca-back" onclick="history.back()">‹ voltar</div>
@@ -619,6 +626,19 @@ function renderPerfil(){
       <div class="pcount">@${esc(meuHandle)} · ${n} ${n===1?'livro':'livros'}</div>
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>lidos</span></div><div><strong>${lendo}</strong><span>lendo</span></div><div><strong>${quero}</strong><span>quero ler</span></div></div>
       ${contaHTML}
+      <div class="account-box theme-box">
+        <div class="label">aparência</div>
+        <p>escolha como a Lombada aparece neste dispositivo</p>
+        <div class="theme-options" role="radiogroup" aria-label="tema">
+          <label class="theme-option"><input type="radio" name="themeChoice" value="light" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='light'?'checked':''}><span>Claro</span></label>
+          <label class="theme-option"><input type="radio" name="themeChoice" value="dark" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='dark'?'checked':''}><span>Escuro</span></label>
+        </div>
+      </div>
+      <div class="account-box library-box">
+        <div class="label">biblioteca</div>
+        <p>adicione uma obra que não apareceu na busca</p>
+        <button class="pbtn" onclick="abrirManual()">Cadastrar livro manualmente</button>
+      </div>
       <div class="pactions">
         <button class="pbtn solid" onclick="compartilharEstante()">compartilhar estante</button>
         <a class="pbtn" href="${esc(url)}" target="_blank">abrir estante pública</a>
