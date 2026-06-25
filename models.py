@@ -64,6 +64,8 @@ class Leitura(SQLModel, table=True):
     status:     str             = "Lido"
     nota:       Optional[float] = None
     relato:     str             = ""
+    publico:    bool            = False
+    spoiler:    bool            = False
     data:       str             = ""
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
@@ -101,6 +103,8 @@ def migrar():
     """Migrations retroativas (idempotentes — falham em silêncio se já aplicadas)."""
     ddls = [
         "ALTER TABLE leitura ADD COLUMN usuario_id INTEGER",
+        "ALTER TABLE leitura ADD COLUMN publico BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0",
         "ALTER TABLE usuario ADD COLUMN handle VARCHAR",
         "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR",
         "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''",

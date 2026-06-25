@@ -249,9 +249,10 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
         if usuario_id and l.usuario_id == usuario_id and minha is None:
             minha = {"leitura_id": l.id, "edicao_id": ed.id, "status": l.status}
         relato = (l.relato or "").strip()
-        if relato:
+        if l.publico and relato:
             criticas.append({
                 "leitura_id": l.id, "nota": l.nota, "relato": relato, "data": l.data,
+                "status": l.status, "spoiler": bool(l.spoiler),
                 "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
                 "edicao_id": ed.id, "edicao": {
                     "editora": ed.editora, "ano": ed.ano, "tradutor": ed.tradutor,
@@ -324,6 +325,8 @@ class EntradaPrateleira(BaseModel):
     status:          str           = "Lido"
     nota:            Optional[float] = None
     relato:          str           = ""
+    publico:         bool          = False
+    spoiler:         bool          = False
     data:            str           = ""
 
 
@@ -421,7 +424,8 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
     if leitura_existente:
         raise HTTPException(409, {"duplicado": True, "leitura_id": leitura_existente.id, "edicao_id": edicao_existente.id})
     leitura = Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status=e.status,
-                      nota=e.nota, relato=e.relato.strip(), data=e.data.strip())
+                      nota=e.nota, relato=e.relato.strip(), publico=bool(e.publico),
+                      spoiler=bool(e.spoiler), data=e.data.strip())
     s.add(leitura); s.commit(); s.refresh(leitura)
     return leitura, obra, edicao
 
@@ -458,7 +462,7 @@ def listar(request: Request, s: Session = Depends(get_session)):
     ).all()
     return [{
         "leitura_id": l.id, "status": l.status, "nota": l.nota,
-        "relato": l.relato, "data": l.data,
+        "relato": l.relato, "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data,
         "titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key,
         "edicao_id": ed.id, "ol_edition_key": ed.ol_edition_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
@@ -471,6 +475,8 @@ class PatchLeitura(BaseModel):
     nota:    Optional[float] = None
     relato:  Optional[str]   = None
     data:    Optional[str]   = None
+    publico: Optional[bool]  = None
+    spoiler: Optional[bool]  = None
 
 
 @app.patch("/api/prateleira/{leitura_id}")
@@ -481,10 +487,14 @@ def editar_leitura(leitura_id: int, patch: PatchLeitura, request: Request,
     if not l or l.usuario_id != u.id:
         raise HTTPException(404, "leitura não encontrada")
     for campo, valor in patch.model_dump(exclude_unset=True).items():
+        if campo == "status" and valor not in STATUS_LEITURA:
+            raise HTTPException(422, "status inválido")
+        if campo in {"relato", "data"} and valor is not None:
+            valor = valor.strip()
         setattr(l, campo, valor)
     s.add(l); s.commit(); s.refresh(l)
     return {"leitura_id": l.id, "status": l.status, "nota": l.nota,
-            "relato": l.relato, "data": l.data}
+            "relato": l.relato, "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data}
 
 
 @app.delete("/api/prateleira/{leitura_id}")
