@@ -155,6 +155,8 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     social = social or {"followers_count": 0, "following_count": 0, "is_following": False, "is_me": False}
     seguidores = int(social.get("followers_count") or 0)
     seguindo = int(social.get("following_count") or 0)
+    possui = int(social.get("edicoes_possui") or 0)
+    desejadas = int(social.get("edicoes_desejadas") or 0)
     social_count = f'<span id="followersCount">{seguidores}</span> seguidores · seguindo <span id="followingCount">{seguindo}</span>'
     follow_html = '<div class="follow-line">'
     if social.get("is_me"):
@@ -169,7 +171,7 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
         f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>'
         f'<div class="count">{cont} · {stats["lidos"]} lidos · {stats["lendo"]} lendo · {stats["quero_ler"]} quero ler</div>'
         f'<div class="count">{social_count}</div>{follow_html}'
-        f'<div class="metrics"><div class="pill">{cont}</div><div class="pill">{stats["lidos"]} lidos</div><div class="pill">{stats["lendo"]} lendo</div><div class="pill">{stats["quero_ler"]} quero ler</div><div class="pill"><span id="followersPill">{seguidores}</span> seguidores</div><div class="pill">seguindo <span id="followingPill">{seguindo}</span></div></div></div>'
+        f'<div class="metrics"><div class="pill">{cont}</div><div class="pill">{stats["lidos"]} lidos</div><div class="pill">{possui} edições na coleção</div><div class="pill">{desejadas} edições desejadas</div><div class="pill"><span id="followersPill">{seguidores}</span> seguidores</div><div class="pill">seguindo <span id="followingPill">{seguindo}</span></div></div></div>'
     )
     favs = _section("Favoritos", '<div class="shelf-strip favs">' + "".join(_card_publico(l) for l in resumo["favoritos"]) + '</div>') if resumo["favoritos"] else ""
     lendo = _section("Lendo agora", '<div class="shelf-strip">' + "".join(_card_publico(l) for l in resumo["lendo_agora"][:4]) + '</div>' if resumo["lendo_agora"] else '<div class="empty">nada em leitura agora.</div>')
@@ -180,7 +182,7 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     criticas = _section("Críticas públicas", reviews_html or '<div class="empty">ainda não há críticas públicas.</div>')
     ultimas = _section("Últimas leituras", '<div class="list">' + "".join(_row_livro(l) for l in resumo["ultimas_leituras"][:8]) + '</div>' if resumo["ultimas_leituras"] else '<div class="empty">estante ainda vazia.</div>')
     media = f'{stats["media_nota"]:.1f} ★' if stats["media_nota"] else "—"
-    estat = _section("Estatísticas", f'<div class="stats"><div class="stat"><strong>{n}</strong><span>livros</span></div><div class="stat"><strong>{stats["lidos"]}</strong><span>lidos</span></div><div class="stat"><strong>{stats["lendo"]}</strong><span>lendo</span></div><div class="stat"><strong>{stats["quero_ler"]}</strong><span>quero ler</span></div><div class="stat"><strong>{media}</strong><span>média de nota</span></div></div>')
+    estat = _section("Estatísticas", f'<div class="stats"><div class="stat"><strong>{n}</strong><span>livros</span></div><div class="stat"><strong>{stats["lidos"]}</strong><span>lidos</span></div><div class="stat"><strong>{possui}</strong><span>edições na coleção</span></div><div class="stat"><strong>{desejadas}</strong><span>edições desejadas</span></div><div class="stat"><strong>{media}</strong><span>média de nota</span></div></div>')
     corpo = header + favs + lendo + criticas + ultimas + estat + '<a class="cta" href="/">criar a minha estante →</a>'
     og = {"title": f"o perfil literário de @{u.handle}", "type": "website", "description": f"{cont} · {stats['lidos']} lidos · veja o perfil público de @{u.handle} na Lombada"}
     primeira = next((l.get("capa_url") for l in leituras if l.get("capa_url")), "")

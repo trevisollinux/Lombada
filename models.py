@@ -70,6 +70,18 @@ class Leitura(SQLModel, table=True):
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
 
+class UserEdition(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("usuario_id", "edicao_id", name="uq_useredition_pair"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    edicao_id: int = Field(foreign_key="edicao.id", index=True)
+    tenho: bool = Field(default=False)
+    quero: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class CatalogSuggestion(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     tipo: str = Field(default="new_book", index=True)
@@ -216,13 +228,16 @@ def migrar():
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_reviewreport_pair ON reviewreport (leitura_id, usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_leitura_id ON reviewreport (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_usuario_id ON reviewreport (usuario_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_useredition_pair ON useredition (usuario_id, edicao_id)",
+        "CREATE INDEX IF NOT EXISTS ix_useredition_usuario_id ON useredition (usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_useredition_edicao_id ON useredition (edicao_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_status ON reviewreport (status)",
     ]
     for ddl in ddls:
         _run_ddl("index/social", ddl)
 
     if postgres:
-        for table in ("catalogsuggestion", "follow", "reviewlike", "savedreview", "reviewreport"):
+        for table in ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport"):
             _run_ddl(
                 f"{table}.id identity",
                 f"""
