@@ -499,27 +499,15 @@ function renderEdicoes(){
 function escolherEdicao(j){
   edicaoSel=edicoesAtual[j]; notaSel=0;
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
+  const resumo=[edicaoSel.editora&&`Editora ${esc(edicaoSel.editora)}`,edicaoSel.ano&&esc(edicaoSel.ano),edicaoSel.tradutor&&`Trad. ${esc(edicaoSel.tradutor)}`,edicaoSel.isbn&&`ISBN ${esc(edicaoSel.isbn)}`,edicaoSel.idioma&&esc(edicaoSel.idioma)].filter(Boolean).join(' · ');
   $('#form').innerHTML=`
     <div class="busca-back" onclick="mostrarBusca('edicoes')">‹ edições</div>
     <div class="section-head"><h2 class="h-section">registrar leitura</h2></div>
     <div class="card-form">
-      <div style="font-family:'Fraunces',serif;font-style:italic;font-size:19px">${esc(titulo)}</div>
-      <div class="meta" style="margin:4px 0 16px">${[edicaoSel.editora,edicaoSel.ano].filter(Boolean).map(esc).join(' · ')}</div>
-      <div class="field"><label class="label">editora</label>
-        <input type="text" id="f_editora" value="${esc(edicaoSel.editora)}" placeholder="editora" /></div>
-      <div class="field"><label class="label">tradutor(a)</label>
-        <input type="text" id="f_trad" value="${esc(edicaoSel.tradutor)}" placeholder="quem traduziu" /></div>
-      <div class="row">
-        <div class="field"><label class="label">ISBN</label>
-          <input type="text" id="f_isbn" value="${esc(edicaoSel.isbn)}" placeholder="ISBN" /></div>
-        <div class="field"><label class="label">idioma</label>
-          <input type="text" id="f_idioma" value="${esc(edicaoSel.idioma)}" placeholder="ex: Português" /></div>
-      </div>
-      <div class="row">
-        <div class="field"><label class="label">ano da edição</label>
-          <input type="text" id="f_ano_edicao" value="${esc(edicaoSel.ano)}" placeholder="ex: 2019" /></div>
-        <div class="field"><label class="label">URL da capa</label>
-          <input type="text" id="f_capa_url" value="${esc(edicaoSel.capa_url)}" placeholder="https://..." /></div>
+      <div class="form-block"><div class="label">Edição escolhida</div>
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:19px">${esc(titulo)}</div>
+        <div class="meta" style="margin:4px 0 8px">${resumo||'dados catalográficos não informados'}</div>
+        <p class="muted">Dados de livro, edição, capa, editora, tradutor, ISBN, idioma e ano fazem parte do catálogo e não podem ser alterados no registro da leitura.</p>
       </div>
       <div class="field"><label class="label">sua nota</label><div class="stars" id="f_stars"></div></div>
       <div class="row">
@@ -558,9 +546,9 @@ async function salvar(){
   const body={
     work_key:escolha.work_key, titulo:escolha.titulo, autor:escolha.autor||'',
     idioma_original:escolha.idioma_original||'', ano_obra:escolha.ano||null,
-    ol_edition_key:edicaoSel.ol_edition_key||null, editora:$('#f_editora').value.trim(),
-    tradutor:$('#f_trad').value.trim(), isbn:$('#f_isbn').value.trim(), idioma:$('#f_idioma').value.trim(),
-    ano_edicao:parseInt($('#f_ano_edicao').value,10)||null, capa_url:$('#f_capa_url').value.trim(),
+    ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
+    tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
+    ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||'',
     status:$('#f_status').value, nota:notaSel||null,
     relato:$('#f_relato').value.trim(), data:$('#f_data').value.trim()
   };
@@ -605,7 +593,7 @@ function abrirManual(){
         <div class="field"><label class="label">nota</label><div class="stars" id="m_stars"></div></div>
         <div class="field"><label class="label">relato</label><textarea id="m_relato" maxlength="160"></textarea></div>
       </div>
-      <button class="btn-primary" onclick="salvarManual()">salvar na estante</button>
+      <button class="btn-primary" onclick="salvarManual()">enviar para revisão</button>
     </div>`;
   mostrarBusca('manual');
   montarStars('m_stars',()=>notaSel,v=>notaSel=v);
@@ -623,7 +611,7 @@ async function salvarManual(){
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
   catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
-  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast('salvo na sua estante'); await carregarPrateleira(); irPara('estante',{recarregar:false});
+  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast('Cadastro enviado para revisão. Se aprovado, aparecerá na Lombada.'); irPara('perfil',{recarregar:false});
 }
 
 /* estante */

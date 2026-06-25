@@ -68,6 +68,21 @@ class Leitura(SQLModel, table=True):
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
 
+class CatalogSuggestion(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tipo: str = Field(default="new_book", index=True)
+    status: str = Field(default="pending", index=True)
+    payload_json: str = ""
+    target_type: Optional[str] = Field(default=None, index=True)
+    target_id: Optional[int] = Field(default=None, index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="usuario.id", index=True)
+    user_email: Optional[str] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    review_note: str = ""
+
+
 class BuscaCache(SQLModel, table=True):
     id:               Optional[int] = Field(default=None, primary_key=True)
     query:            str           = Field(index=True)
@@ -92,6 +107,10 @@ def migrar():
         "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL",
         "ALTER TABLE usuario ALTER COLUMN senha_hash DROP NOT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_usuario_google_sub ON usuario (google_sub)",
+        "CREATE TABLE IF NOT EXISTS catalogsuggestion (id INTEGER PRIMARY KEY, tipo VARCHAR NOT NULL DEFAULT 'new_book', status VARCHAR NOT NULL DEFAULT 'pending', payload_json VARCHAR NOT NULL DEFAULT '', target_type VARCHAR, target_id INTEGER, user_id INTEGER, user_email VARCHAR, created_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, reviewed_by VARCHAR, review_note VARCHAR NOT NULL DEFAULT '')",
+        "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_status ON catalogsuggestion (status)",
+        "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_tipo ON catalogsuggestion (tipo)",
+        "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_user_id ON catalogsuggestion (user_id)",
     ]
     for ddl in ddls:
         try:
