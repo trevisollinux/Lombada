@@ -80,7 +80,7 @@ a{color:inherit;text-decoration:none}
 .head{border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:22px}
 .label{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
 h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:30px;line-height:1.05;margin:14px 0 4px}
-.count{font-family:"Space Mono",monospace;font-size:11px;color:var(--ink-2);letter-spacing:.04em}
+.count{font-family:"Space Mono",monospace;font-size:11px;color:var(--ink-2);letter-spacing:.04em}.follow-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}.follow-btn{border:1px solid var(--ink);background:transparent;color:var(--ink);padding:8px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}.follow-btn.active{background:var(--ink);color:var(--paper)}.you-note{font-family:"Space Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
 .wall{display:grid;grid-template-columns:repeat(2,1fr);gap:18px 14px}
 @media(min-width:420px){.wall{grid-template-columns:repeat(3,1fr)}}
 .cover{position:relative;aspect-ratio:2/3;background:var(--paper-3);box-shadow:var(--shadow);overflow:hidden}
@@ -98,7 +98,7 @@ h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:30px
 """
 
 
-def _pagina(titulo: str, corpo: str, og: dict | None = None) -> str:
+def _pagina(titulo: str, corpo: str, og: dict | None = None, scripts: str = "") -> str:
     og_tags = ""
     if og:
         for k, v in og.items():
@@ -108,7 +108,7 @@ def _pagina(titulo: str, corpo: str, og: dict | None = None) -> str:
         '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f'<title>{_esc(titulo)}</title>{og_tags}{_FONTES}'
-        f'<style>{_CSS}</style></head><body><div class="wrap">{corpo}</div></body></html>'
+        f'<style>{_CSS}</style></head><body><div class="wrap">{corpo}</div>{scripts}</body></html>'
     )
 
 
@@ -146,17 +146,30 @@ def _row_livro(l: dict) -> str:
     return f'<div class="row">{_card_publico(l).replace("book", "book mini", 1)}<div><div class="t">{_esc(l.get("titulo"))}</div><div class="a">{_esc(l.get("autor"))}</div><div class="meta">{_esc(l.get("status"))}{" · " + _estrelas(l.get("nota")) if l.get("nota") else ""}{" · " + _esc(l.get("data")) if l.get("data") else ""}{" · " + _meta_edicao(l) if _meta_edicao(l) else ""}{" <span class=\"badge\">tem crítica</span>" if l.get("publico") and l.get("relato") else ""}</div></div></div>'
 
 
-def render_estante_publica(u: Usuario, leituras: list) -> str:
+def render_estante_publica(u: Usuario, leituras: list, social: dict | None = None) -> str:
     resumo = resumo_perfil_publico(leituras)
     stats = resumo["stats"]
     n = stats["total"]
     cont = "1 livro" if n == 1 else f"{n} livros"
     nome = (u.nome or "").strip() or "Leitor Lombada"
+    social = social or {"followers_count": 0, "following_count": 0, "is_following": False, "is_me": False}
+    seguidores = int(social.get("followers_count") or 0)
+    seguindo = int(social.get("following_count") or 0)
+    social_count = f'<span id="followersCount">{seguidores}</span> seguidores · seguindo <span id="followingCount">{seguindo}</span>'
+    follow_html = '<div class="follow-line">'
+    if social.get("is_me"):
+        follow_html += '<span class="you-note">este é seu perfil</span>'
+    else:
+        active = ' active' if social.get("is_following") else ''
+        label = 'seguindo' if social.get("is_following") else 'seguir'
+        follow_html += f'<button id="followBtn" class="follow-btn{active}" data-following="{str(bool(social.get("is_following"))).lower()}" onclick="toggleFollow()">{label}</button>'
+    follow_html += '</div>'
     header = (
         f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
         f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>'
         f'<div class="count">{cont} · {stats["lidos"]} lidos · {stats["lendo"]} lendo · {stats["quero_ler"]} quero ler</div>'
-        f'<div class="metrics"><div class="pill">{cont}</div><div class="pill">{stats["lidos"]} lidos</div><div class="pill">{stats["lendo"]} lendo</div><div class="pill">{stats["quero_ler"]} quero ler</div></div></div>'
+        f'<div class="count">{social_count}</div>{follow_html}'
+        f'<div class="metrics"><div class="pill">{cont}</div><div class="pill">{stats["lidos"]} lidos</div><div class="pill">{stats["lendo"]} lendo</div><div class="pill">{stats["quero_ler"]} quero ler</div><div class="pill"><span id="followersPill">{seguidores}</span> seguidores</div><div class="pill">seguindo <span id="followingPill">{seguindo}</span></div></div></div>'
     )
     favs = _section("Favoritos", '<div class="shelf-strip favs">' + "".join(_card_publico(l) for l in resumo["favoritos"]) + '</div>') if resumo["favoritos"] else ""
     lendo = _section("Lendo agora", '<div class="shelf-strip">' + "".join(_card_publico(l) for l in resumo["lendo_agora"][:4]) + '</div>' if resumo["lendo_agora"] else '<div class="empty">nada em leitura agora.</div>')
@@ -173,4 +186,24 @@ def render_estante_publica(u: Usuario, leituras: list) -> str:
     primeira = next((l.get("capa_url") for l in leituras if l.get("capa_url")), "")
     if primeira:
         og["image"] = primeira
-    return _pagina(f"@{u.handle} · Lombada", corpo, og)
+    scripts = """<script>
+const PROFILE_HANDLE={json_handle};
+async function toggleFollow(){{
+  const btn=document.getElementById('followBtn'); if(!btn) return;
+  const following=btn.dataset.following==='true';
+  btn.disabled=true;
+  try{{
+    const res=await fetch('/api/u/'+encodeURIComponent(PROFILE_HANDLE)+'/follow',{{method:following?'DELETE':'POST'}});
+    if(res.status===403){{ alert('Entre com Google para seguir leitores.'); location.href='/api/auth/google/login'; return; }}
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    btn.dataset.following=data.following?'true':'false';
+    btn.textContent=data.following?'seguindo':'seguir';
+    btn.classList.toggle('active',!!data.following);
+    ['followersCount','followersPill'].forEach(id=>{{const el=document.getElementById(id); if(el) el.textContent=data.followers_count;}});
+    ['followingCount','followingPill'].forEach(id=>{{const el=document.getElementById(id); if(el) el.textContent=data.following_count;}});
+  }}catch(e){{ alert('não foi possível atualizar agora.'); }}
+  finally{{ btn.disabled=false; }}
+}}
+</script>""".format(json_handle=repr(u.handle))
+    return _pagina(f"@{u.handle} · Lombada", corpo, og, scripts)

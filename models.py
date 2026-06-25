@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import text
-from sqlmodel import SQLModel, Field, create_engine, Session
+from sqlmodel import SQLModel, Field, UniqueConstraint, CheckConstraint, create_engine, Session
 
 # ─── config ───────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lombada.db")
@@ -85,6 +85,18 @@ class CatalogSuggestion(SQLModel, table=True):
     review_note: str = ""
 
 
+class Follow(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("follower_id", "following_id", name="uq_follow_pair"),
+        CheckConstraint("follower_id <> following_id", name="ck_follow_not_self"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    follower_id: int = Field(foreign_key="usuario.id", index=True)
+    following_id: int = Field(foreign_key="usuario.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class BuscaCache(SQLModel, table=True):
     id:               Optional[int] = Field(default=None, primary_key=True)
     query:            str           = Field(index=True)
@@ -115,6 +127,10 @@ def migrar():
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_status ON catalogsuggestion (status)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_tipo ON catalogsuggestion (tipo)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_user_id ON catalogsuggestion (user_id)",
+        "CREATE TABLE IF NOT EXISTS follow (id INTEGER PRIMARY KEY, follower_id INTEGER NOT NULL, following_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(follower_id) REFERENCES usuario(id), FOREIGN KEY(following_id) REFERENCES usuario(id), CONSTRAINT ck_follow_not_self CHECK (follower_id <> following_id))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_pair ON follow (follower_id, following_id)",
+        "CREATE INDEX IF NOT EXISTS ix_follow_follower_id ON follow (follower_id)",
+        "CREATE INDEX IF NOT EXISTS ix_follow_following_id ON follow (following_id)",
     ]
     for ddl in ddls:
         try:
