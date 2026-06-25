@@ -36,6 +36,13 @@ function alternarTema(){
   const atual=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
   definirTema(atual==='dark'?'light':'dark');
 }
+function mudarIdioma(locale){
+  setLocale(locale);
+  renderLendoAgora();
+  renderPrateleira();
+  renderDiario();
+  if($('#secPerfil')?.style.display!=='none') renderPerfil();
+}
 aplicarTema(temaInicial());
 
 let conviteLoginPendente=false;
@@ -60,13 +67,13 @@ function continuarSemConta(){
 function conviteLoginHTML(){
   if(!deveMostrarConviteLogin()) return '';
   const texto=conviteLoginPendente
-    ? 'sua leitura foi salva. conecte o Google para não perder sua estante.'
-    : 'conecte o Google para não perder sua estante.';
+    ? t('login_saved_hint')
+    : t('login_hint');
   return `<div class="login-hint" role="status">
     <p>${texto}</p>
     <div class="login-hint-actions">
-      <button class="login-hint-primary" onclick="conectarGoogle()">conectar Google</button>
-      <button class="login-hint-secondary" onclick="continuarSemConta()">continuar sem conta</button>
+      <button class="login-hint-primary" onclick="conectarGoogle()">${t('connect_google')}</button>
+      <button class="login-hint-secondary" onclick="continuarSemConta()">${t('continue_without_account')}</button>
     </div>
   </div>`;
 }
@@ -101,7 +108,7 @@ function encontrarLeituraDuplicada(body){
   );
 }
 function avisarDuplicado(leituraId){
-  toast('Este livro já está na sua estante.');
+  toast(t('duplicate_book'));
   fecharModalParaNavegacao();
   limparBusca();
   mostrarBusca('home',{registrar:false});
@@ -118,8 +125,8 @@ async function payloadErro(r){
 function tratarMensagemConta(){
   const params=new URLSearchParams(location.search);
   const conta=params.get('conta');
-  if(conta==='ok') toast('conta conectada com sucesso');
-  if(conta==='erro') toast('não foi possível conectar sua conta');
+  if(conta==='ok') toast(t('account_connected_success'));
+  if(conta==='erro') toast(t('account_connected_error'));
   if(conta){
     params.delete('conta');
     const qs=params.toString();
@@ -272,11 +279,11 @@ function lendoAgoraCard(l,idx,compacto=false){
   return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
-      <div class="label">lendo agora</div>
+      <div class="label">${t('reading_now')}</div>
       <h3>${esc(l.titulo)}</h3>
       <p>${esc(l.autor)}</p>
       <div class="reading-spacer"></div>
-      <div class="reading-meta">${progresso}% concluído</div>
+      <div class="reading-meta">${t('percent_done',{count:progresso})}</div>
       <div class="reading-progress"><span style="width:${progresso}%"></span></div>
     </div>
   </div>`;
@@ -286,7 +293,7 @@ function renderLendoAgora(){
   const box=$('#lendoAgora');
   if(!lendo.length){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
-  box.innerHTML=`<div class="section-head"><h2 class="h-section">Continue sua leitura</h2><span class="more" onclick="irPara('estante')">ver estante →</span></div>${lendoAgoraCard(l,idx)}`;
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx)}`;
 }
 
 
@@ -408,12 +415,12 @@ function renderBuscaSkeleton(){
     <div class="busca-skeleton-line author"></div>
     <div class="busca-skeleton-line meta-line"></div>
   </div>`;
-  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">buscando</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('searching')}</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
 }
 function manualCtaHTML(destaque=false){
   return destaque
-    ? `<div class="manual-cta prominent"><p>Não encontramos uma edição boa para essa busca.</p><button class="link-manual" onclick="abrirManual()">Cadastrar livro manualmente</button></div>`
-    : `<div class="manual-cta"><p>Não encontrou o livro?</p><button class="link-manual" onclick="abrirManual()">Cadastrar manualmente</button></div>`;
+    ? `<div class="manual-cta prominent"><p>${t('manual_prominent_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_prominent_button')}</button></div>`
+    : `<div class="manual-cta"><p>${t('manual_cta_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_cta_button')}</button></div>`;
 }
 async function buscar(){
   const q=$('#q').value.trim(); if(q.length<2)return;
@@ -422,7 +429,7 @@ async function buscar(){
   mostrarBusca('resultados');
   let docs;
   try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
-  catch(e){ $('#resultados').innerHTML='<div class="empty">sem conexão. tenta de novo.</div>'; return; }
+  catch(e){ $('#resultados').innerHTML=`<div class="empty">${t('no_connection')}</div>`; return; }
   resultadosArr=ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
   if(!obrasAgrupadas.length){
@@ -431,13 +438,13 @@ async function buscar(){
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">obras encontradas</h2></div><div class="wall">'+
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div><div class="wall">`+
     obrasAgrupadas.map((d,i)=>`<div class="book work-card" onclick="verEdicoes(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
-      <div class="yr">${d.edicoes_encontradas} ${d.edicoes_encontradas===1?'edição encontrada':'edições encontradas'}</div>
-      <div class="e">ver edições</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
+      <div class="yr">${plural(d.edicoes_encontradas,'edition_found_one','edition_found_many')}</div>
+      <div class="e">${t('see_editions')}</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
 }
 
 /* edições */
@@ -451,7 +458,7 @@ async function carregarSocialObra(){
 async function verEdicoes(i){
   if(Number.isInteger(i)) escolha=obrasAgrupadas[i]||resultadosArr[i];
   if(!escolha){
-    $('#edicoes').innerHTML='<div class="busca-back" onclick="mostrarBusca(\'resultados\')">‹ resultados</div><div class="empty">não encontrei essa obra. tente buscar de novo.</div>';
+    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('work_not_found')}</div>`;
     mostrarBusca('edicoes');
     return;
   }
@@ -465,14 +472,14 @@ async function verEdicoes(i){
     await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra([escolha.edicao_isbn]); renderEdicoes(); mostrarBusca('edicoes'); return;
   }
   // fallback Open Library (obras sem edições embutidas)
-  $('#edicoes').innerHTML='<div class="empty">carregando edições…</div>';
+  $('#edicoes').innerHTML=`<div class="empty">${t('loading_editions')}</div>`;
   mostrarBusca('edicoes');
   let eds;
   try{ eds=await (await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key))).json(); }
-  catch(e){ $('#edicoes').innerHTML='<div class="empty">não consegui carregar as edições.</div>'; return; }
+  catch(e){ $('#edicoes').innerHTML=`<div class="empty">${t('editions_load_error')}</div>`; return; }
   await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(eds||[]); renderEdicoes();
 }
-function fmtMedia(n){return n?Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' ★':'sem média';}
+function fmtMedia(n){return n?Number(n).toLocaleString(getLocale(),{minimumFractionDigits:1,maximumFractionDigits:1})+' ★':t('no_average');}
 function edicaoSocial(e){
   const stats=(obraSocial?.edicoes||[]);
   const sig=normalizarTextoBase([e.editora,e.ano,e.isbn,e.idioma].filter(Boolean).join('|'));
@@ -485,13 +492,13 @@ function edicaoSocial(e){
 function criticasHTML(){
   const recentes=obraSocial?.criticas||[];
   const destaques=obraSocial?.destaques||[];
-  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">Críticas da comunidade</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>Ainda não há críticas públicas para esta obra.<br>Seja a primeira pessoa a registrar uma leitura.</p><button class="btn-cta" onclick="registrarLeituraObra()">Registrar minha leitura</button></div></section>`;
-  const card=c=>`<article class="review-card"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):'sem nota'}</span></div><p>${esc(c.relato)}</p><div class="review-meta">${[c.edicao?.editora,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ')}</div></article>`;
-  return `<section class="community-section"><div class="section-head"><h2 class="h-section">Críticas da comunidade</h2></div>${destaques.length?`<div class="label community-label">mais destacadas</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">recentes</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
+  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" onclick="registrarLeituraObra()">${t('register_my_reading')}</button></div></section>`;
+  const card=c=>`<article class="review-card"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div><p>${esc(c.relato)}</p><div class="review-meta">${[c.edicao?.editora,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ')}</div></article>`;
+  return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
 function registrarLeituraObra(){
   if(edicoesAtual.length===1){ escolherEdicao(0); return; }
-  toast('escolha uma edição para registrar sua leitura');
+  toast(t('choose_edition_to_register'));
   document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function verMinhaLeitura(){
@@ -499,31 +506,31 @@ function verMinhaLeitura(){
   if(idx>=0) abrirCard(idx); else irPara('estante');
 }
 function renderEdicoes(){
-  if(!edicoesAtual.length){$('#edicoes').innerHTML='<div class="busca-back" onclick="mostrarBusca(\'resultados\')">‹ resultados</div><div class="empty">sem edições listadas.</div>';return;}
+  if(!edicoesAtual.length){$('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('no_editions')}</div>`;return;}
   const st=obraSocial?.estatisticas||{};
-  const media=st.media?fmtMedia(st.media):'sem média ainda';
+  const media=st.media?fmtMedia(st.media):t('no_average_yet');
   const leituras=st.leituras||0, criticas=st.criticas||0;
   const back=`<div class="busca-back" onclick="mostrarBusca('resultados')">‹ resultados</div>`;
   const cab=`<div class="work-head social-work-head">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
-    <div class="wmeta"><div class="label">obra</div><h2>${esc(escolha.titulo)}</h2>
+    <div class="wmeta"><div class="label">${t('work')}</div><h2>${esc(escolha.titulo)}</h2>
       <div class="a">${esc(escolha.autor)}</div>
-      <div class="community-score"><strong>${media}</strong><span>${leituras} ${leituras===1?'leitura':'leituras'} · ${criticas} ${criticas===1?'crítica':'críticas'}</span></div>
-      <div class="work-actions"><button onclick="registrarLeituraObra()">Registrar leitura</button><button onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">Ver edições</button><button onclick="abrirManual()">Cadastrar edição manualmente</button></div>
+      <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
+      <div class="work-actions"><button onclick="registrarLeituraObra()">${t('register_reading')}</button><button onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">${t('see_editions')}</button><button onclick="abrirManual()">${t('register_edition_manually')}</button></div>
     </div></div>`;
-  const minhas=obraSocial?.minha_leitura?`<button class="work-my-reading" onclick="verMinhaLeitura()">Ver minha leitura</button>`:`<button class="work-my-reading" onclick="registrarLeituraObra()">Registrar minha leitura</button>`;
+  const minhas=obraSocial?.minha_leitura?`<button class="work-my-reading" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:`<button class="work-my-reading" onclick="registrarLeituraObra()">${t('register_my_reading')}</button>`;
   const maisLida=(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
   const cards=edicoesAtual.map((e,j)=>{
     const pt=normalizarTextoBase(e.idioma).includes('portugues')||normalizarTextoBase(e.pais).includes('brasil');
     const social=edicaoSocial(e);
     const isMaisLida=social&&maisLida&&social.edicao_id===maisLida.edicao_id;
-    const grupo=isMaisLida?'mais lida':(pt?'português/Brasil':'outras edições');
-    const tr=e.tradutor?`trad. <b>${esc(e.tradutor)}</b>`:`<span class="none">tradutor não informado</span>`;
+    const grupo=isMaisLida?t('most_read'):(pt?t('portuguese_brazil'):t('other_editions'));
+    const tr=e.tradutor?`trad. <b>${esc(e.tradutor)}</b>`:`<span class="none">${t('translator_missing')}</span>`;
     const stats=social?`<div class="edition-stats">${social.leituras||0} leituras${social.media?' · '+fmtMedia(social.media):''}</div>`:'';
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${esc(e.editora||'editora não informada')}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta">${[e.ano,e.idioma,e.pais,e.isbn].filter(Boolean).map(esc).join('  ·  ')}</div>${stats}<button class="edition-action" type="button">Adicionar esta edição</button></div></li>`;
+      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta">${[e.ano,e.idioma,e.pais,e.isbn].filter(Boolean).map(esc).join('  ·  ')}</div>${stats}<button class="edition-action" type="button">${t('add_this_edition')}</button></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>média da comunidade</small></div><div><span>${leituras}</span><small>leituras</small></div><div><span>${criticas}</span><small>críticas públicas</small></div></section>${minhas}<div class="section-head"><h2 class="h-section">Edições</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
+  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${minhas}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
 }
 
 /* registrar */
@@ -532,24 +539,24 @@ function escolherEdicao(j){
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
   const resumo=[edicaoSel.editora&&`Editora ${esc(edicaoSel.editora)}`,edicaoSel.ano&&esc(edicaoSel.ano),edicaoSel.tradutor&&`Trad. ${esc(edicaoSel.tradutor)}`,edicaoSel.isbn&&`ISBN ${esc(edicaoSel.isbn)}`,edicaoSel.idioma&&esc(edicaoSel.idioma)].filter(Boolean).join(' · ');
   $('#form').innerHTML=`
-    <div class="busca-back" onclick="mostrarBusca('edicoes')">‹ edições</div>
-    <div class="section-head"><h2 class="h-section">registrar leitura</h2></div>
+    <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
+    <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
     <div class="card-form">
-      <div class="form-block"><div class="label">Edição escolhida</div>
+      <div class="form-block"><div class="label">${t('selected_edition')}</div>
         <div style="font-family:'Fraunces',serif;font-style:italic;font-size:19px">${esc(titulo)}</div>
-        <div class="meta" style="margin:4px 0 8px">${resumo||'dados catalográficos não informados'}</div>
-        <p class="muted">Dados de livro, edição, capa, editora, tradutor, ISBN, idioma e ano fazem parte do catálogo e não podem ser alterados no registro da leitura.</p>
+        <div class="meta" style="margin:4px 0 8px">${resumo||t('catalog_data_missing')}</div>
+        <p class="muted">${t('catalog_data_notice')}</p>
       </div>
-      <div class="field"><label class="label">sua nota</label><div class="stars" id="f_stars"></div></div>
+      <div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div>
       <div class="row">
-        <div class="field"><label class="label">status</label>
+        <div class="field"><label class="label">${t('status')}</label>
           <select id="f_status"><option>Lido</option><option>Lendo</option><option>Quero ler</option></select></div>
-        <div class="field"><label class="label">quando</label>
-          <input type="text" id="f_data" placeholder="ex: jun 2026" /></div>
+        <div class="field"><label class="label">${t('when')}</label>
+          <input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div>
       </div>
-      <div class="field"><label class="label">relato</label>
-        <textarea id="f_relato" maxlength="160" placeholder="o que ficou dessa leitura…"></textarea></div>
-      <button class="btn-primary" onclick="salvar()">salvar na estante</button>
+      <div class="field"><label class="label">${t('reading_note')}</label>
+        <textarea id="f_relato" maxlength="160" placeholder="${t('reading_note_placeholder')}"></textarea></div>
+      <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
     </div>`;
   mostrarBusca('form');
   montarStars('f_stars',()=>notaSel,v=>notaSel=v);
@@ -567,7 +574,7 @@ function montarStars(id,get,set){
       w.appendChild(s);
     }
     const t=document.createElement('span');
-    t.className='stxt'; t.textContent=n?n.toLocaleString('pt-BR')+'★':'sem nota';
+    t.className='stxt'; t.textContent=n?n.toLocaleString('pt-BR')+'★':t('no_rating');
     w.appendChild(t);
   }
   paint();
@@ -597,14 +604,14 @@ async function salvar(){
       throw new Error(JSON.stringify(erro)||r.statusText);
     }
   }
-  catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
+  catch(e){ alert(t('save_error')); return; }
 fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
 {registrar:false});
 marcarConviteLoginAposSalvar();
 marcarLivroSalvo(body);
-toast('salvo na sua estante');
+toast(t('saved_to_shelf'));
 await carregarPrateleira();
 irPara('estante',{recarregar:false});
 }
@@ -614,7 +621,7 @@ function abrirManual(){
   const q=$('#q')?.value.trim()||'';
   $('#manual').innerHTML=`
     <div class="busca-back" onclick="history.back()">‹ voltar</div>
-    <div class="section-head"><h2 class="h-section">cadastro manual</h2></div>
+    <div class="section-head"><h2 class="h-section">${t('manual_registration')}</h2></div>
     <div class="card-form">
       <div class="form-block"><div class="label">livro</div>
         <div class="field"><label class="label">título da obra *</label><input type="text" id="m_titulo" value="${esc(q)}" /></div>
@@ -632,12 +639,12 @@ function abrirManual(){
         <div class="field"><label class="label">URL da capa</label><input type="text" id="m_capa_url" /></div></div>
       </div>
       <div class="form-block"><div class="label">sua leitura</div>
-        <div class="row"><div class="field"><label class="label">status</label><select id="m_status"><option>Lido</option><option>Lendo</option><option>Quero ler</option></select></div>
-        <div class="field"><label class="label">data</label><input type="text" id="m_data" placeholder="ex: jun 2026" /></div></div>
+        <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option>Lido</option><option>Lendo</option><option>Quero ler</option></select></div>
+        <div class="field"><label class="label">data</label><input type="text" id="m_data" placeholder="${t('date_placeholder')}" /></div></div>
         <div class="field"><label class="label">nota</label><div class="stars" id="m_stars"></div></div>
-        <div class="field"><label class="label">relato</label><textarea id="m_relato" maxlength="160"></textarea></div>
+        <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="160"></textarea></div>
       </div>
-      <button class="btn-primary" onclick="salvarManual()">enviar para revisão</button>
+      <button class="btn-primary" onclick="salvarManual()">${t('submit_for_review')}</button>
     </div>`;
   mostrarBusca('manual');
   montarStars('m_stars',()=>notaSel,v=>notaSel=v);
@@ -645,7 +652,7 @@ function abrirManual(){
 
 async function salvarManual(){
   const titulo=$('#m_titulo').value.trim(), autor=$('#m_autor').value.trim();
-  if(!titulo||!autor){ alert('título e autor são obrigatórios.'); return; }
+  if(!titulo||!autor){ alert(t('required_title_author')); return; }
   const body={
     titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
     titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
@@ -653,9 +660,9 @@ async function salvarManual(){
     capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
   };
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ alert('não consegui salvar. tenta de novo.'); return; }
+  catch(e){ alert(t('save_error')); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
-  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast('Cadastro enviado para revisão. Se aprovado, aparecerá na Lombada.'); irPara('perfil',{recarregar:false});
+  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast(t('manual_success')); irPara('perfil',{recarregar:false});
 }
 
 /* estante */
@@ -682,12 +689,12 @@ function mudarVisualizacaoEstante(modo){
 function controlesEstante(){
   const filtros=['Todos','Lido','Lendo','Quero ler'];
   return `<div class="shelf-tools">
-    <div class="shelf-filters" aria-label="filtrar estante por status">${filtros.map(f=>
+    <div class="shelf-filters" aria-label="${t('filter_shelf_status')}">${filtros.map(f=>
       `<button class="shelf-pill ${filtroEstante===f?'active':''}" onclick="mudarFiltroEstante('${f}')">${esc(f)}</button>`
     ).join('')}</div>
-    <div class="shelf-view" aria-label="visualização da estante">
-      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">grade</button>
-      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">lista</button>
+    <div class="shelf-view" aria-label="${t('shelf_view')}">
+      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">${t('view_grid')}</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">${t('view_list')}</button>
     </div>
   </div>`;
 }
@@ -699,26 +706,26 @@ function resumoEstante(){
   const lidos=prateleira.filter(l=>l.status==='Lido').length;
   const lendo=prateleira.filter(l=>l.status==='Lendo').length;
   const quero=prateleira.filter(l=>l.status==='Quero ler').length;
-  return `${total} ${total===1?'livro':'livros'} · ${lidos} lidos · ${lendo} lendo · ${quero} quero ler`;
+  return t('shelf_summary',{total:plural(total,'book_count_one','book_count_many'),read:lidos,reading:lendo,want:quero});
 }
 function blocoLendoEstante(){
   const l=prateleira.find(x=>x.status==='Lendo');
   if(!l) return '';
-  return `<section class="shelf-now"><div class="label">lendo agora</div>${lendoAgoraCard(l,prateleira.indexOf(l),true)}</section>`;
+  return `<section class="shelf-now"><div class="label">${t('reading_now')}</div>${lendoAgoraCard(l,prateleira.indexOf(l),true)}</section>`;
 }
 function renderPrateleira(){
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
-      <p>sua estante ainda está vazia.<br>busque um livro, escolha a edição e registre sua primeira leitura.</p>
-      <button class="btn-cta" onclick="irPara('buscar')">buscar meu primeiro livro →</button></div>`;
+      <p>${t('shelf_empty_html')}</p>
+      <button class="btn-cta" onclick="irPara('buscar')">${t('search_first_book')}</button></div>`;
     return;
   }
   const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
-  const vazio=`<div class="empty shelf-empty">nenhum livro em “${esc(filtroEstante)}” por enquanto.</div>`;
+  const vazio=`<div class="empty shelf-empty">${t('shelf_filter_empty',{filter:esc(filtroEstante)})}</div>`;
   const corpo=visualizacaoEstante==='lista'
     ? `<ul class="shelf-list">${itens.map(({l,i})=>{
         const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
-        const statusNota=[l.status,l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString('pt-BR')}`:'sem nota'].filter(Boolean).join(' · ');
+        const statusNota=[l.status,l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString('pt-BR')}`:t('no_rating')].filter(Boolean).join(' · ');
         const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
         return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">${cap}
           <div class="shelf-row-body">
@@ -748,8 +755,8 @@ async function carregarPrateleira(){
 function renderDiario(){
   if(!prateleira.length){
     $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div>
-      <p>seu diário começa quando você registra uma leitura.<br>adicione nota, status ou relato para lembrar do que ficou.</p>
-      <button class="btn-cta" onclick="irPara('buscar')">registrar leitura →</button></div>`;
+      <p>${t('diary_empty_html')}</p>
+      <button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button></div>`;
     return;
   }
   $('#diario').innerHTML='<ul class="diary">'+prateleira.map((l,i)=>{
@@ -777,41 +784,48 @@ function renderPerfil(){
   const inicial=(nome||meuHandle||'L').trim().charAt(0).toUpperCase();
   const contaHTML=logado
     ? `<div class="account-box connected">
-        <div class="label">conta</div>
-        <p>sua estante está vinculada ao Google</p>
+        <div class="label">${t('account')}</div>
+        <p>${t('account_connected')}</p>
         ${nome?`<div class="account-line">${esc(nome)}</div>`:''}
         ${email?`<div class="account-line muted">${esc(email)}</div>`:''}
-        <a class="account-logout" href="/api/auth/logout">sair</a>
+        <a class="account-logout" href="/api/auth/logout">${t('logout')}</a>
       </div>`
     : `<div class="account-box">
-        <div class="label">conta</div>
-        <p>você está usando a Lombada sem conta</p>
-        <p class="muted">entre com Google para guardar sua estante e recuperá-la depois</p>
-        <a class="pbtn solid" href="/api/auth/google/login">entrar com Google</a>
+        <div class="label">${t('account')}</div>
+        <p>${t('account_anon')}</p>
+        <p class="muted">${t('account_login_hint')}</p>
+        <a class="pbtn solid" href="/api/auth/google/login">${t('login_google')}</a>
       </div>`;
   $('#perfil').innerHTML=`
     <div class="pcard">
       <div class="profile-avatar">${esc(inicial)}</div>
-      <div class="phandle">${nome?esc(nome):'Leitor Lombada'}</div>
-      <div class="pcount">@${esc(meuHandle)} · ${n} ${n===1?'livro':'livros'}</div>
+      <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
+      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')}</div>
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>lidos</span></div><div><strong>${lendo}</strong><span>lendo</span></div><div><strong>${quero}</strong><span>quero ler</span></div></div>
       ${contaHTML}
       <div class="account-box theme-box">
-        <div class="label">aparência</div>
-        <p>escolha como a Lombada aparece neste dispositivo</p>
-        <div class="theme-options" role="radiogroup" aria-label="tema">
-          <label class="theme-option"><input type="radio" name="themeChoice" value="light" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='light'?'checked':''}><span>Claro</span></label>
-          <label class="theme-option"><input type="radio" name="themeChoice" value="dark" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='dark'?'checked':''}><span>Escuro</span></label>
+        <div class="label">${t('appearance')}</div>
+        <p>${t('appearance_hint')}</p>
+        <div class="theme-options" role="radiogroup" aria-label="${t('theme')}">
+          <label class="theme-option"><input type="radio" name="themeChoice" value="light" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='light'?'checked':''}><span>${t('theme_light')}</span></label>
+          <label class="theme-option"><input type="radio" name="themeChoice" value="dark" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='dark'?'checked':''}><span>${t('theme_dark')}</span></label>
+        </div>
+      </div>
+      <div class="account-box language-box">
+        <div class="label">${t('language')}</div>
+        <p>${t('language_hint')}</p>
+        <div class="theme-options" role="radiogroup" aria-label="${t('language')}">
+          ${['pt-BR','en','es'].map(locale=>`<label class="theme-option"><input type="radio" name="localeChoice" value="${locale}" onchange="mudarIdioma(this.value)" ${getLocale()===locale?'checked':''}><span>${t(locale==='pt-BR'?'language_pt_br':locale==='en'?'language_en':'language_es')}</span></label>`).join('')}
         </div>
       </div>
       <div class="account-box library-box">
-        <div class="label">biblioteca</div>
-        <p>adicione uma obra que não apareceu na busca</p>
-        <button class="pbtn" onclick="abrirManual()">Cadastrar livro manualmente</button>
+        <div class="label">${t('library')}</div>
+        <p>${t('library_hint')}</p>
+        <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
       </div>
       <div class="pactions">
-        <button class="pbtn solid" onclick="compartilharEstante()">compartilhar estante</button>
-        <a class="pbtn" href="${esc(url)}" target="_blank">abrir estante pública</a>
+        <button class="pbtn solid" onclick="compartilharEstante()">${t('share_shelf')}</button>
+        <a class="pbtn" href="${esc(url)}" target="_blank">${t('open_public_shelf')}</a>
       </div>
       <div class="plink">${esc(url)}</div>
     </div>`;
@@ -1035,16 +1049,16 @@ function abrirEditar(){
     <h3>editar "${esc(l.titulo)}"</h3>
     <div class="field"><label class="label">nota</label><div class="stars" id="e_stars"></div></div>
     <div class="row">
-      <div class="field"><label class="label">status</label>
+      <div class="field"><label class="label">${t('status')}</label>
         <select id="e_status">
           <option${l.status==='Lido'?' selected':''}>Lido</option>
           <option${l.status==='Lendo'?' selected':''}>Lendo</option>
           <option${l.status==='Quero ler'?' selected':''}>Quero ler</option>
         </select></div>
-      <div class="field"><label class="label">quando</label>
-        <input type="text" id="e_data" value="${esc(l.data)}" placeholder="ex: jun 2026" /></div>
+      <div class="field"><label class="label">${t('when')}</label>
+        <input type="text" id="e_data" value="${esc(l.data)}" placeholder="${t('date_placeholder')}" /></div>
     </div>
-    <div class="field"><label class="label">relato</label>
+    <div class="field"><label class="label">${t('reading_note')}</label>
       <textarea id="e_relato" maxlength="160">${esc(l.relato)}</textarea></div>
     <button class="btn-primary" onclick="salvarEdicao()">salvar alterações</button>`;
   p.style.display='';
