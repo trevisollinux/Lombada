@@ -379,6 +379,7 @@ function renderFeed(){
         ${l.nota?`<div class="feed-stars">${estrelasStr(l.nota)}</div>`:''}
         ${l.relato&&!spoiler?`<div class="feed-quote">“${esc(l.relato)}”</div>`:''}
         ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:''}
+        ${l.relato?reviewActionsHTML(l):''}
         <div class="feed-date">${esc(dataFeed(it.created_at))}</div>
       </div>
     </article>`;
@@ -584,6 +585,47 @@ function edicaoSocial(e){
     return sig && s2 && sig===s2;
   }) || null;
 }
+
+function atualizarReviewLocal(leituraId, patch){
+  const listas=[obraSocial?.criticas,obraSocial?.destaques,feedItems.map(it=>it.leitura)].filter(Boolean);
+  listas.forEach(list=>list.forEach(c=>{ if(c&&c.leitura_id===leituraId) Object.assign(c,patch); }));
+}
+async function acaoReview(leituraId,acao){
+  if(!leituraId) return;
+  const metodo=(acao==='unlike'||acao==='unsave')?'DELETE':'POST';
+  const rota=acao==='like'||acao==='unlike'?'like':acao==='save'||acao==='unsave'?'save':'report';
+  let body=null;
+  if(acao==='report'){
+    const motivo=prompt(t('report_reason')+'\n1. '+t('report_spoiler')+'\n2. '+t('report_offensive')+'\n3. '+t('report_spam')+'\n4. '+t('report_wrong_data')+'\n5. '+t('report_other'), t('report_other'));
+    if(!motivo) return;
+    const detalhe=prompt(t('report_detail_optional'), '')||'';
+    body=JSON.stringify({motivo,detalhe});
+  }
+  try{
+    const res=await fetch(`/api/reviews/${leituraId}/${rota}`,{method:metodo,headers:body?{'Content-Type':'application/json'}:{},body});
+    if(res.status===401){ toast(t('login_to_interact')); return; }
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    const patch={};
+    if('liked' in data){ patch.liked_by_me=data.liked; patch.likes_count=data.likes_count; }
+    if('saved' in data) patch.saved_by_me=data.saved;
+    if('reported' in data){ patch.reported_by_me=true; toast(t('report_sent')); }
+    atualizarReviewLocal(leituraId,patch);
+    renderFeed();
+    if(obraSocial?.criticas?.some(c=>c.leitura_id===leituraId)) renderEdicoes();
+  }catch(e){ toast(t('interaction_error')||'não foi possível atualizar agora.'); }
+}
+function reviewActionsHTML(c){
+  if(!c||!c.leitura_id) return '';
+  const liked=!!c.liked_by_me, saved=!!c.saved_by_me;
+  const likes=Number(c.likes_count||0);
+  return `<div class="review-actions">
+    <button type="button" class="${liked?'active':''}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'} ${likes}</button>
+    <button type="button" class="${saved?'active':''}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
+    <button type="button" onclick="acaoReview(${c.leitura_id},'report')">${c.reported_by_me?t('reported_review'):t('report')}</button>
+  </div>`;
+}
+
 function revelarSpoiler(btn){
   const card=btn.closest('.review-card');
   if(card) card.classList.add('spoiler-open');
@@ -596,7 +638,7 @@ function criticasHTML(){
   const corpo=c=>c.spoiler
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
     : `<p>${esc(c.relato)}</p>`;
-  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}<div class="review-meta">${edicaoMeta(c)}</div></article>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
 function registrarLeituraObra(){

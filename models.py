@@ -97,6 +97,38 @@ class Follow(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ReviewLike(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("leitura_id", "usuario_id", name="uq_reviewlike_pair"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    leitura_id: int = Field(foreign_key="leitura.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SavedReview(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("leitura_id", "usuario_id", name="uq_savedreview_pair"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    leitura_id: int = Field(foreign_key="leitura.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ReviewReport(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("leitura_id", "usuario_id", name="uq_reviewreport_pair"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    leitura_id: int = Field(foreign_key="leitura.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    motivo: str = Field(default="other", index=True)
+    detalhe: str = ""
+    status: str = Field(default="pending", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+
+
 class BuscaCache(SQLModel, table=True):
     id:               Optional[int] = Field(default=None, primary_key=True)
     query:            str           = Field(index=True)
@@ -131,6 +163,19 @@ def migrar():
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_pair ON follow (follower_id, following_id)",
         "CREATE INDEX IF NOT EXISTS ix_follow_follower_id ON follow (follower_id)",
         "CREATE INDEX IF NOT EXISTS ix_follow_following_id ON follow (following_id)",
+        "CREATE TABLE IF NOT EXISTS reviewlike (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_reviewlike_pair ON reviewlike (leitura_id, usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_reviewlike_leitura_id ON reviewlike (leitura_id)",
+        "CREATE INDEX IF NOT EXISTS ix_reviewlike_usuario_id ON reviewlike (usuario_id)",
+        "CREATE TABLE IF NOT EXISTS savedreview (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_savedreview_pair ON savedreview (leitura_id, usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_savedreview_leitura_id ON savedreview (leitura_id)",
+        "CREATE INDEX IF NOT EXISTS ix_savedreview_usuario_id ON savedreview (usuario_id)",
+        "CREATE TABLE IF NOT EXISTS reviewreport (id INTEGER PRIMARY KEY, leitura_id INTEGER NOT NULL, usuario_id INTEGER NOT NULL, motivo VARCHAR NOT NULL DEFAULT 'other', detalhe VARCHAR NOT NULL DEFAULT '', status VARCHAR NOT NULL DEFAULT 'pending', created_at TIMESTAMP NOT NULL, reviewed_at TIMESTAMP, reviewed_by VARCHAR, FOREIGN KEY(leitura_id) REFERENCES leitura(id), FOREIGN KEY(usuario_id) REFERENCES usuario(id))",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_reviewreport_pair ON reviewreport (leitura_id, usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_reviewreport_leitura_id ON reviewreport (leitura_id)",
+        "CREATE INDEX IF NOT EXISTS ix_reviewreport_usuario_id ON reviewreport (usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_reviewreport_status ON reviewreport (status)",
     ]
     for ddl in ddls:
         try:
