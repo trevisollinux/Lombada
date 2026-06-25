@@ -219,6 +219,7 @@ input,textarea,select{font:inherit;color:inherit}
 .card-cover-control{display:grid;gap:8px}
 .card-cover-control p{color:var(--dim);font-size:14px;font-style:italic}
 .btn-cover-card{justify-self:start;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink-2);padding:10px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.share-card-preview{width:min(100%,260px);height:auto;aspect-ratio:9/16;border:1px solid var(--rule);background:var(--paper-2);box-shadow:var(--shadow-sm);justify-self:start}
 .detail-stars{font-family:"Space Mono",monospace;color:var(--gold);font-size:26px;letter-spacing:.05em;line-height:1}
 .detail-rating-number{font-family:"Space Mono",monospace;color:var(--ink-2);font-size:13px;letter-spacing:.06em}
 .detail-muted,.detail-empty{color:var(--dim);font-size:14px;font-style:italic}
