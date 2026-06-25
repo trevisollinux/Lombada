@@ -809,6 +809,15 @@ function renderDiario(){
 }
 
 /* perfil */
+function leiturasComNotaAlta(){
+  return [...prateleira].sort((a,b)=>(b.nota||0)-(a.nota||0) || Number(!!b.relato)-Number(!!a.relato)).filter(l=>(l.nota||0)>=4.5 || (l.publico&&l.relato)).slice(0,5);
+}
+function miniLivroPerfil(l){
+  return `<div class="book profile-mini-book">${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span></span>`:'')}<div class="t">${esc(l.titulo)}</div><div class="a">${esc(l.autor)}</div></div>`;
+}
+function blocoVitrinePerfil(titulo,itens,vazio,render){
+  return `<div class="profile-showcase"><div class="label">${titulo}</div>${itens.length?`<div class="profile-mini-wall">${itens.map(render).join('')}</div>`:`<p class="muted profile-empty">${vazio}</p>`}</div>`;
+}
 function renderPerfil(){
   const url=location.origin+'/u/'+meuHandle;
   const n=prateleira.length;
@@ -817,6 +826,19 @@ function renderPerfil(){
   const email=(minhaConta.email||'').trim();
   const lidos=prateleira.filter(l=>l.status==='Lido').length, lendo=prateleira.filter(l=>l.status==='Lendo').length, quero=prateleira.filter(l=>l.status==='Quero ler').length;
   const inicial=(nome||meuHandle||'L').trim().charAt(0).toUpperCase();
+  const lendoAgora=prateleira.filter(l=>l.status==='Lendo').slice(0,4);
+  const favoritos=leiturasComNotaAlta();
+  const criticasPublicas=prateleira.filter(l=>l.publico && (l.relato||'').trim()).slice(0,3);
+  const previewHTML=`
+    <div class="account-box public-preview-box">
+      <div class="label">${t('public_profile')}</div>
+      <p>${t('public_profile_preview')}</p>
+      <a class="pbtn" href="${esc(url)}" target="_blank">${t('open_public_profile')}</a>
+    </div>
+    ${blocoVitrinePerfil(t('currently_reading'),lendoAgora,t('nothing_reading_now'),miniLivroPerfil)}
+    ${favoritos.length?blocoVitrinePerfil(t('favorites'),favoritos,'',miniLivroPerfil):''}
+    ${blocoVitrinePerfil(t('public_reviews'),criticasPublicas,t('no_public_reviews'),l=>`<article class="profile-review"><strong>${esc(l.titulo)}</strong><span>${l.nota?estrelasStr(l.nota):t('no_rating')}</span><p>${l.spoiler?t('spoiler_review')+' — '+t('tap_to_reveal'):esc((l.relato||'').slice(0,140))}</p></article>`)}
+  `;
   const contaHTML=logado
     ? `<div class="account-box connected">
         <div class="label">${t('account')}</div>
@@ -837,6 +859,7 @@ function renderPerfil(){
       <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
       <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')}</div>
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${lendo}</strong><span>${t('status_reading')}</span></div><div><strong>${quero}</strong><span>${t('status_want')}</span></div></div>
+      ${previewHTML}
       ${contaHTML}
       <div class="account-box theme-box">
         <div class="label">${t('appearance')}</div>
