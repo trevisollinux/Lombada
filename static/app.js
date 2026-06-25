@@ -308,12 +308,12 @@ async function buscar(){
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML=(precisaDestaque?manualCtaHTML(true):'')+'<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
+  $('#resultados').innerHTML='<div class="section-head"><h2 class="h-section">resultados</h2></div><div class="wall">'+
     resultadosArr.map((d,i)=>`<div class="book" onclick="verEdicoes(${i})">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
-      <div class="yr">${d.ano||''}${d.tem_pt?' · <span class="br">ed. BR</span>':''}</div></div>`).join('')+'</div>'+manualCtaHTML(false);
+      <div class="yr">${d.ano||''}${d.tem_pt?' · <span class="br">ed. BR</span>':''}</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
 }
 
 /* edições */
