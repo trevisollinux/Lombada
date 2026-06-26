@@ -20,9 +20,20 @@ from urllib.parse import urlencode, urlparse
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select, Session
 
-from models import Usuario, Leitura, get_session
+from models import (
+    CatalogSuggestion,
+    Follow,
+    Leitura,
+    ReviewLike,
+    ReviewReport,
+    SavedReview,
+    UserEdition,
+    Usuario,
+    get_session,
+)
 
 
 # ─── config Google ────────────────────────────────────────
@@ -123,16 +134,161 @@ def _email_em_uso(s: Session, email: str, exceto_id) -> bool:
     return bool(outro and outro.id != exceto_id)
 
 
+def _score_leitura(l: Leitura) -> tuple[int, datetime]:
+    preenchidos = sum(
+        1
+        for valor in (l.status, l.nota, l.relato, l.data)
+        if valor not in (None, "")
+    )
+    return (preenchidos, l.criado_em or datetime.min)
+
+
+def _copiar_leitura(origem: Leitura, destino: Leitura) -> None:
+    for campo in ("status", "nota", "relato", "publico", "spoiler", "data", "criado_em"):
+        setattr(destino, campo, getattr(origem, campo))
+
+
+def _migrar_interacoes_leitura(s: Session, leitura_de: int, leitura_para: int) -> None:
+    if leitura_de == leitura_para:
+        return
+    for modelo in (ReviewLike, SavedReview, ReviewReport):
+        rows = s.exec(select(modelo).where(modelo.leitura_id == leitura_de)).all()
+        for row in rows:
+            duplicado = s.exec(
+                select(modelo).where(
+                    modelo.leitura_id == leitura_para,
+                    modelo.usuario_id == row.usuario_id,
+                )
+            ).first()
+            if duplicado:
+                s.delete(row)
+            else:
+                row.leitura_id = leitura_para
+                s.add(row)
+
+
 def _mover_leituras(s: Session, de: int, para: int) -> int:
     if de == para:
         return 0
     rows = s.exec(select(Leitura).where(Leitura.usuario_id == de)).all()
+    movidas = 0
     for l in rows:
-        l.usuario_id = para
-        s.add(l)
-    if rows:
-        s.commit()
-    return len(rows)
+        existente = s.exec(
+            select(Leitura).where(
+                Leitura.usuario_id == para,
+                Leitura.edicao_id == l.edicao_id,
+            )
+        ).first()
+        if existente:
+            if _score_leitura(l) > _score_leitura(existente):
+                _copiar_leitura(l, existente)
+                s.add(existente)
+            _migrar_interacoes_leitura(s, l.id, existente.id)
+            s.delete(l)
+        else:
+            l.usuario_id = para
+            s.add(l)
+            movidas += 1
+    return movidas
+
+
+def _mover_user_editions(s: Session, de: int, para: int) -> None:
+    rows = s.exec(select(UserEdition).where(UserEdition.usuario_id == de)).all()
+    for rel in rows:
+        destino = s.exec(
+            select(UserEdition).where(
+                UserEdition.usuario_id == para,
+                UserEdition.edicao_id == rel.edicao_id,
+            )
+        ).first()
+        if not destino:
+            rel.usuario_id = para
+            rel.updated_at = datetime.utcnow()
+            s.add(rel)
+            continue
+        destino.tenho = bool(destino.tenho or rel.tenho)
+        destino.quero = bool(destino.quero or rel.quero)
+        if destino.tenho:
+            destino.quero = False
+        destino.updated_at = datetime.utcnow()
+        s.add(destino)
+        s.delete(rel)
+
+
+def _mover_catalog_suggestions(s: Session, de: int, para: int, email_destino: str = "") -> None:
+    rows = s.exec(select(CatalogSuggestion).where(CatalogSuggestion.user_id == de)).all()
+    for sug in rows:
+        sug.user_id = para
+        if not sug.user_email and email_destino:
+            sug.user_email = email_destino
+        s.add(sug)
+
+
+def _mover_relacao_unica_por_usuario(s: Session, modelo, de: int, para: int) -> None:
+    rows = s.exec(select(modelo).where(modelo.usuario_id == de)).all()
+    for row in rows:
+        duplicado = s.exec(
+            select(modelo).where(
+                modelo.leitura_id == row.leitura_id,
+                modelo.usuario_id == para,
+            )
+        ).first()
+        if duplicado:
+            s.delete(row)
+        else:
+            row.usuario_id = para
+            s.add(row)
+
+
+def _mover_follows(s: Session, de: int, para: int) -> None:
+    seguindo = s.exec(select(Follow).where(Follow.follower_id == de)).all()
+    for follow in seguindo:
+        if follow.following_id == para:
+            s.delete(follow)
+            continue
+        duplicado = s.exec(
+            select(Follow).where(
+                Follow.follower_id == para,
+                Follow.following_id == follow.following_id,
+            )
+        ).first()
+        if duplicado:
+            s.delete(follow)
+        else:
+            follow.follower_id = para
+            s.add(follow)
+
+    seguidores = s.exec(select(Follow).where(Follow.following_id == de)).all()
+    for follow in seguidores:
+        if follow.follower_id == para:
+            s.delete(follow)
+            continue
+        duplicado = s.exec(
+            select(Follow).where(
+                Follow.follower_id == follow.follower_id,
+                Follow.following_id == para,
+            )
+        ).first()
+        if duplicado:
+            s.delete(follow)
+        else:
+            follow.following_id = para
+            s.add(follow)
+
+
+def _merge_usuario_orfao(s: Session, de_id: int, para_id: int) -> None:
+    if de_id == para_id:
+        return
+    destino = s.get(Usuario, para_id)
+    if not destino:
+        raise ValueError(f"usuário destino inexistente no merge: {para_id}")
+
+    _mover_leituras(s, de_id, para_id)
+    _mover_user_editions(s, de_id, para_id)
+    _mover_catalog_suggestions(s, de_id, para_id, destino.email or "")
+    for modelo in (ReviewLike, SavedReview, ReviewReport):
+        _mover_relacao_unica_por_usuario(s, modelo, de_id, para_id)
+    _mover_follows(s, de_id, para_id)
 
 
 # ─── rotas Google OAuth ───────────────────────────────────
@@ -221,56 +377,74 @@ def google_callback(request: Request, code: str = "", state: str = "",
         )
         return RedirectResponse("/?conta=erro", status_code=303)
 
-    info = _userinfo_google(tok.get("access_token") or "")
-    sub   = info["sub"]
-    email = (info.get("email") or "").strip()
-    nome  = (info.get("name") or "").strip()
+    try:
+        info = _userinfo_google(tok.get("access_token") or "")
+        sub   = info["sub"]
+        email = (info.get("email") or "").strip()
+        nome  = (info.get("name") or "").strip()
 
-    # ─── merge de estante ───
-    canonico = s.exec(select(Usuario).where(Usuario.google_sub == sub)).first()
-    atual = usuario_sessao(request, s)
+        # ─── merge de estante ───
+        canonico = s.exec(select(Usuario).where(Usuario.google_sub == sub)).first()
+        atual = usuario_sessao(request, s)
 
-    if canonico is None:
-        if atual.google_sub is None:
-            # 1º login deste Google → carimba no anônimo atual
-            atual.google_sub = sub
-            if email and not _email_em_uso(s, email, atual.id):
-                atual.email = email
-            if nome and not atual.nome:
-                atual.nome = nome
-            s.add(atual); s.commit()
-            destino = atual
+        if canonico is None:
+            if atual.google_sub is None:
+                # 1º login deste Google → carimba no anônimo atual
+                atual.google_sub = sub
+                if email and not _email_em_uso(s, email, atual.id):
+                    atual.email = email
+                if nome and not atual.nome:
+                    atual.nome = nome
+                s.add(atual); s.commit()
+                destino = atual
+            else:
+                # a sessão já é de OUTRA conta Google → cria conta nova p/ este sub
+                novo = Usuario(handle=_gera_handle(s), google_sub=sub)
+                if email and not _email_em_uso(s, email, None):
+                    novo.email = email
+                if nome:
+                    novo.nome = nome
+                s.add(novo); s.commit(); s.refresh(novo)
+                destino = novo
+        elif canonico.id == atual.id:
+            if nome and not canonico.nome:
+                canonico.nome = nome
+                s.add(canonico); s.commit()
+            destino = canonico  # já vinculado, nada a fazer
         else:
-            # a sessão já é de OUTRA conta Google → cria conta nova p/ este sub
-            novo = Usuario(handle=_gera_handle(s), google_sub=sub)
-            if email and not _email_em_uso(s, email, None):
-                novo.email = email
-            if nome:
-                novo.nome = nome
-            s.add(novo); s.commit(); s.refresh(novo)
-            destino = novo
-    elif canonico.id == atual.id:
-        if nome and not canonico.nome:
-            canonico.nome = nome
-            s.add(canonico); s.commit()
-        destino = canonico  # já vinculado, nada a fazer
-    else:
-        # Google já existe noutro usuário → migra leituras do atual e descarta o órfão
-        _mover_leituras(s, atual.id, canonico.id)
-        mudou = False
-        if email and not canonico.email and not _email_em_uso(s, email, canonico.id):
-            canonico.email = email
-            mudou = True
-        if nome and not canonico.nome:
-            canonico.nome = nome
-            mudou = True
-        if mudou:
-            s.add(canonico); s.commit()
-        s.delete(atual); s.commit()
-        destino = canonico
+            # Google já existe noutro usuário → migra todos os vínculos do órfão antes de deletar.
+            try:
+                _merge_usuario_orfao(s, atual.id, canonico.id)
+                mudou = False
+                if email and not canonico.email and not _email_em_uso(s, email, canonico.id):
+                    canonico.email = email
+                    mudou = True
+                if nome and not canonico.nome:
+                    canonico.nome = nome
+                    mudou = True
+                if mudou:
+                    s.add(canonico)
+                s.delete(atual)
+                s.commit()
+            except SQLAlchemyError:
+                s.rollback()
+                logger.exception(
+                    "[google account merge error] falha ao migrar usuario_orfao=%s para usuario_destino=%s",
+                    atual.id,
+                    canonico.id,
+                )
+                return RedirectResponse("/?conta=erro", status_code=303)
+            destino = canonico
 
-    request.session["uid"] = destino.id
-    return RedirectResponse("/?conta=ok", status_code=303)
+        request.session["uid"] = destino.id
+        return RedirectResponse("/?conta=ok", status_code=303)
+    except HTTPException:
+        logger.exception("[google oauth callback error] falha ao concluir callback do Google")
+        return RedirectResponse("/?conta=erro", status_code=303)
+    except Exception:
+        s.rollback()
+        logger.exception("[google oauth callback error] erro inesperado após token do Google")
+        return RedirectResponse("/?conta=erro", status_code=303)
 
 
 @router.get("/api/auth/logout")
