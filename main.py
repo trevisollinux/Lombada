@@ -645,32 +645,27 @@ def _validar_diario(payload: DiarioPayload) -> dict:
     tipo = (data.get("progresso_tipo") or "livre").strip().lower()
     if tipo not in PROGRESSO_TIPOS:
         raise HTTPException(422, "tipo de progresso inválido")
-    pagina = data.get("pagina")
-    porcentagem = data.get("porcentagem")
+    pagina = data.get("pagina") if tipo == "pagina" else None
+    porcentagem = data.get("porcentagem") if tipo == "porcentagem" else None
     nota = _clean_text(data.get("nota", ""), 2000)
-    capitulo = _clean_text(data.get("capitulo", ""), 120)
-    if tipo == "pagina":
-        if pagina is None or pagina <= 0:
-            raise HTTPException(422, "página inválida")
-        porcentagem = None; capitulo = ""
-    elif tipo == "porcentagem":
-        if porcentagem is None or not 0 <= porcentagem <= 100:
-            raise HTTPException(422, "porcentagem deve estar entre 0 e 100")
-        pagina = None; capitulo = ""
-    elif tipo == "capitulo":
-        if not capitulo:
-            raise HTTPException(422, "capítulo obrigatório")
-        pagina = None; porcentagem = None
-    else:
-        pagina = None; porcentagem = None; capitulo = ""
-        if not nota:
-            raise HTTPException(422, "informe um progresso ou uma anotação")
-    return {
-        "progresso_tipo": tipo, "pagina": pagina, "porcentagem": porcentagem,
-        "capitulo": capitulo, "nota": nota, "publico": bool(data.get("publico", False)),
-        "spoiler": bool(data.get("spoiler", False)),
-    }
+    capitulo = _clean_text(data.get("capitulo", ""), 120) if tipo in {"capitulo", "livre"} else ""
 
+    pagina_valida = pagina is not None and pagina > 0
+    porcentagem_valida = porcentagem is not None and 0 <= porcentagem <= 100
+    capitulo_valido = bool(capitulo)
+
+    if tipo == "pagina" and pagina is not None and not pagina_valida:
+        raise HTTPException(422, "informe um progresso ou uma anotação")
+    if tipo == "porcentagem" and porcentagem is not None and not porcentagem_valida:
+        raise HTTPException(422, "informe um progresso ou uma anotação")
+    if not (pagina_valida or porcentagem_valida or capitulo_valido or nota):
+        raise HTTPException(422, "informe um progresso ou uma anotação")
+
+    return {
+        "progresso_tipo": tipo, "pagina": pagina if pagina_valida else None, "porcentagem": porcentagem if porcentagem_valida else None,
+        "capitulo": capitulo if capitulo_valido else "", "nota": nota, "publico": bool(data.get("publico", False)),
+        "spoiler": bool(data.get("spoiler", False))
+    }
 
 def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Edicao | None = None, o: Obra | None = None) -> dict:
     return {
