@@ -763,3 +763,11 @@ body.theme-dark select:-webkit-autofill{
 .suffix-field span{font-family:"Space Mono",monospace;color:var(--muted)}
 .diary-form{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
 @media(max-width:420px){.progress-chip{flex:1 1 calc(50% - 10px);font-size:11px}.diary-form{padding:16px 14px 92px}.diary-form .btn-primary{width:100%;min-height:48px}}
+.card-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px;align-items:center}
+.card-options>.label,.card-options>.check-line,.card-options>p{grid-column:1/-1}
+.card-options label{display:flex;align-items:center;gap:7px;color:var(--ink-2);font-size:13px;line-height:1.25;cursor:pointer}
+.card-options input{accent-color:var(--gold);flex:0 0 auto}
+.visibility-box .check-line,.light-options .check-line{align-items:center;gap:10px;line-height:1.25;cursor:pointer;width:fit-content;max-width:100%}
+.visibility-box .check-line input,.light-options .check-line input{margin:0;flex:0 0 auto;width:18px;height:18px}
+.visibility-box .check-line span,.light-options .check-line span{display:inline-block;max-width:min(100%,28ch)}
+@media(max-width:420px){.card-options{grid-template-columns:1fr}.card-options label{font-size:14px}.visibility-box .check-line{margin:14px 0}.visibility-box .check-line span{max-width:24ch}}
