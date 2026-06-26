@@ -2,7 +2,14 @@ const $ = s => document.querySelector(s);
 const esc = s => (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
 
-const SUGESTOES = ['Crime e Castigo','A Montanha Mágica','Ulisses','Orlando','O Aleph','O Morro dos Ventos Uivantes'];
+const SUGESTOES = [
+  {titulo:'Crime e Castigo',autor:'Fiódor Dostoiévski'},
+  {titulo:'A Montanha Mágica',autor:'Thomas Mann'},
+  {titulo:'Ulisses',autor:'James Joyce'},
+  {titulo:'Orlando',autor:'Virginia Woolf'},
+  {titulo:'O Aleph',autor:'Jorge Luis Borges'},
+  {titulo:'O Morro dos Ventos Uivantes',autor:'Emily Brontë'},
+];
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
@@ -329,15 +336,49 @@ function limparBusca(){
   $('#manual').innerHTML='';
 }
 
-/* feed da home — obras populares como mini estante (lista curada) */
+/* feed da home — obras populares como mini estante */
+function normalizarObraPopular(o){
+  return typeof o==='string' ? {titulo:o,autor:''} : (o||{});
+}
+function renderObrasPopulares(obras){
+  const box=$('#populares');
+  if(!box) return;
+  const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular);
+  box.innerHTML=lista.map((o,i)=>`<div class="book" onclick="abrirObraPopular(${i})">
+    ${coverHTML(o.titulo,o.autor,o.capa_url,'')}
+    <div class="t">${esc(o.titulo)}</div>
+    ${o.autor?`<div class="a">${esc(o.autor)}</div>`:''}</div>`).join('');
+  box._obrasPopulares=lista;
+}
 function renderChips(){
   const hint=$('#searchHint');
   if(hint) hint.remove();
-  $('#populares').innerHTML = SUGESTOES.map(s=>
-    `<div class="book" onclick="buscarTermo('${esc(s).replace(/'/g,"\\'")}')">
-       ${coverHTML(s,'','')}
-       <div class="t">${esc(s)}</div></div>`).join('');
+  renderObrasPopulares(SUGESTOES);
 }
+async function carregarObrasPopulares(){
+  const box=$('#populares');
+  if(box) box.innerHTML=`<div class="empty">${t('loading_popular_works')}</div>`;
+  try{
+    const r=await fetch('/api/explore/populares');
+    if(!r.ok) throw new Error('popular works');
+    const obras=await r.json();
+    renderObrasPopulares(obras);
+  }catch(e){
+    renderObrasPopulares(SUGESTOES);
+  }
+}
+function abrirObraPopular(i){
+  const obras=$('#populares')?._obrasPopulares||SUGESTOES;
+  const obra=normalizarObraPopular(obras[i]);
+  if(obra.edicoes?.length || obra.edicao_isbn){
+    escolha={...obra, edicoes:obra.edicoes||[], edicao_isbn:obra.edicao_isbn||null};
+    obrasAgrupadas=[escolha];
+    verEdicoes(0);
+    return;
+  }
+  buscarTermo(obra.titulo||'');
+}
+
 function lendoAgoraCard(l,idx,compacto=false){
   const progresso=l.status==='Lendo'?(l.nota?Math.min(100,Math.round(Number(l.nota)*20)):62):0;
   return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
@@ -1403,6 +1444,7 @@ async function init(){
   tratarMensagemConta();
   renderChips();
   atualizarSeletorIdioma();
+  carregarObrasPopulares();
   try{
     const me=await (await fetch('/api/eu')).json();
     minhaConta=me||{logado:false,provedor:'anonimo'};

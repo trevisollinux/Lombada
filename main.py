@@ -264,6 +264,82 @@ def _user_edition_counts(s: Session, usuario_id: int) -> dict:
     }
 
 # ─── rotas ────────────────────────────────────────────────
+
+EDITORIAL_POPULARES = [
+    {"titulo": "Crime e Castigo", "autor": "Fiódor Dostoiévski"},
+    {"titulo": "A Montanha Mágica", "autor": "Thomas Mann"},
+    {"titulo": "Ulisses", "autor": "James Joyce"},
+    {"titulo": "Orlando", "autor": "Virginia Woolf"},
+    {"titulo": "O Aleph", "autor": "Jorge Luis Borges"},
+    {"titulo": "O Morro dos Ventos Uivantes", "autor": "Emily Brontë"},
+]
+
+
+def _edicao_representativa(s: Session, obra_id: int) -> tuple[Edicao | None, int]:
+    edicoes = s.exec(select(Edicao).where(Edicao.obra_id == obra_id)).all()
+    if not edicoes:
+        return None, 0
+    contagens = {
+        ed.id: s.exec(select(func.count()).select_from(Leitura).where(Leitura.edicao_id == ed.id)).one()
+        for ed in edicoes
+        if ed.id is not None
+    }
+    ed = sorted(edicoes, key=lambda e: (0 if e.capa_url else 1, -(contagens.get(e.id, 0)), e.id or 0))[0]
+    return ed, contagens.get(ed.id, 0)
+
+
+def _obra_popular_payload(s: Session, obra: Obra, leituras_count: int | None = None) -> dict:
+    ed, ed_leituras = _edicao_representativa(s, obra.id)
+    total = leituras_count if leituras_count is not None else s.exec(
+        select(func.count()).select_from(Leitura).join(Edicao, Leitura.edicao_id == Edicao.id).where(Edicao.obra_id == obra.id)
+    ).one()
+    ed_doc = None
+    edicoes = []
+    if ed:
+        ed_doc = {
+            "id": ed.id, "ol_edition_key": ed.ol_edition_key or f"local:{ed.id}", "titulo_edicao": obra.titulo,
+            "editora": ed.editora, "tradutor": ed.tradutor, "isbn": ed.isbn, "idioma": ed.idioma,
+            "ano": ed.ano, "capa_url": ed.capa_url, "leituras_count": ed_leituras,
+        }
+        edicoes = [ed_doc]
+    return {
+        "obra_id": obra.id, "edicao_id": ed.id if ed else None, "work_key": obra.ol_work_key,
+        "titulo": obra.titulo, "autor": obra.autor, "idioma_original": obra.idioma_original,
+        "capa_url": ed.capa_url if ed else "", "editora": ed.editora if ed else "",
+        "ano": ed.ano if ed and ed.ano else obra.ano, "leituras_count": total or 0,
+        "tem_pt": bool(ed and ed.idioma == "Português"), "isbn_match": False,
+        "edicao_isbn": ed_doc, "edicoes": edicoes, "_fonte": "local",
+    }
+
+
+@app.get("/api/explore/populares")
+def explore_populares(s: Session = Depends(get_session)):
+    populares = s.exec(
+        select(Obra.id, func.count(Leitura.id))
+        .join(Edicao, Edicao.obra_id == Obra.id)
+        .join(Leitura, Leitura.edicao_id == Edicao.id)
+        .group_by(Obra.id)
+        .order_by(func.count(Leitura.id).desc(), Obra.id.desc())
+        .limit(12)
+    ).all()
+    obras = []
+    usados = set()
+    for obra_id, total in populares:
+        obra = s.get(Obra, obra_id)
+        if obra:
+            obras.append(_obra_popular_payload(s, obra, total))
+            usados.add(obra.id)
+    if len(obras) < 12:
+        recentes = s.exec(select(Obra).order_by(Obra.id.desc()).limit(24)).all()
+        for obra in recentes:
+            if obra.id in usados:
+                continue
+            obras.append(_obra_popular_payload(s, obra))
+            usados.add(obra.id)
+            if len(obras) >= 12:
+                break
+    return obras or EDITORIAL_POPULARES
+
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
