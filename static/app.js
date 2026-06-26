@@ -15,7 +15,7 @@ let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, ed
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null;
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 let filtroEstante='Todos';
-let feedItems=[], feedFollowingCount=0, feedTab='following', discoverReaders=[];
+let feedItems=[], feedFollowingCount=0, feedTab=localStorage.getItem('lombada_feed_tab')||'discover', discoverReaders=[];
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
@@ -431,7 +431,7 @@ async function toggleFollowHandle(handle){
     if(obraSocial?.criticas?.some(c=>c.usuario===handle)) renderEdicoes();
   }catch(e){ toast(t('interaction_error')); }
 }
-function mudarFeedTab(tab){ feedTab=tab==='discover'?'discover':'following'; carregarFeed(); }
+function mudarFeedTab(tab){ feedTab=tab==='following'?'following':'discover'; localStorage.setItem('lombada_feed_tab',feedTab); carregarFeed(); }
 
 function feedAction(tipo,status){
   if(tipo==='wrote_review') return t('wrote_review');
@@ -455,10 +455,11 @@ function revelarFeedSpoiler(i){
 }
 function renderFeed(){
   const box=$('#feed'); if(!box)return;
-  const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button></div>`;
-  if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+`<div class="empty-rich"><p>${t('no_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('find_readers')}</button></div>`; return; }
-  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
-  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
+  const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button></div>`;
+  const intro=`<div class="feed-intro"><h3>${feedTab==='discover'?t('feed_discover'):t('feed_following')}</h3><p>${feedTab==='discover'?t('discover_hint'):t('following_hint')}</p></div>`;
+  if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+intro+`<div class="empty-rich"><h3>${t('empty_following_title')}</h3><p>${t('empty_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('explore_reviews')}</button></div>`; return; }
+  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('discover_readers')}</button></div>`; return; }
+  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
   const reviewCards=feedItems.map((it,i)=>{
     const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
     const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
@@ -479,7 +480,7 @@ function renderFeed(){
   }).join('');
   const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
   const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
-  box.innerHTML=tabs+readers+title+reviewCards;
+  box.innerHTML=tabs+intro+readers+title+reviewCards;
 }
 async function carregarFeed(){
   const box=$('#feed'); if(box) box.innerHTML=`<div class="empty">${t('loading_activity')}</div>`;
@@ -684,7 +685,7 @@ function countLabel(n,oneKey,manyKey){ return plural(Number(n)||0,oneKey,manyKey
 function editionSocialCountsHTML(social){
   const leituras=social?.leituras||0, tem=social?.tem||0, querem=social?.querem||0;
   const media=social?.media?' · '+fmtMedia(social.media):'';
-  return `<div class="edition-stats">${countLabel(leituras,'reading_one','reading_many')}${media} · ${t('readers_have_this_edition',{count:tem})} · ${t('readers_want_this_edition',{count:querem})}</div>`;
+  return `<div class="edition-stats"><span>${countLabel(leituras,'reading_one','reading_many')}</span><span>${social?.media?fmtMedia(social.media):t('no_average_yet')}</span><span>${t('readers_have_this_edition',{count:tem})}</span><span>${t('readers_want_this_edition',{count:querem})}</span></div>`;
 }
 function editionRelationHTML(social){
   if(!social?.edicao_id) return '';
@@ -787,9 +788,11 @@ function renderEdicoes(){
     <div class="wmeta"><div class="label">${t('work')}</div><h2>${esc(escolha.titulo)}</h2>
       <div class="a">${esc(escolha.autor)}</div>
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
-      <div class="work-actions"><button onclick="registrarLeituraObra()">${t('register_reading')}</button><button onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">${t('see_editions')}</button><button onclick="abrirManual()">${t('register_edition_manually')}</button></div>
+      <div class="work-actions"><button class="primary" onclick="registrarLeituraObra()">${t('register_reading')}</button><button class="secondary" onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">${t('see_editions')}</button>${obraSocial?.minha_leitura?`<button class="secondary" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:''}</div><button class="link-tertiary" onclick="abrirManual()">${t('register_edition_manually')}</button>
     </div></div>`;
-  const minhas=obraSocial?.minha_leitura?`<button class="work-my-reading" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:`<button class="work-my-reading" onclick="registrarLeituraObra()">${t('register_my_reading')}</button>`;
+  const descricao=(escolha.descricao||escolha.description||'').trim();
+  const sobreObra=`<section class="about-work"><div class="label">${t('about_work')}</div>${descricao?`<p>${esc(descricao).slice(0,420)}</p>`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
+  const minhas='';
   const destaquesEd=obraSocial?.destaques_edicao||{};
   const maisLida=destaquesEd.mais_lida||(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
   const destaqueObraHTML=[
@@ -809,59 +812,31 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta">${[e.ano,e.idioma,e.pais,e.isbn].filter(Boolean).map(esc).join('  ·  ')}</div>${stats}${relation}<button class="edition-action" type="button">${t('add_this_edition')}</button></div></li>`;
+      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button">${t('add_this_edition')}</button></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}${minhas}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
+  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
 }
 
 /* registrar */
 function escolherEdicao(j){
   edicaoSel=edicoesAtual[j]; notaSel=0;
+  const social=edicaoSocial(edicaoSel);
+  const estado=social?.estado||{};
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
-  const dadosEdicao=[
-    [t('title'), titulo],
-    [t('publisher'), edicaoSel.editora],
-    [t('edition_year'), edicaoSel.ano],
-    [t('isbn'), edicaoSel.isbn],
-    [t('language_field'), edicaoSel.idioma],
-    [t('translator'), edicaoSel.tradutor]
-  ].filter(([,valor])=>valor);
-  const edicaoHTML=dadosEdicao.length
-    ? `<dl class="edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>`
-    : `<p class="muted">${t('catalog_data_missing')}</p>`;
+  const dadosEdicao=[[t('title'), titulo],[t('publisher'), edicaoSel.editora],[t('edition_year'), edicaoSel.ano],[t('isbn'), edicaoSel.isbn],[t('language_field'), edicaoSel.idioma],[t('translator'), edicaoSel.tradutor]].filter(([,valor])=>valor);
+  const edicaoHTML=dadosEdicao.length ? `<dl class="edition-data compact-edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>` : `<p class="muted">${t('catalog_data_missing')}</p>`;
   $('#form').innerHTML=`
     <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
-    <div class="card-form">
-      <div class="form-block"><div class="label">${t('selected_edition')}</div>
-        ${edicaoHTML}
-        <p class="muted correction-hint">${t('catalog_correction_question')}</p>
-        <button class="link-btn" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button>
-      </div>
-      <div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div>
-      <div class="row">
-        <div class="field"><label class="label">${t('status')}</label>
-          <select id="f_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
-        <div class="field"><label class="label">${t('when')}</label>
-          <input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div>
-      </div>
-      <div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label>
-        <textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div>
-      <div class="visibility-box"><div class="label">${t('visibility')}</div>
-        <label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('make_review_public')}</span></label>
-        <p class="muted">${t('public_text_hint')}</p>
-        <label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label>
-      </div>
-      <div class="visibility-box"><div class="label">${t('my_relation_with_edition')}</div>
-        <label class="check-line"><input type="checkbox" id="f_tenho"> <span>${t('you_have_this_edition')}</span></label>
-        <label class="check-line"><input type="checkbox" id="f_quero"> <span>${t('you_want_this_edition')}</span></label>
-      </div>
+    <div class="card-form simple-reading-form">
+      <section class="form-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
+      <section class="form-block"><div class="label">${t('your_reading')}</div><div class="row"><div class="field"><label class="label">${t('status')}</label><select id="f_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div></div><div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></section>
+      <section class="form-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
+      <section class="form-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
+      <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
       <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
     </div>`;
-  mostrarBusca('form');
-  montarStars('f_stars',()=>notaSel,v=>notaSel=v);
-  atualizarCopyRelato('f');
-  $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
+  mostrarBusca('form'); montarStars('f_stars',()=>notaSel,v=>notaSel=v); atualizarCopyRelato('f'); $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
 }
 
 function sugerirCorrecaoCatalogo(){
@@ -1040,8 +1015,8 @@ function blocoLendoEstante(){
 function renderPrateleira(){
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
-      <p>${t('shelf_empty_html')}</p>
-      <button class="btn-cta" onclick="irPara('buscar')">${t('search_first_book')}</button></div>`;
+      <h3>${t('empty_shelf_title')}</h3><p>${t('empty_shelf_hint')}</p>
+      <button class="btn-cta" onclick="irPara('buscar')">${t('search_button')}</button></div>`;
     return;
   }
   const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
@@ -1089,13 +1064,22 @@ function progressoDiario(e){
 function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
+function atualizarCamposDiario(id=''){
+  const tipo=document.getElementById(`dj_tipo_${id}`)?.value||'pagina';
+  ['pagina','pct','cap'].forEach(k=>{ const el=document.querySelector(`[data-diary-field="${k}_${id}"]`); if(el) el.style.display=(tipo==='pagina'&&k==='pagina')||(tipo==='porcentagem'&&k==='pct')||(tipo==='capitulo'&&k==='cap')?'':'none'; });
+}
 function formDiarioHTML(leituraId, entry=null){
   const id=entry?.id||'';
+  const tipoAtual=entry?.progresso_tipo||'pagina';
+  const showCampo=tipo=>tipoAtual===tipo?'':' style="display:none"';
   const tipo=entry?.progresso_tipo||'livre';
   return `<div class="diary-form" data-diary-form="${id}">
     <div class="label">${entry?t('edit_diary_entry'):t('new_diary_entry')}</div>
     <p class="muted">${t('diary_hint')} · ${t('private_by_default')}</p>
     <div class="row"><div class="field"><label class="label">${t('reading_progress')}</label><select id="dj_tipo_${id}" onchange="atualizarCamposDiario('${id}')">
+      ${['pagina','porcentagem','capitulo','livre'].map(v=>`<option value="${v}" ${(entry?.progresso_tipo||'pagina')===v?'selected':''}>${t(v==='pagina'?'page':v==='porcentagem'?'percentage':v==='capitulo'?'chapter':'free_progress')}</option>`).join('')}
+    </select></div><div class="field" data-diary-field="pagina_${id}"${showCampo('pagina')}><label class="label">${t('page')}</label><input id="dj_pagina_${id}" type="number" min="0" value="${entry?.pagina??''}"></div></div>
+    <div class="row"><div class="field" data-diary-field="pct_${id}"${showCampo('porcentagem')}><label class="label">${t('percentage')}</label><input id="dj_pct_${id}" type="number" min="0" max="100" value="${entry?.porcentagem??''}"></div><div class="field" data-diary-field="cap_${id}"${showCampo('capitulo')}><label class="label">${t('chapter')}</label><input id="dj_cap_${id}" value="${esc(entry?.capitulo||'')}"></div></div>
       ${['pagina','porcentagem','capitulo','livre'].map(v=>`<option value="${v}" ${tipo===v?'selected':''}>${t(v==='pagina'?'page':v==='porcentagem'?'percentage':v==='capitulo'?'chapter':'free_progress')}</option>`).join('')}
     </select></div><div class="field diary-progress-field" data-progress-field="pagina" ${tipo==='pagina'?'':'hidden'}><label class="label">${t('page')}</label><input id="dj_pagina_${id}" type="number" min="1" value="${entry?.pagina??''}" placeholder="${t('page')}"></div></div>
     <div class="row"><div class="field diary-progress-field" data-progress-field="porcentagem" ${tipo==='porcentagem'?'':'hidden'}><label class="label">${t('percentage')}</label><input id="dj_pct_${id}" type="number" min="0" max="100" value="${entry?.porcentagem??''}" placeholder="0–100"></div><div class="field diary-progress-field" data-progress-field="capitulo" ${tipo==='capitulo'?'':'hidden'}><label class="label">${t('chapter')}</label><input id="dj_cap_${id}" value="${esc(entry?.capitulo||'')}" placeholder="${t('chapter')}"></div></div>
@@ -1146,7 +1130,7 @@ function cardEntradaDiario(e, opts={}){
 }
 function renderDiario(){
   const novo=prateleira.length?`<button class="btn-cta" onclick="abrirCard(0);setTimeout(()=>document.getElementById('diaryNewForm')?.scrollIntoView({behavior:'smooth'}),50)">${t('new_diary_entry')}</button>`:'';
-  if(!diarioEntradas.length){ $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div><p>${t('no_diary_entries')}</p>${novo||`<button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button>`}</div>`; return; }
+  if(!diarioEntradas.length){ $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div><h3>${t('empty_diary_title')}</h3><p>${t('empty_diary_hint')}</p>${novo||`<button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button>`}</div>`; return; }
   $('#diario').innerHTML=`<div class="diary-head"><button class="btn-cta" onclick="abrirCard(0)">${t('new_diary_entry')}</button><p class="muted">${t('diary_hint')}</p></div><div class="diary">${diarioEntradas.map(e=>cardEntradaDiario(e)).join('')}</div>`;
 }
 /* perfil */
@@ -1175,7 +1159,7 @@ function renderPerfil(){
   const previewHTML=`
     <div class="account-box public-preview-box">
       <div class="label">${t('public_profile')}</div>
-      <p>${t('public_profile_preview')}</p>
+      <p>${t('public_profile_hint')}</p>
       <div class="profile-actions">
         <a class="pbtn solid" href="${esc(url)}" target="_blank">${t('view_public_profile')}</a>
         <button class="pbtn" type="button" onclick="copiarLinkPerfil()">${t('copy_profile_link')}</button>
