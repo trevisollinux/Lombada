@@ -1076,24 +1076,18 @@ function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
 function selecionarTipoDiario(id='',tipo='livre',el=null){
-  const tiposValidos=['pagina','porcentagem','capitulo','livre'];
-  const tipoSeguro=tiposValidos.includes(String(tipo||'').trim().toLowerCase())?String(tipo||'').trim().toLowerCase():'livre';
-  let form=el?.closest?.('[data-diary-form]')||null;
-  if(!form&&id) form=document.querySelector(`[data-diary-form="${CSS.escape(String(id))}"]`);
-  if(!form) return;
-  const input=form.querySelector('[data-diary-input="tipo"]');
-  if(input) input.value=tipoSeguro;
-  form.querySelectorAll('[data-progress-chip]').forEach(btn=>{
-    const ativo=btn.dataset.progressChip===tipoSeguro;
+  const input=el?.closest?.('[data-diary-form]')?.querySelector('[data-diary-input="tipo"]')||document.getElementById(`diaryProgressType_${id}`);
+  const form=input?.closest?.('[data-diary-form]')||null;
+  if(input) input.value=tipo;
+  form?.querySelectorAll('[data-progress-chip]').forEach(btn=>{
+    const ativo=btn.dataset.progressChip===tipo;
     btn.classList.toggle('active',ativo);
     btn.setAttribute('aria-pressed',ativo?'true':'false');
   });
-  form.querySelectorAll('[data-progress-field]').forEach(el=>{ el.hidden=el.dataset.progressField!==tipoSeguro; });
+  form?.querySelectorAll('[data-progress-field]').forEach(el=>{ el.hidden=el.dataset.progressField!==tipo; });
 }
 function atualizarCamposDiario(id=''){
-  const form=id?document.querySelector(`[data-diary-form="${CSS.escape(String(id))}"]`):null;
-  const tipo=form?.querySelector('[data-diary-input="tipo"]')?.value||'livre';
-  selecionarTipoDiario(id,tipo,form);
+  selecionarTipoDiario(id,document.getElementById(`diaryProgressType_${id}`)?.value||'livre');
 }
 function formDiarioHTML(leituraId, entry=null){
   const id=entry?.id||'';
@@ -1117,37 +1111,31 @@ function formDiarioHTML(leituraId, entry=null){
   </div>`;
 }
 function buildDiaryPayload(form){
-  if(!form) return null;
-  const tiposValidos=['pagina','porcentagem','capitulo','livre'];
-  const normalizarTipo=valor=>{
-    const tipo=String(valor||'').trim().toLowerCase();
-    return tiposValidos.includes(tipo)?tipo:'';
-  };
-  const campo=nome=>form.querySelector(`[data-diary-input="${nome}"]`);
-  const tipoHidden=normalizarTipo(campo('tipo')?.value);
-  const tipoChip=normalizarTipo(form.querySelector('[data-progress-chip].active')?.dataset?.progressChip);
-  const progresso_tipo=tipoHidden||tipoChip||'livre';
-  const pageRaw=(campo('pagina')?.value||'').trim();
-  const percentRaw=(campo('porcentagem')?.value||'').trim();
+  const formKey=form?.dataset?.diaryForm||'';
+  const byId=name=>{ const el=document.getElementById(`${name}_${formKey}`); return form?.contains(el)?el:null; };
+  const tipo=(byId('diaryProgressType')?.value||'livre').trim().toLowerCase();
+  const pageRaw=(byId('diaryPageInput')?.value||'').trim();
+  const percentRaw=(byId('diaryPercentInput')?.value||'').trim();
+  const chapter=(byId('diaryChapterInput')?.value||'').trim();
+  const free=(byId('diaryFreeInput')?.value||'').trim();
+  const nota=(byId('diaryNoteInput')?.value||'').trim();
   const pageNumber=Number(pageRaw);
   const percentNumber=Number(percentRaw);
-  const pagina=progresso_tipo==='pagina'&&pageRaw!==''&&Number.isInteger(pageNumber)&&pageNumber>0?pageNumber:null;
-  const porcentagem=progresso_tipo==='porcentagem'&&percentRaw!==''&&Number.isFinite(percentNumber)&&percentNumber>=0&&percentNumber<=100?percentNumber:null;
-  const capitulo=progresso_tipo==='capitulo'?(campo('capitulo')?.value||'').trim():(progresso_tipo==='livre'?(campo('livre')?.value||'').trim():'');
+  const pagina=tipo==='pagina'&&pageRaw!==''&&Number.isInteger(pageNumber)&&pageNumber>0?pageNumber:null;
+  const porcentagem=tipo==='porcentagem'&&percentRaw!==''&&Number.isFinite(percentNumber)&&percentNumber>=0&&percentNumber<=100?percentNumber:null;
   return {
-    progresso_tipo,
+    progresso_tipo:['pagina','porcentagem','capitulo','livre'].includes(tipo)?tipo:'livre',
     pagina,
     porcentagem,
-    capitulo,
-    nota:(campo('nota')?.value||'').trim(),
-    publico:!!campo('publico')?.checked,
-    spoiler:!!campo('spoiler')?.checked
+    capitulo:tipo==='capitulo'?chapter:(tipo==='livre'?free:null),
+    nota,
+    publico:!!byId('diaryPublicInput')?.checked,
+    spoiler:!!byId('diarySpoilerInput')?.checked
   };
 }
 function payloadDiario(id='',el=null){
-  const form=el?.closest?.('[data-diary-form]')||null;
-  if(!form) return null;
-  return buildDiaryPayload(form);
+  const input=el?.closest?.('[data-diary-form]')?.querySelector('[data-diary-input="tipo"]')||document.getElementById(`diaryProgressType_${id}`);
+  return buildDiaryPayload(input?.closest?.('[data-diary-form]')||null);
 }
 function validarPayloadDiario(payload){
   const paginaValida=payload.progresso_tipo==='pagina'&&Number.isInteger(payload.pagina)&&payload.pagina>0;
@@ -1159,12 +1147,11 @@ function validarPayloadDiario(payload){
 }
 async function salvarDiario(leituraId,id='',el=null){
   const payload=payloadDiario(id,el);
-  if(!payload){ alert(t('diary_save_error')); return; }
-  console.debug('diary payload',payload);
   const erro=validarPayloadDiario(payload);
-  if(erro){ console.warn('invalid diary payload',payload,erro); alert(erro); return; }
+  if(erro){ alert(erro); return; }
   const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;
   const method=id?'PATCH':'POST';
+  console.debug('diary payload',payload);
   try{
     const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok){
