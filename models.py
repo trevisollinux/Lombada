@@ -70,6 +70,21 @@ class Leitura(SQLModel, table=True):
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
 
+class ReadingJournalEntry(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    leitura_id: int = Field(foreign_key="leitura.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    progresso_tipo: str = Field(default="livre", index=True)
+    pagina: Optional[int] = None
+    porcentagem: Optional[int] = None
+    capitulo: str = ""
+    nota: str = ""
+    publico: bool = Field(default=False, index=True)
+    spoiler: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserEdition(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("usuario_id", "edicao_id", name="uq_useredition_pair"),)
 
@@ -232,12 +247,15 @@ def migrar():
         "CREATE INDEX IF NOT EXISTS ix_useredition_usuario_id ON useredition (usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_useredition_edicao_id ON useredition (edicao_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_status ON reviewreport (status)",
+        "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_leitura_id ON readingjournalentry (leitura_id)",
+        "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_usuario_id ON readingjournalentry (usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_created_at ON readingjournalentry (created_at)",
     ]
     for ddl in ddls:
         _run_ddl("index/social", ddl)
 
     if postgres:
-        for table in ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport"):
+        for table in ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry"):
             _run_ddl(
                 f"{table}.id identity",
                 f"""

@@ -22,7 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -616,6 +616,113 @@ def report_review(leitura_id: int, payload: ReviewReportPayload, request: Reques
         s.add(report); s.commit()
     return {"reported": True}
 
+
+
+PROGRESSO_TIPOS = {"pagina", "porcentagem", "capitulo", "livre"}
+
+
+class DiarioPayload(BaseModel):
+    progresso_tipo: str = "livre"
+    pagina: Optional[int] = None
+    porcentagem: Optional[int] = None
+    capitulo: str = ""
+    nota: str = ""
+    publico: bool = False
+    spoiler: bool = False
+
+
+def _leitura_do_usuario(leitura_id: int, usuario_id: int, s: Session) -> Leitura:
+    leitura = s.get(Leitura, leitura_id)
+    if not leitura or leitura.usuario_id != usuario_id:
+        raise HTTPException(404, "leitura não encontrada")
+    return leitura
+
+
+def _validar_diario(payload: DiarioPayload) -> dict:
+    data = payload.model_dump(exclude_unset=True)
+    tipo = (data.get("progresso_tipo") or "livre").strip().lower()
+    if tipo not in PROGRESSO_TIPOS:
+        raise HTTPException(422, "tipo de progresso inválido")
+    pagina = data.get("pagina")
+    porcentagem = data.get("porcentagem")
+    if pagina is not None and pagina < 0:
+        raise HTTPException(422, "página não pode ser negativa")
+    if porcentagem is not None and not 0 <= porcentagem <= 100:
+        raise HTTPException(422, "porcentagem deve estar entre 0 e 100")
+    nota = _clean_text(data.get("nota", ""), 2000)
+    capitulo = _clean_text(data.get("capitulo", ""), 120)
+    return {
+        "progresso_tipo": tipo, "pagina": pagina, "porcentagem": porcentagem,
+        "capitulo": capitulo, "nota": nota, "publico": bool(data.get("publico", False)),
+        "spoiler": bool(data.get("spoiler", False)),
+    }
+
+
+def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Edicao | None = None, o: Obra | None = None) -> dict:
+    return {
+        "id": entry.id, "leitura_id": entry.leitura_id, "progresso_tipo": entry.progresso_tipo,
+        "pagina": entry.pagina, "porcentagem": entry.porcentagem, "capitulo": entry.capitulo,
+        "nota": entry.nota, "publico": bool(entry.publico), "spoiler": bool(entry.spoiler),
+        "created_at": entry.created_at.isoformat(), "updated_at": entry.updated_at.isoformat(),
+        **({"status": l.status, "titulo": o.titulo, "autor": o.autor, "capa_url": ed.capa_url} if l and ed and o else {}),
+    }
+
+
+@app.get("/api/leitura/{leitura_id}/diario")
+def listar_diario_leitura(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    _leitura_do_usuario(leitura_id, u.id, s)
+    entries = s.exec(select(ReadingJournalEntry).where(ReadingJournalEntry.leitura_id == leitura_id, ReadingJournalEntry.usuario_id == u.id).order_by(ReadingJournalEntry.created_at.desc())).all()
+    return [_diario_payload(e) for e in entries]
+
+
+@app.get("/api/diario")
+def listar_diario_usuario(request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    rows = s.exec(
+        select(ReadingJournalEntry, Leitura, Edicao, Obra)
+        .join(Leitura, ReadingJournalEntry.leitura_id == Leitura.id)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .where(ReadingJournalEntry.usuario_id == u.id, Leitura.usuario_id == u.id)
+        .order_by(ReadingJournalEntry.created_at.desc())
+    ).all()
+    return [_diario_payload(e, l, ed, o) for e, l, ed, o in rows]
+
+
+@app.post("/api/leitura/{leitura_id}/diario")
+def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    _leitura_do_usuario(leitura_id, u.id, s)
+    data = _validar_diario(payload)
+    entry = ReadingJournalEntry(leitura_id=leitura_id, usuario_id=u.id, **data)
+    s.add(entry); s.commit(); s.refresh(entry)
+    return _diario_payload(entry)
+
+
+@app.patch("/api/diario/{entrada_id}")
+def editar_diario(entrada_id: int, payload: DiarioPayload, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    entry = s.get(ReadingJournalEntry, entrada_id)
+    if not entry or entry.usuario_id != u.id:
+        raise HTTPException(404, "entrada de diário não encontrada")
+    data = _validar_diario(payload)
+    for k, v in data.items():
+        setattr(entry, k, v)
+    entry.updated_at = datetime.utcnow()
+    s.add(entry); s.commit(); s.refresh(entry)
+    return _diario_payload(entry)
+
+
+@app.delete("/api/diario/{entrada_id}")
+def remover_diario(entrada_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    entry = s.get(ReadingJournalEntry, entrada_id)
+    if not entry or entry.usuario_id != u.id:
+        raise HTTPException(404, "entrada de diário não encontrada")
+    s.delete(entry); s.commit()
+    return {"ok": True}
+
 # ─── prateleira ───────────────────────────────────────────
 class EntradaPrateleira(BaseModel):
     work_key:        str
@@ -840,6 +947,8 @@ def remover_leitura(leitura_id: int, request: Request, s: Session = Depends(get_
     l = s.get(Leitura, leitura_id)
     if not l or l.usuario_id != u.id:
         raise HTTPException(404, "leitura não encontrada")
+    for entry in s.exec(select(ReadingJournalEntry).where(ReadingJournalEntry.leitura_id == leitura_id, ReadingJournalEntry.usuario_id == u.id)).all():
+        s.delete(entry)
     s.delete(l); s.commit()
     return {"ok": True}
 

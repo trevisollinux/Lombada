@@ -12,7 +12,7 @@ const SUGESTOES = [
 ];
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
-let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
+let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null;
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 let filtroEstante='Todos';
 let feedItems=[], feedFollowingCount=0, feedTab='following', discoverReaders=[];
@@ -1070,7 +1070,7 @@ function renderPrateleira(){
   $('#prateleira').innerHTML=`<p class="shelf-summary">${resumoEstante()}</p>`+conviteLoginHTML()+blocoLendoEstante()+controlesEstante()+(itens.length?corpo:vazio);
 }
 async function carregarPrateleira(){
-  try{ prateleira=await (await fetch('/api/prateleira')).json(); }catch(e){ return; }
+  try{ prateleira=await (await fetch('/api/prateleira')).json(); diarioEntradas=await (await fetch('/api/diario')).json(); }catch(e){ return; }
   renderLendoAgora();
   renderPrateleira();
   renderDiario();
@@ -1078,27 +1078,59 @@ async function carregarPrateleira(){
 }
 
 /* diário — linha do tempo */
-function renderDiario(){
-  if(!prateleira.length){
-    $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div>
-      <p>${t('diary_empty_html')}</p>
-      <button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button></div>`;
-    return;
-  }
-  $('#diario').innerHTML='<ul class="diary">'+prateleira.map((l,i)=>{
-    const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="dcover');
-    return `<li onclick="abrirCard(${i})">
-      ${cap}
-      <div class="dbody">
-        <div class="dmeta"><span>${esc(statusLabel(l.status||'Lido'))}</span>${l.autor?` · ${esc(l.autor)}`:''}</div>
-        <div class="dtop"><span class="dt">${esc(l.titulo)}</span><span class="dwhen">${esc(l.data||'')}</span></div>
-        ${l.nota?`<div class="dstars">${estrelasStr(l.nota)} ${l.nota.toLocaleString(getLocale())}</div>`:''}
-        ${l.tradutor?`<div class="dtr">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}
-        ${l.relato?`<div class="drelato">${esc(l.relato)}</div>`:''}
-      </div></li>`;
-  }).join('')+'</ul>';
+function progressoDiario(e){
+  const partes=[];
+  if(e.pagina!==null&&e.pagina!==undefined) partes.push(`${t('page')} ${esc(e.pagina)}`);
+  if(e.porcentagem!==null&&e.porcentagem!==undefined) partes.push(`${esc(e.porcentagem)}%`);
+  if(e.capitulo) partes.push(`${t('chapter')} ${esc(e.capitulo)}`);
+  if(!partes.length && e.progresso_tipo==='livre') partes.push(t('free_progress'));
+  return partes.join(' · ');
 }
-
+function dataDiario(e){
+  try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
+}
+function formDiarioHTML(leituraId, entry=null){
+  const id=entry?.id||'';
+  return `<div class="diary-form" data-diary-form="${id}">
+    <div class="label">${entry?t('edit_diary_entry'):t('new_diary_entry')}</div>
+    <p class="muted">${t('diary_hint')} · ${t('private_by_default')}</p>
+    <div class="row"><div class="field"><label class="label">${t('reading_progress')}</label><select id="dj_tipo_${id}">
+      ${['pagina','porcentagem','capitulo','livre'].map(v=>`<option value="${v}" ${(entry?.progresso_tipo||'pagina')===v?'selected':''}>${t(v==='pagina'?'page':v==='porcentagem'?'percentage':v==='capitulo'?'chapter':'free_progress')}</option>`).join('')}
+    </select></div><div class="field"><label class="label">${t('page')}</label><input id="dj_pagina_${id}" type="number" min="0" value="${entry?.pagina??''}"></div></div>
+    <div class="row"><div class="field"><label class="label">${t('percentage')}</label><input id="dj_pct_${id}" type="number" min="0" max="100" value="${entry?.porcentagem??''}"></div><div class="field"><label class="label">${t('chapter')}</label><input id="dj_cap_${id}" value="${esc(entry?.capitulo||'')}"></div></div>
+    <div class="field"><label class="label">${t('moment_note')}</label><textarea id="dj_nota_${id}" maxlength="2000" placeholder="${t('moment_note')}">${esc(entry?.nota||'')}</textarea></div>
+    <div class="visibility-box"><label class="check-line"><input type="checkbox" id="dj_spoiler_${id}" ${entry?.spoiler?'checked':''}> ${t('contains_spoiler')}</label><label class="check-line"><input type="checkbox" id="dj_publico_${id}" ${entry?.publico?'checked':''}> ${t('show_on_public_profile')}</label></div>
+    <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}')">${t('save_changes')}</button>
+  </div>`;
+}
+function payloadDiario(id=''){
+  const val=x=>document.getElementById(`dj_${x}_${id}`);
+  return {progresso_tipo:val('tipo').value,pagina:val('pagina').value?Number(val('pagina').value):null,porcentagem:val('pct').value?Number(val('pct').value):null,capitulo:val('cap').value.trim(),nota:val('nota').value.trim(),spoiler:val('spoiler').checked,publico:val('publico').checked};
+}
+async function salvarDiario(leituraId,id=''){
+  const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;
+  const method=id?'PATCH':'POST';
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payloadDiario(id))});
+  if(!r.ok){ alert(t('edit_save_error')); return; }
+  diarioEditId=null; await carregarPrateleira(); if(cardAtual) renderDetalheLivro(cardAtual);
+}
+async function excluirDiario(id){ if(!confirm(t('delete_diary_entry')+'?'))return; const r=await fetch(`/api/diario/${id}`,{method:'DELETE'}); if(r.ok) await carregarPrateleira(); }
+function cardEntradaDiario(e, opts={}){
+  const i=prateleira.findIndex(l=>l.leitura_id===e.leitura_id);
+  return `<article class="diary-entry-card">
+    <div class="dmeta"><span>${esc(statusLabel(e.status||''))}</span>${e.autor?` · ${esc(e.autor)}`:''}${e.publico?` · <b>${t('public_review').replace(/ .*/,'')}</b>`:''}${e.spoiler?` · ${t('contains_spoiler')}`:''}</div>
+    <div class="dtop"><button class="dt linklike" onclick="abrirCard(${i})">${esc(e.titulo||'')}</button><span class="dwhen">${dataDiario(e)}</span></div>
+    <div class="diary-progress">${progressoDiario(e)}</div>
+    ${e.nota?`<div class="drelato">“${esc(e.nota)}”</div>`:''}
+    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="excluirDiario(${e.id})">${t('delete_diary_entry')}</button></div>
+    ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e):''}
+  </article>`;
+}
+function renderDiario(){
+  const novo=prateleira.length?`<button class="btn-cta" onclick="abrirCard(0);setTimeout(()=>document.getElementById('diaryNewForm')?.scrollIntoView({behavior:'smooth'}),50)">${t('new_diary_entry')}</button>`:'';
+  if(!diarioEntradas.length){ $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div><p>${t('no_diary_entries')}</p>${novo||`<button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button>`}</div>`; return; }
+  $('#diario').innerHTML=`<div class="diary-head"><button class="btn-cta" onclick="abrirCard(0)">${t('new_diary_entry')}</button><p class="muted">${t('diary_hint')}</p></div><div class="diary">${diarioEntradas.map(e=>cardEntradaDiario(e)).join('')}</div>`;
+}
 /* perfil */
 function leiturasComNotaAlta(){
   return [...prateleira].sort((a,b)=>(b.nota||0)-(a.nota||0) || Number(!!b.relato)-Number(!!a.relato)).filter(l=>(l.nota||0)>=4.5 || (l.publico&&l.relato)).slice(0,5);
@@ -1267,6 +1299,12 @@ function renderDetalheLivro(l){
     <section class="detail-section">
       <div class="label">${t('visibility')}</div>
       <p class="detail-empty">${l.publico?t('public_review'):t('private_review')}${l.spoiler?' · '+t('contains_spoiler'):''}</p>
+    </section>
+    <section class="detail-section" id="readingDiarySection">
+      <div class="label">${t('reading_diary')}</div>
+      <p class="detail-empty">${t('diary_hint')}</p>
+      <div id="diaryNewForm">${formDiarioHTML(l.leitura_id)}</div>
+      <div class="diary detail-diary">${diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).slice(0,5).map(e=>cardEntradaDiario(e,{inDetail:true})).join('') || `<p class="detail-empty">${t('no_diary_entries')}</p>`}</div>
     </section>
     <section class="detail-section">
       <div class="label">${t('edition')}</div>
