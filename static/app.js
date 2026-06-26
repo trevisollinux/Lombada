@@ -15,7 +15,7 @@ let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, ed
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], cardAtual=null, notaEdit=0;
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 let filtroEstante='Todos';
-let feedItems=[], feedFollowingCount=0;
+let feedItems=[], feedFollowingCount=0, feedTab='following', discoverReaders=[];
 let ultimoLivroSalvo=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
@@ -402,6 +402,37 @@ function renderLendoAgora(){
 }
 
 
+
+function handleLinkHTML(handle, cls='feed-user') {
+  const h=esc(handle||'leitor');
+  return `<button type="button" class="${cls}" onclick="abrirPerfilPublico('${h.replace(/'/g,"\'")}')" title="${t('view_profile')}">@${h}</button>`;
+}
+function followButtonHTML(u, extraClass='') {
+  if(!u?.handle || u.is_me) return '';
+  return `<button type="button" class="follow-inline ${extraClass} ${u.is_following?'active':''}" onclick="toggleFollowHandle('${esc(u.handle).replace(/'/g,"\'")}')">${u.is_following?t('following'):t('follow')}</button>`;
+}
+function atualizarFollowLocal(handle, following, counts={}){
+  const apply=u=>{ if(u?.handle===handle){ u.is_following=following; if('followers_count' in counts) u.followers_count=counts.followers_count; } };
+  feedItems.forEach(it=>apply(it.usuario));
+  discoverReaders.forEach(apply);
+  [obraSocial?.criticas, obraSocial?.destaques].filter(Boolean).forEach(list=>list.forEach(c=>{ if(c?.usuario===handle){ c.is_following=following; if('followers_count' in counts) c.followers_count=counts.followers_count; } }));
+}
+async function toggleFollowHandle(handle){
+  if(!handle) return;
+  const current=[...feedItems.map(it=>it.usuario), ...discoverReaders, ...(obraSocial?.criticas||[]).map(c=>({handle:c.usuario,is_following:c.is_following}))].find(u=>u?.handle===handle);
+  const following=!!current?.is_following;
+  try{
+    const res=await fetch('/api/u/'+encodeURIComponent(handle)+'/follow',{method:following?'DELETE':'POST'});
+    if(res.status===401 || res.status===403){ toast(t('follow_login_required')); return; }
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    atualizarFollowLocal(handle, !!data.following, data);
+    renderFeed();
+    if(obraSocial?.criticas?.some(c=>c.usuario===handle)) renderEdicoes();
+  }catch(e){ toast(t('interaction_error')); }
+}
+function mudarFeedTab(tab){ feedTab=tab==='discover'?'discover':'following'; carregarFeed(); }
+
 function feedAction(tipo,status){
   if(tipo==='wrote_review') return t('wrote_review');
   if(tipo==='started_reading' || status==='Lendo') return t('started_reading');
@@ -424,16 +455,18 @@ function revelarFeedSpoiler(i){
 }
 function renderFeed(){
   const box=$('#feed'); if(!box)return;
-  if(!feedFollowingCount){ box.innerHTML=`<div class="empty">${t('feed_empty_follow_people')}</div>`; return; }
-  if(!feedItems.length){ box.innerHTML=`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
-  box.innerHTML=feedItems.map((it,i)=>{
-    const u=it.usuario||{}, livro=it.livro||{}, ed=it.edicao||{}, l=it.leitura||{};
-    const edition=[ed.editora,ed.tradutor?`${t('translator_abbr')} ${ed.tradutor}`:'',ed.ano].filter(Boolean).join(' · ');
+  const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button></div>`;
+  if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+`<div class="empty-rich"><p>${t('no_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('find_readers')}</button></div>`; return; }
+  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
+  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+`<div class="empty">${t('feed_empty_no_activity')}</div>`; return; }
+  const reviewCards=feedItems.map((it,i)=>{
+    const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
+    const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
     const spoiler=l.publico&&l.spoiler;
     return `<article class="feed-card">
       <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
       <div class="feed-copy">
-        <div><span class="feed-user" onclick="abrirPerfilPublico('${esc(u.handle).replace(/'/g,"\'")}')">@${esc(u.handle)}</span><span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></div>
+        <div class="feed-card-top"><span>${handleLinkHTML(u.handle)}<span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></span>${followButtonHTML(u)}</div>
         <div class="feed-title">${esc(livro.titulo)}</div>
         <div class="feed-author">${esc(livro.autor)}</div>
         ${edition?`<div class="feed-edition">${esc(edition)}</div>`:''}
@@ -442,14 +475,24 @@ function renderFeed(){
         ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:''}
         ${l.relato?reviewActionsHTML(l):''}
         <div class="feed-date">${esc(dataFeed(it.created_at))}</div>
-      </div>
-    </article>`;
+      </div></article>`;
   }).join('');
+  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
+  const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
+  box.innerHTML=tabs+readers+title+reviewCards;
 }
 async function carregarFeed(){
   const box=$('#feed'); if(box) box.innerHTML=`<div class="empty">${t('loading_activity')}</div>`;
-  try{ const data=await (await fetch('/api/feed')).json(); feedFollowingCount=data.following_count||0; feedItems=data.items||[]; }
-  catch(e){ feedFollowingCount=1; feedItems=[]; }
+  try{
+    if(feedTab==='discover'){
+      const data=await (await fetch('/api/feed/discover')).json();
+      feedFollowingCount=1; feedItems=data.reviews||[]; discoverReaders=data.readers||[];
+    }else{
+      const data=await (await fetch('/api/feed')).json();
+      feedFollowingCount=data.following_count||0; feedItems=data.items||[]; discoverReaders=[];
+    }
+  }
+  catch(e){ feedFollowingCount=1; feedItems=[]; discoverReaders=[]; }
   renderFeed();
 }
 function abrirPerfilPublico(handle){ if(handle) location.href='/u/'+encodeURIComponent(handle); }
@@ -722,7 +765,7 @@ function criticasHTML(){
   const corpo=c=>c.spoiler
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
     : `<p>${esc(c.relato)}</p>`;
-  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>@${esc(c.usuario||'leitor')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
 function registrarLeituraObra(){
