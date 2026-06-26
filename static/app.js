@@ -1076,8 +1076,8 @@ function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
 function selecionarTipoDiario(id='',tipo='livre',el=null){
-  const form=el?.closest?.('[data-diary-form]')||document.querySelector(`[data-diary-form="${id}"]`);
-  const input=form?.querySelector('[data-diary-input="tipo"]')||document.getElementById(`diaryProgressType_${id}`);
+  const input=el?.closest?.('[data-diary-form]')?.querySelector('[data-diary-input="tipo"]')||document.getElementById(`diaryProgressType_${id}`);
+  const form=input?.closest?.('[data-diary-form]')||null;
   if(input) input.value=tipo;
   form?.querySelectorAll('[data-progress-chip]').forEach(btn=>{
     const ativo=btn.dataset.progressChip===tipo;
@@ -1134,8 +1134,8 @@ function buildDiaryPayload(form){
   };
 }
 function payloadDiario(id='',el=null){
-  const form=el?.closest?.('[data-diary-form]')||document.querySelector(`[data-diary-form="${id}"]`);
-  return buildDiaryPayload(form);
+  const input=el?.closest?.('[data-diary-form]')?.querySelector('[data-diary-input="tipo"]')||document.getElementById(`diaryProgressType_${id}`);
+  return buildDiaryPayload(input?.closest?.('[data-diary-form]')||null);
 }
 function validarPayloadDiario(payload){
   const paginaValida=payload.progresso_tipo==='pagina'&&Number.isInteger(payload.pagina)&&payload.pagina>0;
@@ -1151,7 +1151,7 @@ async function salvarDiario(leituraId,id='',el=null){
   if(erro){ alert(erro); return; }
   const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;
   const method=id?'PATCH':'POST';
-  console.debug('[diario payload]',payload);
+  console.debug('diary payload',payload);
   try{
     const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!r.ok){
