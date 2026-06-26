@@ -8,7 +8,7 @@
  *   Google Fonts                 → Stale While Revalidate
  */
 
-const VERSION   = 'lombada-v1';
+const VERSION   = 'lombada-v2';
 const CACHE     = VERSION;
 
 const SHELL = [
