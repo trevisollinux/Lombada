@@ -818,15 +818,25 @@ function renderEdicoes(){
 function escolherEdicao(j){
   edicaoSel=edicoesAtual[j]; notaSel=0;
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
-  const resumo=[edicaoSel.editora&&`Editora ${esc(edicaoSel.editora)}`,edicaoSel.ano&&esc(edicaoSel.ano),edicaoSel.tradutor&&`Trad. ${esc(edicaoSel.tradutor)}`,edicaoSel.isbn&&`ISBN ${esc(edicaoSel.isbn)}`,edicaoSel.idioma&&esc(edicaoSel.idioma)].filter(Boolean).join(' · ');
+  const dadosEdicao=[
+    [t('title'), titulo],
+    [t('publisher'), edicaoSel.editora],
+    [t('edition_year'), edicaoSel.ano],
+    [t('isbn'), edicaoSel.isbn],
+    [t('language_field'), edicaoSel.idioma],
+    [t('translator'), edicaoSel.tradutor]
+  ].filter(([,valor])=>valor);
+  const edicaoHTML=dadosEdicao.length
+    ? `<dl class="edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>`
+    : `<p class="muted">${t('catalog_data_missing')}</p>`;
   $('#form').innerHTML=`
     <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
     <div class="card-form">
       <div class="form-block"><div class="label">${t('selected_edition')}</div>
-        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:19px">${esc(titulo)}</div>
-        <div class="meta" style="margin:4px 0 8px">${resumo||t('catalog_data_missing')}</div>
-        <p class="muted">${t('catalog_data_notice')}</p>
+        ${edicaoHTML}
+        <p class="muted correction-hint">${t('catalog_correction_question')}</p>
+        <button class="link-btn" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button>
       </div>
       <div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div>
       <div class="row">
@@ -835,11 +845,11 @@ function escolherEdicao(j){
         <div class="field"><label class="label">${t('when')}</label>
           <input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div>
       </div>
-      <div class="field"><label class="label">${t('reading_note')}</label>
-        <textarea id="f_relato" maxlength="160" placeholder="${t('reading_note_placeholder')}"></textarea></div>
+      <div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label>
+        <textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div>
       <div class="visibility-box"><div class="label">${t('visibility')}</div>
-        <label class="check-line"><input type="checkbox" id="f_publico"> <span>${t('make_review_public')}</span></label>
-        <p class="muted">${t('public_review_hint')}</p>
+        <label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('make_review_public')}</span></label>
+        <p class="muted">${t('public_text_hint')}</p>
         <label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label>
       </div>
       <div class="visibility-box"><div class="label">${t('my_relation_with_edition')}</div>
@@ -850,6 +860,29 @@ function escolherEdicao(j){
     </div>`;
   mostrarBusca('form');
   montarStars('f_stars',()=>notaSel,v=>notaSel=v);
+  atualizarCopyRelato('f');
+  $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
+}
+
+function sugerirCorrecaoCatalogo(){
+  toast(t('catalog_correction_soon'));
+}
+
+function copyRelatoPorStatus(status){
+  if(status==='Lido') return {label:t('your_review'), placeholder:t('your_review_placeholder'), publico:t('make_review_public')};
+  if(status==='Lendo') return {label:t('reading_note'), placeholder:t('reading_note_placeholder'), publico:t('show_on_public_profile')};
+  return {label:t('why_want_read'), placeholder:t('why_want_read_placeholder'), publico:t('show_on_public_profile')};
+}
+
+function atualizarCopyRelato(prefix){
+  const status=$(`#${prefix}_status`)?.value;
+  const copy=copyRelatoPorStatus(status);
+  const label=$(`#${prefix}_relato_label`);
+  const textarea=$(`#${prefix}_relato`);
+  const publico=$(`#${prefix}_publico_label`);
+  if(label) label.textContent=copy.label;
+  if(textarea) textarea.placeholder=copy.placeholder;
+  if(publico) publico.textContent=copy.publico;
 }
 
 function montarStars(id,get,set){
@@ -1093,7 +1126,11 @@ function renderPerfil(){
     <div class="account-box public-preview-box">
       <div class="label">${t('public_profile')}</div>
       <p>${t('public_profile_preview')}</p>
-      <a class="pbtn" href="${esc(url)}" target="_blank">${t('open_public_profile')}</a>
+      <div class="profile-actions">
+        <a class="pbtn solid" href="${esc(url)}" target="_blank">${t('view_public_profile')}</a>
+        <button class="pbtn" type="button" onclick="copiarLinkPerfil()">${t('copy_profile_link')}</button>
+        <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
+      </div>
     </div>
     ${blocoVitrinePerfil(t('currently_reading'),lendoAgora,t('nothing_reading_now'),miniLivroPerfil)}
     ${favoritos.length?blocoVitrinePerfil(t('favorites'),favoritos,'',miniLivroPerfil):''}
@@ -1141,19 +1178,24 @@ function renderPerfil(){
         <p>${t('library_hint')}</p>
         <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
       </div>
-      <div class="pactions">
-        <button class="pbtn solid" onclick="compartilharEstante()">${t('share_shelf')}</button>
-        <a class="pbtn" href="${esc(url)}" target="_blank">${t('open_public_shelf')}</a>
-      </div>
       <div class="plink">${esc(url)}</div>
     </div>`;
 }
 
+async function copiarLink(url, promptKey){
+  try{ await navigator.clipboard.writeText(url); toast(t('link_copied',{url})); }
+  catch(e){ prompt(t(promptKey),url); }
+}
+async function copiarLinkPerfil(){ await copiarLink(location.origin+'/u/'+meuHandle,'copy_profile_link_prompt'); }
+async function compartilharPerfil(){
+  const url=location.origin+'/u/'+meuHandle;
+  if(navigator.share){ try{ await navigator.share({title:t('profile_share_title'),url}); return; }catch(e){} }
+  await copiarLinkPerfil();
+}
 async function compartilharEstante(){
   const url=location.origin+'/u/'+meuHandle;
   if(navigator.share){ try{ await navigator.share({title:t('shelf_share_title'),url}); return; }catch(e){} }
-  try{ await navigator.clipboard.writeText(url); alert(t('link_copied',{url})); }
-  catch(e){ prompt(t('copy_shelf_link'),url); }
+  await copiarLink(url,'copy_shelf_link');
 }
 
 /* ---------- card / modal ---------- */
@@ -1454,16 +1496,18 @@ function abrirEditar(){
       <div class="field"><label class="label">${t('when')}</label>
         <input type="text" id="e_data" value="${esc(l.data)}" placeholder="${t('date_placeholder')}" /></div>
     </div>
-    <div class="field"><label class="label">${t('reading_note')}</label>
+    <div class="field"><label class="label" id="e_relato_label">${t('reading_note')}</label>
       <textarea id="e_relato" maxlength="160">${esc(l.relato)}</textarea></div>
     <div class="visibility-box"><div class="label">${t('visibility')}</div>
-      <label class="check-line"><input type="checkbox" id="e_publico" ${l.publico?'checked':''}> <span>${t('make_review_public')}</span></label>
-      <p class="muted">${t('public_review_hint')}</p>
+      <label class="check-line"><input type="checkbox" id="e_publico" ${l.publico?'checked':''}> <span id="e_publico_label">${t('make_review_public')}</span></label>
+      <p class="muted">${t('public_text_hint')}</p>
       <label class="check-line"><input type="checkbox" id="e_spoiler" ${l.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label>
     </div>
     <button class="btn-primary" onclick="salvarEdicao()">${t('save_changes')}</button>`;
   p.style.display='';
   montarStars('e_stars',()=>notaEdit,v=>notaEdit=v);
+  atualizarCopyRelato('e');
+  $('#e_status')?.addEventListener('change',()=>atualizarCopyRelato('e'));
   p.scrollIntoView({behavior:'smooth',block:'center'});
 }
 async function salvarEdicao(){
