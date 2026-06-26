@@ -1,0 +1,1712 @@
+const $ = s => document.querySelector(s);
+const esc = s => (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
+
+const SUGESTOES = [
+  {titulo:'Crime e Castigo',autor:'Fiódor Dostoiévski'},
+  {titulo:'A Montanha Mágica',autor:'Thomas Mann'},
+  {titulo:'Ulisses',autor:'James Joyce'},
+  {titulo:'Orlando',autor:'Virginia Woolf'},
+  {titulo:'O Aleph',autor:'Jorge Luis Borges'},
+  {titulo:'O Morro dos Ventos Uivantes',autor:'Emily Brontë'},
+];
+
+let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
+let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null;
+let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
+const CARD_THEME_KEY='lombada_card_theme';
+let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=false, cardContext={type:'leitura',source:null};
+let filtroEstante='Todos';
+let feedItems=[], feedFollowingCount=0, feedTab=localStorage.getItem('lombada_feed_tab')||'discover', discoverReaders=[];
+let ultimoLivroSalvo=null;
+let timerDestaqueLivro=null;
+let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
+let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
+let restaurandoHistorico=false;
+const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
+const NAV_STATE_KEY='lombada_nav_state';
+
+const THEME_KEY='lombada_theme';
+function temaInicial(){
+  const salvo=localStorage.getItem(THEME_KEY);
+  return salvo==='light'?'light':'dark';
+}
+function aplicarTema(tema){
+  const t=tema==='dark'?'dark':'light';
+  document.body.classList.toggle('theme-dark',t==='dark');
+  document.body.classList.toggle('theme-light',t==='light');
+  document.body.setAttribute('data-theme',t);
+  document.querySelectorAll('[name=\"themeChoice\"]').forEach(input=>{ input.checked=input.value===t; });
+}
+function definirTema(tema){
+  const prox=tema==='light'?'light':'dark';
+  localStorage.setItem(THEME_KEY,prox);
+  aplicarTema(prox);
+}
+function alternarTema(){
+  const atual=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
+  definirTema(atual==='dark'?'light':'dark');
+}
+function atualizarSeletorIdioma(){
+  const locale=getLocale();
+  document.querySelectorAll('[data-locale]').forEach(btn=>{
+    const active=btn.getAttribute('data-locale')===locale;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-pressed',active?'true':'false');
+  });
+  document.querySelectorAll('[name=\"localeChoice\"]').forEach(input=>{ input.checked=input.value===locale; });
+}
+function mudarIdioma(locale){
+  setLocale(locale);
+  atualizarSeletorIdioma();
+  renderChips();
+  renderLendoAgora();
+  renderPrateleira();
+  renderDiario();
+  if(navAtual.aba==='buscar' && navAtual.busca==='edicoes') renderEdicoes();
+  if(navAtual.aba==='buscar' && navAtual.busca==='form' && edicaoSel) escolherEdicao(edicoesAtual.indexOf(edicaoSel));
+  if(navAtual.aba==='buscar' && navAtual.busca==='manual') abrirManual();
+  if(cardAtual) renderDetalheLivro(cardAtual);
+  if(navAtual.aba==='buscar' && navAtual.busca==='edicoes' && obraSocial) renderEdicoes();
+  if($('#secPerfil')?.style.display!=='none') renderPerfil();
+  if($('#secFeed')?.style.display!=='none') renderFeed();
+}
+function statusLabel(status){
+  if(status==='Lido') return t('status_read');
+  if(status==='Lendo') return t('status_reading');
+  if(status==='Quero ler') return t('status_want');
+  if(status==='Todos') return t('filter_all');
+  return status;
+}
+aplicarTema(temaInicial());
+
+let conviteLoginPendente=false;
+
+function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
+function hue(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
+
+function loginHintDispensado(){
+  return localStorage.getItem(LOGIN_HINT_KEY)==='1';
+}
+function deveMostrarConviteLogin(){
+  return !minhaConta.logado && prateleira.length > 0 && !loginHintDispensado();
+}
+function conectarGoogle(){
+  location.href='/api/auth/google/login';
+}
+function continuarSemConta(){
+  localStorage.setItem(LOGIN_HINT_KEY,'1');
+  conviteLoginPendente=false;
+  renderPrateleira();
+  renderDiario();
+  aplicarSubabaEstante(navAtual.estanteSub||'shelf');
+}
+
+function conviteLoginHTML(){
+  if(!deveMostrarConviteLogin()) return '';
+  const texto=conviteLoginPendente
+    ? t('login_saved_hint')
+    : t('login_hint');
+  return `<div class="login-hint" role="status">
+    <p>${texto}</p>
+    <div class="login-hint-actions">
+      <button class="login-hint-primary" onclick="conectarGoogle()">${t('connect_google')}</button>
+      <button class="login-hint-secondary" onclick="continuarSemConta()">${t('continue_without_account')}</button>
+    </div>
+  </div>`;
+}
+function marcarConviteLoginAposSalvar(){
+  conviteLoginPendente=!minhaConta.logado && !loginHintDispensado();
+}
+
+function toast(msg){
+  const antigo=$('#toast');
+  if(antigo) antigo.remove();
+  const el=document.createElement('div');
+  el.id='toast';
+  el.className='toast';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
+}
+
+function normalizarDuplicidade(v){ return (v||'').toString().trim().toLowerCase().replace(/\s+/g,' '); }
+function normalizarIsbnLocal(v){ return (v||'').toString().replace(/[^0-9Xx]/g,'').toUpperCase(); }
+function chaveFallbackLeitura(x){
+  return [normalizarDuplicidade(x.work_key||x.titulo),normalizarDuplicidade(x.editora),x.ano||'',normalizarDuplicidade(x.tradutor)].join('|');
+}
+function encontrarLeituraDuplicada(body){
+  const isbn=normalizarIsbnLocal(body.isbn);
+  return prateleira.find(l=>
+    (body.edicao_id&&l.edicao_id===body.edicao_id)||
+    (body.ol_edition_key&&l.ol_edition_key===body.ol_edition_key)||
+    (isbn&&normalizarIsbnLocal(l.isbn)===isbn)||
+    (chaveFallbackLeitura(l)===chaveFallbackLeitura({work_key:body.work_key,titulo:body.titulo,editora:body.editora,ano:body.ano_edicao,tradutor:body.tradutor}))
+  );
+}
+function avisarDuplicado(leituraId){
+  toast(t('duplicate_book'));
+  fecharModalParaNavegacao();
+  limparBusca();
+  mostrarBusca('home',{registrar:false});
+  irPara('estante',{recarregar:false});
+  setTimeout(()=>{
+    const idx=prateleira.findIndex(l=>l.leitura_id===leituraId);
+    if(idx>=0) abrirCard(idx,{registrar:false});
+  },120);
+}
+async function payloadErro(r){
+  try{ return await r.json(); }catch(e){ return null; }
+}
+
+function tratarMensagemConta(){
+  const params=new URLSearchParams(location.search);
+  const conta=params.get('conta');
+  if(conta==='ok') toast(t('account_connected_success'));
+  if(conta==='erro') toast(t('account_connected_error'));
+  if(conta){
+    params.delete('conta');
+    const qs=params.toString();
+    history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
+  }
+}
+
+const TINTAS_CAPA = ['#8B0E20','#11100E','#1E2F3F','#1F3A2E','#9A4A2F','#DCCEB6'];
+const PAPEL_CAPA = '#F1E6D2';
+function hashLivro(titulo,autor){
+  const txt=`${titulo||''}|${autor||''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let h=2166136261;
+  for(let i=0;i<txt.length;i++){h^=txt.charCodeAt(i);h=Math.imul(h,16777619);}
+  return h>>>0;
+}
+function capaArteDados(titulo,autor,variacao=0){
+  const h=hashLivro(titulo,autor)+variacao;
+  const layout=['classic','modern','minimal','bold','stripe'][h%5];
+  const tinta=TINTAS_CAPA[h%TINTAS_CAPA.length];
+  const tinta2=TINTAS_CAPA[Math.floor(h/7)%TINTAS_CAPA.length];
+  return {hash:h,layout,tinta,tinta2,papel:PAPEL_CAPA};
+}
+function coverFallbackHTML(titulo,autor,extra='',variacao=0){
+  const d=capaArteDados(titulo,autor,variacao);
+  const meta=autor?`<div class="cover-art-author">${esc(autor).toUpperCase()}</div>`:'';
+  return `<div class="cover cover-art ${d.layout}" data-initial="${esc((titulo||'?').charAt(0).toUpperCase())}" style="--cover-ink:${d.tinta};--cover-ink-2:${d.tinta2};--cover-paper:${d.papel}">
+    <div class="cover-art-rule"></div>
+    ${meta}
+    <div class="cover-art-title">${esc(titulo)}</div>
+    <div class="cover-art-meta">lombada · edição de leitor</div>
+    ${extra||''}</div>`;
+}
+function trocarParaCapaArte(img){
+  const el=img?.parentElement;if(!el)return;
+  const title=img.getAttribute('data-title')||'';
+  const author=img.getAttribute('data-author')||'';
+  const extra=el.querySelector('.pt,.stars-overlay')?.outerHTML||'';
+  let html=coverFallbackHTML(title,author,extra);
+  if(el.classList.contains('dcover')) html=html.replace('class="cover','class="dcover');
+  if(el.classList.contains('shelf-cover')) html=html.replace('class="cover','class="shelf-cover');
+  el.outerHTML=html;
+}
+function coverHTML(titulo,autor,capa,extra){
+  if(capa){
+    return `<div class="cover">
+      <img src="${esc(capaProxy(capa))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)">
+      ${extra||''}</div>`;
+  }
+  return coverFallbackHTML(titulo,autor,extra);
+}
+
+/* navegação entre abas */
+function estadoNav(aba=navAtual.aba,busca=navAtual.busca,modal=false,estanteSub=navAtual.estanteSub||'shelf'){
+  return {lombada:true,aba,busca,modal,estanteSub,q:$('#q')?.value||'',work_key:escolha?.work_key||'',obraIndexAtual:Number.isInteger(obrasAgrupadas.indexOf(escolha))?obrasAgrupadas.indexOf(escolha):-1};
+}
+function salvarEstadoNav(estado=estadoNav()){
+  try{ sessionStorage.setItem(NAV_STATE_KEY,JSON.stringify({...estado,timestamp:Date.now()})); }catch(e){}
+}
+function lerEstadoNavSalvo(){
+  try{
+    const raw=sessionStorage.getItem(NAV_STATE_KEY); if(!raw)return null;
+    const st=JSON.parse(raw);
+    if(!st || !st.lombada || (Date.now()-(st.timestamp||0)>24*60*60*1000))return null;
+    return st;
+  }catch(e){ return null; }
+}
+function modalAberto(){
+  return $('#modal')?.classList.contains('open');
+}
+function fecharModalDireto(){
+  $('#modal')?.classList.remove('open');
+  const editPanel=$('#editPanel');
+  if(editPanel) editPanel.style.display='none';
+}
+function fecharModalParaNavegacao(){
+  if(!modalAberto())return;
+  const estado=estadoNav(navAtual.aba,navAtual.busca,false);
+  fecharModalDireto();
+  if(history.state && history.state.lombada && history.state.modal) history.replaceState(estado,'');
+}
+function registrarHistorico(aba,busca,replace=false,estanteSub=navAtual.estanteSub||'shelf'){
+  if(!restaurandoHistorico) fecharModalParaNavegacao();
+  navAtual={aba,busca,estanteSub};
+  if(restaurandoHistorico)return;
+  const estado=estadoNav(aba,busca,false,estanteSub);
+  salvarEstadoNav(estado);
+  if(replace) history.replaceState(estado,'');
+  else history.pushState(estado,'');
+}
+function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
+  const ativa=subaba==='diario'?'diario':'shelf';
+  navAtual.estanteSub=ativa;
+  const prateleiraEl=$('#prateleira');
+  const diarioEl=$('#diario');
+  if(prateleiraEl) prateleiraEl.style.display=ativa==='shelf'?'':'none';
+  if(diarioEl) diarioEl.style.display=ativa==='diario'?'':'none';
+  $('#subtabShelf')?.classList.toggle('active',ativa==='shelf');
+  $('#subtabDiario')?.classList.toggle('active',ativa==='diario');
+  $('#subtabShelf')?.setAttribute('aria-selected',ativa==='shelf'?'true':'false');
+  $('#subtabDiario')?.setAttribute('aria-selected',ativa==='diario'?'true':'false');
+}
+function irPara(aba,opcoes={}){
+  if(aba==='diario'){ aba='estante'; opcoes={...opcoes,subaba:'diario'}; }
+  const resetBusca=opcoes.resetBusca ?? aba==='buscar';
+  const registrar=opcoes.registrar ?? true;
+  const estanteSub=aba==='estante' ? (opcoes.subaba||navAtual.estanteSub||'shelf') : (navAtual.estanteSub||'shelf');
+  const secs={buscar:'#secBuscar',feed:'#secFeed',estante:'#secEstante',perfil:'#secPerfil'};
+  for(const k in secs) $(secs[k]).style.display = (k===aba)?'':'none';
+  $('#tabBuscar').classList.toggle('active',aba==='buscar');
+  $('#tabFeed')?.classList.toggle('active',aba==='feed');
+  $('#tabEstante').classList.toggle('active',aba==='estante');
+  $('#tabPerfil').classList.toggle('active',aba==='perfil');
+  if(aba==='buscar' && resetBusca){ $('#q').value=''; limparBusca(); mostrarBusca('home',{registrar:false}); }
+  const recarregarEstante=opcoes.recarregar ?? true;
+  if(aba==='feed') carregarFeed();
+  if(aba==='estante'){
+    aplicarSubabaEstante(estanteSub);
+    if(recarregarEstante) carregarPrateleira();
+    else renderDiario();
+  }
+  if(aba==='perfil') renderPerfil();
+  navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home',estanteSub};
+  if(registrar) registrarHistorico(navAtual.aba,navAtual.busca,false,navAtual.estanteSub);
+  if(opcoes.scrollTop !== false) window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* pilha de telas DENTRO da aba buscar: home → resultados → edicoes → form.
+   mostra exatamente uma de cada vez (mata o "carrega embaixo"). */
+function mostrarBusca(tela,opcoes={}){
+  const registrar=opcoes.registrar ?? tela!=='home';
+  const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form',manual:'#manual'};
+  for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
+  navAtual={...navAtual,aba:'buscar',busca:tela};
+  if(registrar) registrarHistorico('buscar',tela);
+  salvarEstadoNav();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function aplicarHistorico(estado){
+  const proximo=estado && estado.lombada ? estado : (lerEstadoNavSalvo() || estadoNav('buscar','home'));
+  const deveReabrirModal=!!proximo.modal;
+  if(modalAberto() && !deveReabrirModal) fecharModalDireto();
+  restaurandoHistorico=true;
+  irPara(proximo.aba,{registrar:false,resetBusca:false,subaba:proximo.estanteSub||'shelf'});
+  if(proximo.aba==='buscar'){
+    if(proximo.q) $('#q').value=proximo.q;
+    mostrarBusca(proximo.busca||'home',{registrar:false});
+    if(proximo.busca==='resultados' && proximo.q) buscar();
+  }
+  navAtual={aba:proximo.aba,busca:proximo.busca||'home',estanteSub:proximo.estanteSub||'shelf'};
+  restaurandoHistorico=false;
+  if(deveReabrirModal && Number.isInteger(proximo.card) && prateleira[proximo.card]) abrirCard(proximo.card,{registrar:false});
+}
+window.onpopstate=e=>aplicarHistorico(e.state);
+
+
+/* mostra/esconde feed da home conforme há busca */
+function onQInput(){
+  const v=$('#q').value.trim();
+  if(!v){ limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home'); }
+}
+function limparBusca(){
+  resultadosArr=[];
+  obrasAgrupadas=[];
+  edicoesAtual=[];
+  escolha=null;
+  edicaoSel=null;
+  obraSocial=null;
+  $('#resultados').innerHTML='';
+  $('#edicoes').innerHTML='';
+  $('#form').innerHTML='';
+  $('#manual').innerHTML='';
+}
+
+/* feed da home — obras populares como mini estante */
+function normalizarObraPopular(o){
+  return typeof o==='string' ? {titulo:o,autor:''} : (o||{});
+}
+function renderObrasPopulares(obras){
+  const box=$('#populares');
+  if(!box) return;
+  const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular);
+  box.innerHTML=lista.map((o,i)=>`<div class="book" onclick="abrirObraPopular(${i})">
+    ${coverHTML(o.titulo,o.autor,o.capa_url,'')}
+    <div class="t">${esc(o.titulo)}</div>
+    ${o.autor?`<div class="a">${esc(o.autor)}</div>`:''}</div>`).join('');
+  box._obrasPopulares=lista;
+}
+function renderChips(){
+  const hint=$('#searchHint');
+  if(hint) hint.remove();
+  renderObrasPopulares(SUGESTOES);
+}
+async function carregarObrasPopulares(){
+  const box=$('#populares');
+  if(box) box.innerHTML=`<div class="empty">${t('loading_popular_works')}</div>`;
+  try{
+    const r=await fetch('/api/explore/populares');
+    if(!r.ok) throw new Error('popular works');
+    const obras=await r.json();
+    renderObrasPopulares(obras);
+  }catch(e){
+    renderObrasPopulares(SUGESTOES);
+  }
+}
+function abrirObraPopular(i){
+  const obras=$('#populares')?._obrasPopulares||SUGESTOES;
+  const obra=normalizarObraPopular(obras[i]);
+  if(obra.edicoes?.length || obra.edicao_isbn){
+    escolha={...obra, edicoes:obra.edicoes||[], edicao_isbn:obra.edicao_isbn||null};
+    obrasAgrupadas=[escolha];
+    verEdicoes(0);
+    return;
+  }
+  buscarTermo(obra.titulo||'');
+}
+
+function lendoAgoraCard(l,idx,compacto=false){
+  const progresso=progressoLeitura(l);
+  return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
+    <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
+    <div class="reading-copy">
+      <div class="label">${t('reading_now')}</div>
+      <h3>${esc(l.titulo)}</h3>
+      <p>${esc(l.autor)}</p>
+      <div class="reading-spacer"></div>
+      ${progresso.texto?`<div class="reading-meta">${progresso.texto}</div>`:''}
+      ${progresso.barra!==null?`<div class="reading-progress"><span style="width:${progresso.barra}%"></span></div>`:''}
+    </div>
+  </div>`;
+}
+function renderLendoAgora(){
+  const lendo = prateleira.filter(l=>l.status==='Lendo');
+  const box=$('#lendoAgora');
+  if(!lendo.length){ box.innerHTML=''; return; }
+  const l=lendo[0], idx=prateleira.indexOf(l);
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx)}`;
+}
+
+
+
+function handleLinkHTML(handle, cls='feed-user') {
+  const h=esc(handle||'leitor');
+  return `<button type="button" class="${cls}" onclick="abrirPerfilPublico('${h.replace(/'/g,"\'")}')" title="${t('view_profile')}">@${h}</button>`;
+}
+function followButtonHTML(u, extraClass='') {
+  if(!u?.handle || u.is_me) return '';
+  return `<button type="button" class="follow-inline ${extraClass} ${u.is_following?'active':''}" onclick="toggleFollowHandle('${esc(u.handle).replace(/'/g,"\'")}')">${u.is_following?t('following'):t('follow')}</button>`;
+}
+function atualizarFollowLocal(handle, following, counts={}){
+  const apply=u=>{ if(u?.handle===handle){ u.is_following=following; if('followers_count' in counts) u.followers_count=counts.followers_count; } };
+  feedItems.forEach(it=>apply(it.usuario));
+  discoverReaders.forEach(apply);
+  [obraSocial?.criticas, obraSocial?.destaques].filter(Boolean).forEach(list=>list.forEach(c=>{ if(c?.usuario===handle){ c.is_following=following; if('followers_count' in counts) c.followers_count=counts.followers_count; } }));
+}
+async function toggleFollowHandle(handle){
+  if(!handle) return;
+  const current=[...feedItems.map(it=>it.usuario), ...discoverReaders, ...(obraSocial?.criticas||[]).map(c=>({handle:c.usuario,is_following:c.is_following}))].find(u=>u?.handle===handle);
+  const following=!!current?.is_following;
+  try{
+    const res=await fetch('/api/u/'+encodeURIComponent(handle)+'/follow',{method:following?'DELETE':'POST'});
+    if(res.status===401 || res.status===403){ toast(t('follow_login_required')); return; }
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    atualizarFollowLocal(handle, !!data.following, data);
+    renderFeed();
+    if(obraSocial?.criticas?.some(c=>c.usuario===handle)) renderEdicoes();
+  }catch(e){ toast(t('interaction_error')); }
+}
+function mudarFeedTab(tab){ feedTab=tab==='following'?'following':'discover'; localStorage.setItem('lombada_feed_tab',feedTab); carregarFeed(); }
+
+function feedAction(tipo,status){
+  if(tipo==='wrote_review') return t('wrote_review');
+  if(tipo==='started_reading' || status==='Lendo') return t('started_reading');
+  if(tipo==='wants_to_read' || status==='Quero ler') return t('wants_to_read');
+  if(tipo==='finished_reading' || status==='Lido') return t('finished_reading');
+  return t('activity');
+}
+function dataFeed(iso){
+  if(!iso)return '';
+  const d=new Date(iso); if(Number.isNaN(d.getTime()))return '';
+  const diff=Math.round((Date.now()-d.getTime())/86400000);
+  if(diff<=0)return t('today');
+  if(diff===1)return t('yesterday');
+  return d.toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});
+}
+function revelarFeedSpoiler(i){
+  const item=feedItems[i];
+  const box=document.querySelector(`[data-feed-spoiler="${i}"]`);
+  if(box && item?.leitura?.relato){ box.classList.add('revealed'); box.textContent='“'+item.leitura.relato+'”'; }
+}
+function renderFeed(){
+  const box=$('#feed'); if(!box)return;
+  const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button></div>`;
+  const intro=`<div class="feed-intro"><h3>${feedTab==='discover'?t('feed_discover'):t('feed_following')}</h3><p>${feedTab==='discover'?t('discover_hint'):t('following_hint')}</p></div>`;
+  if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+intro+`<div class="empty-rich"><h3>${t('empty_following_title')}</h3><p>${t('empty_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('explore_reviews')}</button></div>`; return; }
+  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('discover_readers')}</button></div>`; return; }
+  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
+  const reviewCards=feedItems.map((it,i)=>{
+    const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
+    const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
+    const spoiler=l.publico&&l.spoiler;
+    return `<article class="feed-card">
+      <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
+      <div class="feed-copy">
+        <div class="feed-card-top"><span>${handleLinkHTML(u.handle)}<span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></span>${followButtonHTML(u)}</div>
+        <div class="feed-title">${esc(livro.titulo)}</div>
+        <div class="feed-author">${esc(livro.autor)}</div>
+        ${edition?`<div class="feed-edition">${esc(edition)}</div>`:''}
+        ${l.nota?`<div class="feed-stars">${estrelasStr(l.nota)}</div>`:''}
+        ${l.relato&&!spoiler?`<div class="feed-quote">“${esc(l.relato)}”</div>`:''}
+        ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:''}
+        ${l.relato?reviewActionsHTML(l):''}
+        <div class="feed-date">${esc(dataFeed(it.created_at))}</div>
+      </div></article>`;
+  }).join('');
+  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
+  const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
+  box.innerHTML=tabs+intro+readers+title+reviewCards;
+}
+async function carregarFeed(){
+  const box=$('#feed'); if(box) box.innerHTML=`<div class="empty">${t('loading_activity')}</div>`;
+  try{
+    if(feedTab==='discover'){
+      const data=await (await fetch('/api/feed/discover')).json();
+      feedFollowingCount=1; feedItems=data.reviews||[]; discoverReaders=data.readers||[];
+    }else{
+      const data=await (await fetch('/api/feed')).json();
+      feedFollowingCount=data.following_count||0; feedItems=data.items||[]; discoverReaders=[];
+    }
+  }
+  catch(e){ feedFollowingCount=1; feedItems=[]; discoverReaders=[]; }
+  renderFeed();
+}
+function abrirPerfilPublico(handle){ if(handle) location.href='/u/'+encodeURIComponent(handle); }
+
+
+function normBusca(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function buscaPedeIdiomaEstrangeiro(q){
+  const qn=normBusca(q);
+  return ['frances','francais','french','ingles','english','espanhol','spanish','alemao','allemand','german','russo','russian','italiano'].some(t=>qn.includes(t));
+}
+function scoreResultadoBusca(doc,q){
+  if(doc?.isbn_match) return 10000;
+  const ed=doc?.edicao_isbn||{};
+  const edicoes=Array.isArray(doc?.edicoes)?doc.edicoes:[];
+  const texto=normBusca([doc?.titulo,doc?.autor,doc?.idioma_original,ed.titulo_edicao,ed.editora,ed.idioma,...edicoes.flatMap(e=>[e.titulo_edicao,e.editora,e.idioma])].filter(Boolean).join(' '));
+  const qn=normBusca(q);
+  let score=Number(doc?.quality_score||0);
+  const ptSinais=[' portugues ',' portuguese ',' por ',' pt ',' pt-br '];
+  const textoPad=` ${texto} `;
+  const temPt=!!doc?.tem_pt || ptSinais.some(t=>textoPad.includes(t));
+  if(temPt) score+=90;
+  if(edicoes.some(e=>normBusca(e.idioma).includes('portugues'))) score+=55;
+  ['brasil',...EDITORAS_BR].forEach(t=>{ if(texto.includes(t)) score+=26; });
+  const estrangeiro=['frances','ingles','espanhol','allemand','french','english','spanish'];
+  if(!buscaPedeIdiomaEstrangeiro(q) && estrangeiro.some(t=>texto.includes(t))) score-=45;
+  TERMOS_PENALIZADOS.forEach(t=>{ if(texto.includes(t)) score-=55; });
+  const titulo=normBusca(doc?.titulo);
+  if(titulo && qn && (titulo===qn || titulo.includes(qn) || qn.includes(titulo))) score+=35;
+  return score;
+}
+function ordenarResultadosBusca(docs,q){
+  return (docs||[]).map((d,i)=>({d,i,s:scoreResultadoBusca(d,q)})).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(x=>x.d);
+}
+
+const EDITORAS_BR = ['companhia das letras','editora 34','penguin companhia','martin claret','antofagica','nova fronteira','jose olympio','record','l&pm','l pm','todavia'];
+const TERMOS_PENALIZADOS = ['tese','dissertacao','seminario','estudo critico','resumo','analise','biografia','correspondencia','ensaio sobre','thesis','dissertation','study','studies','essays','critique','analysis','biography','correspondance'];
+function normalizarTextoObra(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[–—-]/g,' ').replace(/[^\p{L}\p{N}\s:]/gu,' ').replace(/\s+/g,' ').trim();
+}
+const normalizarTextoBase = normalizarTextoObra;
+function normalizarTituloObra(t){
+  const base=normalizarTextoObra(t);
+  const partes=base.split(':').map(p=>p.trim()).filter(Boolean);
+  return (partes[0]||base).replace(/\s+/g,' ').trim();
+}
+function autorPrincipal(a){
+  return (a||'').toString().split(/,|;|\be\b|\band\b|&/i)[0].trim();
+}
+function normalizarAutorObra(a){ return normalizarTextoObra(autorPrincipal(a)); }
+function chaveAgrupamentoObra(doc,idx=0){
+  const titulo=normalizarTituloObra(doc?.titulo||doc?.titulo_edicao);
+  const autor=normalizarAutorObra(doc?.autor);
+  if(!titulo) return `sem-titulo|${idx}`;
+  return autor ? `${titulo}|${autor}` : `${titulo}|sem-autor-${idx}`;
+}
+function edicaoDeDoc(doc){
+  if(doc?.isbn_match && doc?.edicao_isbn) return {...doc.edicao_isbn, capa_url:doc.edicao_isbn.capa_url||doc.capa_url};
+  return null;
+}
+function edicoesDoDoc(doc){
+  const eds=Array.isArray(doc?.edicoes)?doc.edicoes.slice():[];
+  const isbn=edicaoDeDoc(doc);
+  if(isbn) eds.unshift(isbn);
+  return eds.map(e=>({...e, capa_url:e.capa_url||doc?.capa_url}));
+}
+function temCapaEdicao(e){ return !!(e?.capa_url||e?.cover_url||e?.capa); }
+function textoEdicao(e,doc={}){ return normalizarTextoObra([e?.titulo_edicao,e?.editora,e?.tradutor,e?.isbn,e?.idioma,e?.pais,doc?.titulo,doc?.autor].filter(Boolean).join(' ')); }
+function scoreEdicao(e,doc={}){
+  const texto=textoEdicao(e,doc);
+  let score=0;
+  if(/\b(pt|pt br|pt-br|portugues|portuguese)\b/.test(texto)) score+=120;
+  if(/\bbrasil\b|\bbrazil\b|\bbr\b/.test(texto)) score+=70;
+  EDITORAS_BR.forEach(editora=>{ if(texto.includes(editora)) score+=55; });
+  if(temCapaEdicao(e)) score+=35;
+  ['editora','tradutor','isbn','ano','idioma'].forEach(campo=>{ if(e?.[campo]) score+=12; });
+  if(!/\b(pt|pt br|pt-br|portugues|portuguese)\b/.test(texto) && /\b(english|ingles|french|frances|spanish|espanhol|german|alemao|russian|russo|italian|italiano)\b/.test(texto)) score-=35;
+  TERMOS_PENALIZADOS.forEach(t=>{ if(texto.includes(t)) score-=70; });
+  return score;
+}
+function ordenarEdicoesObra(edicoes,doc={}){
+  return (edicoes||[]).map((e,i)=>({e,i,s:scoreEdicao(e,doc)})).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(x=>x.e);
+}
+function assinaturaEdicaoObra(e){
+  return [normalizarTituloObra(e?.titulo_edicao),normalizarTextoObra(e?.editora),e?.ano||'',normalizarTextoObra(e?.isbn)].join('|');
+}
+function adicionarEdicoesUnicas(destino, edicoes){
+  const vistas=new Set(destino.map(assinaturaEdicaoObra));
+  (edicoes||[]).forEach(e=>{
+    const assinatura=assinaturaEdicaoObra(e);
+    if(assinatura && !vistas.has(assinatura)){ vistas.add(assinatura); destino.push(e); }
+  });
+}
+function agruparResultadosPorObra(docs,q){
+  const grupos=[]; const porChave=new Map();
+  (docs||[]).forEach((doc,idx)=>{
+    const chave=chaveAgrupamentoObra(doc,idx);
+    let g=porChave.get(chave);
+    if(!g){
+      g={...doc, chave_obra:chave, docs:[], edicoes:[], edicoes_encontradas:0, score_obra:scoreResultadoBusca(doc,q)};
+      grupos.push(g); porChave.set(chave,g);
+    }
+    const eds=edicoesDoDoc(doc);
+    g.docs.push(doc);
+    adicionarEdicoesUnicas(g.edicoes, eds);
+    g.edicoes_encontradas=g.edicoes.length || g.docs.length;
+    const s=scoreResultadoBusca(doc,q);
+    if(s>g.score_obra || !g.capa_url){
+      g.score_obra=s; g.titulo=doc.titulo||g.titulo; g.autor=doc.autor||g.autor; g.ano=doc.ano||g.ano; g.capa_url=doc.capa_url||g.capa_url; g.tem_pt=doc.tem_pt||g.tem_pt; g.work_key=doc.work_key||g.work_key; g.idioma_original=doc.idioma_original||g.idioma_original;
+    }
+  });
+  return grupos.sort((a,b)=>(b.score_obra-a.score_obra)||(b.edicoes_encontradas-a.edicoes_encontradas));
+}
+
+/* busca */
+function buscarTermo(t){$('#q').value=t;buscar();}
+function renderBuscaSkeleton(){
+  const item=()=>`<div class="book busca-skeleton-item" aria-hidden="true">
+    <div class="cover busca-skeleton-cover"></div>
+    <div class="busca-skeleton-line title"></div>
+    <div class="busca-skeleton-line author"></div>
+    <div class="busca-skeleton-line meta-line"></div>
+  </div>`;
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('searching')}</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
+}
+function manualCtaHTML(destaque=false){
+  return destaque
+    ? `<div class="manual-cta prominent"><p>${t('manual_prominent_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_prominent_button')}</button></div>`
+    : `<div class="manual-cta"><p>${t('manual_cta_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_cta_button')}</button></div>`;
+}
+async function buscar(){
+  const q=$('#q').value.trim(); if(q.length<2)return;
+  $('#edicoes').innerHTML=''; $('#form').innerHTML='';
+  renderBuscaSkeleton();
+  mostrarBusca('resultados');
+  let docs;
+  try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
+  catch(e){ $('#resultados').innerHTML=`<div class="empty">${t('no_connection')}</div>`; return; }
+  resultadosArr=ordenarResultadosBusca(docs||[], q);
+  obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
+  if(!obrasAgrupadas.length){
+    $('#resultados').innerHTML=manualCtaHTML(true);
+    return;
+  }
+  const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
+  const precisaDestaque=melhorScore<40;
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div><div class="wall">`+
+    obrasAgrupadas.map((d,i)=>`<div class="book work-card" onclick="verEdicoes(${i})">
+      ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
+      <div class="t">${esc(d.titulo)}</div>
+      <div class="a">${esc(d.autor)}</div>
+      <div class="yr">${plural(d.edicoes_encontradas,'edition_found_one','edition_found_many')}</div>
+      <div class="e">${t('see_editions')}</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
+}
+
+/* edições */
+async function carregarSocialObra(){
+  obraSocial={estatisticas:{leituras:0,criticas:0,media:null},edicoes:[],criticas:[],destaques:[],destaques_edicao:{},minha_leitura:null};
+  if(!escolha) return obraSocial;
+  const params=new URLSearchParams({work_key:escolha.work_key||'',titulo:escolha.titulo||'',autor:escolha.autor||''});
+  try{ obraSocial=await (await fetch('/api/obra/social?'+params.toString())).json(); }catch(e){}
+  return obraSocial;
+}
+async function verEdicoes(i){
+  if(Number.isInteger(i)) escolha=obrasAgrupadas[i]||resultadosArr[i];
+  if(!escolha){
+    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('work_not_found')}</div>`;
+    mostrarBusca('edicoes');
+    return;
+  }
+  $('#form').innerHTML='';
+  // GB já trouxe as edições embutidas → zero chamada extra
+  if(escolha.edicoes && escolha.edicoes.length){
+    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(escolha.edicoes); renderEdicoes(); mostrarBusca('edicoes'); return;
+  }
+  // busca por ISBN → edição única
+  if(escolha.isbn_match && escolha.edicao_isbn){
+    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra([escolha.edicao_isbn]); renderEdicoes(); mostrarBusca('edicoes'); return;
+  }
+  // fallback Open Library (obras sem edições embutidas)
+  $('#edicoes').innerHTML=`<div class="empty">${t('loading_editions')}</div>`;
+  mostrarBusca('edicoes');
+  let eds;
+  try{ eds=await (await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key))).json(); }
+  catch(e){ $('#edicoes').innerHTML=`<div class="empty">${t('editions_load_error')}</div>`; return; }
+  await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(eds||[]); renderEdicoes();
+}
+function fmtMedia(n){return n?Number(n).toLocaleString(getLocale(),{minimumFractionDigits:1,maximumFractionDigits:1})+' ★':t('no_average');}
+function countLabel(n,oneKey,manyKey){ return plural(Number(n)||0,oneKey,manyKey); }
+function editionSocialCountsHTML(social){
+  const leituras=social?.leituras||0, tem=social?.tem||0, querem=social?.querem||0;
+  const media=social?.media?' · '+fmtMedia(social.media):'';
+  return `<div class="edition-stats"><span>${countLabel(leituras,'reading_one','reading_many')}</span><span>${social?.media?fmtMedia(social.media):t('no_average_yet')}</span><span>${t('readers_have_this_edition',{count:tem})}</span><span>${t('readers_want_this_edition',{count:querem})}</span></div>`;
+}
+function editionRelationHTML(social){
+  if(!social?.edicao_id) return '';
+  const estado=social.estado||{};
+  return `<div class="edition-social-actions" onclick="event.stopPropagation()">
+    <button type="button" class="edition-social-btn ${estado.tenho?'active':''}" onclick="toggleEditionState(${social.edicao_id},'tenho',${estado.tenho?'false':'true'})">${t('have_this_edition')}</button>
+    <button type="button" class="edition-social-btn ${estado.quero?'active':''}" onclick="toggleEditionState(${social.edicao_id},'quero',${estado.quero?'false':'true'})">${t('want_this_edition')}</button>
+  </div>${estado.li?`<div class="edition-relation-note">${t('you_read_this_edition')}</div>`:''}`;
+}
+async function toggleEditionState(edicaoId,campo,valor){
+  const body={}; body[campo]=valor;
+  try{
+    const r=await fetch(`/api/edicoes/${edicaoId}/estado`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===401){ toast(t('login_to_interact')); return; }
+    if(!r.ok) throw new Error(await r.text());
+    await carregarSocialObra(); renderEdicoes(); carregarPrateleira();
+  }catch(e){ console.error('erro ao atualizar edição',e); toast(t('interaction_error')); }
+}
+function edicaoSocial(e){
+  const stats=(obraSocial?.edicoes||[]);
+  const sig=normalizarTextoBase([e.editora,e.ano,e.isbn,e.idioma].filter(Boolean).join('|'));
+  return stats.find(st=>st.edicao_id && e.edicao_id===st.edicao_id) || stats.find(st=>{
+    const ed=st.edicao||{};
+    const s2=normalizarTextoBase([ed.editora,ed.ano,ed.isbn,ed.idioma].filter(Boolean).join('|'));
+    return sig && s2 && sig===s2;
+  }) || null;
+}
+
+function atualizarReviewLocal(leituraId, patch){
+  const listas=[obraSocial?.criticas,obraSocial?.destaques,feedItems.map(it=>it.leitura)].filter(Boolean);
+  listas.forEach(list=>list.forEach(c=>{ if(c&&c.leitura_id===leituraId) Object.assign(c,patch); }));
+}
+async function acaoReview(leituraId,acao){
+  if(!leituraId) return;
+  const metodo=(acao==='unlike'||acao==='unsave')?'DELETE':'POST';
+  const rota=acao==='like'||acao==='unlike'?'like':acao==='save'||acao==='unsave'?'save':'report';
+  let body=null;
+  if(acao==='report'){
+    const motivo=prompt(t('report_reason')+'\n1. '+t('report_spoiler')+'\n2. '+t('report_offensive')+'\n3. '+t('report_spam')+'\n4. '+t('report_wrong_data')+'\n5. '+t('report_other'), t('report_other'));
+    if(!motivo) return;
+    const detalhe=prompt(t('report_detail_optional'), '')||'';
+    body=JSON.stringify({motivo,detalhe});
+  }
+  try{
+    const res=await fetch(`/api/reviews/${leituraId}/${rota}`,{method:metodo,headers:body?{'Content-Type':'application/json'}:{},body});
+    if(res.status===401){ toast(t('login_to_interact')); return; }
+    if(!res.ok) throw new Error(await res.text());
+    const data=await res.json();
+    const patch={};
+    if('liked' in data){ patch.liked_by_me=data.liked; patch.likes_count=data.likes_count; }
+    if('saved' in data) patch.saved_by_me=data.saved;
+    if('reported' in data){ patch.reported_by_me=true; toast(t('report_sent')); }
+    atualizarReviewLocal(leituraId,patch);
+    renderFeed();
+    if(obraSocial?.criticas?.some(c=>c.leitura_id===leituraId)) renderEdicoes();
+  }catch(e){ toast(t('interaction_error')||'não foi possível atualizar agora.'); }
+}
+function reviewActionsHTML(c){
+  if(!c||!c.leitura_id) return '';
+  const liked=!!c.liked_by_me, saved=!!c.saved_by_me;
+  const likes=Number(c.likes_count||0);
+  return `<div class="review-actions">
+    <button type="button" class="${liked?'active':''}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'} ${likes}</button>
+    <button type="button" class="${saved?'active':''}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
+    <button type="button" onclick="acaoReview(${c.leitura_id},'report')">${c.reported_by_me?t('reported_review'):t('report')}</button>
+  </div>`;
+}
+
+function revelarSpoiler(btn){
+  const card=btn.closest('.review-card');
+  if(card) card.classList.add('spoiler-open');
+}
+function criticasHTML(){
+  const recentes=obraSocial?.criticas||[];
+  const destaques=obraSocial?.destaques||[];
+  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" onclick="registrarLeituraObra()">${t('register_my_reading')}</button></div></section>`;
+  const edicaoMeta=c=>[c.status&&statusLabel(c.status),c.edicao?.editora&&`${t('publisher_abbr')} ${c.edicao.editora}`,c.edicao?.tradutor&&`${t('translator_abbr')} ${c.edicao.tradutor}`,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ');
+  const corpo=c=>c.spoiler
+    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
+    : `<p>${esc(c.relato)}</p>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
+  return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
+}
+function registrarLeituraObra(){
+  if(edicoesAtual.length===1){ escolherEdicao(0); return; }
+  toast(t('choose_edition_to_register'));
+  document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function verMinhaLeitura(){
+  const idx=prateleira.findIndex(l=>l.leitura_id===obraSocial?.minha_leitura?.leitura_id);
+  if(idx>=0) abrirCard(idx); else irPara('estante');
+}
+function renderEdicoes(){
+  if(!edicoesAtual.length){$('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('no_editions')}</div>`;return;}
+  const st=obraSocial?.estatisticas||{};
+  const media=st.media?fmtMedia(st.media):t('no_average_yet');
+  const leituras=st.leituras||0, criticas=st.criticas||0;
+  const back=`<div class="busca-back" onclick="mostrarBusca('resultados')">‹ resultados</div>`;
+  const cab=`<div class="work-head social-work-head">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
+    <div class="wmeta"><div class="label">${t('work')}</div><h2>${esc(escolha.titulo)}</h2>
+      <div class="a">${esc(escolha.autor)}</div>
+      <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
+      <div class="work-actions"><button class="primary" onclick="registrarLeituraObra()">${t('register_reading')}</button><button class="secondary" onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">${t('see_editions')}</button>${obraSocial?.minha_leitura?`<button class="secondary" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:''}</div><button class="link-tertiary" onclick="abrirManual()">${t('register_edition_manually')}</button>
+    </div></div>`;
+  const descricao=(escolha.descricao||escolha.description||'').trim();
+  const sobreObra=`<section class="about-work"><div class="label">${t('about_work')}</div>${descricao?`<p>${esc(descricao).slice(0,420)}</p>`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
+  const minhas='';
+  const destaquesEd=obraSocial?.destaques_edicao||{};
+  const maisLida=destaquesEd.mais_lida||(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
+  const destaqueObraHTML=[
+    destaquesEd.mais_lida&&`${t('most_read_edition')}: ${esc(destaquesEd.mais_lida.edicao?.editora||t('publisher_missing'))}`,
+    destaquesEd.mais_desejada&&`${t('most_wanted_edition')}: ${esc(destaquesEd.mais_desejada.edicao?.editora||t('publisher_missing'))}`,
+    destaquesEd.mais_possuida&&`${t('most_owned_edition')}: ${esc(destaquesEd.mais_possuida.edicao?.editora||t('publisher_missing'))}`,
+    destaquesEd.traducao_mais_lida&&`${t('most_read_translation')}: ${esc(destaquesEd.traducao_mais_lida)}`,
+    destaquesEd.editora_mais_lida&&`${t('most_read_publisher')}: ${esc(destaquesEd.editora_mais_lida)}`
+  ].filter(Boolean);
+  const cards=edicoesAtual.map((e,j)=>{
+    const pt=normalizarTextoBase(e.idioma).includes('portugues')||normalizarTextoBase(e.pais).includes('brasil');
+    const social=edicaoSocial(e);
+    const isMaisLida=social&&maisLida&&social.edicao_id===maisLida.edicao_id;
+    const grupo=isMaisLida?t('most_read'):(pt?t('portuguese_brazil'):t('other_editions'));
+    const tr=e.tradutor?`${t('translator_abbr')} <b>${esc(e.tradutor)}</b>`:`<span class="none">${t('translator_missing')}</span>`;
+    const stats=social?editionSocialCountsHTML(social):'<div class="edition-stats">'+t('edition_stats')+'</div>';
+    const relation=editionRelationHTML(social);
+    return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
+      <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
+      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button">${t('add_this_edition')}</button></div></li>`;
+  }).join('');
+  $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
+}
+
+/* registrar */
+function escolherEdicao(j){
+  edicaoSel=edicoesAtual[j]; notaSel=0;
+  const social=edicaoSocial(edicaoSel);
+  const estado=social?.estado||{};
+  const titulo=edicaoSel.titulo_edicao||escolha.titulo;
+  const dadosEdicao=[[t('title'), titulo],[t('publisher'), edicaoSel.editora],[t('edition_year'), edicaoSel.ano],[t('isbn'), edicaoSel.isbn],[t('language_field'), edicaoSel.idioma],[t('translator'), edicaoSel.tradutor]].filter(([,valor])=>valor);
+  const edicaoHTML=dadosEdicao.length ? `<dl class="edition-data compact-edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>` : `<p class="muted">${t('catalog_data_missing')}</p>`;
+  $('#form').innerHTML=`
+    <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
+    <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
+    <div class="card-form simple-reading-form">
+      <section class="form-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
+      <section class="form-block"><div class="label">${t('your_reading')}</div><div class="row"><div class="field"><label class="label">${t('status')}</label><select id="f_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div></div><div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></section>
+      <section class="form-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
+      <section class="form-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
+      <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
+      <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
+    </div>`;
+  mostrarBusca('form'); montarStars('f_stars',()=>notaSel,v=>notaSel=v); atualizarCopyRelato('f'); $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
+}
+
+function sugerirCorrecaoCatalogo(){
+  toast(t('catalog_correction_soon'));
+}
+
+function copyRelatoPorStatus(status){
+  if(status==='Lido') return {label:t('your_review'), placeholder:t('your_review_placeholder'), publico:t('make_review_public')};
+  if(status==='Lendo') return {label:t('reading_note'), placeholder:t('reading_note_placeholder'), publico:t('show_on_public_profile')};
+  return {label:t('why_want_read'), placeholder:t('why_want_read_placeholder'), publico:t('show_on_public_profile')};
+}
+
+function atualizarCopyRelato(prefix){
+  const status=$(`#${prefix}_status`)?.value;
+  const copy=copyRelatoPorStatus(status);
+  const label=$(`#${prefix}_relato_label`);
+  const textarea=$(`#${prefix}_relato`);
+  const publico=$(`#${prefix}_publico_label`);
+  if(label) label.textContent=copy.label;
+  if(textarea) textarea.placeholder=copy.placeholder;
+  if(publico) publico.textContent=copy.publico;
+}
+
+function montarStars(id,get,set){
+  const w=$('#'+id);
+  function paint(){
+    const n=get(); w.innerHTML='';
+    for(let i=1;i<=5;i++){
+      const s=document.createElement('span');
+      s.className='st'+(i<=n?' on':''); s.textContent='★';
+      s.style.opacity=(i<=n?1:(i-0.5===n?.6:.28));
+      s.onclick=()=>{ set(get()===i?i-0.5:i); paint(); };
+      w.appendChild(s);
+    }
+    const t=document.createElement('span');
+    t.className='stxt'; t.textContent=n?n.toLocaleString('pt-BR')+'★':t('no_rating');
+    w.appendChild(t);
+  }
+  paint();
+}
+
+async function salvar(){
+  const body={
+    work_key:escolha.work_key, titulo:escolha.titulo, autor:escolha.autor||'',
+    idioma_original:escolha.idioma_original||'', ano_obra:escolha.ano||null,
+    ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
+    tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
+    ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||'',
+    status:$('#f_status').value, nota:notaSel||null,
+    relato:$('#f_relato').value.trim(), publico:$('#f_publico').checked, spoiler:$('#f_spoiler').checked, data:$('#f_data').value.trim(),
+    tenho_edicao:$('#f_tenho')?.checked||false, quero_edicao:$('#f_quero')?.checked||false
+  };
+  const duplicadoLocal=encontrarLeituraDuplicada(body);
+  if(duplicadoLocal){ avisarDuplicado(duplicadoLocal.leitura_id); return; }
+  try{
+    const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){
+      const erro=await payloadErro(r);
+      const detalhe=erro?.detail||erro||{};
+      if(r.status===409&&(detalhe.duplicado||erro?.duplicado)){
+        avisarDuplicado(detalhe.leitura_id||erro.leitura_id);
+        return;
+      }
+      throw new Error(JSON.stringify(erro)||r.statusText);
+    }
+  }
+  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+fecharModalParaNavegacao();
+
+limparBusca(); $('#q').value=''; mostrarBusca('home',
+{registrar:false});
+marcarConviteLoginAposSalvar();
+marcarLivroSalvo(body);
+toast(t('saved_to_shelf'));
+await carregarPrateleira();
+irPara('estante',{recarregar:false});
+}
+function abrirManual(){
+  notaSel=0;
+  if($('#secBuscar')?.style.display==='none') irPara('buscar',{resetBusca:false,registrar:false,scrollTop:false});
+  const q=$('#q')?.value.trim()||'';
+  $('#manual').innerHTML=`
+    <div class="busca-back" onclick="history.back()">${t('back')}</div>
+    <div class="section-head"><h2 class="h-section">${t('manual_registration')}</h2></div>
+    <div class="card-form">
+      <div class="form-block"><div class="label">${t('book')}</div>
+        <div class="field"><label class="label">${t('work_title_required')}</label><input type="text" id="m_titulo" value="${esc(q)}" /></div>
+        <div class="field"><label class="label">${t('author_required')}</label><input type="text" id="m_autor" /></div>
+        <div class="row"><div class="field"><label class="label">${t('work_year')}</label><input type="text" id="m_ano_obra" /></div>
+        <div class="field"><label class="label">${t('original_language')}</label><input type="text" id="m_idioma_original" /></div></div>
+      </div>
+      <div class="form-block"><div class="label">${t('edition')}</div>
+        <div class="field"><label class="label">${t('edition_title')}</label><input type="text" id="m_titulo_edicao" /></div>
+        <div class="field"><label class="label">${t('publisher')}</label><input type="text" id="m_editora" /></div>
+        <div class="field"><label class="label">${t('translator')}</label><input type="text" id="m_tradutor" /></div>
+        <div class="row"><div class="field"><label class="label">${t('isbn')}</label><input type="text" id="m_isbn" /></div>
+        <div class="field"><label class="label">${t('language_field')}</label><input type="text" id="m_idioma" /></div></div>
+        <div class="row"><div class="field"><label class="label">${t('edition_year')}</label><input type="text" id="m_ano_edicao" /></div>
+        <div class="field"><label class="label">${t('cover_url')}</label><input type="text" id="m_capa_url" /></div></div>
+      </div>
+      <div class="form-block"><div class="label">${t('your_reading')}</div>
+        <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
+        <div class="field"><label class="label">${t('date')}</label><input type="text" id="m_data" placeholder="${t('date_placeholder')}" /></div></div>
+        <div class="field"><label class="label">${t('rating')}</label><div class="stars" id="m_stars"></div></div>
+        <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="160"></textarea></div>
+      </div>
+      <button class="btn-primary" onclick="salvarManual()">${t('submit_for_review')}</button>
+    </div>`;
+  mostrarBusca('manual');
+  montarStars('m_stars',()=>notaSel,v=>notaSel=v);
+}
+
+async function salvarManual(){
+  const titulo=$('#m_titulo').value.trim(), autor=$('#m_autor').value.trim();
+  if(!titulo||!autor){ alert(t('required_title_author')); return; }
+  const body={
+    titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
+    titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
+    isbn:$('#m_isbn').value.trim(), idioma:$('#m_idioma').value.trim(), ano_edicao:parseInt($('#m_ano_edicao').value,10)||null,
+    capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
+  };
+  try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
+  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
+  marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast(t('manual_success')); irPara('perfil',{recarregar:false});
+}
+
+/* estante */
+function chaveLivro(l){
+  return `${(l?.titulo||'').trim().toLowerCase()}|${(l?.autor||'').trim().toLowerCase()}`;
+}
+function marcarLivroSalvo(l){
+  ultimoLivroSalvo=chaveLivro(l);
+  if(timerDestaqueLivro) clearTimeout(timerDestaqueLivro);
+  timerDestaqueLivro=setTimeout(()=>{ ultimoLivroSalvo=null; timerDestaqueLivro=null; renderPrateleira(); },4200);
+}
+function livroEstaDestacado(l){
+  return ultimoLivroSalvo && chaveLivro(l)===ultimoLivroSalvo;
+}
+function mudarFiltroEstante(status){
+  filtroEstante=status;
+  renderPrateleira();
+}
+function mudarVisualizacaoEstante(modo){
+  visualizacaoEstante=modo==='lista'?'lista':'grade';
+  localStorage.setItem('lombada_view_estante',visualizacaoEstante);
+  renderPrateleira();
+}
+function controlesEstante(){
+  const filtros=['Todos','Lido','Lendo','Quero ler'];
+  return `<div class="shelf-tools">
+    <div class="shelf-filters" aria-label="${t('filter_shelf_status')}">${filtros.map(f=>
+      `<button class="shelf-pill ${filtroEstante===f?'active':''}" onclick="mudarFiltroEstante('${f}')">${esc(statusLabel(f))}</button>`
+    ).join('')}</div>
+    <div class="shelf-view" aria-label="${t('shelf_view')}">
+      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">${t('view_grid')}</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">${t('view_list')}</button>
+    </div>
+  </div>`;
+}
+function metaListaEstante(l){
+  return [l.editora?`${t('publisher_abbr')} ${esc(l.editora)}`:'',l.tradutor?`${t('translator_abbr')} ${esc(l.tradutor)}`:'',l.isbn?`${t('isbn')} ${esc(l.isbn)}`:''].filter(Boolean).join(' · ');
+}
+function resumoEstante(){
+  const total=prateleira.length;
+  const lidos=prateleira.filter(l=>l.status==='Lido').length;
+  const lendo=prateleira.filter(l=>l.status==='Lendo').length;
+  const quero=prateleira.filter(l=>l.status==='Quero ler').length;
+  return t('shelf_summary',{total:plural(total,'book_count_one','book_count_many'),read:lidos,reading:lendo,want:quero});
+}
+function blocoLendoEstante(){
+  const l=prateleira.find(x=>x.status==='Lendo');
+  if(!l) return '';
+  return `<section class="shelf-now"><div class="label">${t('reading_now')}</div>${lendoAgoraCard(l,prateleira.indexOf(l),true)}</section>`;
+}
+function renderPrateleira(){
+  if(!prateleira.length){
+    $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
+      <h3>${t('empty_shelf_title')}</h3><p>${t('empty_shelf_hint')}</p>
+      <button class="btn-cta" onclick="irPara('buscar')">${t('search_button')}</button></div>`;
+    return;
+  }
+  const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
+  const vazio=`<div class="empty shelf-empty">${t('shelf_filter_empty',{filter:esc(filtroEstante)})}</div>`;
+  const corpo=visualizacaoEstante==='lista'
+    ? `<ul class="shelf-list">${itens.map(({l,i})=>{
+        const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
+        const statusNota=[statusLabel(l.status),l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString(getLocale())}`:t('no_rating')].filter(Boolean).join(' · ');
+        const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
+        return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">${cap}
+          <div class="shelf-row-body">
+            <div class="shelf-row-title">${esc(l.titulo)}</div>
+            <div class="shelf-row-author">${esc(l.autor)}</div>
+            <div class="shelf-row-status">${esc(statusNota)}</div>
+            ${metaListaEstante(l)?`<div class="shelf-row-meta">${metaListaEstante(l)}</div>`:''}
+            ${dataAno?`<div class="shelf-row-date">${esc(dataAno)}</div>`:''}${(l.tenho_edicao||l.quero_edicao)?`<div class="shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):''}${l.tenho_edicao&&l.quero_edicao?' · ':''}${l.quero_edicao?t('you_want_this_edition'):''}</div>`:''}
+          </div></li>`;
+      }).join('')}</ul>`
+    : `<div class="wall">${itens.map(({l,i})=>`
+        <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">
+          ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'')}
+          <div class="t">${esc(l.titulo)}</div>
+          <div class="a">${esc(l.autor)}</div>
+          ${l.tradutor?`<div class="e">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}${(l.tenho_edicao||l.quero_edicao)?`<div class="e shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):t('you_want_this_edition')}</div>`:''}
+        </div>`).join('')}</div>`;
+  $('#prateleira').innerHTML=`<p class="shelf-summary">${resumoEstante()}</p>`+conviteLoginHTML()+blocoLendoEstante()+controlesEstante()+(itens.length?corpo:vazio);
+}
+async function carregarPrateleira(){
+  try{ prateleira=await (await fetch('/api/prateleira')).json(); diarioEntradas=await (await fetch('/api/diario')).json(); }catch(e){ return; }
+  renderLendoAgora();
+  renderPrateleira();
+  renderDiario();
+  aplicarSubabaEstante(navAtual.estanteSub||'shelf');
+}
+
+/* diário — linha do tempo */
+function progressoDiario(e){
+  if(e.porcentagem!==null&&e.porcentagem!==undefined) return t('percent_complete',{count:esc(e.porcentagem)});
+  if(e.pagina!==null&&e.pagina!==undefined) return t('page_short',{count:esc(e.pagina)});
+  if(e.capitulo) return e.progresso_tipo==='livre'?esc(e.capitulo):`${t('chapter')} ${esc(e.capitulo)}`;
+  return e.nota?t('entry_note'):t('free_progress');
+}
+function progressoLeitura(l){
+  const entradas=diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const pct=entradas.find(e=>e.porcentagem!==null&&e.porcentagem!==undefined);
+  if(pct) return {texto:t('percent_complete',{count:esc(pct.porcentagem)}),barra:Number(pct.porcentagem)};
+  const pag=entradas.find(e=>e.pagina!==null&&e.pagina!==undefined);
+  if(pag) return {texto:t('page_short',{count:esc(pag.pagina)}),barra:null};
+  const cap=entradas.find(e=>e.capitulo);
+  if(cap) return {texto:cap.progresso_tipo==='livre'?esc(cap.capitulo):`${t('chapter')} ${esc(cap.capitulo)}`,barra:null};
+  if(l.status==='Lido') return {texto:t('percent_complete',{count:100}),barra:100};
+  return {texto:'',barra:null};
+}
+function dataDiario(e){
+  try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
+}
+function selecionarTipoDiario(id='',tipo='livre',el=null){
+  const tiposValidos=['pagina','porcentagem','capitulo','livre'];
+  const tipoSeguro=tiposValidos.includes(String(tipo||'').trim().toLowerCase())?String(tipo||'').trim().toLowerCase():'livre';
+  let form=el?.closest?.('[data-diary-form]')||null;
+  if(!form&&id) form=document.querySelector(`[data-diary-form="${CSS.escape(String(id))}"]`);
+  if(!form) return;
+  const input=form.querySelector('[data-diary-input="tipo"]');
+  if(input) input.value=tipoSeguro;
+  form.querySelectorAll('[data-progress-chip]').forEach(btn=>{
+    const ativo=btn.dataset.progressChip===tipoSeguro;
+    btn.classList.toggle('active',ativo);
+    btn.setAttribute('aria-pressed',ativo?'true':'false');
+  });
+  form.querySelectorAll('[data-progress-field]').forEach(el=>{ el.hidden=el.dataset.progressField!==tipoSeguro; });
+}
+function atualizarCamposDiario(id=''){
+  const form=id?document.querySelector(`[data-diary-form="${CSS.escape(String(id))}"]`):null;
+  const tipo=form?.querySelector('[data-diary-input="tipo"]')?.value||'livre';
+  selecionarTipoDiario(id,tipo,form);
+}
+function formDiarioHTML(leituraId, entry=null){
+  const id=entry?.id||'';
+  const formKey=entry?.id?`edit_${entry.id}`:`new_${leituraId}`;
+  const tipo=entry?.progresso_tipo||'pagina';
+  const chip=(valor,label)=>`<button type="button" class="progress-chip ${tipo===valor?'active':''}" data-progress-chip="${valor}" aria-pressed="${tipo===valor?'true':'false'}" onclick="selecionarTipoDiario('${formKey}','${valor}',this)">${label}</button>`;
+  return `<div class="diary-form" data-diary-form="${formKey}">
+    <div class="label">${entry?t('edit_diary_entry'):t('new_diary_entry')}</div>
+    <p class="muted">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
+    <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
+    <div class="field"><label class="label">${t('how_track_progress')}</label><div class="progress-chips">
+      ${chip('pagina',t('page'))}${chip('porcentagem',t('progress_percent'))}${chip('capitulo',t('chapter'))}${chip('livre',t('free_progress'))}
+    </div></div>
+    <div class="field diary-progress-field" data-progress-field="pagina" ${tipo==='pagina'?'':'hidden'}><label class="label" for="diaryPageInput_${formKey}">${t('page')}</label><input id="diaryPageInput_${formKey}" data-diary-input="pagina" type="number" inputmode="numeric" min="1" step="1" value="${entry?.pagina??''}" placeholder="ex: 120"></div>
+    <div class="field diary-progress-field" data-progress-field="porcentagem" ${tipo==='porcentagem'?'':'hidden'}><label class="label" for="diaryPercentInput_${formKey}">${t('progress_percent')}</label><div class="suffix-field"><input id="diaryPercentInput_${formKey}" data-diary-input="porcentagem" type="number" inputmode="numeric" min="0" max="100" step="1" value="${entry?.porcentagem??''}" placeholder="ex: 45"><span>%</span></div></div>
+    <div class="field diary-progress-field" data-progress-field="capitulo" ${tipo==='capitulo'?'':'hidden'}><label class="label" for="diaryChapterInput_${formKey}">${t('chapter')}</label><input id="diaryChapterInput_${formKey}" data-diary-input="capitulo" type="text" value="${esc(entry?.progresso_tipo==='capitulo'?entry?.capitulo||'':'')}" placeholder="${t('chapter_placeholder')}"></div>
+    <div class="field diary-progress-field" data-progress-field="livre" ${tipo==='livre'?'':'hidden'}><label class="label" for="diaryFreeInput_${formKey}">${t('free_progress')}</label><input id="diaryFreeInput_${formKey}" data-diary-input="livre" type="text" value="${esc(entry?.progresso_tipo==='livre'?entry?.capitulo||'':'')}" placeholder="${t('free_progress_placeholder')}"></div>
+    <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
+    <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
+    <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}',this)">${t('save_changes')}</button>
+  </div>`;
+}
+function buildDiaryPayload(form){
+  if(!form) return null;
+  const tiposValidos=['pagina','porcentagem','capitulo','livre'];
+  const normalizarTipo=valor=>{
+    const tipo=String(valor||'').trim().toLowerCase();
+    return tiposValidos.includes(tipo)?tipo:'';
+  };
+  const campo=nome=>form.querySelector(`[data-diary-input="${nome}"]`);
+  const tipoHidden=normalizarTipo(campo('tipo')?.value);
+  const tipoChip=normalizarTipo(form.querySelector('[data-progress-chip].active')?.dataset?.progressChip);
+  const progresso_tipo=tipoHidden||tipoChip||'livre';
+  const pageRaw=(campo('pagina')?.value||'').trim();
+  const percentRaw=(campo('porcentagem')?.value||'').trim();
+  const pageNumber=Number(pageRaw);
+  const percentNumber=Number(percentRaw);
+  const pagina=progresso_tipo==='pagina'&&pageRaw!==''&&Number.isInteger(pageNumber)&&pageNumber>0?pageNumber:null;
+  const porcentagem=progresso_tipo==='porcentagem'&&percentRaw!==''&&Number.isFinite(percentNumber)&&percentNumber>=0&&percentNumber<=100?percentNumber:null;
+  const capitulo=progresso_tipo==='capitulo'?(campo('capitulo')?.value||'').trim():(progresso_tipo==='livre'?(campo('livre')?.value||'').trim():'');
+  return {
+    progresso_tipo,
+    pagina,
+    porcentagem,
+    capitulo,
+    nota:(campo('nota')?.value||'').trim(),
+    publico:!!campo('publico')?.checked,
+    spoiler:!!campo('spoiler')?.checked
+  };
+}
+function payloadDiario(id='',el=null){
+  const form=el?.closest?.('[data-diary-form]')||null;
+  if(!form) return null;
+  return buildDiaryPayload(form);
+}
+function validarPayloadDiario(payload){
+  const paginaValida=payload.progresso_tipo==='pagina'&&Number.isInteger(payload.pagina)&&payload.pagina>0;
+  const pctValida=payload.progresso_tipo==='porcentagem'&&Number.isFinite(payload.porcentagem)&&payload.porcentagem>=0&&payload.porcentagem<=100;
+  const capValido=(payload.progresso_tipo==='capitulo'||payload.progresso_tipo==='livre')&&!!payload.capitulo;
+  const notaValida=!!payload.nota;
+  if(paginaValida||pctValida||capValido||notaValida) return '';
+  return t('inform_progress_or_note');
+}
+async function salvarDiario(leituraId,id='',el=null){
+  const payload=payloadDiario(id,el);
+  if(!payload){ alert(t('diary_save_error')); return; }
+  console.debug('diary payload',payload);
+  const erro=validarPayloadDiario(payload);
+  if(erro){ console.warn('invalid diary payload',payload,erro); alert(erro); return; }
+  const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;
+  const method=id?'PATCH':'POST';
+  try{
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){
+      let body='';
+      try{ body=await r.text(); }catch(_){ body=''; }
+      console.error('[diario save error]',r.status,body);
+      alert(r.status===401||r.status===403?t('diary_login_error'):r.status===422?t('inform_progress_or_note'):t('diary_save_error'));
+      return;
+    }
+    diarioEditId=null; await carregarPrateleira(); if(cardAtual) renderDetalheLivro(cardAtual); else renderDiario(); toast(t('diary_entry_saved'));
+  }catch(e){ console.error('[diario save error]',0,e); alert(t('diary_save_error')); }
+}
+async function excluirDiario(id){ if(!confirm(t('delete_diary_entry')+'?'))return; const r=await fetch(`/api/diario/${id}`,{method:'DELETE'}); if(r.ok) await carregarPrateleira(); }
+function prepararCardDiario(id){
+  const e=diarioEntradas.find(x=>String(x.id)===String(id)); if(!e||!cardAtual)return;
+  cardContext={type:'diario',source:e}; cardIncludeExcerpt=!!((e.nota||'').trim()&&!e.spoiler);
+  renderDetalheLivro(cardAtual); updateShareCardPreview(cardAtual);
+  document.getElementById('shareCardPreview')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function cardEntradaDiario(e, opts={}){
+  const i=prateleira.findIndex(l=>l.leitura_id===e.leitura_id);
+  return `<article class="diary-entry-card">
+    <div class="dmeta"><span>${esc(statusLabel(e.status||''))}</span>${e.autor?` · ${esc(e.autor)}`:''}${e.publico?` · <b>${t('public_review').replace(/ .*/,'')}</b>`:''}${e.spoiler?` · ${t('contains_spoiler')}`:''}</div>
+    <div class="dtop"><button class="dt linklike" onclick="abrirCard(${i})">${esc(e.titulo||'')}</button><span class="dwhen">${dataDiario(e)}</span></div>
+    <div class="diary-progress">${progressoDiario(e)}</div>
+    ${e.nota?`<div class="drelato">“${esc(e.nota)}”</div>`:''}
+    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><button onclick="excluirDiario(${e.id})">${t('delete_diary_entry')}</button></div>
+    ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e):''}
+  </article>`;
+}
+function renderDiario(){
+  const novo=prateleira.length?`<button class="btn-cta" onclick="abrirCard(0);setTimeout(()=>document.getElementById('diaryNewForm')?.scrollIntoView({behavior:'smooth'}),50)">${t('new_diary_entry')}</button>`:'';
+  if(!diarioEntradas.length){ $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div><h3>${t('empty_diary_title')}</h3><p>${t('empty_diary_hint')}</p>${novo||`<button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button>`}</div>`; return; }
+  $('#diario').innerHTML=`<div class="diary-head"><button class="btn-cta" onclick="abrirCard(0)">${t('new_diary_entry')}</button><p class="muted">${t('diary_hint')}</p></div><div class="diary">${diarioEntradas.map(e=>cardEntradaDiario(e)).join('')}</div>`;
+}
+/* perfil */
+function leiturasComNotaAlta(){
+  return [...prateleira].sort((a,b)=>(b.nota||0)-(a.nota||0) || Number(!!b.relato)-Number(!!a.relato)).filter(l=>(l.nota||0)>=4.5 || (l.publico&&l.relato)).slice(0,5);
+}
+function miniLivroPerfil(l){
+  return `<div class="book profile-mini-book">${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span></span>`:'')}<div class="t">${esc(l.titulo)}</div><div class="a">${esc(l.autor)}</div></div>`;
+}
+function blocoVitrinePerfil(titulo,itens,vazio,render){
+  return `<div class="profile-showcase"><div class="label">${titulo}</div>${itens.length?`<div class="profile-mini-wall">${itens.map(render).join('')}</div>`:`<p class="muted profile-empty">${vazio}</p>`}</div>`;
+}
+function renderPerfil(){
+  const url=location.origin+'/u/'+meuHandle;
+  const n=prateleira.length;
+  const logado=!!minhaConta.logado;
+  const nome=(minhaConta.nome||'').trim();
+  const email=(minhaConta.email||'').trim();
+  const lidos=prateleira.filter(l=>l.status==='Lido').length, lendo=prateleira.filter(l=>l.status==='Lendo').length, quero=prateleira.filter(l=>l.status==='Quero ler').length;
+  const edicoesPossui=minhaConta.edicoes_possui ?? prateleira.filter(l=>l.tenho_edicao).length;
+  const edicoesDesejadas=minhaConta.edicoes_desejadas ?? prateleira.filter(l=>l.quero_edicao).length;
+  const inicial=(nome||meuHandle||'L').trim().charAt(0).toUpperCase();
+  const lendoAgora=prateleira.filter(l=>l.status==='Lendo').slice(0,4);
+  const favoritos=leiturasComNotaAlta();
+  const criticasPublicas=prateleira.filter(l=>l.publico && (l.relato||'').trim()).slice(0,3);
+  const previewHTML=`
+    <div class="account-box public-preview-box">
+      <div class="label">${t('public_profile')}</div>
+      <p>${t('public_profile_hint')}</p>
+      <div class="profile-actions">
+        <a class="pbtn solid" href="${esc(url)}" target="_blank">${t('view_public_profile')}</a>
+        <button class="pbtn" type="button" onclick="copiarLinkPerfil()">${t('copy_profile_link')}</button>
+        <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
+      </div>
+    </div>
+    ${blocoVitrinePerfil(t('currently_reading'),lendoAgora,t('nothing_reading_now'),miniLivroPerfil)}
+    ${favoritos.length?blocoVitrinePerfil(t('favorites'),favoritos,'',miniLivroPerfil):''}
+    ${blocoVitrinePerfil(t('public_reviews'),criticasPublicas,t('no_public_reviews'),l=>`<article class="profile-review"><strong>${esc(l.titulo)}</strong><span>${l.nota?estrelasStr(l.nota):t('no_rating')}</span><p>${l.spoiler?t('spoiler_review')+' — '+t('tap_to_reveal'):esc((l.relato||'').slice(0,140))}</p></article>`)}
+  `;
+  const contaHTML=logado
+    ? `<div class="account-box connected">
+        <div class="label">${t('account')}</div>
+        <p>${t('account_connected')}</p>
+        ${nome?`<div class="account-line">${esc(nome)}</div>`:''}
+        ${email?`<div class="account-line muted">${esc(email)}</div>`:''}
+        <a class="account-logout" href="/api/auth/logout">${t('logout')}</a>
+      </div>`
+    : `<div class="account-box">
+        <div class="label">${t('account')}</div>
+        <p>${t('account_anon')}</p>
+        <p class="muted">${t('account_login_hint')}</p>
+        <a class="pbtn solid" href="/api/auth/google/login">${t('login_google')}</a>
+      </div>`;
+  $('#perfil').innerHTML=`
+    <div class="pcard">
+      <div class="profile-avatar">${esc(inicial)}</div>
+      <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
+      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · ${t('followers_count',{count:minhaConta.followers_count||0})} · ${t('following_count',{count:minhaConta.following_count||0})}</div>
+      <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
+      ${previewHTML}
+      ${contaHTML}
+      <div class="account-box theme-box">
+        <div class="label">${t('appearance')}</div>
+        <p>${t('appearance_hint')}</p>
+        <div class="theme-options" role="radiogroup" aria-label="${t('theme')}">
+          <label class="theme-option"><input type="radio" name="themeChoice" value="light" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='light'?'checked':''}><span>${t('theme_light')}</span></label>
+          <label class="theme-option"><input type="radio" name="themeChoice" value="dark" onchange="definirTema(this.value)" ${document.body.getAttribute('data-theme')==='dark'?'checked':''}><span>${t('theme_dark')}</span></label>
+        </div>
+      </div>
+      <div class="account-box language-box">
+        <div class="label">${t('language')}</div>
+        <p>${t('language_hint')}</p>
+        <div class="theme-options" role="radiogroup" aria-label="${t('language')}">
+          ${['pt-BR','en','es'].map(locale=>`<label class="theme-option"><input type="radio" name="localeChoice" value="${locale}" onchange="mudarIdioma(this.value)" ${getLocale()===locale?'checked':''}><span>${t(locale==='pt-BR'?'language_pt_br':locale==='en'?'language_en':'language_es')}</span></label>`).join('')}
+        </div>
+      </div>
+      <div class="account-box library-box">
+        <div class="label">${t('library')}</div>
+        <p>${t('library_hint')}</p>
+        <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
+      </div>
+      <div class="plink">${esc(url)}</div>
+    </div>`;
+}
+
+function urlPerfilPublico(){
+  const handle=(meuHandle||'').trim();
+  return handle ? `${window.location.origin}/u/${encodeURIComponent(handle)}` : '';
+}
+function textoCompartilhamentoLeitura(l){
+  const title=l?.titulo || '';
+  const payload=cardSharePayload();
+  let txt=t(payload.shareKey,{title});
+  if(cardIncludeExcerpt && payload.excerpt) txt+=' “'+payload.excerpt+'”';
+  return txt;
+}
+async function copiarLink(url, promptKey='copy_profile_link_prompt'){
+  if(!url){ toast(t('link_copy_failed')); return false; }
+  try{
+    await navigator.clipboard.writeText(url);
+    toast(t('link_copied'));
+    return true;
+  }catch(e){
+    prompt(t(promptKey),url);
+    toast(`${t('link_copy_failed')} ${url}`);
+    return false;
+  }
+}
+async function copiarLinkPerfil(){ await copiarLink(urlPerfilPublico(),'copy_profile_link_prompt'); }
+async function compartilharPerfil(){
+  const url=urlPerfilPublico();
+  if(!url){ toast(t('link_copy_failed')); return; }
+  if(navigator.share){ try{ await navigator.share({title:t('profile_share_title'),url}); return; }catch(e){} }
+  await copiarLinkPerfil();
+}
+async function compartilharEstante(){
+  const url=urlPerfilPublico();
+  if(!url){ toast(t('link_copy_failed')); return; }
+  if(navigator.share){ try{ await navigator.share({title:t('shelf_share_title'),url}); return; }catch(e){} }
+  await copiarLink(url,'copy_shelf_link');
+}
+
+/* ---------- card / modal ---------- */
+
+function nomeCapaCard(){
+  return cardCoverIndex===0 ? t('original_cover') : t('lombada_cover',{count:cardCoverIndex});
+}
+function atualizarControleCapaCard(){
+  const label=$('#cardCoverModeLabel');
+  if(label) label.textContent=nomeCapaCard();
+}
+function trocarCapaCard(){
+  if(!cardAtual)return;
+  cardCoverAutoLowRes=false;
+  cardCoverUserChanged=true;
+  cardCoverIndex=(cardCoverIndex+1)%5;
+  atualizarControleCapaCard();
+  updateShareCardPreview(cardAtual);
+  toast(nomeCapaCard());
+}
+function usarCapaGeradaPorBaixaResolucao(){
+  if(cardCoverIndex!==0 || cardCoverAutoLowRes || cardCoverUserChanged)return;
+  cardCoverAutoLowRes=true;
+  cardCoverIndex=1;
+  atualizarControleCapaCard();
+  toast(t('low_res_cover_toast'));
+}
+
+function trechoTexto(s,lim=220){
+  const txt=(s||'').toString().replace(/\s+/g,' ').trim();
+  return txt.length>lim ? txt.slice(0,lim-1).trimEnd()+'…' : txt;
+}
+function progressoDiarioCard(e){ return progressoDiario(e).replace(/<[^>]+>/g,'').trim(); }
+function cardSharePayload(){
+  const l=cardAtual||{}; const src=cardContext.source;
+  const isDiary=cardContext.type==='diario'&&src;
+  const isReview=cardContext.type==='critica'||(!isDiary && (l.relato||'').trim());
+  const raw=isDiary?(src.nota||''):(isReview?(l.relato||''):'');
+  const spoiler=!!(isDiary?src.spoiler:l.spoiler);
+  const type=isDiary?'diario':(isReview?'critica':'leitura');
+  return {type, excerpt:cardIncludeExcerpt?trechoTexto(raw,220):'', hasText:!!raw.trim(), spoiler, spoilerLabel:t(isDiary?'diary_with_spoiler':'review_with_spoiler'), progress:isDiary?progressoDiarioCard(src):'', shareKey:isDiary?'share_diary_text':(isReview?'share_review_text':'share_reading_text')};
+}
+function setCardTheme(v){ cardTheme=['auto','light','dark'].includes(v)?v:'auto'; localStorage.setItem(CARD_THEME_KEY,cardTheme); updateShareCardPreview(cardAtual); }
+function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPreview(cardAtual); }
+function renderDetalheLivro(l){
+  const campos=[
+    [t('publisher'),l.editora],
+    [t('translator'),l.tradutor],
+    [t('edition_year'),l.ano_edicao||l.ano],
+    [t('language_field'),l.idioma],
+    [t('isbn'),l.isbn]
+  ].filter(([,v])=>v);
+  const nota=Number(l.nota)||0;
+  const notaTxt=nota ? `<span class="detail-rating-number">${nota.toLocaleString(getLocale())}</span>` : `<span class="detail-muted">${t('no_rating')}</span>`;
+  const relato=l.relato ? `<blockquote>${esc(l.relato)}</blockquote>` : `<p class="detail-empty">${t('reading_note_placeholder')}</p>`;
+  const dados=campos.length
+    ? `<dl class="edition-data">${campos.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${campos.length<3?`<p class="detail-empty edition-note">${t('edition_data_incomplete')}</p>`:''}`
+    : `<p class="detail-empty edition-note">${t('edition_data_incomplete')}</p>`;
+  if(cardContext.type!=='diario'){
+    cardContext={type:(l.relato||'').trim()?'critica':'leitura',source:null};
+    cardIncludeExcerpt=!!((l.relato||'').trim() && !l.spoiler);
+  }
+  $('#bookDetail').innerHTML=`
+    <section class="detail-head">
+      <div class="detail-cover">
+        ${coverHTML(l.titulo,l.autor,l.capa_url,'')}
+      </div>
+      <div class="detail-titleblock">
+        <div class="label">${t('book_detail')}</div>
+        <h2>${esc(l.titulo)}</h2>
+        <p class="detail-author">${esc(l.autor)}</p>
+        <span class="status-tag">${esc(statusLabel(l.status||'Lido'))}</span>
+      </div>
+    </section>
+    <section class="detail-section card-cover-control">
+      <div class="label">${t('card_visual')}</div>
+      <p>${t('card_visual_hint')}</p>
+      <button class="btn-cover-card" type="button" onclick="trocarCapaCard()">${t('change_card_cover')} · <span id="cardCoverModeLabel">${nomeCapaCard()}</span></button>
+      <div class="card-options"><div class="label">${t('card_theme')}</div><label><input type="radio" name="cardTheme" value="auto" onchange="setCardTheme(this.value)" ${cardTheme==='auto'?'checked':''}> ${t('card_theme_auto')}</label><label><input type="radio" name="cardTheme" value="light" onchange="setCardTheme(this.value)" ${cardTheme==='light'?'checked':''}> ${t('card_theme_light')}</label><label><input type="radio" name="cardTheme" value="dark" onchange="setCardTheme(this.value)" ${cardTheme==='dark'?'checked':''}> ${t('card_theme_dark')}</label><label class="check-line"><input type="checkbox" onchange="setCardIncludeExcerpt(this.checked)" ${cardIncludeExcerpt?'checked':''}> <span>${t('include_excerpt')}</span></label>${cardSharePayload().spoiler&&cardSharePayload().hasText?`<p class="detail-empty">${t('excerpt_contains_spoiler')}</p>`:''}</div>
+      <canvas id="shareCardPreview" class="share-card-preview" width="1080" height="1920" aria-label="${t('share_card')}"></canvas>
+    </section>
+    <section class="detail-section detail-rating">
+      <div class="detail-stars" aria-label="${t('rating')}">${estrelasStr(nota)}</div>
+      ${notaTxt}
+    </section>
+    <section class="detail-section">
+      <div class="label">${t('reading_note')}</div>
+      <div class="detail-quote">${relato}</div>
+    </section>
+    <section class="detail-section">
+      <div class="label">${t('visibility')}</div>
+      <p class="detail-empty">${l.publico?t('public_review'):t('private_review')}${l.spoiler?' · '+t('contains_spoiler'):''}</p>
+    </section>
+    <section class="detail-section" id="readingDiarySection">
+      <div class="label">${t('reading_diary')}</div>
+      <p class="detail-empty">${t('diary_hint')}</p>
+      <div id="diaryNewForm">${formDiarioHTML(l.leitura_id)}</div>
+      <div class="diary detail-diary">${diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).slice(0,5).map(e=>cardEntradaDiario(e,{inDetail:true})).join('') || `<p class="detail-empty">${t('no_diary_entries')}</p>`}</div>
+    </section>
+    <section class="detail-section">
+      <div class="label">${t('edition')}</div>
+      ${dados}
+      <p class="detail-empty shelf-edition-flags">${t('you_read_this_edition')}${l.tenho_edicao?' · '+t('you_have_this_edition'):''}${l.quero_edicao?' · '+t('you_want_this_edition'):''}</p>
+    </section>`;
+}
+async function abrirCard(i,opcoes={}){
+  const registrar=opcoes.registrar ?? true;
+  cardAtual=prateleira[i];
+  cardCoverIndex=0;
+  cardCoverAutoLowRes=false;
+  cardCoverUserChanged=false;
+  cardContext={type:(cardAtual?.relato||'').trim()?'critica':'leitura',source:null};
+  cardIncludeExcerpt=!!((cardAtual?.relato||'').trim() && !cardAtual?.spoiler);
+  $('#editPanel').style.display='none';
+  renderDetalheLivro(cardAtual);
+  $('#modal').classList.add('open');
+ if(registrar && !restaurandoHistorico){
+  const estadoModal={...estadoNav(navAtual.aba,navAtual.busca,true),card:i};
+  if(history.state && history.state.lombada && history.state.modal){
+    history.replaceState(estadoModal,'');
+  }else{
+    history.pushState(estadoModal,'');
+  }
+}
+  try{ await document.fonts.ready; }catch(e){}
+  updateShareCardPreview(cardAtual);
+}
+function fecharModal(){
+  if(history.state && history.state.lombada && history.state.modal){
+    history.back();
+    return;
+  }
+  fecharModalDireto();
+}
+
+function starPath(cx,cy,r){const p=new Path2D();let rot=-Math.PI/2;const st=Math.PI/5;
+  p.moveTo(cx+Math.cos(rot)*r,cy+Math.sin(rot)*r);
+  for(let i=0;i<5;i++){rot+=st;p.lineTo(cx+Math.cos(rot)*r*.42,cy+Math.sin(rot)*r*.42);rot+=st;p.lineTo(cx+Math.cos(rot)*r,cy+Math.sin(rot)*r);}
+  p.closePath();return p;}
+function drawStars(ctx,x,y,nota,r,gap,color){
+  for(let i=0;i<5;i++){const cx=x+r+i*(2*r+gap);const f=Math.max(0,Math.min(1,(nota||0)-i));const p=starPath(cx,y,r);
+    ctx.save();ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke(p);
+    if(f>0){if(f<1){ctx.clip(p);ctx.fillStyle=color;ctx.fillRect(cx-r,y-r,r*2*f,r*2);}else{ctx.fillStyle=color;ctx.fill(p);}}ctx.restore();}
+}
+function wrapLeft(ctx,text,x,y,maxW,lh,maxL){
+  const words=(text||'').split(' ');let line='';const lines=[];
+  for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;if(lines.length===maxL-1)break;}else line=t;}
+  if(line)lines.push(line);const out=lines.slice(0,maxL);
+  out.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lh));return y+(out.length-1)*lh;
+}
+function wrapCenter(ctx,text,cx,cy,maxW,lh,maxL){
+  const words=(text||'').split(' ');let line='';const lines=[];
+  for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}
+  if(line)lines.push(line);const out=lines.slice(0,maxL);
+  const y0=cy-(out.length-1)*lh/2;out.forEach((ln,i)=>ctx.fillText(ln,cx,y0+i*lh));
+}
+
+function drawCanvasTextLines(ctx,text,x,y,maxW,lh,maxL,align='left'){
+  const words=(text||'').toString().trim().split(/\s+/).filter(Boolean);
+  const lines=[];let line='';
+  for(const word of words.length?words:['']){
+    const test=line?line+' '+word:word;
+    if(ctx.measureText(test).width>maxW && line){lines.push(line);line=word;if(lines.length>=maxL-1)break;}
+    else line=test;
+  }
+  if(line && lines.length<maxL)lines.push(line);
+  const out=lines.length?lines:[''];
+  ctx.textAlign=align;
+  out.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lh));
+  return y+(out.length-1)*lh;
+}
+function drawPaperTexture(ctx,x,y,w,h,color='rgba(26,23,20,.035)',step=26){
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle=color;
+  for(let i=-h;i<w;i+=step){ctx.fillRect(x+i,y,1,h);ctx.fillRect(x,y+i, w,1);}
+  ctx.restore();
+}
+function effectiveCardTheme(){ return cardTheme==='auto'?(document.body.getAttribute('data-theme')==='dark'?'dark':'light'):cardTheme; }
+function cardPalette(){ return effectiveCardTheme()==='dark'?{bg1:'#15110E',bg2:'#251B16',text:'#F3EBDD',muted:'#CDBFA9',rule:'rgba(243,235,221,.26)',gold:'#C6A24A',texture:'rgba(255,255,255,.035)'}:{bg1:'#F4EDDF',bg2:'#E5DAC6',text:'#3A322A',muted:'#6F6655',rule:'rgba(26,23,20,.25)',gold:'#A8842F',texture:'rgba(58,50,42,.025)'}; }
+function drawShareCardBackground(ctx,l,W,H){
+  const p=cardPalette(); ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,p.bg1);g.addColorStop(1,p.bg2);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  drawPaperTexture(ctx,0,0,W,H,p.texture,34);
+}
+function drawGeneratedLombadaCover(ctx,l,x,y,w,h,style=0){
+  ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  const title=l.titulo||'';const author=(l.autor||'').toUpperCase();
+  if(style===0){
+    ctx.fillStyle='#EFE2C8';ctx.fillRect(x,y,w,h);drawPaperTexture(ctx,x,y,w,h,'rgba(70,54,36,.045)',30);
+    ctx.strokeStyle='#4B3527';ctx.lineWidth=6;ctx.strokeRect(x+44,y+44,w-88,h-88);ctx.lineWidth=1.5;ctx.strokeRect(x+66,y+66,w-132,h-132);
+    ctx.fillStyle='#8B0E20';ctx.fillRect(x+w*.25,y+126,w*.5,7);ctx.fillRect(x+w*.35,y+h-166,w*.3,4);
+    ctx.fillStyle='#3C2C22';ctx.font="700 30px 'Space Mono', monospace";drawCanvasTextLines(ctx,author,x+w/2,y+205,w-170,38,2,'center');
+    ctx.font="700 78px Fraunces, serif";drawCanvasTextLines(ctx,title,x+w/2,y+h*.42,w-170,84,5,'center');
+    ctx.font="400 24px 'Space Mono', monospace";ctx.fillStyle='rgba(60,44,34,.70)';ctx.fillText('COLEÇÃO LOMBADA',x+w/2,y+h-108);
+  }else if(style===1){
+    const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,'#9F1128');g.addColorStop(1,'#4E0712');ctx.fillStyle=g;ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='#F0D9A4';ctx.fillRect(x+62,y+74,w-124,12);ctx.fillRect(x+62,y+h-132,w-124,12);
+    ctx.fillStyle='rgba(241,230,210,.12)';ctx.beginPath();ctx.arc(x+w*.76,y+h*.27,150,0,Math.PI*2);ctx.fill();ctx.fillStyle='#11100E';ctx.fillRect(x+w*.09,y+h*.55,w*.30,h*.30);
+    ctx.strokeStyle='#F0D9A4';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x+80,y+h*.50);ctx.lineTo(x+w-80,y+h*.36);ctx.stroke();
+    ctx.fillStyle='#F4EFE6';ctx.font="800 78px Fraunces, serif";drawCanvasTextLines(ctx,title,x+80,y+330,w-160,84,5,'left');
+    ctx.font="700 30px 'Space Mono', monospace";ctx.fillStyle='#F0D9A4';drawCanvasTextLines(ctx,author,x+80,y+h-230,w-160,38,2,'left');
+  }else if(style===2){
+    ctx.fillStyle='#11100E';ctx.fillRect(x,y,w,h);drawPaperTexture(ctx,x,y,w,h,'rgba(255,255,255,.035)',22);
+    const rg=ctx.createRadialGradient(x+w*.62,y+h*.34,40,x+w*.62,y+h*.34,420);rg.addColorStop(0,'rgba(168,132,47,.28)');rg.addColorStop(1,'rgba(168,132,47,0)');ctx.fillStyle=rg;ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle='#A8842F';ctx.lineWidth=2;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(x+92,y+150+i*34);ctx.lineTo(x+w-92,y+150+i*34);ctx.stroke();}
+    ctx.fillStyle='#EAE0CD';ctx.font="700 76px Fraunces, serif";drawCanvasTextLines(ctx,title,x+92,y+h*.43,w-184,82,5,'left');
+    ctx.font="700 28px 'Space Mono', monospace";ctx.fillStyle='#A8842F';drawCanvasTextLines(ctx,author,x+92,y+h-190,w-184,36,2,'left');
+    ctx.fillStyle='rgba(234,224,205,.75)';ctx.fillRect(x+92,y+h-104,w-184,2);
+  }else{
+    ctx.fillStyle='#EDE7D8';ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='#1E2F3F';ctx.beginPath();ctx.arc(x+w*.22,y+h*.24,170,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#D98963';ctx.beginPath();ctx.ellipse(x+w*.74,y+h*.62,190,310,-.35,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#8B0E20';ctx.fillRect(x+w*.08,y+h*.78,w*.84,18);ctx.fillStyle='rgba(26,23,20,.08)';ctx.fillRect(x+w*.53,y+80,28,h-160);
+    ctx.fillStyle='#1A1714';ctx.font="800 74px Fraunces, serif";drawCanvasTextLines(ctx,title,x+78,y+250,w-156,82,5,'left');
+    ctx.font="700 29px 'Space Mono', monospace";ctx.fillStyle='#1E2F3F';drawCanvasTextLines(ctx,author,x+78,y+h-180,w-156,38,2,'left');
+    ctx.font="400 23px 'Space Mono', monospace";ctx.fillText('ensaio visual lombada',x+78,y+h-92);
+  }
+  ctx.restore();ctx.strokeStyle='rgba(26,23,20,.28)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+}
+function drawShareCover(ctx,l,x,y,w,h,selected){
+  return (async()=>{
+    if(selected.type==='original' && selected.url){
+      const im=await loadShareCardImage(capaProxy(selected.url));
+      if(im){
+        ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
+        ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+        ctx.fillStyle='#171411';ctx.fillRect(x,y,w,h);
+        const ir=im.width/im.height,wr=w/h;let dw,dh,dx,dy;
+        if(ir>wr){dh=h;dw=h*ir;dx=x-(dw-w)/2;dy=y;}else{dw=w;dh=w/ir;dx=x;dy=y-(dh-h)/2;}
+        ctx.drawImage(im,dx,dy,dw,dh);ctx.restore();ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);return;
+      }
+    }
+    drawGeneratedLombadaCover(ctx,l,x,y,w,h,selected.type==='lombada'?selected.variacao:0);
+  })();
+}
+function drawBookInfo(ctx,l,W,H,cy,ch){
+  const p=cardPalette(); let y=cy+ch+118;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.fillStyle=p.text;ctx.font="500 italic 80px Fraunces, serif";
+  y=wrapLeft(ctx,l.titulo||'',110,y,W-220,88,2);
+  y+=68;ctx.fillStyle=p.muted;ctx.font="italic 46px Spectral, serif";
+  ctx.fillText(l.autor||'',110,y);
+  return y;
+}
+function drawShareStars(ctx,l,y){drawStars(ctx,110,y,l.nota||0,44,20,cardPalette().gold);}
+function drawFooter(ctx,l,W,H){
+  const p=cardPalette(); const yc=H-160;ctx.strokeStyle=p.rule;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(110,yc-46);ctx.lineTo(W-110,yc-46);ctx.stroke();
+  ctx.fillStyle=p.muted;ctx.font="400 28px 'Space Mono', monospace";
+  const col=[l.tradutor?`${t('translator_abbr')} ${l.tradutor}`:null,l.editora||null,l.ano_edicao||l.ano||null].filter(Boolean).join('   ·   ');
+  ctx.fillText(col,110,yc);ctx.fillText('@'+(meuHandle||''),110,yc+44);
+  ctx.fillStyle=p.gold;ctx.font="600 italic 40px Fraunces, serif";ctx.fillText('lombada.',110,yc+98);
+}
+function drawShareCardText(ctx,l,W,H,cy,ch){
+  const p=cardPalette(), payload=cardSharePayload();
+  let y=drawBookInfo(ctx,l,W,H,cy,ch)+86;
+  if(payload.progress){ctx.fillStyle=p.muted;ctx.font="400 36px 'Space Mono', monospace";wrapLeft(ctx,payload.progress,110,y,W-220,46,1);y+=62;}
+  else {drawShareStars(ctx,l,y);y+=110;}
+  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,3);}
+  else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 42px Spectral, serif";wrapLeft(ctx,payload.spoilerLabel,110,y,W-220,54,2);}
+  drawFooter(ctx,l,W,H);
+}
+function getSelectedShareCover(l){
+  const index=Math.max(0,Math.min(4,Number(cardCoverIndex)||0));
+  return {
+    index,
+    type:index===0?'original':'lombada',
+    url:index===0?(l?.capa_url||''):'',
+    variacao:Math.max(0,index-1)
+  };
+}
+function loadShareCardImage(src){
+  return new Promise(resolve=>{
+    if(!src){resolve(null);return;}
+    const im=new Image();
+    im.crossOrigin='anonymous';
+    im.onload=()=>resolve(im.naturalWidth>=5?im:null);
+    im.onerror=()=>resolve(null);
+    im.src=src;
+  });
+}
+async function renderShareCardCanvas(l,options={}){
+  const cv=options.canvas || $('#cardCanvas');
+  if(!cv || !l)return null;
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  const cx=110,cy=120,cw=W-220,ch=1120;
+  const selected=options.selectedCover || getSelectedShareCover(l);
+  drawShareCardBackground(ctx,l,W,H);
+  await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
+  drawShareCardText(ctx,l,W,H,cy,ch);
+  return cv;
+}
+async function updateShareCardPreview(l){
+  const preview=$('#shareCardPreview');
+  if(!preview || !l)return;
+  const selected=getSelectedShareCover(l);
+  await renderShareCardCanvas(l,{canvas:preview,selectedCover:selected});
+  await renderShareCardCanvas(l,{canvas:$('#cardCanvas'),selectedCover:selected});
+}
+function drawCard(l){
+  updateShareCardPreview(l);
+}
+
+function canvasToPngBlob(cv){
+  return new Promise(resolve=>cv.toBlob(resolve,'image/png'));
+}
+async function compartilharCard(){
+  const cv=await renderShareCardCanvas(cardAtual,{canvas:$('#cardCanvas'),selectedCover:getSelectedShareCover(cardAtual)});
+  const blob=cv ? await canvasToPngBlob(cv) : null;
+  if(!blob){alert(t('card_generation_error'));return;}
+  const file=new File([blob],'lombada.png',{type:'image/png'});
+  const url=urlPerfilPublico();
+  const shareData={title:cardAtual?.titulo||t('profile_share_title'),text:textoCompartilhamentoLeitura(cardAtual)};
+  if(url) shareData.url=url;
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({...shareData,files:[file]});
+      if(url) await copiarLink(url,'copy_profile_link_prompt');
+      return;
+    }catch(e){}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lombada.png';a.click();
+  if(url) await copiarLink(url,'copy_profile_link_prompt');
+  else toast(t('link_copy_failed'));
+}
+
+/* editar / remover */
+function abrirEditar(){
+  const l=cardAtual; notaEdit=l.nota||0;
+  const p=$('#editPanel');
+  p.innerHTML=`
+    <h3>${t('edit_title',{title:esc(l.titulo)})}</h3>
+    <div class="field"><label class="label">${t('rating')}</label><div class="stars" id="e_stars"></div></div>
+    <div class="row">
+      <div class="field"><label class="label">${t('status')}</label>
+        <select id="e_status">
+          <option value="Lido"${l.status==='Lido'?' selected':''}>${t('status_read')}</option>
+          <option value="Lendo"${l.status==='Lendo'?' selected':''}>${t('status_reading')}</option>
+          <option value="Quero ler"${l.status==='Quero ler'?' selected':''}>${t('status_want')}</option>
+        </select></div>
+      <div class="field"><label class="label">${t('when')}</label>
+        <input type="text" id="e_data" value="${esc(l.data)}" placeholder="${t('date_placeholder')}" /></div>
+    </div>
+    <div class="field"><label class="label" id="e_relato_label">${t('reading_note')}</label>
+      <textarea id="e_relato" maxlength="160">${esc(l.relato)}</textarea></div>
+    <div class="visibility-box"><div class="label">${t('visibility')}</div>
+      <label class="check-line"><input type="checkbox" id="e_publico" ${l.publico?'checked':''}> <span id="e_publico_label">${t('make_review_public')}</span></label>
+      <p class="muted">${t('public_text_hint')}</p>
+      <label class="check-line"><input type="checkbox" id="e_spoiler" ${l.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label>
+    </div>
+    <button class="btn-primary" onclick="salvarEdicao()">${t('save_changes')}</button>`;
+  p.style.display='';
+  montarStars('e_stars',()=>notaEdit,v=>notaEdit=v);
+  atualizarCopyRelato('e');
+  $('#e_status')?.addEventListener('change',()=>atualizarCopyRelato('e'));
+  p.scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function salvarEdicao(){
+  const body={ status:$('#e_status').value, nota:notaEdit||null,
+    relato:$('#e_relato').value.trim(), publico:$('#e_publico').checked, spoiler:$('#e_spoiler').checked, data:$('#e_data').value.trim() };
+  try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  catch(e){ alert(t('edit_save_error')); return; }
+  fecharModalParaNavegacao(); await carregarPrateleira();
+}
+async function removerLeitura(){
+  if(!confirm(t('remove_confirm',{title:cardAtual.titulo||''})))return;
+  try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'DELETE'}); }
+  catch(e){ alert(t('remove_error')); return; }
+  fecharModalParaNavegacao(); await carregarPrateleira();
+}
+
+/* init */
+async function init(){
+  const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
+  history.replaceState(estadoInicial,'');
+  tratarMensagemConta();
+  renderChips();
+  atualizarSeletorIdioma();
+  carregarObrasPopulares();
+  try{
+    const me=await (await fetch('/api/eu')).json();
+    minhaConta=me||{logado:false,provedor:'anonimo'};
+    meuHandle=me.handle||'';
+    $('#meuhandle').textContent='@'+meuHandle;
+    $('#crumb').classList.add('visible');
+  }catch(e){}
+  await carregarPrateleira();
+  aplicarHistorico(estadoInicial);
+}
+init();
