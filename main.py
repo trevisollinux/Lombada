@@ -432,6 +432,8 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 "leitura_id": l.id, "nota": l.nota, "relato": relato, "data": l.data,
                 "status": l.status, "spoiler": bool(l.spoiler),
                 "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
+                "is_following": _is_following(s, usuario_id, u.id),
+                "is_me": bool(usuario_id and usuario_id == u.id),
                 "edicao_id": ed.id, **_review_state(s, l.id, usuario_id), "edicao": {
                     "editora": ed.editora, "ano": ed.ano, "tradutor": ed.tradutor,
                     "isbn": ed.isbn, "idioma": ed.idioma, "capa_url": ed.capa_url,
@@ -856,6 +858,27 @@ def _feed_tipo(l: Leitura) -> str:
     return "leitura_criada"
 
 
+def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuario, atual: Usuario | None, trecho: bool = True) -> dict:
+    relato = (l.relato or "").strip()
+    atual_id = atual.id if atual else None
+    return {
+        "tipo": _feed_tipo(l),
+        "usuario": {
+            "handle": autor.handle, "nome": autor.nome,
+            "is_following": _is_following(s, atual_id, autor.id),
+            "is_me": bool(atual_id and atual_id == autor.id),
+        },
+        "livro": {"titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key, "capa_url": ed.capa_url},
+        "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
+        "leitura": {
+            "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
+            "spoiler": bool(l.spoiler), "relato": (relato[:220] if trecho else relato),
+            **(_review_state(s, l.id, atual_id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False}),
+        },
+        "created_at": l.criado_em.isoformat(),
+    }
+
+
 @app.get("/api/feed")
 def feed(request: Request, s: Session = Depends(get_session), limit: int = Query(30, ge=1, le=50)):
     u = usuario_sessao(request, s)
@@ -871,25 +894,44 @@ def feed(request: Request, s: Session = Depends(get_session), limit: int = Query
         .order_by(Leitura.criado_em.desc())
         .limit(limit)
     ).all()
-    items = []
-    for l, ed, o, autor in rows:
-        relato = (l.relato or "").strip()
-        relato_feed = ""
-        if l.publico and relato:
-            relato_feed = relato[:220]
-        items.append({
-            "tipo": _feed_tipo(l),
-            "usuario": {"handle": autor.handle, "nome": autor.nome},
-            "livro": {"titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key, "capa_url": ed.capa_url},
-            "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
-            "leitura": {
-                "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
-                "spoiler": bool(l.spoiler), "relato": relato_feed,
-                **(_review_state(s, l.id, u.id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False}),
-            },
-            "created_at": l.criado_em.isoformat(),
-        })
+    items = [_feed_review_item(s, l, ed, o, autor, u) for l, ed, o, autor in rows]
     return {"following_count": len(following_ids), "items": items}
+
+
+@app.get("/api/feed/discover")
+def feed_discover(request: Request, s: Session = Depends(get_session), limit: int = Query(20, ge=1, le=50)):
+    atual = usuario_sessao(request, s)
+    rows = s.exec(
+        select(Leitura, Edicao, Obra, Usuario)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .join(Usuario, Leitura.usuario_id == Usuario.id)
+        .where(Leitura.publico == True, Leitura.relato != "")
+        .order_by(Leitura.criado_em.desc())
+        .limit(limit)
+    ).all()
+    reviews = [_feed_review_item(s, l, ed, o, autor, atual, trecho=False) for l, ed, o, autor in rows if (l.relato or "").strip()]
+
+    active_rows = s.exec(
+        select(Usuario, func.count(Leitura.id).label("reviews_count"))
+        .join(Leitura, Leitura.usuario_id == Usuario.id)
+        .where(Leitura.publico == True, Leitura.relato != "")
+        .group_by(Usuario.id)
+        .order_by(func.count(Leitura.id).desc())
+        .limit(20)
+    ).all()
+    readers = []
+    for leitor, reviews_count in active_rows:
+        if atual.id and leitor.id == atual.id:
+            continue
+        readers.append({
+            "handle": leitor.handle, "nome": leitor.nome, "reviews_count": reviews_count,
+            "followers_count": _follow_counts(s, leitor.id)["followers_count"],
+            "is_following": _is_following(s, atual.id, leitor.id), "is_me": False,
+        })
+        if len(readers) >= 10:
+            break
+    return {"reviews": reviews, "readers": readers}
 
 # ─── estante pública ──────────────────────────────────────
 @app.get("/api/u/{handle}")
