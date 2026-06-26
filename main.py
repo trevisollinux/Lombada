@@ -626,7 +626,7 @@ PROGRESSO_TIPOS = {"pagina", "porcentagem", "capitulo", "livre"}
 class DiarioPayload(BaseModel):
     progresso_tipo: str = "livre"
     pagina: Optional[int] = None
-    porcentagem: Optional[int] = None
+    porcentagem: Optional[float] = None
     capitulo: str = ""
     nota: str = ""
     publico: bool = False
