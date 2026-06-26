@@ -771,3 +771,168 @@ body.theme-dark select:-webkit-autofill{
 .visibility-box .check-line input,.light-options .check-line input{margin:0;flex:0 0 auto;width:18px;height:18px}
 .visibility-box .check-line span,.light-options .check-line span{display:inline-block;max-width:min(100%,28ch)}
 @media(max-width:420px){.card-options{grid-template-columns:1fr}.card-options label{font-size:14px}.visibility-box .check-line{margin:14px 0}.visibility-box .check-line span{max-width:24ch}}
+
+/* Dark mode contrast pass: keep editorial palette while making secondary UI readable. */
+body.theme-dark{
+  --ink:#F7F0E5;
+  --ink-2:#E0D2BA;
+  --dim:#B7AA99;
+  --muted:#B7AA99;
+  --muted-readable:#CABEAA;
+  --muted-soft:#A79A8A;
+  --wine:#B64250;
+  --wine-2:#8B2E1F;
+  --accent:#D45C68;
+  --rule:rgba(247,240,229,.20);
+  --nav-bg:rgba(13,11,9,.98);
+  --paper-2:#1D1915;
+  --paper-3:#332820;
+  --gold:var(--wine);
+  --gold-2:var(--accent);
+}
+
+body.theme-dark .tabs{
+  background:var(--nav-bg);
+  border-color:rgba(247,240,229,.22);
+}
+body.theme-dark .tab{
+  color:var(--muted-readable);
+}
+body.theme-dark .tab svg{
+  stroke:currentColor;
+}
+body.theme-dark .tab.active{
+  color:var(--ink);
+  background:color-mix(in srgb,var(--paper-2),var(--ink) 5%);
+  border-color:rgba(247,240,229,.22);
+}
+body.theme-dark .tab.active::before{
+  background:var(--accent);
+}
+body.theme-dark .tabs::after,
+body.theme-dark .crumb,
+body.theme-dark .theme-toggle,
+body.theme-dark .section-head .more,
+body.theme-dark .screen-subtitle,
+body.theme-dark .shelf-summary,
+body.theme-dark .search-hint,
+body.theme-dark .manual-cta,
+body.theme-dark .empty,
+body.theme-dark .empty-rich p,
+body.theme-dark .account-box .muted,
+body.theme-dark .account-line.muted,
+body.theme-dark .account-logout,
+body.theme-dark .profile .pcount,
+body.theme-dark .profile .plink,
+body.theme-dark .reading-copy p,
+body.theme-dark .reading-meta,
+body.theme-dark .book .a,
+body.theme-dark .book .yr,
+body.theme-dark .diary .dwhen,
+body.theme-dark .diary .dmeta,
+body.theme-dark .diary .drelato,
+body.theme-dark .diary-actions button,
+body.theme-dark .review-meta,
+body.theme-dark .review-actions,
+body.theme-dark .feed-action,
+body.theme-dark .feed-author,
+body.theme-dark .feed-edition,
+body.theme-dark .feed-date,
+body.theme-dark .feed-intro p,
+body.theme-dark .discover-readers small,
+body.theme-dark .shelf-row-meta,
+body.theme-dark .shelf-row-date,
+body.theme-dark .detail-muted,
+body.theme-dark .detail-empty,
+body.theme-dark .card-cover-control p,
+body.theme-dark .edition-data dt,
+body.theme-dark .edition .tr .none{
+  color:var(--muted-readable);
+}
+body.theme-dark .meta,
+body.theme-dark .work-head .wmeta .a,
+body.theme-dark .community-score span,
+body.theme-dark .review-top,
+body.theme-dark .review-card p,
+body.theme-dark .profile-review p,
+body.theme-dark .feed-quote,
+body.theme-dark .detail-author,
+body.theme-dark .detail-rating-number,
+body.theme-dark .detail-quote blockquote,
+body.theme-dark .edition-data dd,
+body.theme-dark .account-box p,
+body.theme-dark .login-hint p,
+body.theme-dark .about-work p,
+body.theme-dark .work-edition-highlights p,
+body.theme-dark .shelf-row-author,
+body.theme-dark .diary .dtop,
+body.theme-dark .diary .dt,
+body.theme-dark .linklike.dt{
+  color:var(--ink-2);
+}
+body.theme-dark .label,
+body.theme-dark .form-block>.label,
+body.theme-dark .community-label,
+body.theme-dark .edition-group,
+body.theme-dark .diary-progress,
+body.theme-dark .book .e,
+body.theme-dark .shelf-row-status,
+body.theme-dark .shelf-edition-flags,
+body.theme-dark .edition-relation-note,
+body.theme-dark .feed-user,
+body.theme-dark .review-user,
+body.theme-dark .diary .dmeta span,
+body.theme-dark .community-score strong,
+body.theme-dark .review-top span,
+body.theme-dark .lang-switch button.active{
+  color:var(--accent);
+}
+body.theme-dark .shelf-pill,
+body.theme-dark .shelf-view-btn,
+body.theme-dark .shelf-segment-btn,
+body.theme-dark .progress-chip,
+body.theme-dark .theme-option span,
+body.theme-dark .modal-actions .btn-secondary,
+body.theme-dark .empty-rich .btn-secondary,
+body.theme-dark .login-hint-secondary,
+body.theme-dark .btn-cover-card,
+body.theme-dark .edition-social-btn,
+body.theme-dark .feed-spoiler,
+body.theme-dark .follow-inline,
+body.theme-dark .link-tertiary,
+body.theme-dark .link-btn.subtle,
+body.theme-dark .suffix-field span{
+  color:var(--muted-readable);
+  border-color:rgba(247,240,229,.22);
+}
+body.theme-dark .shelf-pill.active,
+body.theme-dark .shelf-view-btn.active,
+body.theme-dark .shelf-segment-btn.active,
+body.theme-dark .progress-chip.active,
+body.theme-dark .theme-option input:checked + span,
+body.theme-dark .feed-tabs button.active,
+body.theme-dark .follow-inline.active{
+  background:var(--ink);
+  border-color:var(--ink);
+  color:var(--paper);
+}
+body.theme-dark .field input::placeholder,
+body.theme-dark .field textarea::placeholder,
+body.theme-dark .search input::placeholder,
+body.theme-dark input::placeholder,
+body.theme-dark textarea::placeholder{
+  color:var(--muted-soft);
+  opacity:1;
+}
+body.theme-dark .stars .st:not(.on){
+  color:var(--muted-readable);
+  opacity:.55;
+}
+body.theme-dark .diary .dcover,
+body.theme-dark .empty-rich .ei{
+  opacity:.72;
+}
+body.theme-dark .edition-meta-pills span{
+  color:var(--muted-readable);
+  border-color:rgba(247,240,229,.22);
+}
