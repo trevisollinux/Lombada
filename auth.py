@@ -10,11 +10,12 @@ Dois modos, na mesma sessão de cookie:
 Os dados de perfil vêm do endpoint userinfo do Google usando o access_token
 retornado na troca server-to-server do authorization code.
 """
+import logging
 import os
 import random
 import secrets
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -27,14 +28,33 @@ from models import Usuario, Leitura, get_session
 # ─── config Google ────────────────────────────────────────
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI  = os.getenv(
-    "GOOGLE_REDIRECT_URI",
-    "https://lombada.onrender.com/api/auth/google/callback",
-)
+GOOGLE_REDIRECT_URI  = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
 GOOGLE_AUTH  = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO = "https://www.googleapis.com/oauth2/v3/userinfo"
 _TIMEOUT = 12.0
+logger = logging.getLogger(__name__)
+
+
+def google_redirect_uri(request: Request) -> str:
+    configured = GOOGLE_REDIRECT_URI.strip()
+    if configured:
+        return configured
+
+    forwarded_proto = (request.headers.get("x-forwarded-proto") or "").split(",", 1)[0].strip()
+    forwarded_host = (request.headers.get("x-forwarded-host") or "").split(",", 1)[0].strip()
+    fallback = urlparse(str(request.base_url))
+    scheme = forwarded_proto or request.url.scheme or fallback.scheme
+    host = forwarded_host or request.headers.get("host") or fallback.netloc
+
+    if scheme == "http":
+        hostname = (urlparse(f"//{host}").hostname or "").lower()
+        local_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+        if hostname not in local_hosts and not hostname.endswith(".local"):
+            scheme = "https"
+
+    base = f"{scheme}://{host}".rstrip("/")
+    return f"{base}/api/auth/google/callback"
 
 
 # ─── usuário anônimo (handle fofo) ────────────────────────
@@ -119,15 +139,32 @@ def _mover_leituras(s: Session, de: int, para: int) -> int:
 router = APIRouter()
 
 
+@router.get("/api/auth/google/config")
+def google_config(request: Request):
+    return {
+        "google_client_id_configured": bool(GOOGLE_CLIENT_ID),
+        "google_client_secret_configured": bool(GOOGLE_CLIENT_SECRET),
+        "google_redirect_uri": google_redirect_uri(request),
+        "cookie_secure": os.getenv("COOKIE_SECURE", "true").lower() == "true",
+    }
+
+
 @router.get("/api/auth/google/login")
 def google_login(request: Request):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(503, "SSO do Google não configurado")
+        logger.error(
+            "[google oauth config error] client_id_configured=%s client_secret_configured=%s redirect_uri=%s",
+            bool(GOOGLE_CLIENT_ID),
+            bool(GOOGLE_CLIENT_SECRET),
+            google_redirect_uri(request),
+        )
+        return RedirectResponse("/?conta=erro", status_code=303)
     state = secrets.token_urlsafe(24)
     request.session["oauth_state"] = state
+    redirect_uri = google_redirect_uri(request)
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
-        "redirect_uri":  GOOGLE_REDIRECT_URI,
+        "redirect_uri":  redirect_uri,
         "response_type": "code",
         "scope":         "openid email profile",
         "state":         state,
@@ -150,6 +187,8 @@ def google_callback(request: Request, code: str = "", state: str = "",
     if not code:
         raise HTTPException(400, "código de autorização ausente")
 
+    redirect_uri = google_redirect_uri(request)
+
     # troca o code por tokens (server-to-server)
     try:
         with httpx.Client(timeout=_TIMEOUT) as c:
@@ -157,13 +196,30 @@ def google_callback(request: Request, code: str = "", state: str = "",
                 "code":          code,
                 "client_id":     GOOGLE_CLIENT_ID,
                 "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uri":  GOOGLE_REDIRECT_URI,
+                "redirect_uri":  redirect_uri,
                 "grant_type":    "authorization_code",
             })
             r.raise_for_status()
             tok = r.json()
-    except Exception as e:
-        raise HTTPException(502, f"falha ao trocar token com o Google: {e}")
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response is not None else "sem-status"
+        body = e.response.text if e.response is not None else "sem-resposta"
+        logger.error(
+            "[google oauth token error] status=%s redirect_uri=%s client_id_configured=%s body=%s",
+            status_code,
+            redirect_uri,
+            bool(GOOGLE_CLIENT_ID),
+            body,
+        )
+        return RedirectResponse("/?conta=erro", status_code=303)
+    except httpx.HTTPError as e:
+        logger.error(
+            "[google oauth token error] status=request-error redirect_uri=%s client_id_configured=%s body=%s",
+            redirect_uri,
+            bool(GOOGLE_CLIENT_ID),
+            str(e),
+        )
+        return RedirectResponse("/?conta=erro", status_code=303)
 
     info = _userinfo_google(tok.get("access_token") or "")
     sub   = info["sub"]
