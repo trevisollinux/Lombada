@@ -131,6 +131,49 @@ function toast(msg){
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
 }
 
+
+function limparErroFormulario(form){
+  if(!form) return;
+  form.querySelectorAll('.form-error').forEach(el=>el.remove());
+}
+function mostrarErroFormulario(form,mensagem){
+  if(!form){ toast(mensagem); return; }
+  limparErroFormulario(form);
+  const el=document.createElement('div');
+  el.className='form-error';
+  el.setAttribute('role','alert');
+  el.textContent=mensagem;
+  const botao=form.querySelector('.btn-primary, button[type="submit"], button');
+  if(botao?.parentNode) botao.parentNode.insertBefore(el,botao);
+  else form.appendChild(el);
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function confirmarEmDoisPassos(botao, chave, acao, texto='confirmar remoção'){
+  if(!botao) return acao();
+  const agora=Date.now();
+  const confirmado=botao.dataset.confirmKey===String(chave) && Number(botao.dataset.confirmUntil||0)>agora;
+  if(confirmado){
+    delete botao.dataset.confirmKey;
+    delete botao.dataset.confirmUntil;
+    return acao();
+  }
+  const original=botao.textContent;
+  botao.dataset.confirmKey=String(chave);
+  botao.dataset.confirmUntil=String(agora+4200);
+  botao.dataset.confirmOriginal=original;
+  botao.textContent=texto;
+  botao.classList.add('needs-confirm');
+  setTimeout(()=>{
+    if(botao.dataset.confirmKey===String(chave)){
+      botao.textContent=botao.dataset.confirmOriginal||original;
+      botao.classList.remove('needs-confirm');
+      delete botao.dataset.confirmKey;
+      delete botao.dataset.confirmUntil;
+      delete botao.dataset.confirmOriginal;
+    }
+  },4200);
+}
+
 function normalizarDuplicidade(v){ return (v||'').toString().trim().toLowerCase().replace(/\s+/g,' '); }
 function normalizarIsbnLocal(v){ return (v||'').toString().replace(/[^0-9Xx]/g,'').toUpperCase(); }
 function chaveFallbackLeitura(x){
@@ -726,10 +769,7 @@ async function acaoReview(leituraId,acao){
   const rota=acao==='like'||acao==='unlike'?'like':acao==='save'||acao==='unsave'?'save':'report';
   let body=null;
   if(acao==='report'){
-    const motivo=prompt(t('report_reason')+'\n1. '+t('report_spoiler')+'\n2. '+t('report_offensive')+'\n3. '+t('report_spam')+'\n4. '+t('report_wrong_data')+'\n5. '+t('report_other'), t('report_other'));
-    if(!motivo) return;
-    const detalhe=prompt(t('report_detail_optional'), '')||'';
-    body=JSON.stringify({motivo,detalhe});
+    body=JSON.stringify({motivo:t('report_other'),detalhe:''});
   }
   try{
     const res=await fetch(`/api/reviews/${leituraId}/${rota}`,{method:metodo,headers:body?{'Content-Type':'application/json'}:{},body});
@@ -905,7 +945,7 @@ async function salvar(){
       throw new Error(JSON.stringify(erro)||r.statusText);
     }
   }
-  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); toast(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
@@ -953,7 +993,9 @@ function abrirManual(){
 
 async function salvarManual(){
   const titulo=$('#m_titulo').value.trim(), autor=$('#m_autor').value.trim();
-  if(!titulo||!autor){ alert(t('required_title_author')); return; }
+  const form=$('#m_titulo')?.closest('.card-form');
+  limparErroFormulario(form);
+  if(!titulo||!autor){ mostrarErroFormulario(form,t('required_title_author')); return; }
   const body={
     titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
     titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
@@ -961,7 +1003,7 @@ async function salvarManual(){
     capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
   };
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ console.error('erro ao salvar leitura', e); alert(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
   marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast(t('manual_success')); irPara('perfil',{recarregar:false});
 }
@@ -1159,10 +1201,12 @@ function validarPayloadDiario(payload){
 }
 async function salvarDiario(leituraId,id='',el=null){
   const payload=payloadDiario(id,el);
-  if(!payload){ alert(t('diary_save_error')); return; }
+  const form=el?.closest?.('[data-diary-form]')||null;
+  limparErroFormulario(form);
+  if(!payload){ mostrarErroFormulario(form,t('diary_save_error')); return; }
   console.debug('diary payload',payload);
   const erro=validarPayloadDiario(payload);
-  if(erro){ console.warn('invalid diary payload',payload,erro); alert(erro); return; }
+  if(erro){ console.warn('invalid diary payload',payload,erro); mostrarErroFormulario(form,erro); return; }
   const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;
   const method=id?'PATCH':'POST';
   try{
@@ -1171,13 +1215,21 @@ async function salvarDiario(leituraId,id='',el=null){
       let body='';
       try{ body=await r.text(); }catch(_){ body=''; }
       console.error('[diario save error]',r.status,body);
-      alert(r.status===401||r.status===403?t('diary_login_error'):r.status===422?t('inform_progress_or_note'):t('diary_save_error'));
+      const mensagem=r.status===401||r.status===403?t('diary_login_error'):r.status===422?t('inform_progress_or_note'):t('diary_save_error');
+      mostrarErroFormulario(form,mensagem);
+      toast(mensagem);
       return;
     }
     diarioEditId=null; await carregarPrateleira(); if(cardAtual) renderDetalheLivro(cardAtual); else renderDiario(); toast(t('diary_entry_saved'));
-  }catch(e){ console.error('[diario save error]',0,e); alert(t('diary_save_error')); }
+  }catch(e){ console.error('[diario save error]',0,e); mostrarErroFormulario(form,t('diary_save_error')); toast(t('diary_save_error')); }
 }
-async function excluirDiario(id){ if(!confirm(t('delete_diary_entry')+'?'))return; const r=await fetch(`/api/diario/${id}`,{method:'DELETE'}); if(r.ok) await carregarPrateleira(); }
+async function excluirDiario(id,el=null){
+  confirmarEmDoisPassos(el,`diario_${id}`,async()=>{
+    const r=await fetch(`/api/diario/${id}`,{method:'DELETE'});
+    if(r.ok) await carregarPrateleira();
+    else toast(t('diary_save_error'));
+  });
+}
 function prepararCardDiario(id){
   const e=diarioEntradas.find(x=>String(x.id)===String(id)); if(!e||!cardAtual)return;
   cardContext={type:'diario',source:e}; cardIncludeExcerpt=!!((e.nota||'').trim()&&!e.spoiler);
@@ -1192,7 +1244,7 @@ function cardEntradaDiario(e, opts={}){
     <div class="dtop"><button class="dt linklike" onclick="abrirCard(${i})">${esc(e.titulo||'')}</button><span class="dwhen">${dataDiario(e)}</span></div>
     <div class="diary-progress">${progressoDiario(e)}</div>
     ${e.nota?`<div class="drelato">“${esc(e.nota)}”</div>`:''}
-    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><button onclick="excluirDiario(${e.id})">${t('delete_diary_entry')}</button></div>
+    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><button onclick="excluirDiario(${e.id},this)">${t('delete_diary_entry')}</button></div>
     ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e):''}
   </article>`;
 }
@@ -1302,7 +1354,7 @@ async function copiarLink(url, promptKey='copy_profile_link_prompt'){
     toast(t('link_copied'));
     return true;
   }catch(e){
-    prompt(t(promptKey),url);
+    console.warn(t(promptKey),url);
     toast(`${t('link_copy_failed')} ${url}`);
     return false;
   }
@@ -1629,7 +1681,7 @@ function canvasToPngBlob(cv){
 async function compartilharCard(){
   const cv=await renderShareCardCanvas(cardAtual,{canvas:$('#cardCanvas'),selectedCover:getSelectedShareCover(cardAtual)});
   const blob=cv ? await canvasToPngBlob(cv) : null;
-  if(!blob){alert(t('card_generation_error'));return;}
+  if(!blob){toast(t('card_generation_error'));return;}
   const file=new File([blob],'lombada.png',{type:'image/png'});
   const url=urlPerfilPublico();
   const shareData={title:cardAtual?.titulo||t('profile_share_title'),text:textoCompartilhamentoLeitura(cardAtual)};
@@ -1681,14 +1733,16 @@ async function salvarEdicao(){
   const body={ status:$('#e_status').value, nota:notaEdit||null,
     relato:$('#e_relato').value.trim(), publico:$('#e_publico').checked, spoiler:$('#e_spoiler').checked, data:$('#e_data').value.trim() };
   try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-  catch(e){ alert(t('edit_save_error')); return; }
+  catch(e){ toast(t('edit_save_error')); return; }
   fecharModalParaNavegacao(); await carregarPrateleira();
 }
-async function removerLeitura(){
-  if(!confirm(t('remove_confirm',{title:cardAtual.titulo||''})))return;
-  try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'DELETE'}); }
-  catch(e){ alert(t('remove_error')); return; }
-  fecharModalParaNavegacao(); await carregarPrateleira();
+async function removerLeitura(el=null){
+  const botao=el||document.querySelector('.btn-danger[onclick^="removerLeitura"]');
+  confirmarEmDoisPassos(botao,`leitura_${cardAtual?.leitura_id||''}`,async()=>{
+    try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'DELETE'}); }
+    catch(e){ toast(t('remove_error')); return; }
+    fecharModalParaNavegacao(); await carregarPrateleira();
+  });
 }
 
 /* init */
