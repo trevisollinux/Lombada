@@ -749,3 +749,17 @@ body.theme-dark select:-webkit-autofill{
   transition:background-color 9999s ease-out 0s;
 }
 .diary-progress-field[hidden]{display:none!important}
+
+/* diário — chips de progresso */
+.progress-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.progress-chip{min-height:44px;padding:10px 14px;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;touch-action:manipulation}
+.progress-chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.diary-form .field{margin-bottom:14px}
+.diary-form input,.diary-form textarea{width:100%;box-sizing:border-box;color:var(--ink);background:var(--paper);border:1px solid var(--rule)}
+.diary-form input:focus,.diary-form textarea:focus{outline:2px solid color-mix(in srgb,var(--wine),transparent 35%);background:var(--paper);color:var(--ink)}
+.diary-form input::placeholder,.diary-form textarea::placeholder{color:color-mix(in srgb,var(--muted),transparent 18%)}
+.suffix-field{display:flex;align-items:center;gap:10px;border:1px solid var(--rule);background:var(--paper);padding-right:14px}
+.suffix-field input{border:0!important;background:transparent!important}
+.suffix-field span{font-family:"Space Mono",monospace;color:var(--muted)}
+.diary-form{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+@media(max-width:420px){.progress-chip{flex:1 1 calc(50% - 10px);font-size:11px}.diary-form{padding:16px 14px 92px}.diary-form .btn-primary{width:100%;min-height:48px}}
