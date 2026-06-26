@@ -645,25 +645,29 @@ def _validar_diario(payload: DiarioPayload) -> dict:
     tipo = (data.get("progresso_tipo") or "livre").strip().lower()
     if tipo not in PROGRESSO_TIPOS:
         raise HTTPException(422, "tipo de progresso inválido")
-    pagina = data.get("pagina") if tipo == "pagina" else None
-    porcentagem = data.get("porcentagem") if tipo == "porcentagem" else None
+    pagina = data.get("pagina")
+    porcentagem = data.get("porcentagem")
     nota = _clean_text(data.get("nota", ""), 2000)
-    capitulo = _clean_text(data.get("capitulo", ""), 120) if tipo in {"capitulo", "livre"} else ""
+    capitulo = _clean_text(data.get("capitulo", ""), 120)
 
     pagina_valida = pagina is not None and pagina > 0
     porcentagem_valida = porcentagem is not None and 0 <= porcentagem <= 100
     capitulo_valido = bool(capitulo)
 
-    if tipo == "pagina" and pagina is not None and not pagina_valida:
+    if pagina is not None and not pagina_valida:
         raise HTTPException(422, "informe um progresso ou uma anotação")
-    if tipo == "porcentagem" and porcentagem is not None and not porcentagem_valida:
+    if porcentagem is not None and not porcentagem_valida:
         raise HTTPException(422, "informe um progresso ou uma anotação")
     if not (pagina_valida or porcentagem_valida or capitulo_valido or nota):
         raise HTTPException(422, "informe um progresso ou uma anotação")
 
     return {
-        "progresso_tipo": tipo, "pagina": pagina if pagina_valida else None, "porcentagem": porcentagem if porcentagem_valida else None,
-        "capitulo": capitulo if capitulo_valido else "", "nota": nota, "publico": bool(data.get("publico", False)),
+        "progresso_tipo": tipo,
+        "pagina": pagina if tipo == "pagina" and pagina_valida else None,
+        "porcentagem": porcentagem if tipo == "porcentagem" and porcentagem_valida else None,
+        "capitulo": capitulo if tipo in {"capitulo", "livre"} and capitulo_valido else "",
+        "nota": nota,
+        "publico": bool(data.get("publico", False)),
         "spoiler": bool(data.get("spoiler", False))
     }
 
