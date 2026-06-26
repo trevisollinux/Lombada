@@ -4,6 +4,7 @@ Lombada — app FastAPI e rotas.
 import html
 import ipaddress
 import json
+import logging
 import os
 import socket
 from contextlib import asynccontextmanager
@@ -30,6 +31,7 @@ from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+logger = logging.getLogger(__name__)
 
 
 # ─── lifespan ─────────────────────────────────────────────
@@ -645,12 +647,24 @@ def _validar_diario(payload: DiarioPayload) -> dict:
         raise HTTPException(422, "tipo de progresso inválido")
     pagina = data.get("pagina")
     porcentagem = data.get("porcentagem")
-    if pagina is not None and pagina < 0:
-        raise HTTPException(422, "página não pode ser negativa")
-    if porcentagem is not None and not 0 <= porcentagem <= 100:
-        raise HTTPException(422, "porcentagem deve estar entre 0 e 100")
     nota = _clean_text(data.get("nota", ""), 2000)
     capitulo = _clean_text(data.get("capitulo", ""), 120)
+    if tipo == "pagina":
+        if pagina is None or pagina <= 0:
+            raise HTTPException(422, "página inválida")
+        porcentagem = None; capitulo = ""
+    elif tipo == "porcentagem":
+        if porcentagem is None or not 0 <= porcentagem <= 100:
+            raise HTTPException(422, "porcentagem deve estar entre 0 e 100")
+        pagina = None; capitulo = ""
+    elif tipo == "capitulo":
+        if not capitulo:
+            raise HTTPException(422, "capítulo obrigatório")
+        pagina = None; porcentagem = None
+    else:
+        pagina = None; porcentagem = None; capitulo = ""
+        if not nota:
+            raise HTTPException(422, "informe um progresso ou uma anotação")
     return {
         "progresso_tipo": tipo, "pagina": pagina, "porcentagem": porcentagem,
         "capitulo": capitulo, "nota": nota, "publico": bool(data.get("publico", False)),
@@ -696,7 +710,12 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
     _leitura_do_usuario(leitura_id, u.id, s)
     data = _validar_diario(payload)
     entry = ReadingJournalEntry(leitura_id=leitura_id, usuario_id=u.id, **data)
-    s.add(entry); s.commit(); s.refresh(entry)
+    try:
+        s.add(entry); s.commit(); s.refresh(entry)
+    except SQLAlchemyError:
+        s.rollback()
+        logger.exception("erro inesperado ao criar entrada de diário", extra={"leitura_id": leitura_id, "usuario_id": u.id})
+        raise HTTPException(500, "não foi possível salvar a entrada do diário")
     return _diario_payload(entry)
 
 
@@ -710,7 +729,12 @@ def editar_diario(entrada_id: int, payload: DiarioPayload, request: Request, s: 
     for k, v in data.items():
         setattr(entry, k, v)
     entry.updated_at = datetime.utcnow()
-    s.add(entry); s.commit(); s.refresh(entry)
+    try:
+        s.add(entry); s.commit(); s.refresh(entry)
+    except SQLAlchemyError:
+        s.rollback()
+        logger.exception("erro inesperado ao editar entrada de diário", extra={"entrada_id": entrada_id, "usuario_id": u.id})
+        raise HTTPException(500, "não foi possível salvar a entrada do diário")
     return _diario_payload(entry)
 
 

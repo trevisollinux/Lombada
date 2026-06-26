@@ -281,6 +281,11 @@ const I18N = {
     contains_spoiler: 'Contém spoiler',
     no_diary_entries: 'Ainda não há entradas no diário. Atualize seu progresso durante a leitura.',
     diary_hint: 'Registre progresso, capítulos e impressões durante a leitura.',
+    diary_saved: 'Entrada do diário salva.',
+    diary_save_error: 'Não consegui salvar a entrada do diário.',
+    diary_validation_error: 'Confira página, porcentagem ou capítulo.',
+    diary_login_error: 'Entre com Google para salvar seu diário.',
+    diary_empty_progress_error: 'Informe um progresso ou uma anotação.',
     owned_editions: 'edições na coleção',
     wanted_editions: 'edições desejadas'
   },
@@ -562,6 +567,11 @@ const I18N = {
     "contains_spoiler": "Contains spoilers",
     "no_diary_entries": "There are no diary entries yet. Update your progress while reading.",
     "diary_hint": "Track progress, chapters and impressions while you read.",
+    "diary_saved": "Diary entry saved.",
+    "diary_save_error": "I could not save the diary entry.",
+    "diary_validation_error": "Check page, percentage, or chapter.",
+    "diary_login_error": "Sign in with Google to save your diary.",
+    "diary_empty_progress_error": "Add progress or a note.",
     "owned_editions": "owned editions",
     "wanted_editions": "wanted editions"
   },
@@ -843,6 +853,11 @@ const I18N = {
     "contains_spoiler": "Contiene spoiler",
     "no_diary_entries": "Todavía no hay entradas en el diario. Actualiza tu progreso durante la lectura.",
     "diary_hint": "Registra progreso, capítulos e impresiones durante la lectura.",
+    "diary_saved": "Entrada del diario guardada.",
+    "diary_save_error": "No pude guardar la entrada del diario.",
+    "diary_validation_error": "Revisa página, porcentaje o capítulo.",
+    "diary_login_error": "Entra con Google para guardar tu diario.",
+    "diary_empty_progress_error": "Informa un progreso o una anotación.",
     "owned_editions": "ediciones en colección",
     "wanted_editions": "ediciones deseadas"
   }
