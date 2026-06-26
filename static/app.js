@@ -1214,18 +1214,37 @@ function renderPerfil(){
     </div>`;
 }
 
-async function copiarLink(url, promptKey){
-  try{ await navigator.clipboard.writeText(url); toast(t('link_copied',{url})); }
-  catch(e){ prompt(t(promptKey),url); }
+function urlPerfilPublico(){
+  const handle=(meuHandle||'').trim();
+  return handle ? `${window.location.origin}/u/${encodeURIComponent(handle)}` : '';
 }
-async function copiarLinkPerfil(){ await copiarLink(location.origin+'/u/'+meuHandle,'copy_profile_link_prompt'); }
+function textoCompartilhamentoLeitura(l){
+  const title=l?.titulo || '';
+  const key=(l?.publico && l?.relato && !l?.spoiler) ? 'share_review_text' : 'share_reading_text';
+  return t(key,{title});
+}
+async function copiarLink(url, promptKey='copy_profile_link_prompt'){
+  if(!url){ toast(t('link_copy_failed')); return false; }
+  try{
+    await navigator.clipboard.writeText(url);
+    toast(t('link_copied'));
+    return true;
+  }catch(e){
+    prompt(t(promptKey),url);
+    toast(`${t('link_copy_failed')} ${url}`);
+    return false;
+  }
+}
+async function copiarLinkPerfil(){ await copiarLink(urlPerfilPublico(),'copy_profile_link_prompt'); }
 async function compartilharPerfil(){
-  const url=location.origin+'/u/'+meuHandle;
+  const url=urlPerfilPublico();
+  if(!url){ toast(t('link_copy_failed')); return; }
   if(navigator.share){ try{ await navigator.share({title:t('profile_share_title'),url}); return; }catch(e){} }
   await copiarLinkPerfil();
 }
 async function compartilharEstante(){
-  const url=location.origin+'/u/'+meuHandle;
+  const url=urlPerfilPublico();
+  if(!url){ toast(t('link_copy_failed')); return; }
   if(navigator.share){ try{ await navigator.share({title:t('shelf_share_title'),url}); return; }catch(e){} }
   await copiarLink(url,'copy_shelf_link');
 }
@@ -1511,10 +1530,19 @@ async function compartilharCard(){
   const blob=cv ? await canvasToPngBlob(cv) : null;
   if(!blob){alert(t('card_generation_error'));return;}
   const file=new File([blob],'lombada.png',{type:'image/png'});
+  const url=urlPerfilPublico();
+  const shareData={title:cardAtual?.titulo||t('profile_share_title'),text:textoCompartilhamentoLeitura(cardAtual)};
+  if(url) shareData.url=url;
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file],text:t('reading_card_share_text')}); return; }catch(e){}
+    try{
+      await navigator.share({...shareData,files:[file]});
+      if(url) await copiarLink(url,'copy_profile_link_prompt');
+      return;
+    }catch(e){}
   }
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lombada.png';a.click();
+  if(url) await copiarLink(url,'copy_profile_link_prompt');
+  else toast(t('link_copy_failed'));
 }
 
 /* editar / remover */
