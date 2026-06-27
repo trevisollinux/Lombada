@@ -208,6 +208,7 @@ function tratarMensagemConta(){
   const conta=params.get('conta');
   if(conta==='ok') toast(t('account_connected_success'));
   if(conta==='erro') toast(t('account_connected_error'));
+  if(conta==='state_expirado') toast(t('account_state_expired'));
   if(conta){
     params.delete('conta');
     const qs=params.toString();
@@ -673,9 +674,25 @@ async function buscar(){
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
   renderBuscaSkeleton();
   mostrarBusca('resultados');
+  const avisoBusca=setTimeout(()=>{
+    const resultados=$('#resultados');
+    const skeleton=resultados?.querySelector('.busca-skeleton');
+    if(skeleton && !resultados.querySelector('.slow-search-note')){
+      resultados.insertAdjacentHTML('afterbegin', `<div class="empty slow-search-note">${t('slow_external_search')}</div>`);
+    }
+  },4000);
   let docs;
-  try{ docs=await (await fetch('/api/buscar?q='+encodeURIComponent(q))).json(); }
-  catch(e){ $('#resultados').innerHTML=`<div class="empty">${t('no_connection')}</div>`; return; }
+  try{
+    const res=await fetch('/api/buscar?q='+encodeURIComponent(q));
+    if(!res.ok) throw new Error(`search http ${res.status}`);
+    try{ docs=await res.json(); }catch(err){ throw new Error('search invalid json'); }
+  }
+  catch(err){
+    console.warn('search failed', q, err);
+    $('#resultados').innerHTML=`<div class="empty">${t('search_load_error')}</div>${manualCtaHTML(true)}`;
+    return;
+  }
+  finally{ clearTimeout(avisoBusca); }
   resultadosArr=ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
   if(!obrasAgrupadas.length){
@@ -709,9 +726,16 @@ async function verEdicoes(i){
     return;
   }
   $('#form').innerHTML='';
+  const edicoesEmbutidas=Array.isArray(escolha.edicoes)?escolha.edicoes:[];
+  if(!escolha.work_key && !edicoesEmbutidas.length && !(escolha.isbn_match && escolha.edicao_isbn)){
+    edicoesAtual=[];
+    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('no_editions_register_manual')}</div>${manualCtaHTML(true)}`;
+    mostrarBusca('edicoes');
+    return;
+  }
   // GB já trouxe as edições embutidas → zero chamada extra
-  if(escolha.edicoes && escolha.edicoes.length){
-    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(escolha.edicoes); renderEdicoes(); mostrarBusca('edicoes'); return;
+  if(edicoesEmbutidas.length){
+    await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(edicoesEmbutidas); renderEdicoes(); mostrarBusca('edicoes'); return;
   }
   // busca por ISBN → edição única
   if(escolha.isbn_match && escolha.edicao_isbn){
@@ -721,8 +745,16 @@ async function verEdicoes(i){
   $('#edicoes').innerHTML=`<div class="empty">${t('loading_editions')}</div>`;
   mostrarBusca('edicoes');
   let eds;
-  try{ eds=await (await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key))).json(); }
-  catch(e){ $('#edicoes').innerHTML=`<div class="empty">${t('editions_load_error')}</div>`; return; }
+  try{
+    const res=await fetch('/api/edicoes?work_key='+encodeURIComponent(escolha.work_key));
+    if(!res.ok) throw new Error(`editions http ${res.status}`);
+    try{ eds=await res.json(); }catch(err){ throw new Error('editions invalid json'); }
+  }
+  catch(err){
+    console.warn('editions failed', escolha, err);
+    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" onclick="abrirManual()">${t('register_edition_manually')}</button></div>`;
+    return;
+  }
   await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(eds||[]); renderEdicoes();
 }
 function fmtMedia(n){return n?Number(n).toLocaleString(getLocale(),{minimumFractionDigits:1,maximumFractionDigits:1})+' ★':t('no_average');}
@@ -813,8 +845,13 @@ function criticasHTML(){
 }
 function registrarLeituraObra(){
   if(edicoesAtual.length===1){ escolherEdicao(0); return; }
-  toast(t('choose_edition_to_register'));
-  document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
+  if(edicoesAtual.length>1){
+    toast(t('choose_edition_to_register'));
+    document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  toast(t('no_editions_register_manual'));
+  if($('#edicoes')) $('#edicoes').insertAdjacentHTML('beforeend', manualCtaHTML(true));
 }
 function verMinhaLeitura(){
   const idx=prateleira.findIndex(l=>l.leitura_id===obraSocial?.minha_leitura?.leitura_id);
@@ -854,13 +891,18 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button">${t('add_this_edition')}</button></div></li>`;
+      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" onclick="event.stopPropagation(); escolherEdicao(${j})">${t('add_this_edition')}</button></div></li>`;
   }).join('');
   $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
 }
 
 /* registrar */
 function escolherEdicao(j){
+  if(!edicoesAtual[j]){
+    console.warn('invalid edition selected', j, edicoesAtual);
+    toast(t('invalid_edition_selected'));
+    return;
+  }
   edicaoSel=edicoesAtual[j]; notaSel=0;
   const social=edicaoSocial(edicaoSel);
   const estado=social?.estado||{};

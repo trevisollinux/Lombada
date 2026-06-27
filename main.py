@@ -380,42 +380,59 @@ def eu(request: Request, s: Session = Depends(get_session)):
 
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session)):
+    inicio = datetime.utcnow()
+    logger.info("[search start] q=%r", q)
     locais = _buscar_catalogo_local(q, s)
     isbn = normalizar_isbn(q)
     if isbn:
         try:
             achado = _edicao_por_isbn(isbn)
         except Exception:
+            logger.warning("[search external error] source=isbn q=%r", q, exc_info=True)
             achado = None
+        logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
         return ([achado] if achado else []) + locais
 
     cache = _cache_get(q, s)
     if cache:
+        logger.info("[search cache hit] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
         return locais + cache
 
     try:
+        logger.info("[search external fallback] source=google_books q=%r", q)
         docs = buscar_titulo_v2(q)
         if docs:
             _cache_set(q, docs, s)
+            logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
             return locais + docs
+        logger.info("[search external fallback] source=open_library q=%r", q)
         docs = ol_buscar(q)
         _cache_set(q, docs, s)
+        logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
         return locais + docs
     except Exception:
+        logger.warning("[search external error] source=google_books q=%r", q, exc_info=True)
         try:
+            logger.info("[search external fallback] source=open_library q=%r", q)
             docs = ol_buscar(q)
             _cache_set(q, docs, s)
+            logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
             return locais + docs
-        except Exception as e:
-            raise HTTPException(502, f"busca indisponível: {e}")
+        except Exception:
+            logger.error("[search external error] source=open_library q=%r", q, exc_info=True)
+            raise HTTPException(502, "busca indisponível")
 
 
 @app.get("/api/edicoes")
-def edicoes(work_key: str):
+def edicoes(work_key: str = Query(..., min_length=1)):
+    logger.info("[editions start] work_key=%r", work_key)
+    if not work_key.strip():
+        raise HTTPException(422, "work_key é obrigatório")
     try:
         return ol_edicoes(work_key)
-    except Exception as e:
-        raise HTTPException(502, f"Open Library indisponível: {e}")
+    except Exception:
+        logger.warning("[editions error] work_key=%r", work_key, exc_info=True)
+        raise HTTPException(502, "Open Library indisponível")
 
 
 @app.get("/api/capa")
