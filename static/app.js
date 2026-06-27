@@ -1468,10 +1468,18 @@ async function excluirDiario(id,el=null){
     else toast(t('diary_save_error'));
   });
 }
-function prepararCardDiario(id){
-  const e=diarioEntradas.find(x=>String(x.id)===String(id)); if(!e||!cardAtual)return;
-  cardContext={type:'diario',source:e}; cardIncludeExcerpt=!!((e.nota||'').trim()&&!e.spoiler);
-  renderDetalheLivro(cardAtual); updateShareCardPreview(cardAtual);
+async function prepararCardDiario(id){
+  const e=diarioEntradas.find(x=>String(x.id)===String(id));
+  if(!e){ toast(t('card_generation_error')); return; }
+  const idx=prateleira.findIndex(l=>String(l.leitura_id)===String(e.leitura_id));
+  if(idx<0){ toast(t('diary_card_missing_reading')); return; }
+  if(cardAtual!==prateleira[idx]){
+    await abrirCard(idx,{registrar:true});
+  }
+  cardContext={type:'diario',source:e};
+  cardIncludeExcerpt=!!((e.nota||'').trim()&&!e.spoiler);
+  renderDetalheLivro(cardAtual);
+  await updateShareCardPreview(cardAtual);
   document.getElementById('shareCardPreview')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
@@ -1654,10 +1662,30 @@ function cardSharePayload(){
   const raw=isDiary?(src.nota||''):(isReview?(l.relato||''):'');
   const spoiler=!!(isDiary?src.spoiler:l.spoiler);
   const type=isDiary?'diario':(isReview?'critica':'leitura');
-  return {type, excerpt:cardIncludeExcerpt?trechoTexto(raw,220):'', hasText:!!raw.trim(), spoiler, spoilerLabel:t(isDiary?'diary_with_spoiler':'review_with_spoiler'), progress:isDiary?progressoDiarioCard(src):'', shareKey:isDiary?'share_diary_text':(isReview?'share_review_text':'share_reading_text')};
+  return {type, excerpt:cardIncludeExcerpt?trechoTexto(raw,isDiary?180:220):'', hasText:!!raw.trim(), spoiler, spoilerLabel:t(isDiary?'diary_with_spoiler':'review_with_spoiler'), progress:isDiary?progressoDiarioCard(src):'', shareKey:isDiary?'share_diary_text':(isReview?'share_review_text':'share_reading_text')};
 }
 function setCardTheme(v){ cardTheme=['auto','light','dark'].includes(v)?v:'auto'; localStorage.setItem(CARD_THEME_KEY,cardTheme); updateShareCardPreview(cardAtual); }
 function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPreview(cardAtual); }
+
+function diaryCardActive(){ return cardContext.type==='diario' && cardContext.source; }
+function shareCardSize(){ return diaryCardActive()?{w:1080,h:1350}:{w:1080,h:1920}; }
+function configurarCanvasCard(cv){
+  if(!cv)return;
+  const size=shareCardSize();
+  if(cv.width!==size.w) cv.width=size.w;
+  if(cv.height!==size.h) cv.height=size.h;
+}
+function cardPreviewMicrocopy(){
+  if(!diaryCardActive())return '';
+  const e=cardContext.source;
+  const partes=[];
+  if(e.spoiler) partes.push(t('diary_card_spoiler_safe'));
+  if(e.publico===false) partes.push(t('diary_private_share_notice'));
+  return partes.length?`<div class="diary-card-notice">${partes.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:'';
+}
+function cardPreviewActionsHTML(){
+  return `<div class="card-export-actions"><button class="btn-share-card" type="button" onclick="compartilharCard()">${t('share_image')}</button><button class="btn-secondary" type="button" onclick="baixarCard()">${t('download_image')}</button><button class="btn-secondary" type="button" onclick="copiarLinkPerfil()">${t('copy_link')}</button></div>`;
+}
 function renderDetalheLivro(l){
   const campos=[
     [t('publisher'),l.editora],
@@ -1694,6 +1722,8 @@ function renderDetalheLivro(l){
       <button class="btn-cover-card" type="button" onclick="trocarCapaCard()">${t('change_card_cover')} · <span id="cardCoverModeLabel">${nomeCapaCard()}</span></button>
       <div class="card-options"><div class="label">${t('card_theme')}</div><label><input type="radio" name="cardTheme" value="auto" onchange="setCardTheme(this.value)" ${cardTheme==='auto'?'checked':''}> ${t('card_theme_auto')}</label><label><input type="radio" name="cardTheme" value="light" onchange="setCardTheme(this.value)" ${cardTheme==='light'?'checked':''}> ${t('card_theme_light')}</label><label><input type="radio" name="cardTheme" value="dark" onchange="setCardTheme(this.value)" ${cardTheme==='dark'?'checked':''}> ${t('card_theme_dark')}</label><label class="check-line"><input type="checkbox" onchange="setCardIncludeExcerpt(this.checked)" ${cardIncludeExcerpt?'checked':''}> <span>${t('include_excerpt')}</span></label>${cardSharePayload().spoiler&&cardSharePayload().hasText?`<p class="detail-empty">${t('excerpt_contains_spoiler')}</p>`:''}</div>
       <canvas id="shareCardPreview" class="share-card-preview" width="1080" height="1920" aria-label="${t('share_card')}"></canvas>
+      ${cardPreviewMicrocopy()}
+      ${cardPreviewActionsHTML()}
     </section>
     <section class="detail-section detail-rating">
       <div class="detail-stars" aria-label="${t('rating')}">${estrelasStr(nota)}</div>
@@ -1896,6 +1926,23 @@ function drawFooter(ctx,l,W,H){
   ctx.fillText(col,110,yc);ctx.fillText('@'+(meuHandle||''),110,yc+44);
   ctx.fillStyle=p.gold;ctx.font="600 italic 40px Fraunces, serif";ctx.fillText('lombada.',110,yc+98);
 }
+
+function drawDiaryShareCardText(ctx,l,W,H,cy,ch){
+  const p=cardPalette(), payload=cardSharePayload(), e=cardContext.source||{};
+  let x=96, y=110;
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  ctx.fillStyle=p.gold;ctx.font="700 28px 'Space Mono', monospace";ctx.fillText('LOMBADA',x,y);
+  y+=52;ctx.fillStyle=p.muted;ctx.font="400 24px 'Space Mono', monospace";ctx.fillText(t('reading_diary'),x,y);
+  y+=76;ctx.fillStyle=p.text;ctx.font="500 italic 62px Fraunces, serif";
+  y=wrapLeft(ctx,l.titulo||e.titulo||'',x,y,W-420,70,3)+52;
+  ctx.fillStyle=p.muted;ctx.font="italic 34px Spectral, serif";wrapLeft(ctx,l.autor||e.autor||'',x,y,W-420,42,2);
+  const meta=[payload.progress,dataDiario(e)].filter(Boolean).join(' · ');
+  y+=70;if(meta){ctx.fillStyle=p.muted;ctx.font="400 28px 'Space Mono', monospace";wrapLeft(ctx,meta,x,y,W-190,38,2);y+=70;}
+  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 38px Spectral, serif";wrapLeft(ctx,'“'+payload.excerpt+'”',x,y,W-190,50,4);}
+  else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 38px Spectral, serif";wrapLeft(ctx,t('diary_card_spoiler_label'),x,y,W-190,48,2);}
+  ctx.fillStyle=p.muted;ctx.font="400 24px 'Space Mono', monospace";ctx.fillText('@'+(meuHandle||''),x,H-94);
+  ctx.fillStyle=p.gold;ctx.font="600 italic 36px Fraunces, serif";ctx.fillText('lombada.',x,H-48);
+}
 function drawShareCardText(ctx,l,W,H,cy,ch){
   const p=cardPalette(), payload=cardSharePayload();
   let y=drawBookInfo(ctx,l,W,H,cy,ch)+86;
@@ -1927,16 +1974,24 @@ function loadShareCardImage(src){
 async function renderShareCardCanvas(l,options={}){
   const cv=options.canvas || $('#cardCanvas');
   if(!cv || !l)return null;
+  configurarCanvasCard(cv);
   const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
-  const cx=110,cy=120,cw=W-220,ch=1120;
   const selected=options.selectedCover || getSelectedShareCover(l);
   drawShareCardBackground(ctx,l,W,H);
-  await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
-  drawShareCardText(ctx,l,W,H,cy,ch);
+  if(diaryCardActive()){
+    const cw=250,ch=380,cx=W-cw-96,cy=120;
+    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
+    drawDiaryShareCardText(ctx,l,W,H,cy,ch);
+  }else{
+    const cx=110,cy=120,cw=W-220,ch=1120;
+    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
+    drawShareCardText(ctx,l,W,H,cy,ch);
+  }
   return cv;
 }
 async function updateShareCardPreview(l){
   const preview=$('#shareCardPreview');
+  configurarCanvasCard(preview); configurarCanvasCard($('#cardCanvas'));
   if(!preview || !l)return;
   const selected=getSelectedShareCover(l);
   await renderShareCardCanvas(l,{canvas:preview,selectedCover:selected});
@@ -1949,10 +2004,22 @@ function drawCard(l){
 function canvasToPngBlob(cv){
   return new Promise(resolve=>cv.toBlob(resolve,'image/png'));
 }
-async function compartilharCard(){
+async function gerarBlobCard(){
   const cv=await renderShareCardCanvas(cardAtual,{canvas:$('#cardCanvas'),selectedCover:getSelectedShareCover(cardAtual)});
   const blob=cv ? await canvasToPngBlob(cv) : null;
-  if(!blob){toast(t('card_generation_error'));return;}
+  if(!blob) toast(t('card_generation_error'));
+  return blob;
+}
+async function baixarCard(){
+  const blob=await gerarBlobCard();
+  if(!blob)return;
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=diaryCardActive()?'lombada-diario.png':'lombada.png';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  toast(t('card_download_ready'));
+}
+async function compartilharCard(){
+  const blob=await gerarBlobCard();
+  if(!blob)return;
   const file=new File([blob],'lombada.png',{type:'image/png'});
   const url=urlPerfilPublico();
   const shareData={title:cardAtual?.titulo||t('profile_share_title'),text:textoCompartilhamentoLeitura(cardAtual)};
@@ -1964,9 +2031,9 @@ async function compartilharCard(){
       return;
     }catch(e){}
   }
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lombada.png';a.click();
+  toast(t('share_image_unavailable'));
+  await baixarCard();
   if(url) await copiarLink(url,'copy_profile_link_prompt');
-  else toast(t('link_copy_failed'));
 }
 
 /* editar / remover */
