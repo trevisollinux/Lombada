@@ -95,7 +95,7 @@ const I18N = {
     other_editions: 'outras edições',
     translator_missing: 'tradutor não informado',
     publisher_missing: 'editora não informada',
-    add_this_edition: 'Adicionar esta edição',
+    add_this_edition: 'Adicionar esta edição', register_this_edition: 'Registrar esta edição',
     community_average: 'média da comunidade',
     public_reviews: 'críticas públicas',
     public_profile: 'Perfil público',
@@ -451,7 +451,7 @@ const I18N = {
     "other_editions": "other editions",
     "translator_missing": "translator not provided",
     "publisher_missing": "publisher not provided",
-    "add_this_edition": "Add this edition",
+    "add_this_edition": "Add this edition", "register_this_edition": "Log this edition",
     "community_average": "community average",
     "public_reviews": "public reviews",
     "public_profile": "Public profile",
@@ -795,7 +795,7 @@ const I18N = {
     "other_editions": "otras ediciones",
     "translator_missing": "traductor no informado",
     "publisher_missing": "editorial no informada",
-    "add_this_edition": "Añadir esta edición",
+    "add_this_edition": "Añadir esta edición", "register_this_edition": "Registrar esta edición",
     "community_average": "promedio de la comunidad",
     "public_reviews": "reseñas públicas",
     "public_profile": "Perfil público",
@@ -1096,7 +1096,7 @@ Object.assign(I18N['pt-BR'], {
   empty_reviews_title: 'Ainda não há críticas públicas para esta obra.', empty_reviews_hint: 'Se você já leu, seja a primeira pessoa a escrever.',
   explore_reviews: 'Explorar críticas recentes', discover_readers: 'Descobrir leitores', empty_following_title: 'Você ainda não segue leitores.', empty_following_hint: 'Explore críticas recentes para encontrar pessoas.',
   no_public_reviews_html: 'Ainda não há críticas públicas para esta obra.<br>Se você já leu, seja a primeira pessoa a escrever.',
-  read_this_edition: 'Li nesta edição', you_read_this_edition: 'Você leu esta edição', reading_note_placeholder: 'como está sendo a leitura?', reading_impression_placeholder: 'o que você está achando até agora?', reading_expectation_placeholder: 'o que você espera dessa leitura?', why_want_read_placeholder: 'por que você quer ler?', fill_reading_below: 'Preencha sua leitura abaixo.', search_books: 'Buscar livros', update_progress: 'Atualizar progresso', where_stopped: 'Onde você parou?', save_diary: 'Salvar no diário', no_progress_yet: 'sem progresso registrado ainda', private_note: 'privada', public_note: 'visível no perfil público', percent_complete_short: '{count}%', empty_search_hint: 'Digite ao menos 2 caracteres para buscar um livro.', opening_form: 'abrindo…', saving: 'salvando…'
+  read_this_edition: 'Li nesta edição', you_read_this_edition: 'Você leu esta edição', reading_note_placeholder: 'como está sendo a leitura?', reading_impression_placeholder: 'o que você está achando até agora?', reading_expectation_placeholder: 'o que você espera dessa leitura?', why_want_read_placeholder: 'por que você quer ler?', fill_reading_below: 'Preencha sua leitura abaixo.', search_books: 'Buscar livros', update_progress: 'Atualizar progresso', where_stopped: 'Onde você parou?', save_diary: 'Salvar no diário', no_progress_yet: 'sem progresso registrado ainda', private_note: 'privada', public_note: 'visível no perfil público', percent_complete_short: '{count}%', empty_search_hint: 'Digite ao menos 2 caracteres para buscar um livro.', opening_form: 'abrindo…', saving: 'salvando…', register_this_edition: 'Registrar esta edição'
 });
 Object.assign(I18N['en'], {
   work_page: 'Work page', unknown_author: 'unknown author', readings_on_lombada: 'readings on Lombada', people_reading: 'reading now', people_want_to_read: 'want to read', about_work: 'About the work', no_work_description: 'We do not have a description for this work yet.', suggest_description: 'Suggest description', description_suggestions_soon: 'Description suggestions are coming soon.', work_low_data: 'We still have little data about this work. You can log a reading or add an edition.',
@@ -1109,7 +1109,7 @@ Object.assign(I18N['en'], {
   empty_reviews_title: 'There are no public reviews for this work yet.', empty_reviews_hint: 'If you have read it, be the first to write one.',
   explore_reviews: 'Explore recent reviews', discover_readers: 'Discover readers', empty_following_title: 'You do not follow readers yet.', empty_following_hint: 'Explore recent reviews to find people.',
   no_public_reviews_html: 'There are no public reviews for this work yet.<br>If you have read it, be the first to write one.',
-  read_this_edition: 'Read this edition', you_read_this_edition: 'You read this edition', reading_note_placeholder: 'how is the reading going?', reading_impression_placeholder: 'what are you thinking so far?', reading_expectation_placeholder: 'what do you expect from this book?', why_want_read_placeholder: 'why do you want to read it?', fill_reading_below: 'Fill in your reading below.', search_books: 'Search books', empty_search_hint: 'Type at least 2 characters to search for a book.', opening_form: 'opening…', saving: 'saving…'
+  read_this_edition: 'Read this edition', you_read_this_edition: 'You read this edition', reading_note_placeholder: 'how is the reading going?', reading_impression_placeholder: 'what are you thinking so far?', reading_expectation_placeholder: 'what do you expect from this book?', why_want_read_placeholder: 'why do you want to read it?', fill_reading_below: 'Fill in your reading below.', search_books: 'Search books', empty_search_hint: 'Type at least 2 characters to search for a book.', opening_form: 'opening…', saving: 'saving…', register_this_edition: 'Log this edition'
 });
 Object.assign(I18N['es'], {
   work_page: 'Página de la obra', unknown_author: 'autor no informado', readings_on_lombada: 'lecturas en Lombada', people_reading: 'leyendo ahora', people_want_to_read: 'quieren leer', about_work: 'Sobre la obra', no_work_description: 'Todavía no tenemos una descripción para esta obra.', suggest_description: 'Sugerir descripción', description_suggestions_soon: 'Las sugerencias de descripción llegarán pronto.', work_low_data: 'Todavía tenemos pocos datos sobre esta obra. Puedes registrar una lectura o añadir una edición.',
@@ -1122,7 +1122,7 @@ Object.assign(I18N['es'], {
   empty_reviews_title: 'Todavía no hay críticas públicas para esta obra.', empty_reviews_hint: 'Si ya la leíste, sé la primera persona en escribir.',
   explore_reviews: 'Explorar críticas recientes', discover_readers: 'Descubrir lectores', empty_following_title: 'Todavía no sigues lectores.', empty_following_hint: 'Explora críticas recientes para encontrar personas.',
   no_public_reviews_html: 'Todavía no hay críticas públicas para esta obra.<br>Si ya la leíste, sé la primera persona en escribir.',
-  read_this_edition: 'Leí esta edición', you_read_this_edition: 'Leíste esta edición', reading_note_placeholder: '¿cómo va la lectura?', reading_impression_placeholder: '¿qué te está pareciendo hasta ahora?', reading_expectation_placeholder: '¿qué esperas de esta lectura?', why_want_read_placeholder: '¿por qué quieres leerlo?', fill_reading_below: 'Completa tu lectura abajo.', search_books: 'Buscar libros', empty_search_hint: 'Escribe al menos 2 caracteres para buscar un libro.', opening_form: 'abriendo…', saving: 'guardando…'
+  read_this_edition: 'Leí esta edición', you_read_this_edition: 'Leíste esta edición', reading_note_placeholder: '¿cómo va la lectura?', reading_impression_placeholder: '¿qué te está pareciendo hasta ahora?', reading_expectation_placeholder: '¿qué esperas de esta lectura?', why_want_read_placeholder: '¿por qué quieres leerlo?', fill_reading_below: 'Completa tu lectura abajo.', search_books: 'Buscar libros', empty_search_hint: 'Escribe al menos 2 caracteres para buscar un libro.', opening_form: 'abriendo…', saving: 'guardando…', register_this_edition: 'Registrar esta edición'
 });
 Object.assign(I18N['pt-BR'], {
   edit_profile: 'Editar perfil', profile_display_name: 'Nome exibido', profile_username: 'Nome de usuário', profile_short_bio: 'Bio curta', profile_bio_placeholder: 'o que você gosta de ler?', save_changes: 'Salvar alterações', profile_preview: 'Seu perfil:', profile_preview_empty: 'Seu perfil: escolha um nome de usuário', profile_updated: 'Perfil atualizado.', profile_save_error: 'Não foi possível salvar o perfil agora.', profile_name_required: 'Nome exibido é obrigatório.', profile_name_length: 'Nome exibido deve ter entre 2 e 40 caracteres.', profile_name_no_email: 'Escolha um nome público que não seja seu e-mail.', profile_handle_invalid: 'Use apenas letras, números e hífen.', profile_bio_length: 'Bio curta deve ter no máximo 160 caracteres.'
