@@ -1221,9 +1221,18 @@ def home():
 
 
 @app.get("/sw.js")
-def cleanup_service_worker():
+def service_worker():
     return FileResponse(
         AQUI / "sw.js",
         media_type="application/javascript",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+    )
+
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse(
+        AQUI / "manifest.json",
+        media_type="application/manifest+json",
         headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
     )
