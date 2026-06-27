@@ -34,11 +34,66 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 logger = logging.getLogger(__name__)
 
 
+DEMO_CONTENT = [
+    {"handle": "clara-lombada", "nome": "Clara Leitora", "titulo": "Dom Casmurro", "autor": "Machado de Assis", "ano": 1899, "nota": 4.5, "relato": "Reli devagar e gostei mais do silêncio entre as cenas do que da trama em si. É um livro que fica ecoando depois."},
+    {"handle": "miguel-lombada", "nome": "Miguel Anota", "titulo": "Memórias Póstumas de Brás Cubas", "autor": "Machado de Assis", "ano": 1881, "nota": 5.0, "relato": "A força está menos no acontecimento e mais na forma como a linguagem organiza a dúvida, a culpa e a memória."},
+    {"handle": "lia-lombada", "nome": "Lia Margem", "titulo": "O Alienista", "autor": "Machado de Assis", "ano": 1882, "nota": 4.0, "relato": "Leitura rápida, mas não simples. Tem frases que parecem pequenas e depois voltam maiores."},
+    {"handle": "tomas-lombada", "nome": "Tomás Livros", "titulo": "Crime e Castigo", "autor": "Fiódor Dostoiévski", "ano": 1866, "nota": 4.5, "relato": "O estilo segura tudo: denso, preciso e com uma tensão moral que deixa a história mais incômoda."},
+    {"handle": "nina-lombada", "nome": "Nina Página", "titulo": "A Metamorfose", "autor": "Franz Kafka", "ano": 1915, "nota": 3.5, "relato": "Gostei mais da atmosfera do que dos personagens. Ainda assim, terminei com vontade de discutir o livro."},
+]
+
+
+def _demo_work_key(titulo: str) -> str:
+    return "demo:" + "-".join(titulo.lower().replace("ó", "o").replace("á", "a").replace("é", "e").replace("í", "i").replace("ã", "a").split())
+
+
+def seed_demo_content() -> None:
+    if os.getenv("DEMO_CONTENT_ENABLED", "").lower() not in {"1", "true", "yes", "on"}:
+        return
+    logger.info("[demo seed] iniciado")
+    with Session(engine) as s:
+        for idx, item in enumerate(DEMO_CONTENT):
+            usuario = s.exec(select(Usuario).where(Usuario.handle == item["handle"])).first()
+            if not usuario:
+                usuario = Usuario(handle=item["handle"], nome=item["nome"], is_demo=True)
+                s.add(usuario); s.commit(); s.refresh(usuario)
+                logger.info("[demo seed] usuario criado handle=%s", item["handle"])
+            else:
+                usuario.is_demo = True
+                if not usuario.nome:
+                    usuario.nome = item["nome"]
+                s.add(usuario); s.commit()
+                logger.info("[demo seed] usuario reutilizado handle=%s", item["handle"])
+
+            work_key = _demo_work_key(item["titulo"])
+            obra = s.exec(select(Obra).where(Obra.ol_work_key == work_key)).first()
+            if not obra:
+                obra = Obra(ol_work_key=work_key, titulo=item["titulo"], autor=item["autor"], ano=item["ano"], idioma_original="")
+                s.add(obra); s.commit(); s.refresh(obra)
+            edicao = s.exec(select(Edicao).where(Edicao.obra_id == obra.id, Edicao.ol_edition_key == work_key)).first()
+            if not edicao:
+                edicao = Edicao(obra_id=obra.id, ol_edition_key=work_key, editora="Lombada Demo", idioma="pt", ano=item["ano"])
+                s.add(edicao); s.commit(); s.refresh(edicao)
+
+            leitura = s.exec(select(Leitura).where(Leitura.usuario_id == usuario.id, Leitura.edicao_id == edicao.id, Leitura.is_demo == True)).first()
+            if not leitura:
+                leitura = Leitura(
+                    usuario_id=usuario.id, edicao_id=edicao.id, status="Lido", nota=item["nota"],
+                    relato=item["relato"], publico=True, spoiler=False, is_demo=True, data="",
+                    criado_em=datetime(2026, 1, 15, 12, 0, 0).replace(minute=idx),
+                )
+                s.add(leitura); s.commit()
+                logger.info("[demo seed] critica criada handle=%s obra=%s", item["handle"], item["titulo"])
+            else:
+                logger.info("[demo seed] critica reutilizada handle=%s obra=%s", item["handle"], item["titulo"])
+
+
 # ─── lifespan ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app):
     SQLModel.metadata.create_all(engine)
     migrar()
+    seed_demo_content()
     yield
 
 
@@ -1034,7 +1089,7 @@ def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuari
     return {
         "tipo": _feed_tipo(l),
         "usuario": {
-            "handle": autor.handle, "nome": autor.nome,
+            "handle": autor.handle, "nome": autor.nome, "is_demo": bool(getattr(autor, "is_demo", False)),
             "is_following": _is_following(s, atual_id, autor.id),
             "is_me": bool(atual_id and atual_id == autor.id),
         },
@@ -1042,7 +1097,7 @@ def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuari
         "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
         "leitura": {
             "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
-            "spoiler": bool(l.spoiler), "relato": (relato[:220] if trecho else relato),
+            "is_demo": bool(getattr(l, "is_demo", False)), "spoiler": bool(l.spoiler), "relato": (relato[:220] if trecho else relato),
             **(_review_state(s, l.id, atual_id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False}),
         },
         "created_at": l.criado_em.isoformat(),
@@ -1077,7 +1132,7 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         .join(Obra, Edicao.obra_id == Obra.id)
         .join(Usuario, Leitura.usuario_id == Usuario.id)
         .where(Leitura.publico == True, Leitura.relato != "")
-        .order_by(Leitura.criado_em.desc())
+        .order_by(Leitura.is_demo.asc(), Leitura.criado_em.desc())
         .limit(limit)
     ).all()
     reviews = [_feed_review_item(s, l, ed, o, autor, atual, trecho=False) for l, ed, o, autor in rows if (l.relato or "").strip()]
@@ -1087,7 +1142,7 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         .join(Leitura, Leitura.usuario_id == Usuario.id)
         .where(Leitura.publico == True, Leitura.relato != "")
         .group_by(Usuario.id)
-        .order_by(func.count(Leitura.id).desc())
+        .order_by(Usuario.is_demo.asc(), func.count(Leitura.id).desc())
         .limit(20)
     ).all()
     readers = []
@@ -1095,7 +1150,7 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         if atual.id and leitor.id == atual.id:
             continue
         readers.append({
-            "handle": leitor.handle, "nome": leitor.nome, "reviews_count": reviews_count,
+            "handle": leitor.handle, "nome": leitor.nome, "is_demo": bool(getattr(leitor, "is_demo", False)), "reviews_count": reviews_count,
             "followers_count": _follow_counts(s, leitor.id)["followers_count"],
             "is_following": _is_following(s, atual.id, leitor.id), "is_me": False,
         })

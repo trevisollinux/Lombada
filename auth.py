@@ -2,7 +2,7 @@
 Lombada — autenticação.
 
 Dois modos, na mesma sessão de cookie:
-  • anônimo  — 1ª visita já cria um Usuario com handle fofo (sem cadastro).
+  • anônimo  — 1ª visita já cria um Usuario com handle literário curto (sem cadastro).
   • Google   — OAuth 2.0 (Authorization Code), vincula o Google ao usuário
                anônimo atual; se aquele Google já existe noutro usuário,
                MIGRA as leituras e descarta o órfão (merge de estante).
@@ -13,7 +13,9 @@ retornado na troca server-to-server do authorization code.
 import logging
 import os
 import random
+import re
 import secrets
+import unicodedata
 from datetime import datetime
 from urllib.parse import urlencode, urlparse
 
@@ -68,28 +70,59 @@ def google_redirect_uri(request: Request) -> str:
     return f"{base}/api/auth/google/callback"
 
 
-# ─── usuário anônimo (handle fofo) ────────────────────────
-_BICHO = [
+# ─── usuário anônimo (handle literário curto) ──────────────
+_FALLBACK_HANDLE_PREFIXES = ("leitor", "leitora", "pagina", "margem")
+_BAD_OLD_HANDLE_WORDS = (
     "capivara", "coruja", "raposa", "tatu", "lontra", "perereca", "jaguatirica",
     "tucano", "sagui", "quati", "arara", "preguica", "tamandua", "bemtevi",
-]
-_ADJ = [
-    "sonolenta", "curiosa", "saudosa", "serena", "faminta", "valente", "distraida",
-    "noturna", "errante", "teimosa", "sonhadora", "melancolica", "leitora",
-    "perdida", "silenciosa", "boemia", "antiga",
-]
+)
+_HANDLE_RE = re.compile(r"[^a-z0-9]+")
 
 
-def _gera_handle(s: Session) -> str:
+def _slug_handle(valor: str, limite: int = 24) -> str:
+    bruto = unicodedata.normalize("NFKD", valor or "").encode("ascii", "ignore").decode("ascii")
+    slug = _HANDLE_RE.sub("-", bruto.lower()).strip("-")
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    partes = [p for p in slug.split("-") if p and p not in {"a", "o", "as", "os"}]
+    slug = "-".join(partes)[:limite].strip("-")
+    return slug or "leitor"
+
+
+def _base_handle(nome: str = "", email: str = "") -> str:
+    if nome and len(nome.strip()) >= 2:
+        primeiro = nome.strip().split()[0]
+        if len(_slug_handle(primeiro, 18)) >= 2:
+            return _slug_handle(primeiro, 18)
+    if email and "@" in email:
+        return _slug_handle(email.split("@", 1)[0], 24)
+    return f"{random.choice(_FALLBACK_HANDLE_PREFIXES)}-{random.randint(0, 9999):04d}"
+
+
+def _handle_disponivel(s: Session, handle: str, exceto_id=None) -> bool:
+    existente = s.exec(select(Usuario).where(Usuario.handle == handle)).first()
+    return not existente or existente.id == exceto_id
+
+
+def _gera_handle(s: Session, nome: str = "", email: str = "", exceto_id=None) -> str:
+    base = _base_handle(nome, email)
+    for candidato in [base, *[f"{base}-{i}" for i in range(2, 30)]]:
+        if _handle_disponivel(s, candidato, exceto_id):
+            logger.info("[handle gerado] base=%s handle=%s", base, candidato)
+            return candidato
+        logger.info("[handle colisao] candidato=%s", candidato)
     for _ in range(40):
-        h = f"{random.choice(_BICHO)}-{random.choice(_ADJ)}-{random.randint(10, 999)}"
-        if not s.exec(select(Usuario).where(Usuario.handle == h)).first():
-            return h
+        candidato = f"{random.choice(_FALLBACK_HANDLE_PREFIXES)}-{random.randint(0, 9999):04d}"
+        if _handle_disponivel(s, candidato, exceto_id):
+            logger.info("[handle gerado] base=fallback handle=%s", candidato)
+            return candidato
     return f"leitor-{int(datetime.utcnow().timestamp())}"
 
 
+def _handle_antigo_automatico(handle: str) -> bool:
+    return any(palavra in (handle or "") for palavra in _BAD_OLD_HANDLE_WORDS)
+
 def criar_anonimo(s: Session) -> Usuario:
-    u = Usuario(handle=_gera_handle(s))
+    u = Usuario(handle=_gera_handle(s), nome="Leitor Lombada")
     s.add(u)
     s.commit()
     s.refresh(u)
@@ -400,13 +433,15 @@ def google_callback(request: Request, code: str = "", state: str = "",
                 atual.google_sub = sub
                 if email and not _email_em_uso(s, email, atual.id):
                     atual.email = email
-                if nome and not atual.nome:
+                if nome:
                     atual.nome = nome
+                if _handle_antigo_automatico(atual.handle):
+                    atual.handle = _gera_handle(s, nome=nome, email=email, exceto_id=atual.id)
                 s.add(atual); s.commit()
                 destino = atual
             else:
                 # a sessão já é de OUTRA conta Google → cria conta nova p/ este sub
-                novo = Usuario(handle=_gera_handle(s), google_sub=sub)
+                novo = Usuario(handle=_gera_handle(s, nome=nome, email=email), google_sub=sub)
                 if email and not _email_em_uso(s, email, None):
                     novo.email = email
                 if nome:

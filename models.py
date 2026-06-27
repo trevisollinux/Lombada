@@ -33,6 +33,7 @@ class Usuario(SQLModel, table=True):
     google_sub: Optional[str] = Field(default=None, index=True, unique=True)
     senha_hash: Optional[str] = None
     nome:       str           = ""
+    is_demo:    bool          = Field(default=False, index=True)
     criado_em:  datetime      = Field(default_factory=datetime.utcnow)
 
 
@@ -66,6 +67,7 @@ class Leitura(SQLModel, table=True):
     relato:     str             = ""
     publico:    bool            = False
     spoiler:    bool            = False
+    is_demo:    bool            = Field(default=False, index=True)
     data:       str             = ""
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
@@ -221,6 +223,12 @@ def migrar():
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
     _add_column_if_missing("usuario", "nome", "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''")
+    if postgres:
+        _add_column_if_missing("usuario", "is_demo", "ALTER TABLE usuario ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
+        _add_column_if_missing("leitura", "is_demo", "ALTER TABLE leitura ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
+    else:
+        _add_column_if_missing("usuario", "is_demo", "ALTER TABLE usuario ADD COLUMN is_demo BOOLEAN NOT NULL DEFAULT 0")
+        _add_column_if_missing("leitura", "is_demo", "ALTER TABLE leitura ADD COLUMN is_demo BOOLEAN NOT NULL DEFAULT 0")
 
     if postgres:
         _run_ddl("usuario.email nullable", "ALTER TABLE usuario ALTER COLUMN email DROP NOT NULL")
@@ -228,6 +236,8 @@ def migrar():
 
     ddls = [
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_usuario_google_sub ON usuario (google_sub)",
+        "CREATE INDEX IF NOT EXISTS ix_usuario_is_demo ON usuario (is_demo)",
+        "CREATE INDEX IF NOT EXISTS ix_leitura_is_demo ON leitura (is_demo)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_status ON catalogsuggestion (status)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_tipo ON catalogsuggestion (tipo)",
         "CREATE INDEX IF NOT EXISTS ix_catalogsuggestion_user_id ON catalogsuggestion (user_id)",
