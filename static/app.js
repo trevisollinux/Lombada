@@ -28,6 +28,14 @@ const NAV_STATE_KEY='lombada_nav_state';
 
 const THEME_KEY='lombada_theme';
 
+function focarTelaBusca(id){
+  const el = document.querySelector(id);
+  requestAnimationFrame(() => {
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
 function setupWorkActionDelegation(){
   if(document.__lombadaWorkActionDelegation) return;
   document.__lombadaWorkActionDelegation=true;
@@ -49,7 +57,7 @@ function setupWorkActionDelegation(){
     if (action === 'see-editions') {
       const lista = document.querySelector('.editions');
       if (lista) {
-        lista.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        focarTelaBusca('.editions');
       } else {
         toast(t('no_editions_register_manual'));
       }
@@ -894,7 +902,7 @@ function registrarLeituraObra(){
   if(edicoesAtualLength===1){ escolherEdicao(0); return; }
   if(edicoesAtualLength>1){
     toast(t('choose_edition_to_register'));
-    document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
+    focarTelaBusca('.editions');
     return;
   }
   toast(t('no_editions_register_manual'));
@@ -976,7 +984,12 @@ function escolherEdicao(j){
       <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
       <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
     </div>`;
-  mostrarBusca('form'); montarStars('f_stars',()=>notaSel,v=>notaSel=v); atualizarCopyRelato('f'); $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
+  mostrarBusca('form');
+  focarTelaBusca('#form');
+  toast(t('fill_reading_below'));
+  montarStars('f_stars',()=>notaSel,v=>notaSel=v);
+  atualizarCopyRelato('f');
+  $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
 }
 
 function sugerirCorrecaoCatalogo(){
@@ -984,9 +997,27 @@ function sugerirCorrecaoCatalogo(){
 }
 
 function copyRelatoPorStatus(status){
-  if(status==='Lido') return {label:t('your_review'), placeholder:t('your_review_placeholder'), publico:t('make_review_public')};
-  if(status==='Lendo') return {label:t('reading_note'), placeholder:t('reading_note_placeholder'), publico:t('show_on_public_profile')};
-  return {label:t('why_want_read'), placeholder:t('why_want_read_placeholder'), publico:t('show_on_public_profile')};
+  if(status === 'Lido') {
+    return {
+      label: t('your_review'),
+      placeholder: t('your_review_placeholder'),
+      publico: t('make_review_public')
+    };
+  }
+
+  if(status === 'Lendo') {
+    return {
+      label: t('reading_impression'),
+      placeholder: t('reading_impression_placeholder'),
+      publico: t('show_on_public_profile')
+    };
+  }
+
+  return {
+    label: t('reading_expectation'),
+    placeholder: t('reading_expectation_placeholder'),
+    publico: t('show_on_public_profile')
+  };
 }
 
 function atualizarCopyRelato(prefix){
@@ -1031,7 +1062,7 @@ async function salvar(){
     ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
     tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
     ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||escolha.capa_url||'',
-    status:$('#f_status').value, nota:notaSel||null,
+    status:$('#f_status').value, nota:$('#f_status').value==='Quero ler'?null:(notaSel||null),
     relato:$('#f_relato').value.trim(), publico:$('#f_publico').checked, spoiler:$('#f_spoiler').checked, data:$('#f_data').value.trim(),
     tenho_edicao:$('#f_tenho')?.checked||false, quero_edicao:$('#f_quero')?.checked||false
   };
@@ -1075,6 +1106,7 @@ function abrirManual(){
     console.warn('manual container missing');
     toast(t('save_error') || 'Não consegui abrir o cadastro manual.');
     mostrarBusca('manual');
+    focarTelaBusca('#manual');
     return;
   }
   manual.innerHTML=`
@@ -1105,6 +1137,7 @@ function abrirManual(){
       <button class="btn-primary" onclick="salvarManual()">${t('submit_for_review')}</button>
     </div>`;
   mostrarBusca('manual');
+  focarTelaBusca('#manual');
   montarStars('m_stars',()=>notaSel,v=>notaSel=v);
 }
 
