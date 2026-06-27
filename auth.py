@@ -339,9 +339,16 @@ def google_callback(request: Request, code: str = "", state: str = "",
     # CSRF: o state tem que bater com o que guardamos na sessão.
     esperado = request.session.pop("oauth_state", None)
     if not state or not esperado or state != esperado:
-        raise HTTPException(400, "state inválido (possível CSRF)")
+        logger.warning(
+            "[google oauth state invalid] has_state=%s has_expected=%s",
+            bool(state),
+            bool(esperado),
+        )
+        request.session.clear()
+        return RedirectResponse("/?conta=state_expirado", status_code=303)
     if not code:
-        raise HTTPException(400, "código de autorização ausente")
+        logger.warning("[google oauth callback missing code] has_state=%s", bool(state))
+        return RedirectResponse("/?conta=erro", status_code=303)
 
     redirect_uri = google_redirect_uri(request)
 
