@@ -1169,6 +1169,18 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   color:var(--ink-2);
   line-height:1.4;
 }
+.work-page .work-editions{
+  margin:0;
+}
+.work-page .community-section,
+.work-page .about-work{
+  margin:0;
+}
+.work-stats-empty p{
+  margin:0;
+  color:var(--ink-2);
+  font-size:13px;
+}
 .spoiler-box p,
 .review-card.has-spoiler.spoiler-open .spoiler-box p{
   display:none;
