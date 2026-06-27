@@ -372,6 +372,8 @@ function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
   $('#subtabDiario')?.classList.toggle('active',ativa==='diario');
   $('#subtabShelf')?.setAttribute('aria-selected',ativa==='shelf'?'true':'false');
   $('#subtabDiario')?.setAttribute('aria-selected',ativa==='diario'?'true':'false');
+  const shareBtn=document.getElementById('shelfShareButton');
+  if(shareBtn) shareBtn.hidden=ativa==='diario';
 }
 function irPara(aba,opcoes={}){
   if(aba==='diario'){ aba='estante'; opcoes={...opcoes,subaba:'diario'}; }
@@ -509,10 +511,10 @@ function lendoAgoraCard(l,idx,compacto=false){
       <div class="reading-spacer"></div>
       <div class="reading-meta">${progresso.texto||t('no_progress_yet')}</div>
       ${progresso.barra!==null?`<div class="reading-progress"><span style="width:${progresso.barra}%"></span></div>`:''}
-      <div class="continue-reading-actions">
-        ${reviewCardActionHTML(idx,'reading-review-card-action')}
-        <button type="button" class="reading-diary-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
-      </div>
+    </div>
+    <div class="continue-reading-actions">
+      ${reviewCardActionHTML(idx,'reading-review-card-action')}
+      <button type="button" class="reading-diary-action" aria-label="${t('update_progress')}" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
     </div>
   </div>`;
 }

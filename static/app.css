@@ -1200,6 +1200,7 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 }
 .continue-reading-actions{
   display:grid;
+  grid-column:2;
   gap:.75rem;
   margin-top:12px;
   width:100%;
@@ -1212,8 +1213,9 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   width:100%;
   max-width:100%;
   white-space:normal;
-  overflow-wrap:anywhere;
-  line-height:1.25;
+  word-break:normal;
+  overflow-wrap:normal;
+  line-height:1.2;
   text-align:center;
   box-sizing:border-box;
   min-width:0;
@@ -1222,6 +1224,7 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 }
 .continue-reading-actions .reading-review-card-action{margin-bottom:0}
 @media(max-width:420px){
-  .continue-reading-actions{gap:.6rem}
-  .continue-reading-actions .reading-diary-action{padding:9px 8px;font-size:9px;letter-spacing:.08em}
+  .reading-now-card{align-items:start}
+  .continue-reading-actions{grid-column:1/-1;gap:.6rem;margin-top:2px}
+  .continue-reading-actions .reading-diary-action{padding:10px 12px;font-size:9px;letter-spacing:.08em}
 }
