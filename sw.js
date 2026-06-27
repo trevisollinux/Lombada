@@ -1,8 +1,8 @@
 /* Lombada — service worker com cache seguro do app shell.
-   Estratégia: network-first com timeout curto.
+   Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v2';
+const CACHE_NAME = 'lombada-shell-v3';
 
 const APP_SHELL = [
   '/',
@@ -14,6 +14,7 @@ const APP_SHELL = [
 ];
 
 const NETWORK_TIMEOUT_MS = 1800;
+const CRITICAL_ASSETS = new Set(['/static/app.js', '/static/app.css', '/static/i18n.js']);
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
@@ -52,9 +53,20 @@ self.addEventListener('fetch', event => {
   if (path.startsWith('/api/')) return;
 
   const isRootNavigation = request.mode === 'navigate' && path === '/';
+  const isCriticalAsset = CRITICAL_ASSETS.has(path);
   const isShellAsset = APP_SHELL.includes(path);
 
-  if (isRootNavigation || isShellAsset) {
+  if (isRootNavigation) {
+    event.respondWith(networkFirstWithTimeout(request));
+    return;
+  }
+
+  if (isCriticalAsset) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (isShellAsset) {
     event.respondWith(networkFirstWithTimeout(request));
     return;
   }
@@ -92,6 +104,22 @@ async function networkFirstWithTimeout(request) {
       );
     }
 
+    throw error;
+  }
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
     throw error;
   }
 }

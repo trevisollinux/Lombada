@@ -27,6 +27,47 @@ const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const NAV_STATE_KEY='lombada_nav_state';
 
 const THEME_KEY='lombada_theme';
+
+function setupWorkActionDelegation(){
+  if(document.__lombadaWorkActionDelegation) return;
+  document.__lombadaWorkActionDelegation=true;
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const btn = target?.closest('[data-work-action]');
+    if (!btn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const action = btn.dataset.workAction;
+
+    if (action === 'register-reading') {
+      registrarLeituraObra();
+      return;
+    }
+
+    if (action === 'see-editions') {
+      const lista = document.querySelector('.editions');
+      if (lista) {
+        lista.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        toast(t('no_editions_register_manual'));
+      }
+      return;
+    }
+
+    if (action === 'manual-edition') {
+      abrirManual();
+      return;
+    }
+
+    if (action === 'choose-edition') {
+      escolherEdicao(Number(btn.dataset.editionIndex));
+    }
+  }, true);
+}
+setupWorkActionDelegation();
+
 function temaInicial(){
   const salvo=localStorage.getItem(THEME_KEY);
   return salvo==='light'?'light':'dark';
@@ -666,8 +707,8 @@ function renderBuscaSkeleton(){
 }
 function manualCtaHTML(destaque=false){
   return destaque
-    ? `<div class="manual-cta prominent"><p>${t('manual_prominent_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_prominent_button')}</button></div>`
-    : `<div class="manual-cta"><p>${t('manual_cta_text')}</p><button class="link-manual" onclick="abrirManual()">${t('manual_cta_button')}</button></div>`;
+    ? `<div class="manual-cta prominent"><p>${t('manual_prominent_text')}</p><button class="link-manual" type="button" data-work-action="manual-edition">${t('manual_prominent_button')}</button></div>`
+    : `<div class="manual-cta"><p>${t('manual_cta_text')}</p><button class="link-manual" type="button" data-work-action="manual-edition">${t('manual_cta_button')}</button></div>`;
 }
 async function buscar(){
   const q=$('#q').value.trim(); if(q.length<2)return;
@@ -752,7 +793,7 @@ async function verEdicoes(i){
   }
   catch(err){
     console.warn('editions failed', escolha, err);
-    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" onclick="abrirManual()">${t('register_edition_manually')}</button></div>`;
+    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`;
     return;
   }
   await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(eds||[]); renderEdicoes();
@@ -835,7 +876,7 @@ function revelarSpoiler(btn){
 function criticasHTML(){
   const recentes=obraSocial?.criticas||[];
   const destaques=obraSocial?.destaques||[];
-  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" onclick="registrarLeituraObra()">${t('register_my_reading')}</button></div></section>`;
+  if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" type="button" data-work-action="register-reading">${t('register_my_reading')}</button></div></section>`;
   const edicaoMeta=c=>[c.status&&statusLabel(c.status),c.edicao?.editora&&`${t('publisher_abbr')} ${c.edicao.editora}`,c.edicao?.tradutor&&`${t('translator_abbr')} ${c.edicao.tradutor}`,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ');
   const corpo=c=>c.spoiler
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
@@ -844,14 +885,21 @@ function criticasHTML(){
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
 function registrarLeituraObra(){
-  if(edicoesAtual.length===1){ escolherEdicao(0); return; }
-  if(edicoesAtual.length>1){
+  const edicoesAtualLength=edicoesAtual?.length||0;
+  console.debug('registrarLeituraObra', {
+    escolha,
+    edicoesAtualLength,
+    edicoesAtual
+  });
+  if(edicoesAtualLength===1){ escolherEdicao(0); return; }
+  if(edicoesAtualLength>1){
     toast(t('choose_edition_to_register'));
     document.querySelector('.editions')?.scrollIntoView({behavior:'smooth',block:'start'});
     return;
   }
   toast(t('no_editions_register_manual'));
-  if($('#edicoes')) $('#edicoes').insertAdjacentHTML('beforeend', manualCtaHTML(true));
+  abrirManual();
+  return;
 }
 function verMinhaLeitura(){
   const idx=prateleira.findIndex(l=>l.leitura_id===obraSocial?.minha_leitura?.leitura_id);
@@ -867,7 +915,7 @@ function renderEdicoes(){
     <div class="wmeta"><div class="label">${t('work')}</div><h2>${esc(escolha.titulo)}</h2>
       <div class="a">${esc(escolha.autor)}</div>
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
-      <div class="work-actions"><button class="primary" onclick="registrarLeituraObra()">${t('register_reading')}</button><button class="secondary" onclick="document.querySelector('.editions')?.scrollIntoView({behavior:'smooth'})">${t('see_editions')}</button>${obraSocial?.minha_leitura?`<button class="secondary" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:''}</div><button class="link-tertiary" onclick="abrirManual()">${t('register_edition_manually')}</button>
+      <div class="work-actions"><button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button><button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button>${obraSocial?.minha_leitura?`<button class="secondary" onclick="verMinhaLeitura()">${t('see_my_reading')}</button>`:''}</div><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>
     </div></div>`;
   const descricao=(escolha.descricao||escolha.description||'').trim();
   const sobreObra=`<section class="about-work"><div class="label">${t('about_work')}</div>${descricao?`<p>${esc(descricao).slice(0,420)}</p>`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
@@ -891,19 +939,27 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" onclick="event.stopPropagation(); escolherEdicao(${j})">${t('add_this_edition')}</button></div></li>`;
+      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('add_this_edition')}</button></div></li>`;
   }).join('');
   $('#edicoes').innerHTML=back+cab+`<section class="community-summary"><div><span>${media}</span><small>${t('community_average')}</small></div><div><span>${leituras}</span><small>${t('reading_many',{count:leituras}).replace(String(leituras)+' ','')}</small></div><div><span>${criticas}</span><small>${t('public_reviews')}</small></div></section>${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
 }
 
 /* registrar */
 function escolherEdicao(j){
-  if(!edicoesAtual[j]){
+  const edicao=edicoesAtual?.[j];
+  if(!edicao){
     console.warn('invalid edition selected', j, edicoesAtual);
     toast(t('invalid_edition_selected'));
+    abrirManual();
     return;
   }
-  edicaoSel=edicoesAtual[j]; notaSel=0;
+  edicaoSel={
+    ...edicao,
+    titulo_edicao: edicao.titulo_edicao || escolha?.titulo || '',
+    capa_url: edicao.capa_url || escolha?.capa_url || '',
+    autor: escolha?.autor || ''
+  };
+  notaSel=0;
   const social=edicaoSocial(edicaoSel);
   const estado=social?.estado||{};
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
@@ -963,12 +1019,18 @@ function montarStars(id,get,set){
 }
 
 async function salvar(){
+  if(!escolha || !edicaoSel){
+    console.warn('save without selected work/edition', { escolha, edicaoSel, edicoesAtual });
+    toast(t('invalid_edition_selected'));
+    abrirManual();
+    return;
+  }
   const body={
     work_key:escolha.work_key, titulo:escolha.titulo, autor:escolha.autor||'',
     idioma_original:escolha.idioma_original||'', ano_obra:escolha.ano||null,
     ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
     tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
-    ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||'',
+    ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||escolha.capa_url||'',
     status:$('#f_status').value, nota:notaSel||null,
     relato:$('#f_relato').value.trim(), publico:$('#f_publico').checked, spoiler:$('#f_spoiler').checked, data:$('#f_data').value.trim(),
     tenho_edicao:$('#f_tenho')?.checked||false, quero_edicao:$('#f_quero')?.checked||false
@@ -999,18 +1061,31 @@ await carregarPrateleira();
 irPara('estante',{recarregar:false});
 }
 function abrirManual(){
+  console.debug('abrirManual', { escolha, q: $('#q')?.value });
   notaSel=0;
   if($('#secBuscar')?.style.display==='none') irPara('buscar',{resetBusca:false,registrar:false,scrollTop:false});
   const q=$('#q')?.value.trim()||'';
-  $('#manual').innerHTML=`
+  const tituloManual=escolha?.titulo || q;
+  const autorManual=escolha?.autor || '';
+  const anoObraManual=escolha?.ano || '';
+  const idiomaOriginalManual=escolha?.idioma_original || '';
+  const capaManual=escolha?.capa_url || '';
+  const manual=$('#manual');
+  if(!manual){
+    console.warn('manual container missing');
+    toast(t('save_error') || 'Não consegui abrir o cadastro manual.');
+    mostrarBusca('manual');
+    return;
+  }
+  manual.innerHTML=`
     <div class="busca-back" onclick="history.back()">${t('back')}</div>
     <div class="section-head"><h2 class="h-section">${t('manual_registration')}</h2></div>
     <div class="card-form">
       <div class="form-block"><div class="label">${t('book')}</div>
-        <div class="field"><label class="label">${t('work_title_required')}</label><input type="text" id="m_titulo" value="${esc(q)}" /></div>
-        <div class="field"><label class="label">${t('author_required')}</label><input type="text" id="m_autor" /></div>
-        <div class="row"><div class="field"><label class="label">${t('work_year')}</label><input type="text" id="m_ano_obra" /></div>
-        <div class="field"><label class="label">${t('original_language')}</label><input type="text" id="m_idioma_original" /></div></div>
+        <div class="field"><label class="label">${t('work_title_required')}</label><input type="text" id="m_titulo" value="${esc(tituloManual)}" /></div>
+        <div class="field"><label class="label">${t('author_required')}</label><input type="text" id="m_autor" value="${esc(autorManual)}" /></div>
+        <div class="row"><div class="field"><label class="label">${t('work_year')}</label><input type="text" id="m_ano_obra" value="${esc(anoObraManual)}" /></div>
+        <div class="field"><label class="label">${t('original_language')}</label><input type="text" id="m_idioma_original" value="${esc(idiomaOriginalManual)}" /></div></div>
       </div>
       <div class="form-block"><div class="label">${t('edition')}</div>
         <div class="field"><label class="label">${t('edition_title')}</label><input type="text" id="m_titulo_edicao" /></div>
@@ -1019,7 +1094,7 @@ function abrirManual(){
         <div class="row"><div class="field"><label class="label">${t('isbn')}</label><input type="text" id="m_isbn" /></div>
         <div class="field"><label class="label">${t('language_field')}</label><input type="text" id="m_idioma" /></div></div>
         <div class="row"><div class="field"><label class="label">${t('edition_year')}</label><input type="text" id="m_ano_edicao" /></div>
-        <div class="field"><label class="label">${t('cover_url')}</label><input type="text" id="m_capa_url" /></div></div>
+        <div class="field"><label class="label">${t('cover_url')}</label><input type="text" id="m_capa_url" value="${esc(capaManual)}" /></div></div>
       </div>
       <div class="form-block"><div class="label">${t('your_reading')}</div>
         <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
