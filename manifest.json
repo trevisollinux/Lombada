@@ -8,7 +8,6 @@
   "background_color": "#ECE4D4",
   "theme_color": "#1A1714",
   "lang": "pt-BR",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/static/icons/icon.svg",

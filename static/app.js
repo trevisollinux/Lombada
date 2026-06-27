@@ -25,6 +25,12 @@ let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const NAV_STATE_KEY='lombada_nav_state';
+const APP_VERSION='0.10.0';
+const INSTALL_DISMISSED_KEY='lombada_install_dismissed_at';
+let deferredInstallPrompt=null;
+let installPromptConsumed=false;
+let swRefreshing=false;
+let swUpdateAccepted=false;
 
 const THEME_KEY='lombada_theme';
 
@@ -179,6 +185,115 @@ function toast(msg){
   requestAnimationFrame(()=>el.classList.add('show'));
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
 }
+
+function mostrarBannerPwa({id, mensagem, acaoTexto, acao, secundarioTexto, secundario}={}){
+  const antigo=document.getElementById(id||'pwaBanner');
+  if(antigo) antigo.remove();
+  const el=document.createElement('div');
+  el.id=id||'pwaBanner';
+  el.className='pwa-banner';
+  el.setAttribute('role','status');
+  el.innerHTML=`<span>${esc(mensagem||'')}</span><div class="pwa-banner-actions"></div>`;
+  const actions=el.querySelector('.pwa-banner-actions');
+  if(acaoTexto && acao){
+    const btn=document.createElement('button');
+    btn.type='button'; btn.textContent=acaoTexto;
+    btn.addEventListener('click',acao);
+    actions.appendChild(btn);
+  }
+  if(secundarioTexto && secundario){
+    const btn=document.createElement('button');
+    btn.type='button'; btn.className='ghost'; btn.textContent=secundarioTexto;
+    btn.addEventListener('click',secundario);
+    actions.appendChild(btn);
+  }
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  return el;
+}
+
+function isStandalonePwa(){
+  return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+}
+function installDispensadoRecentemente(){
+  const ts=Number(localStorage.getItem(INSTALL_DISMISSED_KEY)||0);
+  return ts && Date.now()-ts < 14*24*60*60*1000;
+}
+function deveMostrarInstalar(){
+  return !!deferredInstallPrompt && !installPromptConsumed && !isStandalonePwa() && !installDispensadoRecentemente();
+}
+function instalarLombada(){
+  if(!deveMostrarInstalar()) return;
+  const promptEvent=deferredInstallPrompt;
+  installPromptConsumed=true;
+  deferredInstallPrompt=null;
+  document.getElementById('installCtaBox')?.remove();
+  document.getElementById('installBanner')?.remove();
+  promptEvent.prompt();
+  promptEvent.userChoice.then(choice=>{
+    if(choice.outcome !== 'accepted') localStorage.setItem(INSTALL_DISMISSED_KEY,String(Date.now()));
+  }).catch(()=>localStorage.setItem(INSTALL_DISMISSED_KEY,String(Date.now())));
+}
+function dispensarInstalacao(){
+  localStorage.setItem(INSTALL_DISMISSED_KEY,String(Date.now()));
+  document.getElementById('installBanner')?.remove();
+  renderPerfil();
+}
+function installCtaHTML(){
+  if(!deveMostrarInstalar()) return '';
+  return `<div id="installCtaBox" class="account-box install-box"><div class="label">App</div><p>Instale a Lombada para acessar como app no celular.</p><div class="profile-actions"><button class="pbtn solid" type="button" onclick="instalarLombada()">Instalar Lombada</button><button class="pbtn" type="button" onclick="dispensarInstalacao()">Agora não</button></div></div>`;
+}
+function talvezMostrarBannerInstalacao(){
+  if(!deveMostrarInstalar() || document.getElementById('installBanner')) return;
+  mostrarBannerPwa({
+    id:'installBanner',
+    mensagem:'Instale a Lombada para acessar como app no celular.',
+    acaoTexto:'Instalar Lombada',
+    acao:instalarLombada,
+    secundarioTexto:'Agora não',
+    secundario:dispensarInstalacao
+  });
+}
+function registrarPwa(){
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    if(isStandalonePwa()) return;
+    deferredInstallPrompt=event;
+    if($('#secPerfil')?.style.display!=='none') renderPerfil();
+    setTimeout(talvezMostrarBannerInstalacao,2400);
+  });
+  window.addEventListener('appinstalled', () => {
+    installPromptConsumed=true;
+    deferredInstallPrompt=null;
+    localStorage.setItem(INSTALL_DISMISSED_KEY,String(Date.now()));
+    document.getElementById('installBanner')?.remove();
+    toast('Lombada instalada.');
+  });
+  if(!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', async () => {
+    try{
+      const registration=await navigator.serviceWorker.register('/sw.js');
+      const mostrarAtualizacao=worker=>{
+        if(!worker) return;
+        mostrarBannerPwa({id:'updateBanner',mensagem:'Nova versão da Lombada disponível.',acaoTexto:'Atualizar',acao:()=>{ swUpdateAccepted=true; worker.postMessage({type:'SKIP_WAITING'}); }});
+      };
+      if(registration.waiting) mostrarAtualizacao(registration.waiting);
+      registration.addEventListener('updatefound',()=>{
+        const novo=registration.installing;
+        novo?.addEventListener('statechange',()=>{
+          if(novo.state==='installed' && navigator.serviceWorker.controller) mostrarAtualizacao(novo);
+        });
+      });
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{
+        if(swRefreshing || !swUpdateAccepted) return;
+        swRefreshing=true;
+        toast('Atualização instalada.');
+        window.location.reload();
+      });
+    }catch(err){ console.warn('service worker não registrado',err); }
+  });
+}
+registrarPwa();
 
 
 function limparErroFormulario(form){
@@ -1722,6 +1837,7 @@ function renderPerfil(){
       ${editarPerfilHTML}
       ${previewHTML}
       ${contaHTML}
+      ${installCtaHTML()}
       <div class="account-box theme-box">
         <div class="label">${t('appearance')}</div>
         <p>${t('appearance_hint')}</p>
@@ -1742,6 +1858,7 @@ function renderPerfil(){
         <p>${t('library_hint')}</p>
         <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
       </div>
+      <div class="app-version">Lombada v${esc(APP_VERSION.replace(/\.0$/,''))}</div>
       <div class="plink">${esc(url)}</div>
     </div>`;
 }
