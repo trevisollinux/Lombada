@@ -280,14 +280,27 @@ function capaArteDados(titulo,autor,variacao=0){
   const tinta2=TINTAS_CAPA[Math.floor(h/7)%TINTAS_CAPA.length];
   return {hash:h,layout,tinta,tinta2,papel:PAPEL_CAPA};
 }
+function getSafeCoverUrl(item){
+  if(!item)return null;
+  const raw=item.capa_url||item.cover_url||item.capa||null;
+  if(typeof raw!=='string')return null;
+  const url=raw.trim();
+  if(!url || url==='#' || /^javascript:/i.test(url) || /^data:/i.test(url))return null;
+  return url;
+}
+function hasUsableCover(item){ return !!getSafeCoverUrl(item); }
 function coverFallbackHTML(titulo,autor,extra='',variacao=0){
   const d=capaArteDados(titulo,autor,variacao);
-  const meta=autor?`<div class="cover-art-author">${esc(autor).toUpperCase()}</div>`:'';
-  return `<div class="cover cover-art ${d.layout}" data-initial="${esc((titulo||'?').charAt(0).toUpperCase())}" style="--cover-ink:${d.tinta};--cover-ink-2:${d.tinta2};--cover-paper:${d.papel}">
+  const tituloCurto=trechoTexto(titulo||t('untitled')||'',58);
+  const autorCurto=trechoTexto(autor||'',34);
+  const meta=autorCurto?`<div class="cover-art-author">${esc(autorCurto)}</div>`:'';
+  return `<div class="cover cover-art ${d.layout}" data-initial="${esc((tituloCurto||'?').charAt(0).toUpperCase())}" style="--cover-ink:${d.tinta};--cover-ink-2:${d.tinta2};--cover-paper:${d.papel}">
     <div class="cover-art-rule"></div>
-    ${meta}
-    <div class="cover-art-title">${esc(titulo)}</div>
-    <div class="cover-art-meta">lombada · edição de leitor</div>
+    <div class="cover-art-copy">
+      <div class="cover-art-title">${esc(tituloCurto)}</div>
+      ${meta}
+    </div>
+    <div class="cover-art-meta">Lombada</div>
     ${extra||''}</div>`;
 }
 function trocarParaCapaArte(img){
@@ -301,9 +314,10 @@ function trocarParaCapaArte(img){
   el.outerHTML=html;
 }
 function coverHTML(titulo,autor,capa,extra){
-  if(capa){
+  const cover=getSafeCoverUrl({capa_url:capa});
+  if(cover){
     return `<div class="cover">
-      <img src="${esc(capaProxy(capa))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)">
+      <img src="${esc(capaProxy(cover))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)">
       ${extra||''}</div>`;
   }
   return coverFallbackHTML(titulo,autor,extra);
@@ -666,7 +680,7 @@ function edicoesDoDoc(doc){
   if(isbn) eds.unshift(isbn);
   return eds.map(e=>({...e, capa_url:e.capa_url||doc?.capa_url}));
 }
-function temCapaEdicao(e){ return !!(e?.capa_url||e?.cover_url||e?.capa); }
+function temCapaEdicao(e){ return hasUsableCover(e); }
 function textoEdicao(e,doc={}){ return normalizarTextoObra([e?.titulo_edicao,e?.editora,e?.tradutor,e?.isbn,e?.idioma,e?.pais,doc?.titulo,doc?.autor].filter(Boolean).join(' ')); }
 function scoreEdicao(e,doc={}){
   const texto=textoEdicao(e,doc);
@@ -1900,35 +1914,30 @@ function drawEditorialCoverFrame(ctx,x,y,w,h,{paper,ink,accent,dark=false}){
 function drawGeneratedLombadaCover(ctx,l,x,y,w,h,style=0){
   ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
-  const title=l.titulo||'';
-  const author=(l.autor||'').toUpperCase();
+  const title=trechoTexto(l.titulo||t('untitled')||'',54);
+  const author=trechoTexto(l.autor||'',34);
   const dark=style===1;
   const accent=coverAccent(title,author,!dark);
   const paper=dark?'#12100E':'#EFE2C8';
   const ink=dark?'#EAE0CD':'#3C2C22';
   drawEditorialCoverFrame(ctx,x,y,w,h,{paper,ink,accent,dark});
   ctx.textBaseline='alphabetic';
+  ctx.textAlign='center';
 
-  ctx.fillStyle=dark?'rgba(168,132,47,.55)':'rgba(139,14,32,.22)';
-  ctx.lineWidth=2;
-  for(let i=0;i<4;i++){
-    const yy=y+154+i*34;
-    ctx.beginPath();ctx.moveTo(x+92,yy);ctx.lineTo(x+w-92,yy);ctx.strokeStyle=ctx.fillStyle;ctx.stroke();
+  const safeW=w-116;
+  ctx.fillStyle=ink;
+  fitFontSize(ctx,title,s=>`700 italic ${s}px Fraunces, serif`,safeW,Math.min(54,w*.16),30);
+  const titleEnd=drawCanvasTextLines(ctx,title,x+w/2,y+h*.42,safeW,58,3,'center');
+
+  if(author){
+    ctx.fillStyle=dark?'rgba(234,224,205,.78)':'rgba(60,44,34,.72)';
+    fitFontSize(ctx,author,s=>`400 ${s}px 'Space Mono', monospace`,safeW,24,16);
+    drawCanvasTextLines(ctx,author,x+w/2,Math.min(titleEnd+44,y+h-155),safeW,30,2,'center');
   }
 
-  ctx.fillStyle=ink;
-  fitFontSize(ctx,author,s=>`700 ${s}px 'Space Mono', monospace`,w-170,30,20);
-  drawCanvasTextLines(ctx,author,x+w/2,y+205,w-170,36,2,'center');
-
-  const titleLen=title.length;
-  const titleMax=titleLen>34?68:78;
-  fitFontSize(ctx,title,s=>`700 ${s}px Fraunces, serif`,w-170,titleMax,46);
-  drawCanvasTextLines(ctx,title,x+w/2,y+h*.43,w-170,76,5,'center');
-
-  ctx.fillStyle=dark?'rgba(234,224,205,.70)':'rgba(60,44,34,.68)';
-  ctx.font="400 24px 'Space Mono', monospace";
-  ctx.textAlign='center';
-  ctx.fillText('edição de leitor',x+w/2,y+h-108);
+  ctx.fillStyle=accent;
+  ctx.font="600 italic 28px Fraunces, serif";
+  ctx.fillText('Lombada',x+w/2,y+h-82);
   ctx.restore();ctx.strokeStyle='rgba(26,23,20,.28)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
 }
 function drawShareCover(ctx,l,x,y,w,h,selected){
@@ -2012,10 +2021,11 @@ function drawShareCardText(ctx,l,W,H,cy,ch){
 }
 function getSelectedShareCover(l){
   const index=Math.max(0,Math.min(2,Number(cardCoverIndex)||0));
+  const originalUrl=index===0?getSafeCoverUrl(l):null;
   return {
     index,
-    type:index===0?'original':'lombada',
-    url:index===0?(l?.capa_url||''):'',
+    type:originalUrl?'original':'lombada',
+    url:originalUrl||'',
     variacao:index===2?1:0
   };
 }
