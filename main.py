@@ -6,7 +6,9 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import socket
+import unicodedata
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -307,6 +309,67 @@ class EditionStatePayload(BaseModel):
     quero: Optional[bool] = None
 
 
+class PerfilPayload(BaseModel):
+    nome: Optional[str] = None
+    handle: Optional[str] = None
+    bio: Optional[str] = None
+
+
+HANDLE_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,22}[a-z0-9])$")
+
+
+def _normalizar_handle(valor: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or "").strip().lower())
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    texto = re.sub(r"\s+", "-", texto)
+    texto = re.sub(r"[^a-z0-9-]", "", texto)
+    texto = re.sub(r"-{2,}", "-", texto)
+    return texto[:24].strip("-")
+
+
+def _validar_nome_publico(nome: str, email: str | None = None) -> str:
+    nome = " ".join(str(nome or "").replace("\x00", "").split())
+    if not nome:
+        raise HTTPException(422, "Nome exibido é obrigatório.")
+    if len(nome) < 2 or len(nome) > 40:
+        raise HTTPException(422, "Nome exibido deve ter entre 2 e 40 caracteres.")
+    if "@" in nome or (email and nome.lower() == email.lower()):
+        raise HTTPException(422, "Escolha um nome público que não seja seu e-mail.")
+    return html.escape(nome, quote=False)
+
+
+def _validar_bio_curta(bio: str | None) -> str:
+    bio = " ".join(str(bio or "").replace("\x00", "").split())
+    if len(bio) > 160:
+        raise HTTPException(422, "Bio curta deve ter no máximo 160 caracteres.")
+    return html.escape(bio, quote=False)
+
+
+def _validar_handle_publico(handle: str) -> str:
+    handle = _normalizar_handle(handle)
+    if not handle:
+        raise HTTPException(422, "Use apenas letras, números e hífen.")
+    if len(handle) < 3 or len(handle) > 24 or not HANDLE_RE.match(handle) or "--" in handle:
+        raise HTTPException(422, "Use apenas letras, números e hífen.")
+    return handle
+
+
+@app.patch("/api/eu/perfil")
+def atualizar_perfil(payload: PerfilPayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para editar seu perfil.", 401)
+    nome = _validar_nome_publico(payload.nome if payload.nome is not None else u.nome, u.email)
+    handle = _validar_handle_publico(payload.handle if payload.handle is not None else u.handle)
+    bio = _validar_bio_curta(payload.bio if payload.bio is not None else getattr(u, "bio", ""))
+    dono_handle = s.exec(select(Usuario).where(Usuario.handle == handle, Usuario.id != u.id)).first()
+    if dono_handle:
+        raise HTTPException(409, "Esse nome de usuário já está em uso.")
+    u.nome = nome
+    u.handle = handle
+    u.bio = bio
+    s.add(u); s.commit(); s.refresh(u)
+    return {"handle": u.handle, "nome": u.nome, "bio": u.bio, "message": "Perfil atualizado."}
+
+
 def _edition_read_by_user(s: Session, edicao_id: int, usuario_id: int | None) -> bool:
     if not usuario_id:
         return False
@@ -425,6 +488,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
     return {
         "handle": u.handle,
         "nome": u.nome,
+        "bio": getattr(u, "bio", ""),
         "email": u.email,
         "logado": logado,
         "provedor": "google" if logado else "anonimo",
@@ -1174,7 +1238,7 @@ def estante_json(handle: str, request: Request, s: Session = Depends(get_session
         if l.get("publico") and (l.get("relato") or "").strip():
             l.update(_review_state(s, l.get("leitura_id"), atual.id))
     perfil = resumo_perfil_publico(leituras)
-    return {"handle": u.handle, "nome": u.nome, "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
+    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
 
 
 @app.post("/api/u/{handle}/follow")

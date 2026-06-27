@@ -1585,12 +1585,55 @@ function miniLivroPerfil(l){
 function blocoVitrinePerfil(titulo,itens,vazio,render){
   return `<div class="profile-showcase"><div class="label">${titulo}</div>${itens.length?`<div class="profile-mini-wall">${itens.map(render).join('')}</div>`:`<p class="muted profile-empty">${vazio}</p>`}</div>`;
 }
+function normalizarHandlePerfil(valor){
+  return (valor||'').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').replace(/-+/g,'-')
+    .slice(0,24).replace(/^-+|-+$/g,'');
+}
+function atualizarPreviewHandlePerfil(){
+  const input=$('#profileHandleInput');
+  const preview=$('#profileHandlePreview');
+  if(!input||!preview) return;
+  const handle=normalizarHandlePerfil(input.value);
+  preview.textContent=handle?`${t('profile_preview')} /u/${handle}`:t('profile_preview_empty');
+}
+function validarPerfilPayload(payload){
+  if(!payload.nome) return t('profile_name_required');
+  if(payload.nome.length<2||payload.nome.length>40) return t('profile_name_length');
+  if(payload.nome.includes('@')) return t('profile_name_no_email');
+  if(!/^[a-z0-9](?:[a-z0-9-]{1,22}[a-z0-9])$/.test(payload.handle)||payload.handle.includes('--')) return t('profile_handle_invalid');
+  if((payload.bio||'').length>160) return t('profile_bio_length');
+  return '';
+}
+async function salvarPerfil(el=null){
+  const form=el?.closest?.('.profile-edit-form')||$('#profileEditForm');
+  limparErroFormulario(form);
+  const payload={
+    nome:($('#profileNameInput')?.value||'').trim().replace(/\s+/g,' '),
+    handle:normalizarHandlePerfil($('#profileHandleInput')?.value||''),
+    bio:($('#profileBioInput')?.value||'').trim().replace(/\s+/g,' ')
+  };
+  const erro=validarPerfilPayload(payload);
+  if(erro){ mostrarErroFormulario(form,erro); return; }
+  try{
+    const res=await fetch('/api/eu/perfil',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok){ mostrarErroFormulario(form,body.detail||t('profile_save_error')); return; }
+    minhaConta={...minhaConta,...body};
+    meuHandle=body.handle||payload.handle;
+    const crumb=$('#meuhandle'); if(crumb) crumb.textContent='@'+meuHandle;
+    toast(body.message||t('profile_updated'));
+    renderPerfil();
+  }catch(e){ mostrarErroFormulario(form,t('profile_save_error')); }
+}
 function renderPerfil(){
   const url=location.origin+'/u/'+meuHandle;
   const n=prateleira.length;
   const logado=!!minhaConta.logado;
   const nome=(minhaConta.nome||'').trim();
   const email=(minhaConta.email||'').trim();
+  const bio=(minhaConta.bio||'').trim();
   const lidos=prateleira.filter(l=>l.status==='Lido').length, lendo=prateleira.filter(l=>l.status==='Lendo').length, quero=prateleira.filter(l=>l.status==='Quero ler').length;
   const edicoesPossui=minhaConta.edicoes_possui ?? prateleira.filter(l=>l.tenho_edicao).length;
   const edicoesDesejadas=minhaConta.edicoes_desejadas ?? prateleira.filter(l=>l.quero_edicao).length;
@@ -1628,12 +1671,32 @@ function renderPerfil(){
         <p class="muted">${t('account_login_hint')}</p>
         <a class="pbtn solid" href="/api/auth/google/login">${t('login_google')}</a>
       </div>`;
+  const editarPerfilHTML=logado?`
+      <form id="profileEditForm" class="account-box profile-edit-form" onsubmit="event.preventDefault();salvarPerfil(this.querySelector('button[type=submit]'))">
+        <div class="label">${t('edit_profile')}</div>
+        <div class="profile-edit-field">
+          <label for="profileNameInput">${t('profile_display_name')}</label>
+          <input id="profileNameInput" type="text" minlength="2" maxlength="40" autocomplete="name" value="${esc(nome)}" placeholder="${t('profile_display_name')}">
+        </div>
+        <div class="profile-edit-field">
+          <label for="profileHandleInput">${t('profile_username')}</label>
+          <div class="profile-handle-input"><span>@</span><input id="profileHandleInput" type="text" minlength="3" maxlength="24" autocapitalize="none" spellcheck="false" value="${esc(meuHandle)}" oninput="this.value=normalizarHandlePerfil(this.value);atualizarPreviewHandlePerfil()"></div>
+          <p id="profileHandlePreview" class="profile-handle-preview">${t('profile_preview')} /u/${esc(meuHandle)}</p>
+        </div>
+        <div class="profile-edit-field">
+          <label for="profileBioInput">${t('profile_short_bio')}</label>
+          <textarea id="profileBioInput" maxlength="160" placeholder="${t('profile_bio_placeholder')}">${esc(bio)}</textarea>
+        </div>
+        <button class="btn-primary" type="submit">${t('save_changes')}</button>
+      </form>`:'';
   $('#perfil').innerHTML=`
     <div class="pcard">
       <div class="profile-avatar">${esc(inicial)}</div>
       <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
       <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · ${t('followers_count',{count:minhaConta.followers_count||0})} · ${t('following_count',{count:minhaConta.following_count||0})}</div>
+      ${bio?`<p class="profile-bio">${esc(bio)}</p>`:''}
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
+      ${editarPerfilHTML}
       ${previewHTML}
       ${contaHTML}
       <div class="account-box theme-box">
