@@ -978,7 +978,7 @@ function escolherEdicao(j){
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
     <div class="card-form simple-reading-form">
       <section class="form-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
-      <section class="form-block"><div class="label">${t('your_reading')}</div><div class="row"><div class="field"><label class="label">${t('status')}</label><select id="f_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div></div><div class="field"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></section>
+      <section class="form-block"><div class="label">${t('your_reading')}</div><div class="row"><div class="field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div></div><div class="field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></section>
       <section class="form-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
       <section class="form-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
       <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
@@ -988,8 +988,13 @@ function escolherEdicao(j){
   focarTelaBusca('#form');
   toast(t('fill_reading_below'));
   montarStars('f_stars',()=>notaSel,v=>notaSel=v);
-  atualizarCopyRelato('f');
-  $('#f_status')?.addEventListener('change',()=>atualizarCopyRelato('f'));
+  atualizarFormularioLeituraPorStatus('f');
+  const statusSelect = $('#f_status');
+  if (statusSelect) {
+    ['change', 'input', 'blur'].forEach(evt => {
+      statusSelect.addEventListener(evt, () => atualizarFormularioLeituraPorStatus('f'));
+    });
+  }
 }
 
 function sugerirCorrecaoCatalogo(){
@@ -1020,15 +1025,36 @@ function copyRelatoPorStatus(status){
   };
 }
 
+function atualizarFormularioLeituraPorStatus(prefix='f'){
+  const statusEl = document.querySelector(`#${prefix}_status`);
+  if (!statusEl) return;
+
+  const status = statusEl.value;
+  const copy = copyRelatoPorStatus(status);
+
+  const label = document.querySelector(`#${prefix}_relato_label`);
+  const textarea = document.querySelector(`#${prefix}_relato`);
+  const publico = document.querySelector(`#${prefix}_publico_label`);
+  const ratingField = document.querySelector(`[data-rating-field="${prefix}"]`);
+
+  if (label) label.textContent = copy.label;
+  if (textarea) {
+    textarea.placeholder = copy.placeholder;
+    textarea.setAttribute('aria-label', copy.placeholder);
+  }
+  if (publico) publico.textContent = copy.publico;
+
+  if (ratingField) {
+    const isWant = status === 'Quero ler';
+    ratingField.style.display = isWant ? 'none' : '';
+    ratingField.setAttribute('aria-hidden', isWant ? 'true' : 'false');
+  }
+
+  console.debug('reading form status copy', { status, copy });
+}
+
 function atualizarCopyRelato(prefix){
-  const status=$(`#${prefix}_status`)?.value;
-  const copy=copyRelatoPorStatus(status);
-  const label=$(`#${prefix}_relato_label`);
-  const textarea=$(`#${prefix}_relato`);
-  const publico=$(`#${prefix}_publico_label`);
-  if(label) label.textContent=copy.label;
-  if(textarea) textarea.placeholder=copy.placeholder;
-  if(publico) publico.textContent=copy.publico;
+  atualizarFormularioLeituraPorStatus(prefix);
 }
 
 function montarStars(id,get,set){
