@@ -50,7 +50,7 @@ function setupWorkActionDelegation(){
     const action = btn.dataset.workAction;
 
     if (action === 'register-reading') {
-      registrarLeituraObra();
+      registrarLeituraObra(event);
       return;
     }
 
@@ -65,12 +65,12 @@ function setupWorkActionDelegation(){
     }
 
     if (action === 'manual-edition') {
-      abrirManual();
+      abrirManual(event);
       return;
     }
 
     if (action === 'choose-edition') {
-      escolherEdicao(Number(btn.dataset.editionIndex));
+      escolherEdicao(Number(btn.dataset.editionIndex), event);
     }
   }, true);
 }
@@ -479,7 +479,7 @@ function lendoAgoraCard(l,idx,compacto=false){
   return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
-      <div class="label">${t('reading_now')}</div>
+      <div class="label">${t('continue_reading')}</div>
       <h3>${esc(l.titulo)}</h3>
       <p>${esc(l.autor)}</p>
       <div class="reading-spacer"></div>
@@ -718,8 +718,14 @@ function manualCtaHTML(destaque=false){
     ? `<div class="manual-cta prominent"><p>${t('manual_prominent_text')}</p><button class="link-manual" type="button" data-work-action="manual-edition">${t('manual_prominent_button')}</button></div>`
     : `<div class="manual-cta"><p>${t('manual_cta_text')}</p><button class="link-manual" type="button" data-work-action="manual-edition">${t('manual_cta_button')}</button></div>`;
 }
-async function buscar(){
-  const q=$('#q').value.trim(); if(q.length<2)return;
+async function buscar(event){
+  if(event?.preventDefault) event.preventDefault();
+  const q=$('#q').value.trim();
+  if(q.length<2){
+    $('#resultados').innerHTML=`<div class="empty">${t('empty_search_hint')}</div>${manualCtaHTML(false)}`;
+    mostrarBusca('resultados');
+    return;
+  }
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
   renderBuscaSkeleton();
   mostrarBusca('resultados');
@@ -892,21 +898,38 @@ function criticasHTML(){
   const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
-function registrarLeituraObra(){
+function setButtonBusy(btn,text){
+  if(!btn) return;
+  if(!btn.dataset.originalText) btn.dataset.originalText=btn.textContent;
+  btn.textContent=text;
+  btn.disabled=true;
+  btn.classList.add('is-busy');
+}
+function clearButtonBusy(btn){
+  if(!btn) return;
+  btn.textContent=btn.dataset.originalText||btn.textContent;
+  btn.disabled=false;
+  btn.classList.remove('is-busy');
+  delete btn.dataset.originalText;
+}
+function registrarLeituraObra(event){
+  const trigger=event?.target?.closest?.('button');
+  setButtonBusy(trigger,t('loading_editions'));
+  setTimeout(()=>clearButtonBusy(trigger),900);
   const edicoesAtualLength=edicoesAtual?.length||0;
   console.debug('registrarLeituraObra', {
     escolha,
     edicoesAtualLength,
     edicoesAtual
   });
-  if(edicoesAtualLength===1){ escolherEdicao(0); return; }
+  if(edicoesAtualLength===1){ escolherEdicao(0, event); return; }
   if(edicoesAtualLength>1){
     toast(t('choose_edition_to_register'));
     focarTelaBusca('.editions');
     return;
   }
   toast(t('no_editions_register_manual'));
-  abrirManual();
+  abrirManual(event);
   return;
 }
 function verMinhaLeitura(){
@@ -953,9 +976,12 @@ function renderEdicoes(){
 }
 
 /* registrar */
-function escolherEdicao(j){
+function escolherEdicao(j,event){
+  const trigger=event?.target?.closest?.('button,.edition');
+  setButtonBusy(trigger,t('opening_form'));
   const edicao=edicoesAtual?.[j];
   if(!edicao){
+    clearButtonBusy(trigger);
     console.warn('invalid edition selected', j, edicoesAtual);
     toast(t('invalid_edition_selected'));
     abrirManual();
@@ -973,6 +999,7 @@ function escolherEdicao(j){
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
   const dadosEdicao=[[t('title'), titulo],[t('publisher'), edicaoSel.editora],[t('edition_year'), edicaoSel.ano],[t('isbn'), edicaoSel.isbn],[t('language_field'), edicaoSel.idioma],[t('translator'), edicaoSel.tradutor]].filter(([,valor])=>valor);
   const edicaoHTML=dadosEdicao.length ? `<dl class="edition-data compact-edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>` : `<p class="muted">${t('catalog_data_missing')}</p>`;
+  clearButtonBusy(trigger);
   $('#form').innerHTML=`
     <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
@@ -982,7 +1009,7 @@ function escolherEdicao(j){
       <section class="form-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
       <section class="form-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
       <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
-      <button class="btn-primary" onclick="salvar()">${t('save_to_shelf')}</button>
+      <button class="btn-primary" type="button" onclick="salvar(event)">${t('save_to_shelf')}</button>
     </div>`;
   mostrarBusca('form');
   focarTelaBusca('#form');
@@ -1075,13 +1102,17 @@ function montarStars(id,get,set){
   paint();
 }
 
-async function salvar(){
+async function salvar(event){
   if(!escolha || !edicaoSel){
     console.warn('save without selected work/edition', { escolha, edicaoSel, edicoesAtual });
     toast(t('invalid_edition_selected'));
     abrirManual();
     return;
   }
+  const form=$('#f_status')?.closest('.card-form');
+  const saveBtn=event?.target?.closest?.('button');
+  limparErroFormulario(form);
+  setButtonBusy(saveBtn,t('saving'));
   const body={
     work_key:escolha.work_key, titulo:escolha.titulo, autor:escolha.autor||'',
     idioma_original:escolha.idioma_original||'', ano_obra:escolha.ano||null,
@@ -1093,20 +1124,21 @@ async function salvar(){
     tenho_edicao:$('#f_tenho')?.checked||false, quero_edicao:$('#f_quero')?.checked||false
   };
   const duplicadoLocal=encontrarLeituraDuplicada(body);
-  if(duplicadoLocal){ avisarDuplicado(duplicadoLocal.leitura_id); return; }
+  if(duplicadoLocal){ clearButtonBusy(saveBtn); avisarDuplicado(duplicadoLocal.leitura_id); return; }
   try{
     const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){
       const erro=await payloadErro(r);
       const detalhe=erro?.detail||erro||{};
       if(r.status===409&&(detalhe.duplicado||erro?.duplicado)){
+        clearButtonBusy(saveBtn);
         avisarDuplicado(detalhe.leitura_id||erro.leitura_id);
         return;
       }
       throw new Error(JSON.stringify(erro)||r.statusText);
     }
   }
-  catch(e){ console.error('erro ao salvar leitura', e); toast(t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); clearButtonBusy(saveBtn); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
@@ -1117,7 +1149,10 @@ toast(t('saved_to_shelf'));
 await carregarPrateleira();
 irPara('estante',{recarregar:false});
 }
-function abrirManual(){
+function abrirManual(event){
+  const trigger=event?.target?.closest?.('button');
+  setButtonBusy(trigger,t('opening_form'));
+  setTimeout(()=>clearButtonBusy(trigger),700);
   console.debug('abrirManual', { escolha, q: $('#q')?.value });
   notaSel=0;
   if($('#secBuscar')?.style.display==='none') irPara('buscar',{resetBusca:false,registrar:false,scrollTop:false});
@@ -1160,18 +1195,20 @@ function abrirManual(){
         <div class="field"><label class="label">${t('rating')}</label><div class="stars" id="m_stars"></div></div>
         <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="160"></textarea></div>
       </div>
-      <button class="btn-primary" onclick="salvarManual()">${t('submit_for_review')}</button>
+      <button class="btn-primary" type="button" onclick="salvarManual(event)">${t('submit_for_review')}</button>
     </div>`;
   mostrarBusca('manual');
   focarTelaBusca('#manual');
   montarStars('m_stars',()=>notaSel,v=>notaSel=v);
 }
 
-async function salvarManual(){
+async function salvarManual(event){
+  const saveBtn=event?.target?.closest?.('button');
   const titulo=$('#m_titulo').value.trim(), autor=$('#m_autor').value.trim();
   const form=$('#m_titulo')?.closest('.card-form');
   limparErroFormulario(form);
   if(!titulo||!autor){ mostrarErroFormulario(form,t('required_title_author')); return; }
+  setButtonBusy(saveBtn,t('saving'));
   const body={
     titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
     titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
@@ -1179,7 +1216,7 @@ async function salvarManual(){
     capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
   };
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
-  catch(e){ console.error('erro ao salvar leitura', e); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); clearButtonBusy(saveBtn); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
   fecharModalParaNavegacao(); limparBusca(); $('#q').value=''; mostrarBusca('home',{registrar:false});
   marcarConviteLoginAposSalvar(); marcarLivroSalvo(body); toast(t('manual_success')); irPara('perfil',{recarregar:false});
 }
