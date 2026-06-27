@@ -1081,9 +1081,34 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 .diary-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;color:var(--dim);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .diary-actions button{color:var(--ink-2);font:inherit;text-transform:inherit;letter-spacing:inherit}
 @media(max-width:420px){.reading-diary-action{width:100%;text-align:center}.diary-entry-card{padding:16px 14px}.diary-entry-card .drelato{font-size:14px}}
-.review-card-action{margin-top:8px;border:1px solid rgba(168,132,47,.42);background:rgba(168,132,47,.10);color:var(--ink);padding:8px 10px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
-.review-card-action:hover{background:rgba(168,132,47,.18)}
-.book-review-card{width:100%;margin-top:7px;padding:7px 6px;font-size:8px}
-.shelf-row-review-card{align-self:flex-start}
-.reading-review-card-action{margin-bottom:8px}
-.profile-review-card{width:100%;margin-top:10px}
+.review-card-action{
+  margin-top:8px;
+  border:1px solid rgba(168,132,47,.42);
+  background:rgba(168,132,47,.10);
+  color:var(--ink);
+  padding:8px 10px;
+  font-family:"Space Mono",monospace;
+  font-size:9px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  text-align:center;
+}
+.review-card-action:hover{
+  background:rgba(168,132,47,.18);
+}
+.book-review-card{
+  width:100%;
+  margin-top:7px;
+  padding:7px 6px;
+  font-size:8px;
+}
+.shelf-row-review-card{
+  align-self:flex-start;
+}
+.reading-review-card-action{
+  margin-bottom:8px;
+}
+.profile-review-card{
+  width:100%;
+  margin-top:10px;
+}
