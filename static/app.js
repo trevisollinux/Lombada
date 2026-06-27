@@ -1966,18 +1966,23 @@ function drawGeneratedLombadaCover(ctx,l,x,y,w,h,style=0){
   ctx.fillText('Lombada',x+w/2,y+h-82);
   ctx.restore();ctx.strokeStyle='rgba(26,23,20,.28)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
 }
+function drawOriginalShareCover(ctx,im,x,y,w,h){
+  ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  const p=cardPalette();
+  ctx.fillStyle=p.bg2||'#EFE6D6';ctx.fillRect(x,y,w,h);
+  drawPaperTexture(ctx,x,y,w,h,p.texture||'rgba(58,50,42,.025)',30);
+  const ir=im.width/im.height,wr=w/h;let dw,dh,dx,dy;
+  if(ir>wr){dw=w;dh=w/ir;dx=x;dy=y+(h-dh)/2;}
+  else{dh=h;dw=h*ir;dx=x+(w-dw)/2;dy=y;}
+  ctx.drawImage(im,dx,dy,dw,dh);
+  ctx.restore();ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+}
 function drawShareCover(ctx,l,x,y,w,h,selected){
   return (async()=>{
     if(selected.type==='original' && selected.url){
       const im=await loadShareCardImage(capaProxy(selected.url));
-      if(im){
-        ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
-        ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
-        ctx.fillStyle='#171411';ctx.fillRect(x,y,w,h);
-        const ir=im.width/im.height,wr=w/h;let dw,dh,dx,dy;
-        if(ir>wr){dh=h;dw=h*ir;dx=x-(dw-w)/2;dy=y;}else{dw=w;dh=w/ir;dx=x;dy=y-(dh-h)/2;}
-        ctx.drawImage(im,dx,dy,dw,dh);ctx.restore();ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);return;
-      }
+      if(im){ drawOriginalShareCover(ctx,im,x,y,w,h); return; }
     }
     drawGeneratedLombadaCover(ctx,l,x,y,w,h,selected.type==='lombada'?selected.variacao:0);
   })();
