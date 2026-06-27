@@ -25,7 +25,9 @@ let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const NAV_STATE_KEY='lombada_nav_state';
-const APP_VERSION='0.10.0';
+const DEBUG = localStorage.getItem('lombada_debug') === '1';
+function debugLog(...args){ if(DEBUG) console.log(...args); }
+let appVersion='dev';
 const INSTALL_DISMISSED_KEY='lombada_install_dismissed_at';
 let deferredInstallPrompt=null;
 let installPromptConsumed=false;
@@ -900,7 +902,7 @@ async function buscar(event){
     try{ docs=await res.json(); }catch(err){ throw new Error('search invalid json'); }
   }
   catch(err){
-    console.warn('search failed', q, err);
+    console.warn('search failed', {query_len:q.length}, err);
     $('#resultados').innerHTML=`<div class="empty">${t('search_load_error')}</div>${manualCtaHTML(true)}`;
     return;
   }
@@ -987,7 +989,7 @@ async function verEdicoes(i){
     try{ eds=await res.json(); }catch(err){ throw new Error('editions invalid json'); }
   }
   catch(err){
-    console.warn('editions failed', escolha, err);
+    console.warn('editions failed', {work_key_len:(escolha?.work_key||'').length}, err);
     $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`;
     return;
   }
@@ -1858,7 +1860,7 @@ function renderPerfil(){
         <p>${t('library_hint')}</p>
         <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
       </div>
-      <div class="app-version">Lombada v${esc(APP_VERSION.replace(/\.0$/,''))}</div>
+      <div class="app-version">Lombada v${esc((appVersion||'dev').replace(/\.0$/,''))}</div>
       <div class="plink">${esc(url)}</div>
     </div>`;
 }
@@ -2390,6 +2392,15 @@ async function removerLeitura(el=null){
 }
 
 /* init */
+async function carregarVersaoApp(){
+  try{
+    const res=await fetch('/api/version',{cache:'no-store'});
+    const body=await res.json().catch(()=>({}));
+    appVersion=(body.version||'dev').toString();
+    debugLog('app_version_loaded',{app:body.app,version_len:appVersion.length});
+  }catch(e){ appVersion='dev'; }
+}
+
 async function init(){
   const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
   history.replaceState(estadoInicial,'');
@@ -2397,6 +2408,7 @@ async function init(){
   renderChips();
   atualizarSeletorIdioma();
   carregarObrasPopulares();
+  await carregarVersaoApp();
   try{
     const me=await (await fetch('/api/eu')).json();
     minhaConta=me||{logado:false,provedor:'anonimo'};
