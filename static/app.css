@@ -1240,3 +1240,132 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   .continue-reading-actions{grid-column:1/-1;gap:.6rem;margin-top:2px}
   .continue-reading-actions .reading-diary-action{padding:10px 12px;font-size:9px;letter-spacing:.08em}
 }
+
+/* PR visual polish: app UI tokens, dark mode, controls and mobile consistency. */
+:root{
+  color-scheme:light;
+  --bg:#F4EFE6;
+  --paper:#F4EFE6;
+  --surface:#FBF6EC;
+  --paper-2:#EDE4D3;
+  --paper-3:#D0C0A6;
+  --text:#1A1714;
+  --ink:#1A1714;
+  --text-secondary:#62584C;
+  --ink-2:#3A322A;
+  --muted:#756A5F;
+  --dim:#756A5F;
+  --muted-readable:#5B5046;
+  --line:rgba(26,23,20,.16);
+  --rule:var(--line);
+  --accent:#8C2B22;
+  --wine:#7A241F;
+  --wine-2:#551715;
+  --gold:var(--accent);
+  --gold-2:#A64232;
+  --primary:var(--wine);
+  --primary-text:#FFF8EC;
+  --secondary-bg:#EFE6D6;
+  --secondary-text:#2F2923;
+  --active-bg:#1A1714;
+  --active-text:#FFF8EC;
+  --disabled-bg:#D8CCBA;
+  --disabled-text:#8A7F73;
+  --danger:#A13A2F;
+  --focus:rgba(140,43,34,.35);
+  --nav-bg:rgba(244,239,230,.96);
+}
+body.theme-dark{
+  color-scheme:dark;
+  --bg:#0F0D0B;
+  --paper:#0F0D0B;
+  --surface:#1B1713;
+  --paper-2:#1E1915;
+  --paper-3:#33281F;
+  --text:#F6EEE2;
+  --ink:#F6EEE2;
+  --text-secondary:#D8CBB8;
+  --ink-2:#E2D4C0;
+  --muted:#B5A995;
+  --dim:#B5A995;
+  --muted-readable:#D1C4B0;
+  --line:rgba(246,238,226,.18);
+  --rule:var(--line);
+  --accent:#D06A58;
+  --wine:#C65A4B;
+  --wine-2:#F0A092;
+  --gold:var(--accent);
+  --gold-2:#F0A092;
+  --primary:#C65A4B;
+  --primary-text:#130F0C;
+  --secondary-bg:#261F1A;
+  --secondary-text:#F1E5D5;
+  --active-bg:#F6EEE2;
+  --active-text:#130F0C;
+  --disabled-bg:#2A241F;
+  --disabled-text:#82776B;
+  --danger:#FF8E7B;
+  --focus:rgba(208,106,88,.45);
+  --nav-bg:rgba(15,13,11,.97);
+}
+html,body{background:var(--bg);color:var(--text)}
+.app{background:var(--bg);padding-bottom:calc(156px + env(safe-area-inset-bottom))}
+body.theme-dark::before{opacity:.12}
+a,.link-btn,.section-head .more,.link-manual{color:var(--accent)}
+button,a,input,textarea,select{ -webkit-tap-highlight-color:transparent }
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+
+.btn-primary,.btn-secondary,.btn-ghost,.btn-danger,.btn-small,
+.empty-rich .btn-cta,.empty-rich .btn-secondary,.profile .pbtn,.screen-head .btn-share,
+.edition-action,.work-actions button,.work-my-reading,.reading-diary-action,.review-card-action,
+.modal-actions .btn-share-card,.modal-actions .btn-secondary,.modal-actions .btn-danger,
+.card-export-actions .btn-share-card,.card-export-actions .btn-secondary,.btn-cover-card{
+  border-radius:999px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:11px 16px;line-height:1.2;white-space:normal;word-break:normal;overflow-wrap:normal;text-align:center;letter-spacing:.09em;text-transform:uppercase;font-family:"Space Mono",monospace;font-size:10px;
+}
+.btn-primary,.empty-rich .btn-cta,.profile .pbtn.solid,.edition-action,.work-actions button:first-child,.work-my-reading,.reading-diary-action,.modal-actions .btn-share-card,.card-export-actions .btn-share-card{background:var(--primary);border:1px solid var(--primary);color:var(--primary-text);box-shadow:none}
+.btn-secondary,.empty-rich .btn-secondary,.profile .pbtn,.screen-head .btn-share,.work-actions button,.modal-actions .btn-secondary,.card-export-actions .btn-secondary,.btn-cover-card{background:var(--secondary-bg);border:1px solid var(--rule);color:var(--secondary-text);box-shadow:none}
+.btn-ghost{background:transparent;border:1px solid var(--rule);color:var(--text-secondary)}
+.btn-danger,.modal-actions .btn-danger{background:transparent;border:1px solid color-mix(in srgb,var(--danger),transparent 55%);color:var(--danger)}
+.btn-small{min-height:38px;padding:8px 12px;font-size:9px;letter-spacing:.08em}
+button:disabled,.btn-primary:disabled,.btn-secondary:disabled,.is-disabled,[aria-disabled="true"]{background:var(--disabled-bg);border-color:var(--rule);color:var(--disabled-text);cursor:not-allowed;opacity:1;box-shadow:none}
+
+.search,.card-form,.reading-form-block,.profile .pcard,.account-box,.manual-cta.prominent,.library-box,.work-section,.community-summary div,.review-card,.diary-entry-card,.reading-now-card,.profile-metrics div{background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:none}
+.search{border-radius:18px;background:var(--surface)}
+.search button{background:var(--primary);color:var(--primary-text);border-radius:0;min-height:100%;white-space:nowrap}
+.field input[type=text],.field input[type=email],.field input[type=password],.field textarea,.field select,.diary-form input,.diary-form textarea,.search input{
+  background:var(--paper-2);color:var(--text);border:1px solid var(--rule);border-radius:12px;line-height:1.35;
+}
+.search input{border:0;background:transparent;border-radius:0}
+input::placeholder,textarea::placeholder,.search input::placeholder{color:var(--muted);opacity:1}
+.field label{color:var(--text-secondary);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.form-helper,.diary-helper,.screen-helper,.search-hint,.empty,.empty-rich p,.detail-muted,.detail-empty{color:var(--muted-readable)}
+.meta,.book .a,.book .yr,.diary .dwhen,.diary .drelato,.review-top,.review-card p,.work-stats-empty p,.selected-edition-author,.selected-edition-meta{color:var(--text-secondary)}
+.label,.diary-form-title,.community-label,.book .e,.edition .tr b,.edition-stats{color:var(--accent)}
+
+.tabs{background:var(--nav-bg);border-top:1px solid var(--rule);box-shadow:0 -10px 26px rgba(26,23,20,.10)}
+body.theme-dark .tabs{box-shadow:0 -14px 32px rgba(0,0,0,.55)}
+.tab{min-height:52px;color:var(--muted)}
+.tab.active{color:var(--text)}
+.tab.active::before{background:var(--accent)}
+.toast{background:var(--active-bg);color:var(--active-text);border:1px solid var(--rule);border-radius:14px;bottom:calc(96px + env(safe-area-inset-bottom));letter-spacing:.06em;text-transform:none}
+.modal{background:rgba(10,8,7,.78);padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.modal-card{background:var(--surface);border-color:var(--rule);border-radius:18px;color:var(--text);max-height:calc(100dvh - 28px);overflow:auto}
+.modal-x{color:var(--text-secondary);min-width:44px;min-height:44px}
+.diary-card-notice,.detail-quote{background:color-mix(in srgb,var(--accent),transparent 88%);border-color:color-mix(in srgb,var(--accent),transparent 65%);color:var(--text-secondary)}
+.empty-rich{padding:34px 16px;border:1px dashed var(--rule);border-radius:18px;background:color-mix(in srgb,var(--surface),transparent 24%)}
+.shelf-row,.diary li,.edition{border-bottom-color:var(--rule)}
+.shelf-pill,.shelf-view-btn,.theme-option span,.chip{border-color:var(--rule);background:var(--secondary-bg);color:var(--secondary-text);min-height:40px}
+.shelf-pill.active,.shelf-view-btn.active,.theme-option input:checked + span,.chip:active{background:var(--active-bg);border-color:var(--active-bg);color:var(--active-text)}
+.check-line{border-radius:12px;padding:.55rem .45rem}.check-line input{accent-color:var(--primary)}
+
+@media(max-width:420px){
+  .app{padding-left:18px;padding-right:18px;padding-bottom:calc(164px + env(safe-area-inset-bottom))}
+  .h-display{font-size:clamp(32px,10vw,38px)}.h-section{font-size:clamp(24px,8vw,30px)}
+  .topbar{margin-bottom:16px}.wordmark{font-size:34px}
+  .search{grid-template-columns:auto minmax(0,1fr) 52px}.search input{font-size:16px;min-width:0}.search button{min-width:52px}
+  .wall{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.wall-mini{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 8px}
+  .row,.work-actions,.profile-public-actions{gap:8px}.row{flex-direction:column}
+  .community-summary,.profile-metrics,.work-stats{gap:8px}.community-summary small,.profile-metrics span{letter-spacing:.08em}
+  .modal{padding:10px 10px calc(18px + env(safe-area-inset-bottom))}.modal-card{border-radius:16px;max-height:calc(100dvh - 20px)}
+  .btn-primary,.btn-secondary,.btn-ghost,.btn-danger,.empty-rich .btn-cta,.empty-rich .btn-secondary,.profile .pbtn,.work-actions button,.work-my-reading{width:100%}
+}
