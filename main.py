@@ -535,24 +535,26 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 }
             })
     edicoes = []
-    ed_por_id = {ed.id: ed for (_l, ed, _o, _u) in rows}
+    edicoes_locais = s.exec(select(Edicao).where(Edicao.obra_id == obra.id)).all()
+    ed_por_id = {ed.id: ed for ed in edicoes_locais}
     all_ed_ids = list(ed_por_id.keys())
     rel_map = _edition_relation_map(s, usuario_id, all_ed_ids)
     social_counts = {ed_id: _edition_stats(s, ed_id) for ed_id in all_ed_ids}
-    for ed_id, st in por_edicao.items():
-        ed = ed_por_id.get(ed_id)
+    for ed_id, ed in ed_por_id.items():
+        st = por_edicao.get(ed_id, {"leituras": 0, "notas": []})
         counts = social_counts.get(ed_id, {})
         edicoes.append({
             "edicao_id": ed_id,
+            "ol_edition_key": ed.ol_edition_key,
             "leituras": st["leituras"],
             "tem": counts.get("tem", 0),
             "querem": counts.get("querem", 0),
             "media": round(sum(st["notas"]) / len(st["notas"]), 2) if st["notas"] else None,
             "estado": {**rel_map.get(ed_id, {"tenho": False, "quero": False}), "li": _edition_read_by_user(s, ed_id, usuario_id)},
             "edicao": {
-                "editora": ed.editora if ed else "", "ano": ed.ano if ed else None,
-                "tradutor": ed.tradutor if ed else "", "isbn": ed.isbn if ed else "",
-                "idioma": ed.idioma if ed else "", "capa_url": ed.capa_url if ed else "",
+                "editora": ed.editora, "ano": ed.ano,
+                "tradutor": ed.tradutor, "isbn": ed.isbn,
+                "idioma": ed.idioma, "capa_url": ed.capa_url,
             },
         })
     destaques_edicao = {
@@ -571,11 +573,13 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
     destaques_edicao["traducao_mais_lida"] = max(trad_counts.items(), key=lambda x: x[1])[0] if trad_counts else None
     destaques_edicao["editora_mais_lida"] = max(pub_counts.items(), key=lambda x: x[1])[0] if pub_counts else None
     return {
-        "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor},
+        "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor, "ano": obra.ano, "idioma_original": obra.idioma_original},
         "estatisticas": {
             "leituras": len(leituras),
             "criticas": len(criticas),
             "media": round(sum(notas) / len(notas), 2) if notas else None,
+            "lendo": sum(1 for l in leituras if (l.status or "").lower() == "lendo"),
+            "querem": sum(e.get("querem", 0) for e in edicoes),
         },
         "edicoes": edicoes,
         "criticas": criticas[:8],
@@ -600,7 +604,7 @@ def obra_social(work_key: str = "", titulo: str = "", autor: str = "", request: 
     if not obra:
         return {
             "obra": {"work_key": work_key, "titulo": titulo, "autor": autor},
-            "estatisticas": {"leituras": 0, "criticas": 0, "media": None},
+            "estatisticas": {"leituras": 0, "criticas": 0, "media": None, "lendo": 0, "querem": 0},
             "edicoes": [], "criticas": [], "destaques": [], "destaques_edicao": {}, "minha_leitura": None,
         }
     return _obra_social_payload(obra, s, u.id)
