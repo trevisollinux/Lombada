@@ -2,7 +2,7 @@
    Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v3';
+const CACHE_NAME = 'lombada-shell-v4';
 
 const APP_SHELL = [
   '/',
@@ -10,7 +10,8 @@ const APP_SHELL = [
   '/static/i18n.js',
   '/static/app.js',
   '/static/icons/icon.svg',
-  '/static/icons/icon-maskable.svg'
+  '/static/icons/icon-maskable.svg',
+  '/manifest.json'
 ];
 
 const NETWORK_TIMEOUT_MS = 1800;
@@ -20,7 +21,6 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(APP_SHELL);
-    await self.skipWaiting();
   })());
 });
 
@@ -34,8 +34,16 @@ self.addEventListener('activate', event => {
         .map(key => caches.delete(key))
     );
 
+
     await self.clients.claim();
   })());
+});
+
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', event => {
@@ -98,10 +106,7 @@ async function networkFirstWithTimeout(request) {
     if (cached) return cached;
 
     if (request.mode === 'navigate') {
-      return new Response(
-        '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Lombada</title><body style="font-family:Georgia,serif;padding:24px;background:#ECE4D4;color:#1A1714"><h1>Lombada.</h1><p>Sem conexão no momento. Tente abrir novamente em alguns instantes.</p></body></html>',
-        { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-      );
+      return new Response(offlineHTML(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
     throw error;
@@ -122,4 +127,21 @@ async function networkFirst(request) {
     if (cached) return cached;
     throw error;
   }
+}
+
+function offlineHTML() {
+  return `<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lombada offline</title>
+<body style="margin:0;font-family:Georgia,serif;background:#ECE4D4;color:#1A1714;display:grid;min-height:100vh;place-items:center;padding:24px">
+  <main style="max-width:36rem;border:1px solid rgba(26,23,20,.18);background:#F4EFE6;padding:28px;border-radius:18px">
+    <p style="font-family:monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:#6F6655">Lombada</p>
+    <h1 style="font-size:32px;margin:.35rem 0 1rem">Você está offline.</h1>
+    <p style="font-size:18px;line-height:1.45">A Lombada precisa de conexão para buscar livros e sincronizar sua estante. Tente novamente quando a internet voltar.</p>
+    <button type="button" onclick="location.reload()" style="margin-top:1.25rem;border:1px solid #1A1714;background:#1A1714;color:#ECE4D4;border-radius:999px;padding:12px 18px;font:700 11px monospace;text-transform:uppercase;letter-spacing:.12em">Tentar novamente</button>
+  </main>
+</body>
+</html>`;
 }

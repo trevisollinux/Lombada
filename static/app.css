@@ -1369,3 +1369,41 @@ body.theme-dark .tabs{box-shadow:0 -14px 32px rgba(0,0,0,.55)}
   .modal{padding:10px 10px calc(18px + env(safe-area-inset-bottom))}.modal-card{border-radius:16px;max-height:calc(100dvh - 20px)}
   .btn-primary,.btn-secondary,.btn-ghost,.btn-danger,.empty-rich .btn-cta,.empty-rich .btn-secondary,.profile .pbtn,.work-actions button,.work-my-reading{width:100%}
 }
+
+.pwa-banner{
+  position:fixed;
+  left:50%;
+  bottom:calc(96px + env(safe-area-inset-bottom));
+  z-index:85;
+  width:min(440px,calc(100vw - 32px));
+  transform:translate(-50%,12px);
+  opacity:0;
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border:1px solid var(--rule);
+  border-radius:16px;
+  background:var(--surface,var(--paper-2));
+  color:var(--text,var(--ink));
+  box-shadow:0 14px 30px rgba(26,23,20,.18);
+  font-family:"Spectral",Georgia,serif;
+  transition:opacity .22s ease,transform .22s ease;
+}
+.pwa-banner.show{opacity:1;transform:translate(-50%,0)}
+.pwa-banner-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pwa-banner button{
+  min-height:38px;
+  border:1px solid var(--primary,var(--ink));
+  border-radius:999px;
+  padding:8px 12px;
+  background:var(--primary,var(--ink));
+  color:var(--primary-text,var(--paper));
+  font-family:"Space Mono",monospace;
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.pwa-banner button.ghost{background:transparent;color:var(--text-secondary,var(--ink-2));border-color:var(--rule)}
+.install-box p{color:var(--text-secondary,var(--ink-2));margin:.35rem 0 0}
+.app-version{margin-top:18px;color:var(--muted,var(--dim));font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
+@media(max-width:420px){.pwa-banner{bottom:calc(108px + env(safe-area-inset-bottom))}.pwa-banner-actions button{flex:1}}
