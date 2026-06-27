@@ -1060,3 +1060,18 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
     flex-basis:100%;
   }
 }
+
+/* diário — fluxo diário mais editorial */
+.reading-diary-action{align-self:flex-start;margin-top:12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:10px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.diary-continue{margin-bottom:14px}
+.diary-form-title{font-size:12px;color:var(--gold)}
+.diary-form-helper{font-size:13px;line-height:1.4;color:var(--dim);font-style:italic;margin:4px 0 14px}
+.diary-entry-card{border:1px solid var(--rule);background:var(--paper-2);padding:18px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.diary-entry-card .dmeta{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.06em;color:var(--dim);margin-top:5px;line-height:1.35}
+.diary-entry-card .diary-progress{font-family:"Space Mono",monospace;font-size:12px;color:var(--ink-2);margin-top:12px;letter-spacing:.04em}
+.diary-entry-card .drelato{margin-top:14px;padding:12px 0 2px;font-size:15px;line-height:1.55;color:var(--ink-2);font-style:italic;display:block;overflow:visible;-webkit-line-clamp:unset}
+.diary-entry-card .spoiler-note{border-left:3px solid var(--gold);padding-left:12px;color:var(--ink-2)}
+.diary-entry-card .spoiler-note summary{cursor:pointer;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-style:normal}
+.diary-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;color:var(--dim);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.diary-actions button{color:var(--ink-2);font:inherit;text-transform:inherit;letter-spacing:inherit}
+@media(max-width:420px){.reading-diary-action{width:100%;text-align:center}.diary-entry-card{padding:16px 14px}.diary-entry-card .drelato{font-size:14px}}
