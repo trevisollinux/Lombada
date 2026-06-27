@@ -1589,7 +1589,8 @@ async function compartilharEstante(){
 /* ---------- card / modal ---------- */
 
 function nomeCapaCard(){
-  return cardCoverIndex===0 ? t('original_cover') : t('lombada_cover',{count:cardCoverIndex});
+  if(cardCoverIndex===0) return t('original_cover');
+  return t(cardCoverIndex===1?'lombada_cover_title_page':'lombada_cover_dark_collection');
 }
 function atualizarControleCapaCard(){
   const label=$('#cardCoverModeLabel');
@@ -1599,7 +1600,7 @@ function trocarCapaCard(){
   if(!cardAtual)return;
   cardCoverAutoLowRes=false;
   cardCoverUserChanged=true;
-  cardCoverIndex=(cardCoverIndex+1)%5;
+  cardCoverIndex=(cardCoverIndex+1)%3;
   atualizarControleCapaCard();
   updateShareCardPreview(cardAtual);
   toast(nomeCapaCard());
@@ -1762,6 +1763,16 @@ function drawPaperTexture(ctx,x,y,w,h,color='rgba(26,23,20,.035)',step=26){
 }
 function effectiveCardTheme(){ return cardTheme==='auto'?(document.body.getAttribute('data-theme')==='dark'?'dark':'light'):cardTheme; }
 function cardPalette(){ return effectiveCardTheme()==='dark'?{bg1:'#15110E',bg2:'#251B16',text:'#F3EBDD',muted:'#CDBFA9',rule:'rgba(243,235,221,.26)',gold:'#C6A24A',texture:'rgba(255,255,255,.035)'}:{bg1:'#F4EDDF',bg2:'#E5DAC6',text:'#3A322A',muted:'#6F6655',rule:'rgba(26,23,20,.25)',gold:'#A8842F',texture:'rgba(58,50,42,.025)'}; }
+function bookHue(title,author){
+  const text=`${title||''} ${author||''}`;
+  let hash=0;
+  for(let i=0;i<text.length;i++) hash=(hash*31+text.charCodeAt(i))%360;
+  return hash;
+}
+function coverAccent(title,author,light=true){
+  const hue=bookHue(title,author);
+  return `hsl(${hue} ${light?'48% 36%':'44% 58%'})`;
+}
 function drawShareCardBackground(ctx,l,W,H){
   const p=cardPalette(); ctx.clearRect(0,0,W,H);
   const g=ctx.createLinearGradient(0,0,W,H);
@@ -1769,40 +1780,58 @@ function drawShareCardBackground(ctx,l,W,H){
   ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   drawPaperTexture(ctx,0,0,W,H,p.texture,34);
 }
+function fitFontSize(ctx,text,fontFactory,maxW,maxSize,minSize){
+  let size=maxSize;
+  while(size>minSize){
+    ctx.font=fontFactory(size);
+    if(ctx.measureText(text||'').width<=maxW)break;
+    size-=2;
+  }
+  ctx.font=fontFactory(size);
+  return size;
+}
+function drawEditorialCoverFrame(ctx,x,y,w,h,{paper,ink,accent,dark=false}){
+  ctx.fillStyle=paper;ctx.fillRect(x,y,w,h);
+  drawPaperTexture(ctx,x,y,w,h,dark?'rgba(255,255,255,.028)':'rgba(70,54,36,.04)',28);
+  ctx.strokeStyle=dark?'rgba(234,224,205,.52)':'rgba(60,44,34,.68)';
+  ctx.lineWidth=5;ctx.strokeRect(x+44,y+44,w-88,h-88);
+  ctx.lineWidth=1.5;ctx.strokeRect(x+66,y+66,w-132,h-132);
+  ctx.fillStyle=accent;ctx.fillRect(x+w*.27,y+126,w*.46,7);
+  ctx.fillRect(x+w*.39,y+h-166,w*.22,4);
+  ctx.fillStyle=ink;
+}
 function drawGeneratedLombadaCover(ctx,l,x,y,w,h,style=0){
   ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
-  const title=l.titulo||'';const author=(l.autor||'').toUpperCase();
-  if(style===0){
-    ctx.fillStyle='#EFE2C8';ctx.fillRect(x,y,w,h);drawPaperTexture(ctx,x,y,w,h,'rgba(70,54,36,.045)',30);
-    ctx.strokeStyle='#4B3527';ctx.lineWidth=6;ctx.strokeRect(x+44,y+44,w-88,h-88);ctx.lineWidth=1.5;ctx.strokeRect(x+66,y+66,w-132,h-132);
-    ctx.fillStyle='#8B0E20';ctx.fillRect(x+w*.25,y+126,w*.5,7);ctx.fillRect(x+w*.35,y+h-166,w*.3,4);
-    ctx.fillStyle='#3C2C22';ctx.font="700 30px 'Space Mono', monospace";drawCanvasTextLines(ctx,author,x+w/2,y+205,w-170,38,2,'center');
-    ctx.font="700 78px Fraunces, serif";drawCanvasTextLines(ctx,title,x+w/2,y+h*.42,w-170,84,5,'center');
-    ctx.font="400 24px 'Space Mono', monospace";ctx.fillStyle='rgba(60,44,34,.70)';ctx.fillText('COLEÇÃO LOMBADA',x+w/2,y+h-108);
-  }else if(style===1){
-    const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,'#9F1128');g.addColorStop(1,'#4E0712');ctx.fillStyle=g;ctx.fillRect(x,y,w,h);
-    ctx.fillStyle='#F0D9A4';ctx.fillRect(x+62,y+74,w-124,12);ctx.fillRect(x+62,y+h-132,w-124,12);
-    ctx.fillStyle='rgba(241,230,210,.12)';ctx.beginPath();ctx.arc(x+w*.76,y+h*.27,150,0,Math.PI*2);ctx.fill();ctx.fillStyle='#11100E';ctx.fillRect(x+w*.09,y+h*.55,w*.30,h*.30);
-    ctx.strokeStyle='#F0D9A4';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x+80,y+h*.50);ctx.lineTo(x+w-80,y+h*.36);ctx.stroke();
-    ctx.fillStyle='#F4EFE6';ctx.font="800 78px Fraunces, serif";drawCanvasTextLines(ctx,title,x+80,y+330,w-160,84,5,'left');
-    ctx.font="700 30px 'Space Mono', monospace";ctx.fillStyle='#F0D9A4';drawCanvasTextLines(ctx,author,x+80,y+h-230,w-160,38,2,'left');
-  }else if(style===2){
-    ctx.fillStyle='#11100E';ctx.fillRect(x,y,w,h);drawPaperTexture(ctx,x,y,w,h,'rgba(255,255,255,.035)',22);
-    const rg=ctx.createRadialGradient(x+w*.62,y+h*.34,40,x+w*.62,y+h*.34,420);rg.addColorStop(0,'rgba(168,132,47,.28)');rg.addColorStop(1,'rgba(168,132,47,0)');ctx.fillStyle=rg;ctx.fillRect(x,y,w,h);
-    ctx.strokeStyle='#A8842F';ctx.lineWidth=2;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(x+92,y+150+i*34);ctx.lineTo(x+w-92,y+150+i*34);ctx.stroke();}
-    ctx.fillStyle='#EAE0CD';ctx.font="700 76px Fraunces, serif";drawCanvasTextLines(ctx,title,x+92,y+h*.43,w-184,82,5,'left');
-    ctx.font="700 28px 'Space Mono', monospace";ctx.fillStyle='#A8842F';drawCanvasTextLines(ctx,author,x+92,y+h-190,w-184,36,2,'left');
-    ctx.fillStyle='rgba(234,224,205,.75)';ctx.fillRect(x+92,y+h-104,w-184,2);
-  }else{
-    ctx.fillStyle='#EDE7D8';ctx.fillRect(x,y,w,h);
-    ctx.fillStyle='#1E2F3F';ctx.beginPath();ctx.arc(x+w*.22,y+h*.24,170,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#D98963';ctx.beginPath();ctx.ellipse(x+w*.74,y+h*.62,190,310,-.35,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#8B0E20';ctx.fillRect(x+w*.08,y+h*.78,w*.84,18);ctx.fillStyle='rgba(26,23,20,.08)';ctx.fillRect(x+w*.53,y+80,28,h-160);
-    ctx.fillStyle='#1A1714';ctx.font="800 74px Fraunces, serif";drawCanvasTextLines(ctx,title,x+78,y+250,w-156,82,5,'left');
-    ctx.font="700 29px 'Space Mono', monospace";ctx.fillStyle='#1E2F3F';drawCanvasTextLines(ctx,author,x+78,y+h-180,w-156,38,2,'left');
-    ctx.font="400 23px 'Space Mono', monospace";ctx.fillText('ensaio visual lombada',x+78,y+h-92);
+  const title=l.titulo||'';
+  const author=(l.autor||'').toUpperCase();
+  const dark=style===1;
+  const accent=coverAccent(title,author,!dark);
+  const paper=dark?'#12100E':'#EFE2C8';
+  const ink=dark?'#EAE0CD':'#3C2C22';
+  drawEditorialCoverFrame(ctx,x,y,w,h,{paper,ink,accent,dark});
+  ctx.textBaseline='alphabetic';
+
+  ctx.fillStyle=dark?'rgba(168,132,47,.55)':'rgba(139,14,32,.22)';
+  ctx.lineWidth=2;
+  for(let i=0;i<4;i++){
+    const yy=y+154+i*34;
+    ctx.beginPath();ctx.moveTo(x+92,yy);ctx.lineTo(x+w-92,yy);ctx.strokeStyle=ctx.fillStyle;ctx.stroke();
   }
+
+  ctx.fillStyle=ink;
+  fitFontSize(ctx,author,s=>`700 ${s}px 'Space Mono', monospace`,w-170,30,20);
+  drawCanvasTextLines(ctx,author,x+w/2,y+205,w-170,36,2,'center');
+
+  const titleLen=title.length;
+  const titleMax=titleLen>34?68:78;
+  fitFontSize(ctx,title,s=>`700 ${s}px Fraunces, serif`,w-170,titleMax,46);
+  drawCanvasTextLines(ctx,title,x+w/2,y+h*.43,w-170,76,5,'center');
+
+  ctx.fillStyle=dark?'rgba(234,224,205,.70)':'rgba(60,44,34,.68)';
+  ctx.font="400 24px 'Space Mono', monospace";
+  ctx.textAlign='center';
+  ctx.fillText('edição de leitor',x+w/2,y+h-108);
   ctx.restore();ctx.strokeStyle='rgba(26,23,20,.28)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
 }
 function drawShareCover(ctx,l,x,y,w,h,selected){
@@ -1848,12 +1877,12 @@ function drawShareCardText(ctx,l,W,H,cy,ch){
   drawFooter(ctx,l,W,H);
 }
 function getSelectedShareCover(l){
-  const index=Math.max(0,Math.min(4,Number(cardCoverIndex)||0));
+  const index=Math.max(0,Math.min(2,Number(cardCoverIndex)||0));
   return {
     index,
     type:index===0?'original':'lombada',
     url:index===0?(l?.capa_url||''):'',
-    variacao:Math.max(0,index-1)
+    variacao:index===2?1:0
   };
 }
 function loadShareCardImage(src){
