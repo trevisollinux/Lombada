@@ -1173,3 +1173,55 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 .review-card.has-spoiler.spoiler-open .spoiler-box p{
   display:none;
 }
+
+/* Context-specific cover behavior: shelf thumbnails crop like books; share/reading previews can contain. */
+.shelf-list .shelf-cover,
+.shelf-wall .shelf-cover{
+  position:relative;
+  aspect-ratio:2/3;
+  overflow:hidden;
+  background:transparent;
+  flex:0 0 auto;
+  max-width:100%;
+}
+.shelf-list .shelf-cover{width:92px;max-width:92px;box-shadow:var(--shadow-sm)}
+.shelf-wall .shelf-cover{width:100%;box-shadow:var(--shadow-sm)}
+.shelf-list .shelf-cover img,
+.shelf-wall .shelf-cover img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  background:transparent;
+}
+.share-card-cover-frame img,
+.reading-cover .cover img{
+  object-fit:contain;
+}
+.continue-reading-actions{
+  display:grid;
+  gap:.75rem;
+  margin-top:12px;
+  width:100%;
+  max-width:100%;
+}
+.continue-reading-actions button,
+.continue-reading-actions .btn,
+.continue-reading-actions .review-card-action,
+.continue-reading-actions .reading-diary-action{
+  width:100%;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.25;
+  text-align:center;
+  box-sizing:border-box;
+  min-width:0;
+  align-self:stretch;
+  margin-top:0;
+}
+.continue-reading-actions .reading-review-card-action{margin-bottom:0}
+@media(max-width:420px){
+  .continue-reading-actions{gap:.6rem}
+  .continue-reading-actions .reading-diary-action{padding:9px 8px;font-size:9px;letter-spacing:.08em}
+}
