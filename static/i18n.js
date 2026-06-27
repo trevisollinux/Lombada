@@ -124,6 +124,11 @@ const I18N = {
     date_placeholder: 'ex: jun 2026',
     reading_note: 'Comentário da leitura',
     reading_note_placeholder: 'anotação rápida sobre esta leitura…',
+    reading_impression: 'Sua impressão',
+    reading_impression_placeholder: 'o que você está achando até agora?',
+    reading_expectation: 'Sua expectativa',
+    reading_expectation_placeholder: 'o que você espera dessa leitura?',
+    fill_reading_below: 'Preencha sua leitura abaixo.',
     title: 'título',
     your_review: 'Sua crítica',
     your_review_placeholder: 'o que você achou dessa leitura?',
@@ -441,6 +446,11 @@ const I18N = {
     "date_placeholder": "e.g. Jun 2026",
     "reading_note": "Reading note",
     "reading_note_placeholder": "quick note about this reading…",
+    "reading_impression": "Your impression",
+    "reading_impression_placeholder": "what are you thinking so far?",
+    "reading_expectation": "Your expectation",
+    "reading_expectation_placeholder": "what do you expect from this book?",
+    "fill_reading_below": "Fill in your reading below.",
     "title": "title",
     "your_review": "Your review",
     "your_review_placeholder": "what did you think of this reading?",
@@ -757,6 +767,11 @@ const I18N = {
     "date_placeholder": "ej.: jun 2026",
     "reading_note": "Comentario de lectura",
     "reading_note_placeholder": "nota rápida sobre esta lectura…",
+    "reading_impression": "Tu impresión",
+    "reading_impression_placeholder": "¿qué te está pareciendo hasta ahora?",
+    "reading_expectation": "Tu expectativa",
+    "reading_expectation_placeholder": "¿qué esperas de esta lectura?",
+    "fill_reading_below": "Completa tu lectura abajo.",
     "title": "título",
     "your_review": "Tu reseña",
     "your_review_placeholder": "¿qué te pareció esta lectura?",
@@ -988,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => applyI18n());
 
 Object.assign(I18N['pt-BR'], {
   about_work: 'Sobre a obra', no_work_description: 'Ainda não temos uma descrição para esta obra.', suggest_description: 'Sugerir descrição', description_suggestions_soon: 'Sugestões de descrição entram em breve.',
-  your_reading: 'Sua leitura', your_review: 'Sua crítica', reading_note: 'Anotação', why_want_read: 'Motivo', options: 'Opções', relation_with_edition: 'Minha relação com a edição',
+  your_reading: 'Sua leitura', your_review: 'Sua crítica', reading_note: 'Anotação', reading_impression: 'Sua impressão', reading_expectation: 'Sua expectativa', why_want_read: 'Motivo', options: 'Opções', relation_with_edition: 'Minha relação com a edição',
   public_profile_hint: 'Seu perfil público mostra leituras públicas, críticas e estatísticas literárias sem expor e-mail ou relatos privados.',
   discover_hint: 'Críticas recentes, leitores ativos e livros comentados.', following_hint: 'Atividade dos leitores que você acompanha.',
   empty_shelf_title: 'Sua estante ainda está vazia.', empty_shelf_hint: 'Busque um livro para registrar sua primeira leitura.',
@@ -996,11 +1011,11 @@ Object.assign(I18N['pt-BR'], {
   empty_reviews_title: 'Ainda não há críticas públicas para esta obra.', empty_reviews_hint: 'Se você já leu, seja a primeira pessoa a escrever.',
   explore_reviews: 'Explorar críticas recentes', discover_readers: 'Descobrir leitores', empty_following_title: 'Você ainda não segue leitores.', empty_following_hint: 'Explore críticas recentes para encontrar pessoas.',
   no_public_reviews_html: 'Ainda não há críticas públicas para esta obra.<br>Se você já leu, seja a primeira pessoa a escrever.',
-  read_this_edition: 'Li nesta edição', you_read_this_edition: 'Você leu esta edição', reading_note_placeholder: 'como está sendo a leitura?', why_want_read_placeholder: 'por que você quer ler?'
+  read_this_edition: 'Li nesta edição', you_read_this_edition: 'Você leu esta edição', reading_note_placeholder: 'como está sendo a leitura?', reading_impression_placeholder: 'o que você está achando até agora?', reading_expectation_placeholder: 'o que você espera dessa leitura?', why_want_read_placeholder: 'por que você quer ler?', fill_reading_below: 'Preencha sua leitura abaixo.'
 });
 Object.assign(I18N['en'], {
   about_work: 'About the work', no_work_description: 'We do not have a description for this work yet.', suggest_description: 'Suggest description', description_suggestions_soon: 'Description suggestions are coming soon.',
-  your_reading: 'Your reading', your_review: 'Your review', reading_note: 'Note', why_want_read: 'Reason', options: 'Options', relation_with_edition: 'My relationship with this edition',
+  your_reading: 'Your reading', your_review: 'Your review', reading_note: 'Note', reading_impression: 'Your impression', reading_expectation: 'Your expectation', why_want_read: 'Reason', options: 'Options', relation_with_edition: 'My relationship with this edition',
   public_profile_hint: 'Your public profile shows public readings, reviews, and literary stats without exposing email or private notes.',
   discover_hint: 'Recent reviews, active readers, and talked-about books.', following_hint: 'Activity from readers you follow.',
   empty_shelf_title: 'Your shelf is still empty.', empty_shelf_hint: 'Search for a book to log your first reading.',
@@ -1008,11 +1023,11 @@ Object.assign(I18N['en'], {
   empty_reviews_title: 'There are no public reviews for this work yet.', empty_reviews_hint: 'If you have read it, be the first to write one.',
   explore_reviews: 'Explore recent reviews', discover_readers: 'Discover readers', empty_following_title: 'You do not follow readers yet.', empty_following_hint: 'Explore recent reviews to find people.',
   no_public_reviews_html: 'There are no public reviews for this work yet.<br>If you have read it, be the first to write one.',
-  read_this_edition: 'Read this edition', you_read_this_edition: 'You read this edition', reading_note_placeholder: 'how is the reading going?', why_want_read_placeholder: 'why do you want to read it?'
+  read_this_edition: 'Read this edition', you_read_this_edition: 'You read this edition', reading_note_placeholder: 'how is the reading going?', reading_impression_placeholder: 'what are you thinking so far?', reading_expectation_placeholder: 'what do you expect from this book?', why_want_read_placeholder: 'why do you want to read it?', fill_reading_below: 'Fill in your reading below.'
 });
 Object.assign(I18N['es'], {
   about_work: 'Sobre la obra', no_work_description: 'Todavía no tenemos una descripción para esta obra.', suggest_description: 'Sugerir descripción', description_suggestions_soon: 'Las sugerencias de descripción llegarán pronto.',
-  your_reading: 'Tu lectura', your_review: 'Tu crítica', reading_note: 'Anotación', why_want_read: 'Motivo', options: 'Opciones', relation_with_edition: 'Mi relación con la edición',
+  your_reading: 'Tu lectura', your_review: 'Tu crítica', reading_note: 'Anotación', reading_impression: 'Tu impresión', reading_expectation: 'Tu expectativa', why_want_read: 'Motivo', options: 'Opciones', relation_with_edition: 'Mi relación con la edición',
   public_profile_hint: 'Tu perfil público muestra lecturas públicas, críticas y estadísticas literarias sin exponer correo o notas privadas.',
   discover_hint: 'Críticas recientes, lectores activos y libros comentados.', following_hint: 'Actividad de lectores que sigues.',
   empty_shelf_title: 'Tu estante todavía está vacío.', empty_shelf_hint: 'Busca un libro para registrar tu primera lectura.',
@@ -1020,5 +1035,5 @@ Object.assign(I18N['es'], {
   empty_reviews_title: 'Todavía no hay críticas públicas para esta obra.', empty_reviews_hint: 'Si ya la leíste, sé la primera persona en escribir.',
   explore_reviews: 'Explorar críticas recientes', discover_readers: 'Descubrir lectores', empty_following_title: 'Todavía no sigues lectores.', empty_following_hint: 'Explora críticas recientes para encontrar personas.',
   no_public_reviews_html: 'Todavía no hay críticas públicas para esta obra.<br>Si ya la leíste, sé la primera persona en escribir.',
-  read_this_edition: 'Leí esta edición', you_read_this_edition: 'Leíste esta edición', reading_note_placeholder: '¿cómo va la lectura?', why_want_read_placeholder: '¿por qué quieres leerlo?'
+  read_this_edition: 'Leí esta edición', you_read_this_edition: 'Leíste esta edición', reading_note_placeholder: '¿cómo va la lectura?', reading_impression_placeholder: '¿qué te está pareciendo hasta ahora?', reading_expectation_placeholder: '¿qué esperas de esta lectura?', why_want_read_placeholder: '¿por qué quieres leerlo?', fill_reading_below: 'Completa tu lectura abajo.'
 });
