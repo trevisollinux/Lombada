@@ -263,8 +263,14 @@ input,textarea,select{font:inherit;color:inherit}
 .card-cover-control{display:grid;gap:10px}
 .card-cover-control .label{font-size:11px}
 .card-cover-control p{color:var(--dim);font-size:14px;font-style:italic;margin-bottom:2px}
+.diary-card-notice{border:1px solid rgba(168,132,47,.35);background:rgba(168,132,47,.10);padding:10px 12px;color:var(--ink-2);font-size:13px;line-height:1.45}
+.diary-card-notice p+p{margin-top:6px}
+.card-export-actions{display:grid;grid-template-columns:1fr;gap:8px}
+.card-export-actions .btn-share-card,.card-export-actions .btn-secondary{width:100%;padding:13px;text-align:center;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.card-export-actions .btn-share-card{background:var(--ink);color:var(--paper)}
+.card-export-actions .btn-secondary{background:var(--paper-2);color:var(--ink-2);border:1px solid var(--rule)}
 .btn-cover-card{justify-self:start;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink-2);padding:12px 14px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;line-height:1.25;max-width:100%}
-.share-card-preview{width:min(100%,320px);height:auto;aspect-ratio:9/16;border:1px solid var(--rule);background:var(--paper-2);box-shadow:var(--shadow-sm);justify-self:center;display:block}
+.share-card-preview{width:min(100%,320px);height:auto;border:1px solid var(--rule);background:var(--paper-2);box-shadow:var(--shadow-sm);justify-self:center;display:block}
 .detail-stars{font-family:"Space Mono",monospace;color:var(--gold);font-size:26px;letter-spacing:.05em;line-height:1}
 .detail-rating-number{font-family:"Space Mono",monospace;color:var(--ink-2);font-size:13px;letter-spacing:.06em}
 .detail-muted,.detail-empty{color:var(--dim);font-size:14px;font-style:italic}
