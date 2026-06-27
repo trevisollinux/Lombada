@@ -495,6 +495,7 @@ function lendoAgoraCard(l,idx,compacto=false){
       <div class="reading-spacer"></div>
       <div class="reading-meta">${progresso.texto||t('no_progress_yet')}</div>
       ${progresso.barra!==null?`<div class="reading-progress"><span style="width:${progresso.barra}%"></span></div>`:''}
+      ${reviewCardActionHTML(idx,'reading-review-card-action')}
       <button type="button" class="reading-diary-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
     </div>
   </div>`;
@@ -1310,7 +1311,7 @@ function renderPrateleira(){
             <div class="shelf-row-author">${esc(l.autor)}</div>
             <div class="shelf-row-status">${esc(statusNota)}</div>
             ${metaListaEstante(l)?`<div class="shelf-row-meta">${metaListaEstante(l)}</div>`:''}
-            ${dataAno?`<div class="shelf-row-date">${esc(dataAno)}</div>`:''}${(l.tenho_edicao||l.quero_edicao)?`<div class="shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):''}${l.tenho_edicao&&l.quero_edicao?' · ':''}${l.quero_edicao?t('you_want_this_edition'):''}</div>`:''}
+            ${dataAno?`<div class="shelf-row-date">${esc(dataAno)}</div>`:''}${reviewCardActionHTML(i,'shelf-row-review-card')}${(l.tenho_edicao||l.quero_edicao)?`<div class="shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):''}${l.tenho_edicao&&l.quero_edicao?' · ':''}${l.quero_edicao?t('you_want_this_edition'):''}</div>`:''}
           </div></li>`;
       }).join('')}</ul>`
     : `<div class="wall">${itens.map(({l,i})=>`
@@ -1318,7 +1319,7 @@ function renderPrateleira(){
           ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'')}
           <div class="t">${esc(l.titulo)}</div>
           <div class="a">${esc(l.autor)}</div>
-          ${l.tradutor?`<div class="e">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}${(l.tenho_edicao||l.quero_edicao)?`<div class="e shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):t('you_want_this_edition')}</div>`:''}
+          ${l.tradutor?`<div class="e">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}${reviewCardActionHTML(i,'book-review-card')}${(l.tenho_edicao||l.quero_edicao)?`<div class="e shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):t('you_want_this_edition')}</div>`:''}
         </div>`).join('')}</div>`;
   $('#prateleira').innerHTML=`<p class="shelf-summary">${resumoEstante()}</p>`+conviteLoginHTML()+blocoLendoEstante()+controlesEstante()+(itens.length?corpo:vazio);
 }
@@ -1468,6 +1469,19 @@ async function excluirDiario(id,el=null){
     else toast(t('diary_save_error'));
   });
 }
+async function prepararCardCritica(idx){
+  const l=prateleira[idx];
+  if(!l){ toast(t('card_generation_error')); return; }
+  if(!(l.relato||'').trim()){ toast(t('review_card_empty')); return; }
+  await abrirCard(idx,{registrar:true,cardType:'critica'});
+  document.getElementById('shareCardPreview')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function reviewCardActionHTML(i,extraClass=''){
+  const l=prateleira[i];
+  if(!l || !(l.relato||'').trim()) return '';
+  return `<button type="button" class="review-card-action ${extraClass}" onclick="event.stopPropagation();prepararCardCritica(${i})">${t('review_card_cta')}</button>`;
+}
+
 async function prepararCardDiario(id){
   const e=diarioEntradas.find(x=>String(x.id)===String(id));
   if(!e){ toast(t('card_generation_error')); return; }
@@ -1540,7 +1554,7 @@ function renderPerfil(){
     </div>
     ${blocoVitrinePerfil(t('currently_reading'),lendoAgora,t('nothing_reading_now'),miniLivroPerfil)}
     ${favoritos.length?blocoVitrinePerfil(t('favorites'),favoritos,'',miniLivroPerfil):''}
-    ${blocoVitrinePerfil(t('public_reviews'),criticasPublicas,t('no_public_reviews'),l=>`<article class="profile-review"><strong>${esc(l.titulo)}</strong><span>${l.nota?estrelasStr(l.nota):t('no_rating')}</span><p>${l.spoiler?t('spoiler_review')+' — '+t('tap_to_reveal'):esc((l.relato||'').slice(0,140))}</p></article>`)}
+    ${blocoVitrinePerfil(t('public_reviews'),criticasPublicas,t('no_public_reviews'),l=>{ const i=prateleira.indexOf(l); return `<article class="profile-review"><strong>${esc(l.titulo)}</strong><span>${l.nota?estrelasStr(l.nota):t('no_rating')}</span><p>${l.spoiler?t('spoiler_review')+' — '+t('tap_to_reveal'):esc(trechoTexto(l.relato||'',140))}</p>${reviewCardActionHTML(i,'profile-review-card')}</article>`; })}
   `;
   const contaHTML=logado
     ? `<div class="account-box connected">
@@ -1668,7 +1682,8 @@ function setCardTheme(v){ cardTheme=['auto','light','dark'].includes(v)?v:'auto'
 function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPreview(cardAtual); }
 
 function diaryCardActive(){ return cardContext.type==='diario' && cardContext.source; }
-function shareCardSize(){ return diaryCardActive()?{w:1080,h:1350}:{w:1080,h:1920}; }
+function reviewCardActive(){ return cardContext.type==='critica' && (cardAtual?.relato||'').trim(); }
+function shareCardSize(){ return (diaryCardActive()||reviewCardActive())?{w:1080,h:1350}:{w:1080,h:1920}; }
 function configurarCanvasCard(cv){
   if(!cv)return;
   const size=shareCardSize();
@@ -1676,9 +1691,14 @@ function configurarCanvasCard(cv){
   if(cv.height!==size.h) cv.height=size.h;
 }
 function cardPreviewMicrocopy(){
-  if(!diaryCardActive())return '';
-  const e=cardContext.source;
   const partes=[];
+  if(!diaryCardActive()){
+    const l=cardAtual||{};
+    if(l.spoiler && (l.relato||'').trim()) partes.push(t('review_card_spoiler_safe'));
+    if(l.publico===false && (l.relato||'').trim()) partes.push(t('review_private_share_notice'));
+    return partes.length?`<div class="diary-card-notice">${partes.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:'';
+  }
+  const e=cardContext.source;
   if(e.spoiler) partes.push(t('diary_card_spoiler_safe'));
   if(e.publico===false) partes.push(t('diary_private_share_notice'));
   return partes.length?`<div class="diary-card-notice">${partes.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`:'';
@@ -1720,7 +1740,7 @@ function renderDetalheLivro(l){
       <div class="label">${t('card_visual')}</div>
       <p>${t('card_visual_hint')}</p>
       <button class="btn-cover-card" type="button" onclick="trocarCapaCard()">${t('change_card_cover')} · <span id="cardCoverModeLabel">${nomeCapaCard()}</span></button>
-      <div class="card-options"><div class="label">${t('card_theme')}</div><label><input type="radio" name="cardTheme" value="auto" onchange="setCardTheme(this.value)" ${cardTheme==='auto'?'checked':''}> ${t('card_theme_auto')}</label><label><input type="radio" name="cardTheme" value="light" onchange="setCardTheme(this.value)" ${cardTheme==='light'?'checked':''}> ${t('card_theme_light')}</label><label><input type="radio" name="cardTheme" value="dark" onchange="setCardTheme(this.value)" ${cardTheme==='dark'?'checked':''}> ${t('card_theme_dark')}</label><label class="check-line"><input type="checkbox" onchange="setCardIncludeExcerpt(this.checked)" ${cardIncludeExcerpt?'checked':''}> <span>${t('include_excerpt')}</span></label>${cardSharePayload().spoiler&&cardSharePayload().hasText?`<p class="detail-empty">${t('excerpt_contains_spoiler')}</p>`:''}</div>
+      <div class="card-options"><div class="label">${t('card_theme')}</div><label><input type="radio" name="cardTheme" value="auto" onchange="setCardTheme(this.value)" ${cardTheme==='auto'?'checked':''}> ${t('card_theme_auto')}</label><label><input type="radio" name="cardTheme" value="light" onchange="setCardTheme(this.value)" ${cardTheme==='light'?'checked':''}> ${t('card_theme_light')}</label><label><input type="radio" name="cardTheme" value="dark" onchange="setCardTheme(this.value)" ${cardTheme==='dark'?'checked':''}> ${t('card_theme_dark')}</label><label class="check-line"><input type="checkbox" onchange="setCardIncludeExcerpt(this.checked)" ${cardIncludeExcerpt?'checked':''}> <span>${cardSharePayload().spoiler?t('include_spoiler_excerpt'):t('include_excerpt')}</span></label>${cardSharePayload().spoiler&&cardSharePayload().hasText?`<p class="detail-empty">${t('excerpt_contains_spoiler')}</p>`:''}</div>
       <canvas id="shareCardPreview" class="share-card-preview" width="1080" height="1920" aria-label="${t('share_card')}"></canvas>
       ${cardPreviewMicrocopy()}
       ${cardPreviewActionsHTML()}
@@ -1755,7 +1775,7 @@ async function abrirCard(i,opcoes={}){
   cardCoverIndex=0;
   cardCoverAutoLowRes=false;
   cardCoverUserChanged=false;
-  cardContext={type:(cardAtual?.relato||'').trim()?'critica':'leitura',source:null};
+  cardContext={type:opcoes.cardType||((cardAtual?.relato||'').trim()?'critica':'leitura'),source:null};
   cardIncludeExcerpt=!!((cardAtual?.relato||'').trim() && !cardAtual?.spoiler);
   $('#editPanel').style.display='none';
   renderDetalheLivro(cardAtual);
@@ -1927,6 +1947,26 @@ function drawFooter(ctx,l,W,H){
   ctx.fillStyle=p.gold;ctx.font="600 italic 40px Fraunces, serif";ctx.fillText('lombada.',110,yc+98);
 }
 
+
+function drawReviewShareCardText(ctx,l,W,H,cy,ch){
+  const p=cardPalette(), payload=cardSharePayload();
+  let x=96, y=110;
+  ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  ctx.fillStyle=p.gold;ctx.font="700 28px 'Space Mono', monospace";ctx.fillText('LOMBADA',x,y);
+  y+=52;ctx.fillStyle=p.muted;ctx.font="400 24px 'Space Mono', monospace";ctx.fillText(t('review_card_eyebrow'),x,y);
+  y+=78;ctx.fillStyle=p.text;ctx.font="500 italic 62px Fraunces, serif";
+  y=wrapLeft(ctx,l.titulo||'',x,y,W-450,70,3)+52;
+  ctx.fillStyle=p.muted;ctx.font="italic 34px Spectral, serif";wrapLeft(ctx,l.autor||'',x,y,W-450,42,2);
+  y+=76;
+  if(l.nota){drawStars(ctx,x,y,l.nota||0,28,14,p.gold);y+=84;}
+  const meta=[statusLabel(l.status||''),l.data||l.ano_edicao||l.ano_obra||l.ano].filter(Boolean).join(' · ');
+  if(meta){ctx.fillStyle=p.muted;ctx.font="400 24px 'Space Mono', monospace";wrapLeft(ctx,meta,x,y,W-190,34,2);y+=62;}
+  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 40px Spectral, serif";wrapLeft(ctx,'“'+payload.excerpt+'”',x,y,W-190,52,4);}
+  else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 40px Spectral, serif";wrapLeft(ctx,t('review_with_spoiler'),x,y,W-190,50,2);}
+  ctx.fillStyle=p.muted;ctx.font="400 24px 'Space Mono', monospace";ctx.fillText('@'+(meuHandle||''),x,H-94);
+  ctx.fillStyle=p.gold;ctx.font="600 italic 36px Fraunces, serif";ctx.fillText('lombada.',x,H-48);
+}
+
 function drawDiaryShareCardText(ctx,l,W,H,cy,ch){
   const p=cardPalette(), payload=cardSharePayload(), e=cardContext.source||{};
   let x=96, y=110;
@@ -1982,6 +2022,10 @@ async function renderShareCardCanvas(l,options={}){
     const cw=250,ch=380,cx=W-cw-96,cy=120;
     await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
     drawDiaryShareCardText(ctx,l,W,H,cy,ch);
+  }else if(reviewCardActive()){
+    const cw=280,ch=420,cx=W-cw-96,cy=120;
+    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
+    drawReviewShareCardText(ctx,l,W,H,cy,ch);
   }else{
     const cx=110,cy=120,cw=W-220,ch=1120;
     await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
