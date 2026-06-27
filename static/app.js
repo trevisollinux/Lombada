@@ -551,7 +551,7 @@ function revelarFeedSpoiler(i){
 function renderFeed(){
   const box=$('#feed'); if(!box)return;
   const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button></div>`;
-  const intro=`<div class="feed-intro"><h3>${feedTab==='discover'?t('feed_discover'):t('feed_following')}</h3><p>${feedTab==='discover'?t('discover_hint'):t('following_hint')}</p></div>`;
+  const intro=`<div class="feed-intro"><p class="screen-helper">${feedTab==='discover'?t('discover_hint'):t('following_hint')}</p></div>`;
   if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+intro+`<div class="empty-rich"><h3>${t('empty_following_title')}</h3><p>${t('empty_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('explore_reviews')}</button></div>`; return; }
   if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('discover_readers')}</button></div>`; return; }
   if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
@@ -1357,7 +1357,7 @@ function formDiarioHTML(leituraId, entry=null){
   const chip=(valor,label)=>`<button type="button" class="progress-chip ${tipo===valor?'active':''}" data-progress-chip="${valor}" aria-pressed="${tipo===valor?'true':'false'}" onclick="selecionarTipoDiario('${formKey}','${valor}',this)">${label}</button>`;
   return `<div class="diary-form" data-diary-form="${formKey}">
     <div class="label">${entry?t('edit_diary_entry'):t('new_diary_entry')}</div>
-    <p class="muted">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
+    <p class="form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
     <div class="field"><label class="label">${t('how_track_progress')}</label><div class="progress-chips">
       ${chip('pagina',t('page'))}${chip('porcentagem',t('progress_percent'))}${chip('capitulo',t('chapter'))}${chip('livre',t('free_progress'))}
@@ -1464,7 +1464,7 @@ function cardEntradaDiario(e, opts={}){
 function renderDiario(){
   const novo=prateleira.length?`<button class="btn-cta" onclick="abrirCard(0);setTimeout(()=>document.getElementById('diaryNewForm')?.scrollIntoView({behavior:'smooth'}),50)">${t('new_diary_entry')}</button>`:'';
   if(!diarioEntradas.length){ $('#diario').innerHTML=`<div class="empty-rich"><div class="ei">📖</div><h3>${t('empty_diary_title')}</h3><p>${t('empty_diary_hint')}</p>${novo||`<button class="btn-cta" onclick="irPara('buscar')">${t('register_reading')} →</button>`}</div>`; return; }
-  $('#diario').innerHTML=`<div class="diary-head"><button class="btn-cta" onclick="abrirCard(0)">${t('new_diary_entry')}</button><p class="muted">${t('diary_hint')}</p></div><div class="diary">${diarioEntradas.map(e=>cardEntradaDiario(e)).join('')}</div>`;
+  $('#diario').innerHTML=`<div class="diary-head"><button class="btn-cta" onclick="abrirCard(0)">${t('new_diary_entry')}</button><p class="diary-helper">${t('diary_hint')}</p></div><div class="diary">${diarioEntradas.map(e=>cardEntradaDiario(e)).join('')}</div>`;
 }
 /* perfil */
 function leiturasComNotaAlta(){
