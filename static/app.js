@@ -1489,12 +1489,14 @@ function renderPerfil(){
   const lendoAgora=prateleira.filter(l=>l.status==='Lendo').slice(0,4);
   const favoritos=leiturasComNotaAlta();
   const criticasPublicas=prateleira.filter(l=>l.publico && (l.relato||'').trim()).slice(0,3);
+  const temConteudoPublico=prateleira.some(l=>l.publico);
   const previewHTML=`
-    <div class="account-box public-preview-box">
+    <div class="account-box public-profile-card public-preview-box">
       <div class="label">${t('public_profile')}</div>
       <p>${t('public_profile_hint')}</p>
-      <div class="profile-actions">
-        <a class="pbtn solid" href="${esc(url)}" target="_blank">${t('view_public_profile')}</a>
+      ${temConteudoPublico?'':`<p class="muted public-profile-empty">${t('public_profile_empty')}</p>`}
+      <div class="profile-public-actions profile-actions">
+        <a class="pbtn solid" href="${esc(url)}" target="_blank" rel="noopener" onclick="toast(t('public_profile_opened'))">${t('view_public_profile')}</a>
         <button class="pbtn" type="button" onclick="copiarLinkPerfil()">${t('copy_profile_link')}</button>
         <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
       </div>
@@ -1577,13 +1579,11 @@ async function compartilharPerfil(){
   const url=urlPerfilPublico();
   if(!url){ toast(t('link_copy_failed')); return; }
   if(navigator.share){ try{ await navigator.share({title:t('profile_share_title'),url}); return; }catch(e){} }
-  await copiarLinkPerfil();
+  const copied=await copiarLinkPerfil();
+  if(copied) toast(t('share_unavailable_copied'));
 }
 async function compartilharEstante(){
-  const url=urlPerfilPublico();
-  if(!url){ toast(t('link_copy_failed')); return; }
-  if(navigator.share){ try{ await navigator.share({title:t('shelf_share_title'),url}); return; }catch(e){} }
-  await copiarLink(url,'copy_shelf_link');
+  await compartilharPerfil();
 }
 
 /* ---------- card / modal ---------- */
