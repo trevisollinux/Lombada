@@ -46,9 +46,30 @@ app = FastAPI(title="Lombada", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
+    session_cookie=os.getenv("SESSION_COOKIE_NAME", "lombada_session"),
     same_site="lax",
     https_only=COOKIE_SECURE,
 )
+SENSITIVE_NO_STORE_PREFIXES = (
+    "/api/eu",
+    "/api/prateleira",
+    "/api/diario",
+    "/api/leitura",
+    "/api/feed",
+    "/api/auth",
+)
+
+
+@app.middleware("http")
+async def no_store_sensitive_routes(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(SENSITIVE_NO_STORE_PREFIXES):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 app.include_router(auth_router)
 
