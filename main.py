@@ -18,9 +18,10 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
@@ -33,6 +34,7 @@ from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+APP_VERSION = os.getenv("APP_VERSION", "dev")
 logger = logging.getLogger(__name__)
 
 
@@ -130,6 +132,34 @@ async def no_store_sensitive_routes(request: Request, call_next):
 app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 app.include_router(auth_router)
 
+@app.exception_handler(Exception)
+async def friendly_unhandled_error_handler(request: Request, exc: Exception):
+    logger.exception("unhandled_backend_error", extra={"path": request.url.path, "method": request.method})
+    return JSONResponse({"detail": "Não consegui concluir essa ação agora."}, status_code=500)
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True, "service": "lombada"}
+
+
+@app.get("/readyz")
+def readyz():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"ok": True, "database": "ok"}
+    except SQLAlchemyError:
+        logger.exception("database_readiness_failed")
+    except Exception:
+        logger.exception("database_readiness_unexpected_error")
+    return JSONResponse({"ok": False, "database": "error"}, status_code=503)
+
+
+@app.get("/api/version")
+def api_version():
+    return {"version": APP_VERSION, "app": "Lombada"}
+
 
 # ─── proxy de capa (anti-SSRF) ────────────────────────────
 def _host_publico(host: str) -> bool:
@@ -218,7 +248,13 @@ def _criar_sugestao(e: BaseModel, u: Usuario, s: Session, tipo: str = "new_book"
         tipo=tipo, status="pending", payload_json=json.dumps(payload, ensure_ascii=False),
         target_type=target_type, target_id=target_id, user_id=u.id, user_email=u.email or "",
     )
-    s.add(sug); s.commit(); s.refresh(sug)
+    try:
+        s.add(sug); s.commit(); s.refresh(sug)
+        logger.info("catalog_suggestion_created", extra={"tipo": tipo, "target_type": target_type or "", "user_id": u.id})
+    except SQLAlchemyError:
+        s.rollback()
+        logger.exception("catalog_suggestion_failed", extra={"tipo": tipo, "target_type": target_type or "", "user_id": u.id})
+        raise HTTPException(500, "não foi possível enviar a sugestão agora")
     return sug
 
 
@@ -502,45 +538,45 @@ def eu(request: Request, s: Session = Depends(get_session)):
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
-    logger.info("[search start] q=%r", q)
+    logger.info("search_started", extra={"query_len": len(q)})
     locais = _buscar_catalogo_local(q, s)
     isbn = normalizar_isbn(q)
     if isbn:
         try:
             achado = _edicao_por_isbn(isbn)
         except Exception:
-            logger.warning("[search external error] source=isbn q=%r", q, exc_info=True)
+            logger.warning("external_search_failed", extra={"provider": "isbn"}, exc_info=True)
             achado = None
-        logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
+        logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
         return ([achado] if achado else []) + locais
 
     cache = _cache_get(q, s)
     if cache:
-        logger.info("[search cache hit] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
+        logger.info("search_cache_hit", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
         return locais + cache
 
     try:
-        logger.info("[search external fallback] source=google_books q=%r", q)
+        logger.info("external_search_started", extra={"provider": "google_books", "query_len": len(q)})
         docs = buscar_titulo_v2(q)
         if docs:
             _cache_set(q, docs, s)
-            logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
+            logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
             return locais + docs
-        logger.info("[search external fallback] source=open_library q=%r", q)
+        logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
         docs = ol_buscar(q)
         _cache_set(q, docs, s)
-        logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
+        logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
         return locais + docs
     except Exception:
-        logger.warning("[search external error] source=google_books q=%r", q, exc_info=True)
+        logger.warning("external_search_failed", extra={"provider": "google_books", "query_len": len(q)}, exc_info=True)
         try:
-            logger.info("[search external fallback] source=open_library q=%r", q)
+            logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
             docs = ol_buscar(q)
             _cache_set(q, docs, s)
-            logger.info("[search done] q=%r elapsed_ms=%s", q, int((datetime.utcnow() - inicio).total_seconds() * 1000))
+            logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
             return locais + docs
         except Exception:
-            logger.error("[search external error] source=open_library q=%r", q, exc_info=True)
+            logger.error("external_search_failed", extra={"provider": "open_library", "query_len": len(q)}, exc_info=True)
             raise HTTPException(502, "busca indisponível")
 
 
@@ -876,7 +912,7 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
         s.add(entry); s.commit(); s.refresh(entry)
     except SQLAlchemyError:
         s.rollback()
-        logger.exception("erro inesperado ao criar entrada de diário", extra={"leitura_id": leitura_id, "usuario_id": u.id})
+        logger.exception("diary_create_failed", extra={"leitura_id": leitura_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
     return _diario_payload(entry)
 
@@ -895,7 +931,7 @@ def editar_diario(entrada_id: int, payload: DiarioPayload, request: Request, s: 
         s.add(entry); s.commit(); s.refresh(entry)
     except SQLAlchemyError:
         s.rollback()
-        logger.exception("erro inesperado ao editar entrada de diário", extra={"entrada_id": entrada_id, "usuario_id": u.id})
+        logger.exception("diary_update_failed", extra={"entrada_id": entrada_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
     return _diario_payload(entry)
 
@@ -1053,7 +1089,7 @@ def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_s
         raise
     except SQLAlchemyError as exc:
         s.rollback()
-        print(f"[api/prateleira POST error] {exc}")
+        logger.exception("reading_save_failed", extra={"usuario_id": u.id})
         raise HTTPException(500, "erro ao salvar leitura; verifique as migrações do banco")
     return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
 
@@ -1083,7 +1119,7 @@ def listar(request: Request, s: Session = Depends(get_session)):
             .order_by(Leitura.criado_em.desc())
         ).all()
     except SQLAlchemyError as exc:
-        print(f"[api/prateleira GET error] {exc}")
+        logger.exception("shelf_load_failed", extra={"usuario_id": u.id})
         raise HTTPException(500, "erro ao carregar estante; verifique as migrações do banco")
     ed_ids = [ed.id for (_l, ed, _o) in rows]
     rel_map = _edition_relation_map(s, u.id, ed_ids)
@@ -1231,6 +1267,7 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
 # ─── estante pública ──────────────────────────────────────
 @app.get("/api/u/{handle}")
 def estante_json(handle: str, request: Request, s: Session = Depends(get_session)):
+    logger.info("public_profile_payload_started", extra={"handle_len": len(handle or "")})
     u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
     if not u:
         raise HTTPException(404, "estante não encontrada")
@@ -1271,6 +1308,7 @@ def deixar_de_seguir_usuario(handle: str, request: Request, s: Session = Depends
 
 @app.get("/u/{handle}")
 def estante_publica(handle: str, request: Request, s: Session = Depends(get_session)):
+    logger.info("public_profile_render_started", extra={"handle_len": len(handle or "")})
     u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
     if not u:
         corpo = (
