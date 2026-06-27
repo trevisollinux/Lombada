@@ -589,7 +589,7 @@ function renderFeed(){
       <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
       <div class="feed-copy">
         <div class="feed-card-top"><span>${handleLinkHTML(u.handle)}<span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></span>${followButtonHTML(u)}</div>
-        <div class="feed-title">${esc(livro.titulo)}</div>
+        <button class="feed-title work-title-link" type="button" onclick="abrirPaginaObraDoFeed(${i})">${esc(livro.titulo)}</button>
         <div class="feed-author">${esc(livro.autor)}</div>
         ${edition?`<div class="feed-edition">${esc(edition)}</div>`:''}
         ${l.nota?`<div class="feed-stars">${estrelasStr(l.nota)}</div>`:''}
@@ -811,6 +811,29 @@ async function carregarSocialObra(){
   try{ obraSocial=await (await fetch('/api/obra/social?'+params.toString())).json(); }catch(e){}
   return obraSocial;
 }
+async function abrirPaginaObra(obra){
+  if(obra) escolha=obra;
+  await verEdicoes();
+}
+function obraDeLeitura(l){
+  if(!l) return null;
+  const edicao={edicao_id:l.edicao_id,titulo_edicao:l.titulo,editora:l.editora,ano:l.ano_edicao||l.ano,tradutor:l.tradutor,isbn:l.isbn,idioma:l.idioma,capa_url:l.capa_url};
+  return {work_key:l.work_key||'',titulo:l.titulo,autor:l.autor,ano:l.ano_obra||l.ano,idioma_original:l.idioma_original,capa_url:l.capa_url,edicoes:[edicao]};
+}
+async function abrirPaginaObraDaLeitura(i){
+  const obra=obraDeLeitura(prateleira[i]);
+  if(!obra) return;
+  irPara('buscar',{resetBusca:false});
+  await abrirPaginaObra(obra);
+}
+async function abrirPaginaObraDoFeed(i){
+  const it=feedItems[i];
+  const livro=it?.livro||{};
+  const ed=it?.edicao||{};
+  const obra={work_key:livro.work_key||'',titulo:livro.titulo,autor:livro.autor,capa_url:livro.capa_url,edicoes:[{...ed,titulo_edicao:livro.titulo,capa_url:ed.capa_url||livro.capa_url}]};
+  irPara('buscar',{resetBusca:false});
+  await abrirPaginaObra(obra);
+}
 async function verEdicoes(i){
   if(Number.isInteger(i)) escolha=obrasAgrupadas[i]||resultadosArr[i];
   if(!escolha){
@@ -822,7 +845,8 @@ async function verEdicoes(i){
   const edicoesEmbutidas=Array.isArray(escolha.edicoes)?escolha.edicoes:[];
   if(!escolha.work_key && !edicoesEmbutidas.length && !(escolha.isbn_match && escolha.edicao_isbn)){
     edicoesAtual=[];
-    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('no_editions_register_manual')}</div>${manualCtaHTML(true)}`;
+    await carregarSocialObra();
+    renderEdicoes();
     mostrarBusca('edicoes');
     return;
   }
@@ -930,9 +954,10 @@ function criticasHTML(){
   const destaques=obraSocial?.destaques||[];
   if(!recentes.length) return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div><div class="empty-rich work-empty"><div class="ei">✍️</div><p>${t('no_public_reviews_html')}</p><button class="btn-cta" type="button" data-work-action="register-reading">${t('register_my_reading')}</button></div></section>`;
   const edicaoMeta=c=>[c.status&&statusLabel(c.status),c.edicao?.editora&&`${t('publisher_abbr')} ${c.edicao.editora}`,c.edicao?.tradutor&&`${t('translator_abbr')} ${c.edicao.tradutor}`,c.edicao?.ano,c.data].filter(Boolean).map(esc).join(' · ');
+  const trecho=c=>{ const txt=(c.relato||'').trim(); return txt.length>180?txt.slice(0,177)+'…':txt; };
   const corpo=c=>c.spoiler
-    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong><button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(c.relato)}</p></div>`
-    : `<p>${esc(c.relato)}</p>`;
+    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong></div>`
+    : (trecho(c)?`<p>${esc(trecho(c))}</p>`:'');
   const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   return `<section class="community-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
 }
@@ -975,7 +1000,6 @@ function verMinhaLeitura(){
   if(idx>=0) abrirCard(idx); else irPara('estante');
 }
 function renderEdicoes(){
-  if(!edicoesAtual.length){$('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('no_editions')}</div>`;return;}
   const st=obraSocial?.estatisticas||{};
   const media=st.media?fmtMedia(st.media):t('no_average_yet');
   const leituras=st.leituras||0, criticas=st.criticas||0, lendo=st.lendo||0, querem=st.querem||0;
@@ -994,6 +1018,8 @@ function renderEdicoes(){
     </div></div>`;
   const descricao=(escolha.descricao||escolha.description||'').trim();
   const sobreObra=`<section class="about-work"><div class="label">${t('about_work')}</div>${descricao?`<p>${esc(descricao).slice(0,420)}</p>`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
+  const poucosDados=(!edicoesAtual.length&&!leituras&&!criticas)||(!escolha.capa_url&&!escolha.ano&&!escolha.idioma_original&&!criticas);
+  const estadoPoucosDados=poucosDados?`<section class="work-section work-low-data"><p>${t('work_low_data')}</p><div class="work-actions"><button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button><button class="secondary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div></section>`:'';
   const minhas='';
   const destaquesEd=obraSocial?.destaques_edicao||{};
   const maisLida=destaquesEd.mais_lida||(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
@@ -1016,7 +1042,7 @@ function renderEdicoes(){
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
       <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('add_this_edition')}</button></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+cab+`<section class="community-summary work-stats"><div><span>${leituras}</span><small>${t('readings_on_lombada')}</small></div><div><span>${media}</span><small>${t('average_rating')}</small></div><div><span>${lendo}</span><small>${t('people_reading')}</small></div><div><span>${querem}</span><small>${t('people_want_to_read')}</small></div></section>${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div><ul class="editions work-editions">${cards}</ul>`+criticasHTML();
+  $('#edicoes').innerHTML=back+cab+`<section class="community-summary work-stats"><div><span>${leituras}</span><small>${t('readings_on_lombada')}</small></div><div><span>${media}</span><small>${t('average_rating')}</small></div><div><span>${lendo}</span><small>${t('people_reading')}</small></div><div><span>${querem}</span><small>${t('people_want_to_read')}</small></div></section>${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}`+criticasHTML();
 }
 
 /* registrar */
@@ -1339,7 +1365,7 @@ function renderPrateleira(){
         const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
         return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">${cap}
           <div class="shelf-row-body">
-            <div class="shelf-row-title">${esc(l.titulo)}</div>
+            <button class="shelf-row-title work-title-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDaLeitura(${i})">${esc(l.titulo)}</button>
             <div class="shelf-row-author">${esc(l.autor)}</div>
             <div class="shelf-row-status">${esc(statusNota)}</div>
             ${metaListaEstante(l)?`<div class="shelf-row-meta">${metaListaEstante(l)}</div>`:''}
@@ -1349,7 +1375,7 @@ function renderPrateleira(){
     : `<div class="wall">${itens.map(({l,i})=>`
         <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">
           ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'')}
-          <div class="t">${esc(l.titulo)}</div>
+          <button class="t work-title-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDaLeitura(${i})">${esc(l.titulo)}</button>
           <div class="a">${esc(l.autor)}</div>
           ${l.tradutor?`<div class="e">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}${reviewCardActionHTML(i,'book-review-card')}${(l.tenho_edicao||l.quero_edicao)?`<div class="e shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):t('you_want_this_edition')}</div>`:''}
         </div>`).join('')}</div>`;

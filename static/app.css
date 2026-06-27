@@ -1113,3 +1113,5 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   width:100%;
   margin-top:10px;
 }
+
+.work-page{display:grid;gap:1rem}.work-hero{display:grid;grid-template-columns:88px minmax(0,1fr);gap:1rem;align-items:start}.work-section{padding:1rem;border:1px solid var(--rule);border-radius:18px;background:var(--paper-2)}.work-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.work-title-link{appearance:none;border:0;background:transparent;color:inherit;padding:0;text-align:left;cursor:pointer}.work-title-link:hover{text-decoration:underline;text-underline-offset:3px}.feed-title.work-title-link{display:block}.shelf-row-title.work-title-link{font:inherit;font-weight:inherit}.work-low-data p{color:var(--ink-2);line-height:1.4}.spoiler-box p{display:none}.review-card.has-spoiler.spoiler-open .spoiler-box p{display:none}
