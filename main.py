@@ -357,6 +357,8 @@ def _validar_handle_publico(handle: str) -> str:
 @app.patch("/api/eu/perfil")
 def atualizar_perfil(payload: PerfilPayload, request: Request, s: Session = Depends(get_session)):
     u = _require_google_user(request, s, "Entre com Google para editar seu perfil.", 401)
+    if getattr(u, "is_demo", False):
+        raise HTTPException(403, "Perfis de demonstração não podem ser editados.")
     nome = _validar_nome_publico(payload.nome if payload.nome is not None else u.nome, u.email)
     handle = _validar_handle_publico(payload.handle if payload.handle is not None else u.handle)
     bio = _validar_bio_curta(payload.bio if payload.bio is not None else getattr(u, "bio", ""))

@@ -1609,6 +1609,12 @@ function atualizarPreviewHandlePerfil(){
   const handle=normalizarHandlePerfil(input.value);
   preview.textContent=handle?`${t('profile_preview')} /u/${handle}`:t('profile_preview_empty');
 }
+function atualizarContadorBioPerfil(){
+  const input=$('#profileBioInput');
+  const counter=$('#profileBioCounter');
+  if(!input||!counter) return;
+  counter.textContent=t('profile_bio_count',{count:(input.value||'').length});
+}
 function validarPerfilPayload(payload){
   if(!payload.nome) return t('profile_name_required');
   if(payload.nome.length<2||payload.nome.length>40) return t('profile_name_length');
@@ -1620,9 +1626,14 @@ function validarPerfilPayload(payload){
 async function salvarPerfil(el=null){
   const form=el?.closest?.('.profile-edit-form')||$('#profileEditForm');
   limparErroFormulario(form);
+  const handleInput=$('#profileHandleInput');
+  const normalizedHandle=normalizarHandlePerfil(handleInput?.value||'');
+  if(handleInput) handleInput.value=normalizedHandle;
+  atualizarPreviewHandlePerfil();
+  atualizarContadorBioPerfil();
   const payload={
     nome:($('#profileNameInput')?.value||'').trim().replace(/\s+/g,' '),
-    handle:normalizarHandlePerfil($('#profileHandleInput')?.value||''),
+    handle:normalizedHandle,
     bio:($('#profileBioInput')?.value||'').trim().replace(/\s+/g,' ')
   };
   const erro=validarPerfilPayload(payload);
@@ -1630,7 +1641,7 @@ async function salvarPerfil(el=null){
   try{
     const res=await fetch('/api/eu/perfil',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const body=await res.json().catch(()=>({}));
-    if(!res.ok){ mostrarErroFormulario(form,body.detail||t('profile_save_error')); return; }
+    if(!res.ok){ mostrarErroFormulario(form,res.status===409?t('profile_handle_taken'):(body.detail||t('profile_save_error'))); return; }
     minhaConta={...minhaConta,...body};
     meuHandle=body.handle||payload.handle;
     const crumb=$('#meuhandle'); if(crumb) crumb.textContent='@'+meuHandle;
@@ -1696,7 +1707,8 @@ function renderPerfil(){
         </div>
         <div class="profile-edit-field">
           <label for="profileBioInput">${t('profile_short_bio')}</label>
-          <textarea id="profileBioInput" maxlength="160" placeholder="${t('profile_bio_placeholder')}">${esc(bio)}</textarea>
+          <textarea id="profileBioInput" maxlength="160" placeholder="${t('profile_bio_placeholder')}" oninput="atualizarContadorBioPerfil()">${esc(bio)}</textarea>
+          <p id="profileBioCounter" class="profile-handle-preview">${t('profile_bio_count',{count:bio.length})}</p>
         </div>
         <button class="btn-primary" type="submit">${t('save_changes')}</button>
       </form>`:'';
