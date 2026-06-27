@@ -777,6 +777,16 @@ body.theme-dark .shelf-segment-btn.active{background:var(--paper-2);color:var(--
 .link-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:10px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
 .profile-actions{display:grid;gap:8px;margin-top:14px}
 .profile-actions .pbtn{margin-top:0}
+.profile-bio{margin:10px auto 0;max-width:32rem;color:var(--muted);line-height:1.35}
+.profile-edit-form{display:grid;gap:1rem;text-align:left}
+.profile-edit-field{display:grid;gap:.35rem}
+.profile-edit-field label{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.profile-edit-field input,.profile-edit-field textarea{width:100%;min-height:46px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:0;padding:12px;font:inherit;font-size:16px}
+.profile-edit-field textarea{min-height:94px;resize:vertical}
+.profile-handle-input{display:grid;grid-template-columns:auto 1fr;align-items:center;border:1px solid var(--rule);background:var(--paper)}
+.profile-handle-input span{padding-left:12px;color:var(--muted);font-family:"Space Mono",monospace}
+.profile-handle-input input{border:0;background:transparent;padding-left:4px}
+.profile-handle-preview{font-size:.9rem;color:var(--muted);word-break:break-all}
 @media(min-width:560px){.profile-actions{grid-template-columns:1fr 1fr}.profile-actions .pbtn.solid{grid-column:1/-1}}
 .diary-head{margin:14px 0 18px}.diary-entry-card{border-top:1px solid var(--rule);padding:16px 0;min-width:0}.diary-entry-card:first-child{border-top:0}.diary-progress{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--wine);margin-top:5px}.diary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem .75rem;margin-top:10px}.diary-actions button,.linklike{border:0;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;padding:0;cursor:pointer}.diary-actions button{border:1px solid var(--rule);background:color-mix(in srgb,var(--paper-2),transparent 50%);padding:4px 7px}.linklike.dt{color:var(--ink);font-family:"Fraunces",serif;text-transform:none;letter-spacing:-.01em;font-size:20px;text-align:left}.diary-form{border:1px solid var(--rule);background:var(--paper-2);padding:14px;margin:12px 0}.diary-form textarea{min-height:96px}.form-error{margin:12px 0;padding:10px 12px;border:1px solid var(--danger);background:color-mix(in srgb,var(--danger),transparent 88%);color:var(--danger);font-family:"Space Mono",monospace;font-size:11px;line-height:1.35;letter-spacing:.08em;text-transform:uppercase}.needs-confirm{color:var(--danger)!important}.detail-diary{margin-top:12px}.detail-diary .diary-entry-card{padding:12px 0}@media(max-width:420px){.diary-form .row{display:block}.diary-entry-card{overflow-wrap:anywhere}.linklike.dt{font-size:18px}}
 
