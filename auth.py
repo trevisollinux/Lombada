@@ -388,7 +388,7 @@ def google_callback(request: Request, code: str = "", state: str = "",
         atual = usuario_sessao(request, s)
 
         if canonico is None:
-            if atual.google_sub is None:
+            if not atual.google_sub:
                 # 1º login deste Google → carimba no anônimo atual
                 atual.google_sub = sub
                 if email and not _email_em_uso(s, email, atual.id):
@@ -412,29 +412,38 @@ def google_callback(request: Request, code: str = "", state: str = "",
                 s.add(canonico); s.commit()
             destino = canonico  # já vinculado, nada a fazer
         else:
-            # Google já existe noutro usuário → migra todos os vínculos do órfão antes de deletar.
-            try:
-                _merge_usuario_orfao(s, atual.id, canonico.id)
-                mudou = False
-                if email and not canonico.email and not _email_em_uso(s, email, canonico.id):
-                    canonico.email = email
-                    mudou = True
-                if nome and not canonico.nome:
-                    canonico.nome = nome
-                    mudou = True
-                if mudou:
-                    s.add(canonico)
-                s.delete(atual)
-                s.commit()
-            except SQLAlchemyError:
-                s.rollback()
-                logger.exception(
-                    "[google account merge error] falha ao migrar usuario_orfao=%s para usuario_destino=%s",
-                    atual.id,
-                    canonico.id,
-                )
-                return RedirectResponse("/?conta=erro", status_code=303)
-            destino = canonico
+            if atual.google_sub:
+                if atual.google_sub != sub:
+                    logger.warning(
+                        "[google account switch without merge] atual_id=%s destino_id=%s",
+                        atual.id,
+                        canonico.id,
+                    )
+                destino = canonico
+            else:
+                # Google já existe noutro usuário e o atual é anônimo/órfão → migra vínculos antes de deletar.
+                try:
+                    _merge_usuario_orfao(s, atual.id, canonico.id)
+                    mudou = False
+                    if email and not canonico.email and not _email_em_uso(s, email, canonico.id):
+                        canonico.email = email
+                        mudou = True
+                    if nome and not canonico.nome:
+                        canonico.nome = nome
+                        mudou = True
+                    if mudou:
+                        s.add(canonico)
+                    s.delete(atual)
+                    s.commit()
+                except SQLAlchemyError:
+                    s.rollback()
+                    logger.exception(
+                        "[google account merge error] falha ao migrar usuario_orfao=%s para usuario_destino=%s",
+                        atual.id,
+                        canonico.id,
+                    )
+                    return RedirectResponse("/?conta=erro", status_code=303)
+                destino = canonico
 
         request.session["uid"] = destino.id
         return RedirectResponse("/?conta=ok", status_code=303)
@@ -450,4 +459,8 @@ def google_callback(request: Request, code: str = "", state: str = "",
 @router.get("/api/auth/logout")
 def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/", status_code=303)
+    response = RedirectResponse("/", status_code=303)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response

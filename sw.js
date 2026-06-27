@@ -2,7 +2,7 @@
    Estratégia: network-first com timeout curto.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v1';
+const CACHE_NAME = 'lombada-shell-v2';
 
 const APP_SHELL = [
   '/',
@@ -48,6 +48,8 @@ self.addEventListener('fetch', event => {
   if (!sameOrigin) return;
 
   const path = url.pathname;
+
+  if (path.startsWith('/api/')) return;
 
   const isRootNavigation = request.mode === 'navigate' && path === '/';
   const isShellAsset = APP_SHELL.includes(path);
