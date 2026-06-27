@@ -166,6 +166,43 @@ input,textarea,select{font:inherit;color:inherit}
 .row{display:flex;gap:12px}
 .row>*{flex:1}
 .btn-primary{width:100%;background:var(--ink);color:var(--paper);padding:14px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;margin-top:4px}
+.reading-form{display:grid;gap:1rem;border:0;background:transparent;padding:0}
+.reading-form-block{padding:1rem;border:1px solid var(--rule);border-radius:18px;background:var(--paper-2)}
+.reading-form-block>.label{margin-bottom:.85rem;color:var(--wine)}
+.selected-edition-summary{display:grid;grid-template-columns:64px minmax(0,1fr);gap:.85rem;align-items:start}
+.selected-edition-cover .cover{width:64px;box-shadow:var(--shadow-sm)}
+.selected-edition-cover .cover-art{padding:7px 6px}
+.selected-edition-cover .cover-art-author,.selected-edition-cover .cover-art-meta{display:none}
+.selected-edition-cover .cover-art-title{font-size:11px;line-height:1.04}
+.selected-edition-copy{min-width:0}
+.selected-edition-copy h3{font-family:"Fraunces",serif;font-style:italic;font-size:22px;line-height:1.08;letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
+.selected-edition-author{margin-top:.2rem;color:var(--ink-2);font-size:15px}
+.selected-edition-meta{margin-top:.6rem;font-family:"Space Mono",monospace;font-size:.86rem;line-height:1.45;letter-spacing:.02em;color:var(--muted-readable,var(--dim));overflow-wrap:anywhere}
+.selected-edition-block .link-btn{margin-top:.9rem;color:var(--dim);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--rule)}
+.reading-status-block .status-field{margin-bottom:.85rem}
+.reading-secondary-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem}
+.reading-secondary-fields .field{margin-bottom:0}
+.rating-field .stars{gap:6px}
+.rating-field .stars .st{font-size:24px}
+.reading-text-block textarea{min-height:118px;background:color-mix(in srgb,var(--paper),transparent 8%);line-height:1.5}
+.reading-text-block .field,.reading-options-block .field,.edition-relation-block .field{margin-bottom:0}
+.reading-options-block,.edition-relation-block{display:grid;gap:.65rem}
+.check-line{display:flex;align-items:center;gap:.7rem;min-height:44px;padding:.5rem .15rem;color:var(--ink-2);cursor:pointer}
+.check-line input{width:20px;height:20px;flex:0 0 20px;accent-color:var(--wine)}
+.option-helper{margin:.1rem 0 .2rem;padding-left:calc(20px + .85rem);font-size:.9rem;color:var(--muted-readable,var(--dim))}
+.reading-submit{min-height:52px;margin-top:.35rem;border-radius:999px;box-shadow:var(--shadow-sm)}
+@media(min-width:520px){
+  .reading-secondary-fields{grid-template-columns:minmax(0,1fr) minmax(160px,.9fr);align-items:end}
+}
+@media(max-width:420px){
+  .reading-form{gap:.85rem}
+  .reading-form-block{padding:.95rem;border-radius:16px}
+  .selected-edition-summary{grid-template-columns:58px minmax(0,1fr);gap:.75rem}
+  .selected-edition-cover .cover{width:58px}
+  .selected-edition-copy h3{font-size:20px}
+  .field input[type=text],.field textarea,.field select{font-size:16px}
+  .check-line{min-height:48px}
+}
 
 /* ---------- estante / diário / perfil ---------- */
 .screen-head{display:flex;align-items:center;justify-content:space-between;margin:4px 0 4px}

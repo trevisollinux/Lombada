@@ -997,19 +997,29 @@ function escolherEdicao(j,event){
   const social=edicaoSocial(edicaoSel);
   const estado=social?.estado||{};
   const titulo=edicaoSel.titulo_edicao||escolha.titulo;
-  const dadosEdicao=[[t('title'), titulo],[t('publisher'), edicaoSel.editora],[t('edition_year'), edicaoSel.ano],[t('isbn'), edicaoSel.isbn],[t('language_field'), edicaoSel.idioma],[t('translator'), edicaoSel.tradutor]].filter(([,valor])=>valor);
-  const edicaoHTML=dadosEdicao.length ? `<dl class="edition-data compact-edition-data">${dadosEdicao.map(([rotulo,valor])=>`<div><dt>${esc(rotulo)}</dt><dd>${esc(valor)}</dd></div>`).join('')}</dl>` : `<p class="muted">${t('catalog_data_missing')}</p>`;
+  const autor=edicaoSel.autor||escolha?.autor||'';
+  const metaLinha1=[edicaoSel.editora, edicaoSel.ano, edicaoSel.tradutor&&`${t('translator_abbr')} ${edicaoSel.tradutor}`].filter(Boolean);
+  const metaLinha2=[edicaoSel.isbn&&`${t('isbn')} ${edicaoSel.isbn}`, edicaoSel.idioma].filter(Boolean);
+  const metaHTML=[metaLinha1,metaLinha2].filter(linha=>linha.length).map(linha=>`<div>${linha.map(esc).join(' · ')}</div>`).join('');
+  const edicaoHTML=`<div class="selected-edition-summary">
+      <div class="selected-edition-cover">${coverHTML(titulo,autor,edicaoSel.capa_url,'')}</div>
+      <div class="selected-edition-copy">
+        <h3>${esc(titulo||t('book'))}</h3>
+        ${autor?`<p class="selected-edition-author">${esc(autor)}</p>`:''}
+        ${metaHTML?`<div class="selected-edition-meta">${metaHTML}</div>`:`<p class="selected-edition-meta muted">${t('catalog_data_missing')}</p>`}
+      </div>
+    </div>`;
   clearButtonBusy(trigger);
   $('#form').innerHTML=`
     <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
-    <div class="card-form simple-reading-form">
-      <section class="form-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
-      <section class="form-block"><div class="label">${t('your_reading')}</div><div class="row"><div class="field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div></div><div class="field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></section>
-      <section class="form-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
-      <section class="form-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
-      <section class="form-block light-options"><div class="label">${t('relation_with_edition')}</div><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('you_have_this_edition')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('you_want_this_edition')}</span></label></section>
-      <button class="btn-primary" type="button" onclick="salvar(event)">${t('save_to_shelf')}</button>
+    <div class="card-form reading-form simple-reading-form">
+      <section class="reading-form-block selected-edition-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
+      <section class="reading-form-block reading-status-block"><div class="label">${t('your_reading')}</div><div class="field status-field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="reading-secondary-fields"><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div><div class="field rating-field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></div></section>
+      <section class="reading-form-block reading-text-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
+      <section class="reading-form-block reading-options-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><p class="form-helper option-helper">${t('private_shelf_hint')}</p><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
+      <section class="reading-form-block edition-relation-block light-options"><div class="label">${t('relation_with_edition')}</div><p class="form-helper option-helper">${t('edition_relation_hint')}</p><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('have_this_edition_full')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('want_this_edition_full')}</span></label></section>
+      <button class="btn-primary reading-submit" type="button" onclick="salvar(event)">${t('save_to_shelf')}</button>
     </div>`;
   mostrarBusca('form');
   focarTelaBusca('#form');
