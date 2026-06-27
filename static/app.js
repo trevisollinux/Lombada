@@ -509,8 +509,10 @@ function lendoAgoraCard(l,idx,compacto=false){
       <div class="reading-spacer"></div>
       <div class="reading-meta">${progresso.texto||t('no_progress_yet')}</div>
       ${progresso.barra!==null?`<div class="reading-progress"><span style="width:${progresso.barra}%"></span></div>`:''}
-      ${reviewCardActionHTML(idx,'reading-review-card-action')}
-      <button type="button" class="reading-diary-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
+      <div class="continue-reading-actions">
+        ${reviewCardActionHTML(idx,'reading-review-card-action')}
+        <button type="button" class="reading-diary-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
+      </div>
     </div>
   </div>`;
 }
@@ -1372,9 +1374,9 @@ function renderPrateleira(){
             ${dataAno?`<div class="shelf-row-date">${esc(dataAno)}</div>`:''}${reviewCardActionHTML(i,'shelf-row-review-card')}${(l.tenho_edicao||l.quero_edicao)?`<div class="shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):''}${l.tenho_edicao&&l.quero_edicao?' · ':''}${l.quero_edicao?t('you_want_this_edition'):''}</div>`:''}
           </div></li>`;
       }).join('')}</ul>`
-    : `<div class="wall">${itens.map(({l,i})=>`
+    : `<div class="wall shelf-wall">${itens.map(({l,i})=>`
         <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">
-          ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'')}
+          ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'').replace('class="cover','class="shelf-cover')}
           <button class="t work-title-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDaLeitura(${i})">${esc(l.titulo)}</button>
           <div class="a">${esc(l.autor)}</div>
           ${l.tradutor?`<div class="e">${t('translator_abbr')} ${esc(l.tradutor)}</div>`:''}${reviewCardActionHTML(i,'book-review-card')}${(l.tenho_edicao||l.quero_edicao)?`<div class="e shelf-edition-flags">${l.tenho_edicao?t('you_have_this_edition'):t('you_want_this_edition')}</div>`:''}
