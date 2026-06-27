@@ -1,6 +1,6 @@
-/* Lombada — service worker de limpeza emergencial.
-   Não cacheia nada. Serve apenas para remover caches antigos
-   e desregistrar o service worker quebrado. */
+/* Lombada — service worker mínimo.
+   Este PR NÃO cacheia app shell.
+   Objetivo: habilitar base PWA sem risco de servir JS/CSS antigo. */
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -9,6 +9,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
+
     await Promise.all(
       keys
         .filter(key => key.toLowerCase().includes('lombada'))
@@ -16,14 +17,10 @@ self.addEventListener('activate', event => {
     );
 
     await self.clients.claim();
-
-    const windows = await self.clients.matchAll({ type: 'window' });
-    for (const client of windows) {
-      client.navigate(client.url);
-    }
-
-    await self.registration.unregister();
   })());
 });
 
-// Não interceptar fetch. Deixa o navegador buscar tudo na rede normalmente.
+self.addEventListener('fetch', event => {
+  // Intencionalmente não intercepta.
+  // O navegador segue para rede/cache HTTP normal.
+});

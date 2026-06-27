@@ -1,0 +1,25 @@
+{
+  "name": "Lombada",
+  "short_name": "Lombada",
+  "description": "Diário de leituras com obras, edições, críticas e cards compartilháveis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ECE4D4",
+  "theme_color": "#1A1714",
+  "lang": "pt-BR",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/static/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
