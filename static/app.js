@@ -1694,13 +1694,13 @@ function cardEntradaDiario(e, opts={}){
   const l=i>=0?prateleira[i]:null;
   const compact=!!opts.compact;
   const nota=e.nota? (e.spoiler?`<details class="drelato spoiler-note"><summary>${t('contains_spoiler')}</summary><div>“${esc(e.nota)}”</div></details>`:`<div class="drelato">“${esc(e.nota)}”</div>`):'';
-  const vis=e.publico?t('public_note'):t('private_note');
+  const vis=e.publico?t('public_note'):'';
   return `<article class="diary-entry-card ${compact?'compact':''}">
     <div class="dtop">${compact?`<span class="dt compact-date">${dataDiario(e)}</span>`:`<button class="dt linklike" ${i>=0?`onclick="abrirCard(${i})"`:''}>${esc(e.titulo||l?.titulo||'')}</button>`}<span class="dwhen">${compact?'':dataDiario(e)}</span></div>
-    ${compact?`<div class="dmeta">${[vis,e.spoiler?t('contains_spoiler'):'' ].filter(Boolean).join(' · ')}</div>`:`<div class="dmeta">${[e.autor?esc(e.autor):'',vis,e.spoiler?t('contains_spoiler'):'' ].filter(Boolean).join(' · ')}</div>`}
+    <div class="dmeta">${[vis,e.spoiler?t('contains_spoiler'):'' ].filter(Boolean).join(' · ')}</div>
     <div class="diary-progress">${progressoDiario(e)}</div>
     ${nota}
-    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><span>·</span><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><span>·</span><button onclick="excluirDiario(${e.id},this)">${t('delete_diary_entry')}</button></div>
+    <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><button onclick="excluirDiario(${e.id},this)">${t('delete_diary_entry')}</button></div>
     ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e):''}
   </article>`;
 }
@@ -1717,16 +1717,17 @@ function diarioGrupoHTML(entradas){
   const primeira=entradas[0]||{};
   const i=prateleira.findIndex(l=>String(l.leitura_id)===String(primeira.leitura_id));
   const l=i>=0?prateleira[i]:null;
-  const titulo=primeira.titulo||l?.titulo||t('untitled_book');
-  const autor=primeira.autor||l?.autor||'';
-  const ultimoProgresso=progressoDiario(primeira);
-  const meta=[autor, entradas.length===1?t('diary_entry_count_one') : t('diary_entry_count_many',{count:entradas.length}), ultimoProgresso, dataDiario(primeira)].filter(Boolean).map(esc).join(' · ');
-  return `<section class="diary-group">
-    <div class="diary-group-head">
-      <div class="diary-group-copy"><div class="diary-group-title">${esc(titulo)}</div><div class="diary-group-meta">${meta}</div></div>
-      ${i>=0?`<button class="diary-group-open" type="button" onclick="abrirCard(${i})">${t('open_book')}</button>`:''}
-    </div>
-    <div class="diary-group-entries">${entradas.map(e=>cardEntradaDiario(e,{compact:true})).join('')}</div>
+  const titulo=l?.titulo||primeira.titulo||t('untitled_book');
+  const autor=l?.autor||primeira.autor||'';
+  const capa=l?.capa_url||primeira.capa_url||'';
+  const cover=coverHTML(titulo,autor,capa,'').replace('class="cover','class="diary-book-cover');
+  const count=entradas.length===1?t('diary_entry_count_one') : t('diary_entry_count_many',{count:entradas.length});
+  const meta=[progressoDiario(primeira), count, dataDiario(primeira)].filter(Boolean).map(esc).join(' · ');
+  const openAttrs=i>=0?` role="button" tabindex="0" onclick="abrirCard(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirCard(${i})}"`:'';
+  return `<section class="diary-group diary-book-row"${openAttrs}>
+    <div class="diary-book-cover-wrap">${cover}</div>
+    <div class="diary-group-copy"><div class="diary-group-title">${esc(titulo)}</div><div class="diary-group-author">${esc(autor)}</div><div class="diary-group-meta">${meta}</div></div>
+    <div class="diary-group-arrow" aria-hidden="true">▾</div>
   </section>`;
 }
 
@@ -2060,7 +2061,7 @@ function renderDetalheLivro(l){
       <div class="label">${t('reading_diary')}</div>
       <p class="detail-empty">${t('diary_hint')}</p>
       <div id="diaryNewForm">${formDiarioHTML(l.leitura_id)}</div>
-      <div class="diary detail-diary">${diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).slice(0,5).map(e=>cardEntradaDiario(e,{inDetail:true})).join('') || `<p class="detail-empty">${t('no_diary_entries')}</p>`}</div>
+      <div class="diary detail-diary">${diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).map(e=>cardEntradaDiario(e,{inDetail:true})).join('') || `<p class="detail-empty">${t('no_diary_entries')}</p>`}</div>
     </section>
     <section class="detail-section">
       <div class="label">${t('edition')}</div>
