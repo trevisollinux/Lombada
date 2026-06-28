@@ -1713,6 +1713,22 @@ function miniLivroPerfil(l){
 function blocoVitrinePerfil(titulo,itens,vazio,render){
   return `<div class="profile-showcase"><div class="label">${titulo}</div>${itens.length?`<div class="profile-mini-wall">${itens.map(render).join('')}</div>`:`<p class="muted profile-empty">${vazio}</p>`}</div>`;
 }
+function abrirMinhaEstantePerfil(){
+  filtroEstante='Todos';
+  irPara('estante',{subaba:'shelf'});
+}
+function estatisticasPerfilHTML(total,lendo,lidos,quero){
+  if(!total){
+    return `<section class="account-box profile-stats-box profile-stats-empty"><div class="label">${t('your_lombada')}</div><p>${t('profile_shelf_empty')}</p><button class="pbtn solid" type="button" onclick="irPara('buscar')">${t('search_books')}</button></section>`;
+  }
+  const stats=[
+    [total,t('profile_stat_readings')],
+    [lendo,t('currently_reading')],
+    [lidos,t('status_read')],
+    [quero,t('want_to_read')]
+  ];
+  return `<section class="account-box profile-stats-box"><div class="label">${t('your_lombada')}</div><div class="profile-quick-stats">${stats.map(([valor,label])=>`<div><strong>${valor}</strong><span>${label}</span></div>`).join('')}</div><button class="pbtn solid profile-shelf-cta" type="button" onclick="abrirMinhaEstantePerfil()">${t('view_my_shelf')}</button></section>`;
+}
 function normalizarHandlePerfil(valor){
   return (valor||'').toString().trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -1792,9 +1808,6 @@ function renderPerfil(){
         <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
       </div>
     </div>
-    ${blocoVitrinePerfil(t('currently_reading'),lendoAgora,t('nothing_reading_now'),miniLivroPerfil)}
-    ${favoritos.length?blocoVitrinePerfil(t('favorites'),favoritos,'',miniLivroPerfil):''}
-    ${blocoVitrinePerfil(t('public_reviews'),criticasPublicas,t('no_public_reviews'),l=>{ const i=prateleira.indexOf(l); return `<article class="profile-review"><strong>${esc(l.titulo)}</strong><span>${l.nota?estrelasStr(l.nota):t('no_rating')}</span><p>${l.spoiler?t('spoiler_review')+' — '+t('tap_to_reveal'):esc(trechoTexto(l.relato||'',140))}</p>${reviewCardActionHTML(i,'profile-review-card')}</article>`; })}
   `;
   const contaHTML=logado
     ? `<div class="account-box connected">
@@ -1837,6 +1850,7 @@ function renderPerfil(){
       ${bio?`<p class="profile-bio">${esc(bio)}</p>`:''}
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
       ${editarPerfilHTML}
+      ${estatisticasPerfilHTML(n,lendo,lidos,quero)}
       ${previewHTML}
       ${contaHTML}
       ${installCtaHTML()}
