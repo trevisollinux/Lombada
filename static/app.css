@@ -840,10 +840,14 @@ body.theme-dark select:-webkit-autofill{
 }
 .diary-progress-field[hidden]{display:none!important}
 
-/* diário — chips de progresso */
-.progress-chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-.progress-chip{min-height:44px;padding:10px 14px;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;touch-action:manipulation}
-.progress-chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+/* diário — campo único de progresso */
+.diary-progress-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
+.diary-progress-value{min-width:0}
+.progress-units{display:inline-flex;align-items:stretch;flex:0 0 auto;border:1px solid var(--rule);border-radius:14px;background:var(--paper);overflow:hidden;min-height:44px}
+.progress-unit{min-width:48px;padding:0 10px;border:0;border-left:1px solid var(--rule);background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;touch-action:manipulation}
+.progress-unit:first-child{border-left:0}
+.progress-unit.active{background:var(--ink);color:var(--paper)}
+.progress-unit:focus-visible{outline:2px solid color-mix(in srgb,var(--wine),transparent 25%);outline-offset:-2px}
 .diary-form .field{margin-bottom:14px}
 .diary-form input,.diary-form textarea{width:100%;box-sizing:border-box;color:var(--ink);background:var(--paper);border:1px solid var(--rule)}
 .diary-form input:focus,.diary-form textarea:focus{outline:2px solid color-mix(in srgb,var(--wine),transparent 35%);background:var(--paper);color:var(--ink)}
@@ -852,7 +856,7 @@ body.theme-dark select:-webkit-autofill{
 .suffix-field input{border:0!important;background:transparent!important}
 .suffix-field span{font-family:"Space Mono",monospace;color:var(--muted)}
 .diary-form{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
-@media(max-width:420px){.progress-chip{flex:1 1 calc(50% - 10px);font-size:11px}.diary-form{padding:16px 14px 92px}.diary-form .btn-primary{width:100%;min-height:48px}}
+@media(max-width:420px){.diary-form{padding:16px 14px 92px}.diary-form .btn-primary{width:100%;min-height:48px}.diary-progress-row{grid-template-columns:1fr}.progress-units{width:100%}.progress-unit{flex:1 1 0;min-height:44px}}
 .card-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px;align-items:center}
 .card-options>.label,.card-options>.check-line,.card-options>p{grid-column:1/-1}
 .card-options label{display:flex;align-items:center;gap:7px;color:var(--ink-2);font-size:13px;line-height:1.25;cursor:pointer}
@@ -1485,7 +1489,7 @@ body.theme-dark .tabs{box-shadow:0 -14px 32px rgba(0,0,0,.55)}
 .diary-book-row[onclick]{cursor:pointer}.diary-book-row[onclick]:active{transform:translate(1px,1px)}.diary-book-row[onclick]:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
 .diary-book-cover-wrap{width:42px}.diary-book-cover{position:relative;width:42px;aspect-ratio:2/3;background:var(--paper-soft,var(--paper-3));box-shadow:var(--shadow-sm);overflow:hidden;display:block}.diary-book-cover img{width:100%;height:100%;object-fit:cover;display:block}.diary-book-cover.cover-art{display:flex;flex-direction:column;justify-content:space-between;padding:6px 5px}.diary-book-cover .cover-art-author,.diary-book-cover .cover-art-meta{display:none}.diary-book-cover .cover-art-title{font-size:9px;line-height:1.02;-webkit-line-clamp:4}.diary-book-cover .cover-art-rule{height:3px;margin-bottom:2px}
 .diary-group-copy{min-width:0;flex:1}.diary-group-title{font-family:"Fraunces",serif;font-size:18px;line-height:1.15;color:var(--ink);overflow-wrap:anywhere}.diary-group-author{margin-top:2px;font-size:13px;line-height:1.25;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.diary-group-meta{margin-top:5px;font-family:"Space Mono",monospace;font-size:10px;line-height:1.45;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.diary-group-arrow{font-size:18px;color:var(--muted);text-align:right}
-.diary-progress-field[hidden]{display:none!important}.diary-form,.diary-form .field,.suffix-field{min-width:0}.diary-form input,.diary-form textarea,.suffix-field input{width:100%;min-width:0}.diary-form .btn-primary,.diary-actions button{min-height:40px;touch-action:manipulation}.diary-actions>span{display:none}
+.diary-progress-field[hidden]{display:none!important}.diary-form,.diary-form .field,.suffix-field,.diary-progress-row,.diary-progress-value{min-width:0}.diary-form input,.diary-form textarea,.suffix-field input{width:100%;min-width:0}.diary-form .btn-primary,.diary-actions button{min-height:40px;touch-action:manipulation}.diary-actions>span{display:none}
 body.theme-dark .diary-group{background:var(--surface);border-color:rgba(247,240,229,.16)}body.theme-dark .diary-group-title{color:var(--ink-2)}body.theme-dark .diary-group-author,body.theme-dark .diary-group-meta,body.theme-dark .diary-group-arrow{color:var(--muted-readable)}body.theme-dark .diary-book-cover{background:var(--paper-2);border-color:rgba(247,240,229,.18);color:var(--ink-2)}
 @media(max-width:420px){.diary-book-row{grid-template-columns:38px minmax(0,1fr) 18px;gap:10px;min-height:58px;padding:9px 10px}.diary-book-cover-wrap,.diary-book-cover{width:38px}.diary-group-title{font-size:17px}.diary-group-meta{font-size:9px}.suffix-field{gap:6px;padding-right:10px}}
 /* Keep the bottom navigation fully opaque above scrollable content. */
