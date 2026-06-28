@@ -1091,15 +1091,17 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 .diary-continue{margin-bottom:14px}
 .diary-form-title{font-size:12px;color:var(--gold)}
 .diary-form-helper{font-size:13px;line-height:1.4;color:var(--dim);font-style:italic;margin:4px 0 14px}
-.diary-entry-card{border:1px solid var(--rule);background:var(--paper-2);padding:18px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.diary-entry-card{border:0;border-top:1px solid var(--rule);background:transparent;padding:14px 0;margin-bottom:0;box-shadow:none;border-radius:0}
+.diary-entry-card .entry-date,.diary-entry-card .dt.entry-date{font-family:"Space Mono",monospace;font-size:12px;font-style:normal;font-weight:600;letter-spacing:.14em;line-height:1.35;text-transform:uppercase;color:var(--ink-2)}
+.diary-entry-card:first-child{border-top:0}
 .diary-entry-card .dmeta{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.06em;color:var(--dim);margin-top:5px;line-height:1.35}
-.diary-entry-card .diary-progress{font-family:"Space Mono",monospace;font-size:12px;color:var(--ink-2);margin-top:12px;letter-spacing:.04em}
-.diary-entry-card .drelato{margin-top:14px;padding:12px 0 2px;font-size:15px;line-height:1.55;color:var(--ink-2);font-style:italic;display:block;overflow:visible;-webkit-line-clamp:unset}
+.diary-entry-card .diary-progress{font-family:"Space Mono",monospace;font-size:12px;color:var(--ink-2);margin-top:6px;letter-spacing:.04em}
+.diary-entry-card .drelato{margin-top:8px;padding:8px 0 2px;font-size:15px;line-height:1.55;color:var(--ink-2);font-style:italic;display:block;overflow:visible;-webkit-line-clamp:unset}
 .diary-entry-card .spoiler-note{border-left:3px solid var(--gold);padding-left:12px;color:var(--ink-2)}
 .diary-entry-card .spoiler-note summary{cursor:pointer;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-style:normal}
 .diary-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;color:var(--dim);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .diary-actions button{color:var(--ink-2);font:inherit;text-transform:inherit;letter-spacing:inherit}
-@media(max-width:420px){.reading-diary-action{width:100%;text-align:center}.diary-entry-card{padding:16px 14px}.diary-entry-card .drelato{font-size:14px}}
+@media(max-width:420px){.reading-diary-action{width:100%;text-align:center}.diary-entry-card{padding:14px 0}.diary-entry-card .drelato{font-size:14px}}
 .review-card-action{
   margin-top:8px;
   border:1px solid rgba(168,132,47,.42);
@@ -1343,7 +1345,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .btn-small{min-height:38px;padding:8px 12px;font-size:9px;letter-spacing:.08em}
 button:disabled,.btn-primary:disabled,.btn-secondary:disabled,.is-disabled,[aria-disabled="true"]{background:var(--disabled-bg);border-color:var(--rule);color:var(--disabled-text);cursor:not-allowed;opacity:1;box-shadow:none}
 
-.search,.card-form,.reading-form-block,.profile .pcard,.account-box,.manual-cta.prominent,.library-box,.work-section,.community-summary div,.review-card,.diary-entry-card,.reading-now-card,.profile-metrics div{background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:none}
+.search,.card-form,.reading-form-block,.profile .pcard,.account-box,.manual-cta.prominent,.library-box,.work-section,.community-summary div,.review-card,.reading-now-card,.profile-metrics div{background:var(--surface);border:1px solid var(--rule);border-radius:16px;box-shadow:none}
 .search{border-radius:18px;background:var(--surface)}
 .search button{background:var(--primary);color:var(--primary-text);border-radius:0;min-height:100%;white-space:nowrap}
 .field input[type=text],.field input[type=email],.field input[type=password],.field textarea,.field select,.diary-form input,.diary-form textarea,.search input{
