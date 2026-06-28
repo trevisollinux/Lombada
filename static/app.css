@@ -747,13 +747,16 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 .review-actions button{border:1px solid var(--rule);background:color-mix(in srgb,var(--paper-2),transparent 45%);color:inherit;padding:4px 7px;cursor:pointer;font:inherit;text-transform:inherit;letter-spacing:inherit}
 .review-actions button:hover,.review-actions button.active{color:var(--gold)}
 
-.shelf-head{align-items:flex-start}
+.shelf-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 16px;flex-wrap:wrap}
+.shelf-head>div{min-width:0;flex:1 1 220px}
+.shelf-head .btn-share{float:none;flex:0 0 auto;margin-top:4px}
+.shelf-summary{clear:both;width:100%}
 .shelf-segment{display:inline-flex;gap:4px;margin-top:12px;padding:3px;border:1px solid var(--rule);border-radius:999px;background:var(--paper-2)}
 .shelf-segment-btn{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:7px 13px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 .shelf-segment-btn.active{background:var(--ink);color:var(--paper)}
 body.theme-dark .shelf-segment-btn.active{background:var(--paper-2);color:var(--ink)}
 @media(min-width:900px){.shelf-segment-btn{font-family:"Spectral",serif;font-size:16px;letter-spacing:0;text-transform:none;padding:10px 18px}}
-@media(max-width:420px){.shelf-head{gap:12px}.shelf-segment{margin-top:10px}.shelf-segment-btn{font-size:9px;padding:7px 11px}.tabs-inner{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.shelf-head{gap:10px}.shelf-head .btn-share{margin-top:0}.shelf-segment{margin-top:10px}.shelf-segment-btn{font-size:9px;padding:7px 11px}.tabs-inner{grid-template-columns:repeat(4,1fr)}}
 .edition-social-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
 .edition-social-btn{border:1px solid var(--rule);padding:7px 10px;border-radius:999px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);background:transparent}
 .edition-social-btn.active{border-color:var(--wine);background:rgba(139,14,32,.10);color:var(--wine)}
@@ -1245,6 +1248,12 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   .continue-reading-actions{grid-column:1/-1;gap:.6rem;margin-top:2px}
   .continue-reading-actions .reading-diary-action{padding:10px 12px;font-size:9px;letter-spacing:.08em}
 }
+
+.reading-now-card{grid-template-columns:clamp(96px,30%,130px) minmax(0,1fr);gap:14px}
+.reading-copy .label{font-size:9px;letter-spacing:.10em;line-height:1.25;overflow-wrap:normal;text-wrap:balance}
+.reading-copy h3{overflow-wrap:normal;word-break:normal;hyphens:none}
+.reading-copy p{overflow-wrap:normal;word-break:normal}
+@media(max-width:420px){.reading-now-card{grid-template-columns:clamp(96px,30%,118px) minmax(0,1fr);gap:12px}.reading-copy .label{font-size:8.5px;letter-spacing:.08em}.reading-copy h3{font-size:18px;line-height:1.1}.reading-copy p{font-size:12px;line-height:1.2}}
 
 /* PR visual polish: app UI tokens, dark mode, controls and mobile consistency. */
 :root{
