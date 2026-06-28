@@ -798,10 +798,10 @@ body.theme-dark .shelf-segment-btn.active{background:var(--paper-2);color:var(--
 .field input[type=text],.field input[type=number],.field textarea,.field select,.search input,option{background:var(--paper);color:var(--ink);caret-color:var(--wine)}
 .field input::placeholder,.field textarea::placeholder,.search input::placeholder{color:var(--dim);opacity:1}
 .field input:disabled,.field textarea:disabled,.field select:disabled{background:var(--paper-3);color:var(--dim);opacity:1}
-body.theme-dark .field input[type=text],body.theme-dark .field input[type=number],body.theme-dark .field textarea,body.theme-dark .field select,body.theme-dark option{background:#080706;color:var(--ink);border-color:var(--rule)}
+body.theme-dark .field input[type=text],body.theme-dark .field input[type=number],body.theme-dark .field textarea,body.theme-dark .field select,body.theme-dark option{background:color-mix(in srgb,var(--paper-2),black 22%);color:var(--ink);border:1px solid var(--rule)}
 body.theme-dark .field input::placeholder,body.theme-dark .field textarea::placeholder{color:rgba(243,235,221,.48)}
 input:-webkit-autofill,textarea:-webkit-autofill,select:-webkit-autofill{-webkit-text-fill-color:var(--ink);box-shadow:0 0 0 1000px var(--paper) inset}
-body.theme-dark input:-webkit-autofill,body.theme-dark textarea:-webkit-autofill,body.theme-dark select:-webkit-autofill{-webkit-text-fill-color:var(--ink);box-shadow:0 0 0 1000px #080706 inset}
+body.theme-dark input:-webkit-autofill,body.theme-dark textarea:-webkit-autofill,body.theme-dark select:-webkit-autofill{-webkit-text-fill-color:var(--ink);box-shadow:0 0 0 1000px color-mix(in srgb,var(--paper-2),black 22%) inset}
 .work-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.work-actions button{border:1px solid var(--rule);padding:10px 12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase}.work-actions .primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}.work-actions .secondary{background:transparent;color:var(--ink)}.link-tertiary{display:inline-block;margin-top:10px;color:var(--muted);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-decoration:underline;text-underline-offset:3px}.about-work{border:1px solid var(--rule);background:var(--paper-2);padding:14px 16px;margin:12px 0}.about-work p{margin-top:7px;color:var(--ink-2);line-height:1.45}.edition-meta-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.edition-meta-pills span{border:1px solid var(--rule);padding:3px 6px;color:var(--muted);background:color-mix(in srgb,var(--paper-2),transparent 20%)}.edition-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;color:var(--muted);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.04em}.edition-stats span{white-space:nowrap}.simple-reading-form{display:grid;gap:12px}.simple-reading-form .form-block{border-top:1px solid var(--rule);padding-top:14px}.simple-reading-form .form-block:first-child{border-top:0;padding-top:0}.simple-reading-form .field{margin-bottom:12px}.link-btn.subtle{border:0;padding:6px 0;color:var(--muted);text-decoration:underline;text-underline-offset:3px}.light-options{background:transparent}.feed-intro{border:1px solid var(--rule);background:var(--paper-2);padding:12px 14px;margin:0 0 16px}.feed-intro p{color:var(--muted-readable,var(--muted));font-style:italic}.empty-rich h3{font-family:"Fraunces",serif;font-size:24px;margin-bottom:4px}
 @media(max-width:420px){.work-head{align-items:flex-start}.work-actions button{flex:1 1 100%;min-width:0}.edition{grid-template-columns:54px 1fr;gap:10px}.edition-cover .cover{width:54px}.edition-action{width:100%;justify-content:center}.row{display:block}.card-form{padding:14px}.feed-tabs button{flex:1;min-width:0}.profile-actions{grid-template-columns:1fr}}
 /* Dark mode form legibility, including diary inputs on mobile/Chrome. */
@@ -817,9 +817,9 @@ body.theme-dark option{
 body.theme-dark .field input,
 body.theme-dark .field textarea,
 body.theme-dark .field select{
-  background:var(--paper-2);
+  background:color-mix(in srgb,var(--paper-2),black 22%);
   color:var(--ink);
-  border-color:rgba(244,239,230,.22);
+  border:1px solid var(--rule);
 }
 body.theme-dark input::placeholder,
 body.theme-dark textarea::placeholder{color:color-mix(in srgb,var(--ink),transparent 42%);opacity:1}
@@ -835,10 +835,10 @@ body.theme-dark select:disabled{background:var(--paper-3);color:var(--muted);opa
 body.theme-dark input:-webkit-autofill,
 body.theme-dark textarea:-webkit-autofill,
 body.theme-dark select:-webkit-autofill{
-  -webkit-box-shadow:0 0 0 1000px var(--paper-2) inset;
+  -webkit-box-shadow:0 0 0 1000px color-mix(in srgb,var(--paper-2),black 22%) inset;
   -webkit-text-fill-color:var(--ink);
   caret-color:var(--ink);
-  border-color:rgba(244,239,230,.22);
+  border-color:var(--rule);
   transition:background-color 9999s ease-out 0s;
 }
 .diary-progress-field[hidden]{display:none!important}

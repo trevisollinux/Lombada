@@ -1917,7 +1917,7 @@ function renderPerfil(){
       </div>
       ${contaHTML}
       ${installCtaHTML()}
-      <div class="app-version">Lombada v${esc((appVersion||'dev').replace(/\.0$/,''))}</div>
+      <div class="app-version">${/^\d/.test((appVersion||'dev').replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc((appVersion||'dev').replace(/\.0$/,''))}</div>
       <div class="plink">${esc(url)}</div>
     </div>`;
 }
