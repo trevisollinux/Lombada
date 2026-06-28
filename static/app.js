@@ -1714,7 +1714,7 @@ function cardEntradaDiario(e, opts={}){
   const l=i>=0?prateleira[i]:null;
   const compact=!!opts.compact;
   const nota=e.nota? (e.spoiler?`<details class="drelato spoiler-note"><summary>${t('contains_spoiler')}</summary><div>“${esc(e.nota)}”</div></details>`:`<div class="drelato">“${esc(e.nota)}”</div>`):'';
-  const vis=e.publico?t('public_note'):'';
+  const vis=compact?(e.publico?t('public_note'):''):(e.publico?t('public_note'):t('private_note'));
   return `<article class="diary-entry-card ${compact?'compact':''}">
     <div class="dtop">${compact?`<span class="dt compact-date">${dataDiario(e)}</span>`:`<button class="dt linklike" ${i>=0?`onclick="abrirCard(${i})"`:''}>${esc(e.titulo||l?.titulo||'')}</button>`}<span class="dwhen">${compact?'':dataDiario(e)}</span></div>
     <div class="dmeta">${[vis,e.spoiler?t('contains_spoiler'):'' ].filter(Boolean).join(' · ')}</div>
