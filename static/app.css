@@ -1505,3 +1505,11 @@ body.theme-dark .diary-group{background:var(--surface);border-color:rgba(247,240
 @media(max-width:420px){.diary-book-row{grid-template-columns:38px minmax(0,1fr) 18px;gap:10px;min-height:58px;padding:9px 10px}.diary-book-cover-wrap,.diary-book-cover{width:38px}.diary-group-title{font-size:17px}.diary-group-meta{font-size:9px}.suffix-field{gap:6px;padding-right:10px}}
 /* Keep the bottom navigation fully opaque above scrollable content. */
 .tabs{background:var(--nav-bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* Diário: mantém opções de visibilidade compactas sem afetar checkboxes globais. */
+.diary-form .visibility-box{border:1px solid var(--rule);border-radius:14px;background:color-mix(in srgb,var(--paper),transparent 36%);padding:8px 10px;margin:8px 0 14px}
+.diary-form .visibility-box .check-line{align-items:center;gap:8px;min-height:38px;margin:2px 0;padding:6px 4px;line-height:1.25;width:100%;box-sizing:border-box}
+.diary-form .visibility-box .check-line input{width:17px;height:17px;flex:0 0 17px;margin:0;accent-color:var(--primary)}
+.diary-form .visibility-box .check-line span{max-width:none}
+@media(max-width:420px){.diary-form .visibility-box{padding:7px 9px;margin:6px 0 12px}.diary-form .visibility-box .check-line{min-height:40px;margin:0;padding:5px 3px}.diary-form .visibility-box .check-line span{max-width:none}}
+body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--paper-2),transparent 25%)}

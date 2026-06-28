@@ -92,12 +92,109 @@ def seed_demo_content() -> None:
                 logger.info("[demo seed] critica reutilizada handle=%s obra=%s", item["handle"], item["titulo"])
 
 
+def _catalog_seed_enabled() -> bool:
+    return os.getenv("CATALOG_SEED_ENABLED", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _clean_seed_value(value) -> str:
+    return str(value or "").strip()
+
+
+def _find_seed_edicao(s: Session, obra: Obra, edicao_data: dict) -> Edicao | None:
+    ol_edition_key = _clean_seed_value(edicao_data.get("ol_edition_key"))
+    isbn = normalizar_isbn(_clean_seed_value(edicao_data.get("isbn")))
+    if ol_edition_key:
+        edicao = s.exec(select(Edicao).where(Edicao.ol_edition_key == ol_edition_key)).first()
+        if edicao:
+            return edicao
+    if isbn:
+        edicao = s.exec(select(Edicao).where(Edicao.isbn == isbn)).first()
+        if edicao:
+            return edicao
+    editora = _clean_seed_value(edicao_data.get("editora"))
+    tradutor = _clean_seed_value(edicao_data.get("tradutor"))
+    ano = edicao_data.get("ano_edicao")
+    return s.exec(
+        select(Edicao)
+        .where(Edicao.obra_id == obra.id)
+        .where(Edicao.editora == editora)
+        .where(Edicao.tradutor == tradutor)
+        .where(Edicao.ano == ano)
+    ).first()
+
+
+def seed_catalog_content() -> None:
+    if not _catalog_seed_enabled():
+        return
+    seed_path = AQUI / "data" / "catalog_seed.json"
+    if not seed_path.exists():
+        logger.warning("[catalog seed] arquivo não encontrado path=%s", seed_path)
+        return
+    try:
+        items = json.loads(seed_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.exception("[catalog seed] falha ao carregar path=%s", seed_path)
+        return
+
+    obras_criadas = obras_reutilizadas = edicoes_criadas = edicoes_reutilizadas = 0
+    with Session(engine) as s:
+        for item in items:
+            work_key = _clean_seed_value(item.get("work_key"))
+            titulo = _clean_seed_value(item.get("titulo"))
+            autor = _clean_seed_value(item.get("autor"))
+            if not work_key or not titulo:
+                continue
+            obra = s.exec(select(Obra).where(Obra.ol_work_key == work_key)).first()
+            if not obra:
+                obra = s.exec(
+                    select(Obra)
+                    .where(func.lower(Obra.titulo) == titulo.lower())
+                    .where(func.lower(Obra.autor) == autor.lower())
+                ).first()
+            if obra:
+                obras_reutilizadas += 1
+            else:
+                obra = Obra(
+                    ol_work_key=work_key,
+                    titulo=titulo,
+                    autor=autor,
+                    ano=item.get("ano_obra"),
+                    idioma_original=_clean_seed_value(item.get("idioma_original")),
+                )
+                s.add(obra); s.commit(); s.refresh(obra)
+                obras_criadas += 1
+
+            for edicao_data in item.get("edicoes", []):
+                edicao = _find_seed_edicao(s, obra, edicao_data)
+                if edicao:
+                    edicoes_reutilizadas += 1
+                    continue
+                edicao = Edicao(
+                    obra_id=obra.id,
+                    ol_edition_key=_clean_seed_value(edicao_data.get("ol_edition_key")) or None,
+                    editora=_clean_seed_value(edicao_data.get("editora")),
+                    tradutor=_clean_seed_value(edicao_data.get("tradutor")),
+                    isbn=normalizar_isbn(_clean_seed_value(edicao_data.get("isbn"))),
+                    idioma=_clean_seed_value(edicao_data.get("idioma")),
+                    ano=edicao_data.get("ano_edicao"),
+                    capa_url=_clean_seed_value(edicao_data.get("capa_url")),
+                )
+                s.add(edicao); s.commit()
+                edicoes_criadas += 1
+
+    logger.info(
+        "[catalog seed] obras criadas=%s reutilizadas=%s edições criadas=%s reutilizadas=%s",
+        obras_criadas, obras_reutilizadas, edicoes_criadas, edicoes_reutilizadas,
+    )
+
+
 # ─── lifespan ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app):
     SQLModel.metadata.create_all(engine)
     migrar()
     seed_demo_content()
+    seed_catalog_content()
     yield
 
 
