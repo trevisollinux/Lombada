@@ -1407,3 +1407,65 @@ body.theme-dark .tabs{box-shadow:0 -14px 32px rgba(0,0,0,.55)}
 .install-box p{color:var(--text-secondary,var(--ink-2));margin:.35rem 0 0}
 .app-version{margin-top:18px;color:var(--muted,var(--dim));font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:center}
 @media(max-width:420px){.pwa-banner{bottom:calc(108px + env(safe-area-inset-bottom))}.pwa-banner-actions button{flex:1}}
+
+/* Hotfix: keep the search bar iconography explicit and balanced. */
+.search{
+  grid-template-columns:minmax(0,1fr) 64px;
+  align-items:stretch;
+}
+.search .ic{
+  display:none;
+}
+.search input{
+  min-width:0;
+  padding-left:16px;
+}
+.search button,
+.search button[type="submit"]{
+  width:64px;
+  min-width:64px;
+  max-width:64px;
+  height:100%;
+  min-height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  align-self:stretch;
+  padding:0;
+  border-radius:0 18px 18px 0;
+  font-size:0;
+  letter-spacing:0;
+  line-height:1;
+  overflow:hidden;
+}
+.search button::before,
+.search button[type="submit"]::before{
+  content:"";
+  width:24px;
+  height:24px;
+  flex:0 0 auto;
+  display:block;
+  background:currentColor;
+  mask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17 17l4 4M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>') center/contain no-repeat;
+  -webkit-mask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17 17l4 4M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>') center/contain no-repeat;
+}
+@media(max-width:420px){
+  .search{
+    grid-template-columns:minmax(0,1fr) 56px;
+  }
+  .search input{
+    padding-left:14px;
+    padding-right:10px;
+  }
+  .search button,
+  .search button[type="submit"]{
+    width:56px;
+    min-width:56px;
+    max-width:56px;
+  }
+  .search button::before,
+  .search button[type="submit"]::before{
+    width:22px;
+    height:22px;
+  }
+}
