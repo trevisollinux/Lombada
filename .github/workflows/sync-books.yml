@@ -17,6 +17,7 @@ jobs:
       MELI_PAGES: "1"
       SYNC_SLEEP_SECONDS: "0.5"
       DRY_RUN: "false"
+      MELI_ACCESS_TOKEN: ${{ secrets.MELI_ACCESS_TOKEN }}
 
     steps:
       - name: Check out repository
