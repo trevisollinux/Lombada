@@ -19,6 +19,7 @@ let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=f
 let filtroEstante='Todos';
 let feedItems=[], feedFollowingCount=0, feedTab=localStorage.getItem('lombada_feed_tab')||'discover', discoverReaders=[];
 let ultimoLivroSalvo=null;
+let cardOpener=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
 let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
@@ -84,6 +85,23 @@ function setupWorkActionDelegation(){
 }
 setupWorkActionDelegation();
 
+/* teclado global: ESC fecha o modal e Enter/Espaço ativam elementos role="button" */
+function setupGlobalKeyboard(){
+  if(document.__lombadaKeyboard) return;
+  document.__lombadaKeyboard=true;
+  document.addEventListener('keydown', event => {
+    if(event.key==='Escape' && modalAberto()){ event.preventDefault(); fecharModal(); return; }
+    if(event.key==='Enter' || event.key===' '){
+      const el=event.target;
+      if(el instanceof Element && el.getAttribute('role')==='button' && !el.matches('button,a,input,textarea,select')){
+        event.preventDefault();
+        el.click();
+      }
+    }
+  });
+}
+setupGlobalKeyboard();
+
 function temaInicial(){
   const salvo=localStorage.getItem(THEME_KEY);
   return salvo==='light'?'light':'dark';
@@ -99,10 +117,6 @@ function definirTema(tema){
   const prox=tema==='light'?'light':'dark';
   localStorage.setItem(THEME_KEY,prox);
   aplicarTema(prox);
-}
-function alternarTema(){
-  const atual=document.body.getAttribute('data-theme')==='dark'?'dark':'light';
-  definirTema(atual==='dark'?'light':'dark');
 }
 function atualizarSeletorIdioma(){
   const locale=getLocale();
@@ -462,6 +476,8 @@ function fecharModalDireto(){
   $('#modal')?.classList.remove('open');
   const editPanel=$('#editPanel');
   if(editPanel) editPanel.style.display='none';
+  if(cardOpener && typeof cardOpener.focus==='function'){ try{ cardOpener.focus(); }catch(e){} }
+  cardOpener=null;
 }
 function fecharModalParaNavegacao(){
   if(!modalAberto())return;
@@ -572,7 +588,7 @@ function renderObrasPopulares(obras){
   const box=$('#populares');
   if(!box) return;
   const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular);
-  box.innerHTML=lista.map((o,i)=>`<div class="book" onclick="abrirObraPopular(${i})">
+  box.innerHTML=lista.map((o,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}">
     ${coverHTML(o.titulo,o.autor,o.capa_url,'')}
     <div class="t">${esc(o.titulo)}</div>
     ${o.autor?`<div class="a">${esc(o.autor)}</div>`:''}</div>`).join('');
@@ -619,7 +635,7 @@ function abrirDiarioLeitura(idx){
 }
 function lendoAgoraCard(l,idx,compacto=false){
   const progresso=progressoLeitura(l);
-  return `<div class="reading-now-card ${compacto?'compact':''}" onclick="abrirCard(${idx})">
+  return `<div class="reading-now-card ${compacto?'compact':''}" role="button" tabindex="0" onclick="abrirCard(${idx})" aria-label="${esc(l.titulo)}">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
       <div class="label">${t('continue_reading')}</div>
@@ -916,7 +932,7 @@ async function buscar(event){
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
   $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div><div class="wall">`+
-    obrasAgrupadas.map((d,i)=>`<div class="book work-card" onclick="verEdicoes(${i})">
+    obrasAgrupadas.map((d,i)=>`<div class="book work-card" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
@@ -958,7 +974,7 @@ async function abrirPaginaObraDoFeed(i){
 async function verEdicoes(i){
   if(Number.isInteger(i)) escolha=obrasAgrupadas[i]||resultadosArr[i];
   if(!escolha){
-    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('work_not_found')}</div>`;
+    $('#edicoes').innerHTML=`<div class="busca-back" role="button" tabindex="0" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('work_not_found')}</div>`;
     mostrarBusca('edicoes');
     return;
   }
@@ -990,7 +1006,7 @@ async function verEdicoes(i){
   }
   catch(err){
     console.warn('editions failed', {work_key_len:(escolha?.work_key||'').length}, err);
-    $('#edicoes').innerHTML=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`;
+    $('#edicoes').innerHTML=`<div class="busca-back" role="button" tabindex="0" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`;
     return;
   }
   await carregarSocialObra(); edicoesAtual=ordenarEdicoesObra(mesclarEdicoesLocais(eds||[])); renderEdicoes();
@@ -1127,7 +1143,7 @@ function renderEdicoes(){
   const st=obraSocial?.estatisticas||{};
   const media=st.media?fmtMedia(st.media):t('no_average_yet');
   const leituras=st.leituras||0, criticas=st.criticas||0, lendo=st.lendo||0, querem=st.querem||0;
-  const back=`<div class="busca-back" onclick="mostrarBusca('resultados')">${t('back_results')}</div>`;
+  const back=`<div class="busca-back" role="button" tabindex="0" onclick="mostrarBusca('resultados')">${t('back_results')}</div>`;
   const obraLocal=obraSocial?.obra||{};
   const anoIdioma=[obraLocal.ano||escolha.ano, obraLocal.idioma_original||escolha.idioma_original].filter(Boolean).map(esc).join(' · ');
   const acaoPrincipal=obraSocial?.minha_leitura
@@ -1209,7 +1225,7 @@ function escolherEdicao(j,event){
     </div>`;
   clearButtonBusy(trigger);
   $('#form').innerHTML=`
-    <div class="busca-back" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
+    <div class="busca-back" role="button" tabindex="0" onclick="mostrarBusca('edicoes')">${t('back_editions')}</div>
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
     <div class="card-form reading-form simple-reading-form">
       <section class="reading-form-block selected-edition-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
@@ -1379,7 +1395,7 @@ function abrirManual(event){
     return;
   }
   manual.innerHTML=`
-    <div class="busca-back" onclick="history.back()">${t('back')}</div>
+    <div class="busca-back" role="button" tabindex="0" onclick="history.back()">${t('back')}</div>
     <div class="section-head"><h2 class="h-section">${t('manual_registration')}</h2></div>
     <div class="card-form">
       <div class="form-block"><div class="label">${t('book')}</div>
@@ -1491,7 +1507,7 @@ function renderPrateleira(){
         const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
         const statusNota=[statusLabel(l.status),l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString(getLocale())}`:t('no_rating')].filter(Boolean).join(' · ');
         const dataAno=[l.data,l.ano_edicao||l.ano_obra].filter(Boolean).join(' · ');
-        return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">${cap}
+        return `<li class="shelf-row ${livroEstaDestacado(l)?'saved-highlight':''}" role="button" tabindex="0" onclick="abrirCard(${i})" aria-label="${esc(l.titulo)}">${cap}
           <div class="shelf-row-body">
             <button class="shelf-row-title work-title-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDaLeitura(${i})">${esc(l.titulo)}</button>
             <div class="shelf-row-author">${esc(l.autor)}</div>
@@ -1501,7 +1517,7 @@ function renderPrateleira(){
           </div></li>`;
       }).join('')}</ul>`
     : `<div class="wall shelf-wall">${itens.map(({l,i})=>`
-        <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" onclick="abrirCard(${i})">
+        <div class="book ${livroEstaDestacado(l)?'saved-highlight':''}" role="button" tabindex="0" onclick="abrirCard(${i})" aria-label="${esc(l.titulo)}">
           ${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span><span>${l.nota.toLocaleString(getLocale())}</span></span>`:'').replace('class="cover','class="shelf-cover')}
           <button class="t work-title-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDaLeitura(${i})">${esc(l.titulo)}</button>
           <div class="a">${esc(l.autor)}</div>
@@ -1914,7 +1930,7 @@ function renderPerfil(){
       </div>
       ${contaHTML}
       ${installCtaHTML()}
-      <div class="app-version">${/^\d/.test((appVersion||'dev').replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc((appVersion||'dev').replace(/\.0$/,''))}</div>
+      ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
       <div class="plink">${esc(url)}</div>
     </div>`;
 }
@@ -2048,7 +2064,7 @@ function renderDetalheLivro(l){
       </div>
       <div class="detail-titleblock">
         <div class="label">${t('book_detail')}</div>
-        <h2>${esc(l.titulo)}</h2>
+        <h2 id="bookDetailTitle">${esc(l.titulo)}</h2>
         <p class="detail-author">${esc(l.autor)}</p>
         <span class="status-tag">${esc(statusLabel(l.status||'Lido'))}</span>
       </div>
@@ -2095,8 +2111,10 @@ async function abrirCard(i,opcoes={}){
   cardContext={type:opcoes.cardType||((cardAtual?.relato||'').trim()?'critica':'leitura'),source:null};
   cardIncludeExcerpt=!!((cardAtual?.relato||'').trim() && !cardAtual?.spoiler);
   $('#editPanel').style.display='none';
+  if(!restaurandoHistorico && document.activeElement instanceof HTMLElement) cardOpener=document.activeElement;
   renderDetalheLivro(cardAtual);
   $('#modal').classList.add('open');
+  requestAnimationFrame(()=>$('.modal-x')?.focus());
  if(registrar && !restaurandoHistorico){
   const estadoModal={...estadoNav(navAtual.aba,navAtual.busca,true),card:i};
   if(history.state && history.state.lombada && history.state.modal){
