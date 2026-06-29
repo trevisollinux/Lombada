@@ -1,0 +1,50 @@
+name: Promote source records to catalog
+
+# Promove registros de source_records -> obra/edicao (catálogo que a busca lê).
+# Dispare pela aba Actions. Use dry_run=true primeiro para ver quantos entrariam.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = só simula (não grava); false = promove de verdade'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      min_confidence:
+        description: 'confiança mínima (0 a 1)'
+        required: false
+        default: '0.5'
+      limit:
+        description: 'máx. de registros por execução'
+        required: false
+        default: '1000'
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      - name: Promote source records
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PROMOTE_MIN_CONFIDENCE: ${{ inputs.min_confidence }}
+          PROMOTE_LIMIT: ${{ inputs.limit }}
+        run: |
+          python scripts/promote_source_records.py | tee promote_resultado.txt
+          {
+            echo '### Promoção source_records -> catálogo'
+            echo ''
+            echo '```'
+            cat promote_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
