@@ -37,7 +37,13 @@ import requests
 from bs4 import BeautifulSoup
 
 SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/sitemap-index.xml")
-BOOK_PATH_TERMS = ("livro", "produto", "obra", "catalogo", "detalhe", "product", "/p/", "book")
+BOOK_PATH_TERMS = ("livro", "produto", "obra", "detalhe", "product", "/p/", "book")
+# Páginas de listagem para alargar o crawl quando o sitemap não serve.
+LISTING_TERMS = (
+    "livros", "catalogo", "categoria", "categorias", "colecao", "colecoes",
+    "genero", "generos", "assunto", "autor", "autores", "lancamento",
+    "lancamentos", "mais-vendidos", "selo", "selos",
+)
 # (connect, read): connect curto evita ficar minutos preso em host que não responde.
 REQUEST_TIMEOUT_SECONDS = (6, 15)
 MAX_RETRIES = 2
@@ -55,10 +61,12 @@ HEADERS = {
 # platform: "auto" tenta shopify -> vtex -> sitemap. Pode forçar uma só.
 SOURCES = [
     {
+        # Plataforma custom (Communiplex): sem sitemap/JSON de catálogo, mas a home
+        # lista /livro/{ISBN}/{slug} — crawl de HTML resolve e o ISBN vem da URL.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platform": "auto",
+        "platform": "html",
     },
     {
         "slug": "editora_34",
@@ -301,6 +309,15 @@ def extract_year(text: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def isbn_from_url(url: str) -> str:
+    """Vários e-commerces embutem o ISBN no caminho (ex.: /livro/9788535947847/slug)."""
+    for segment in urlparse(url).path.split("/"):
+        candidate = norm_isbn(segment)
+        if candidate:
+            return candidate
+    return ""
+
+
 def stable_external_id(url: str) -> str:
     path_slug = urlparse(url).path.strip("/").replace("/", ":")
     if path_slug:
@@ -388,7 +405,11 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
 
     visible_text = soup.get_text(" ", strip=True)
     raw_text = " ".join(filter(None, [title, author, description, visible_text[:5000]]))
-    isbn = extract_isbn(first_text(bookish.get("isbn"))) or extract_isbn(raw_text)
+    isbn = (
+        isbn_from_url(url)
+        or extract_isbn(first_text(bookish.get("isbn")))
+        or extract_isbn(raw_text)
+    )
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
 
     return build_record(
@@ -540,18 +561,81 @@ def collect_via_sitemap(
     return records
 
 
+def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
+    """Separa links internos em (urls_de_livro, urls_de_listagem)."""
+    host = urlparse(base_url).netloc.replace("www.", "")
+    soup = BeautifulSoup(html, "html.parser")
+    book_urls: list[str] = []
+    listing_urls: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        full = urljoin(base_url, anchor["href"])
+        parsed = urlparse(full)
+        if parsed.scheme not in {"http", "https"} or parsed.netloc.replace("www.", "") != host:
+            continue
+        clean = full.split("#", 1)[0]
+        path = parsed.path.lower()
+        if looks_like_book_url(clean):
+            book_urls.append(clean)
+        elif any(term in path for term in LISTING_TERMS):
+            listing_urls.append(clean)
+    return list(dict.fromkeys(book_urls)), list(dict.fromkeys(listing_urls))
+
+
+def collect_via_html_crawl(
+    publisher: dict[str, str], max_urls: int, sleep_seconds: float
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Fallback p/ sites sem sitemap/JSON: parte da home e segue páginas de listagem."""
+    base_url = publisher["base_url"].rstrip("/")
+    home = fetch_url(base_url + "/")
+    if home is None:
+        print(f"  [html] home inacessível para {publisher['slug']}.")
+        return []
+    book_urls, listing_urls = harvest_links(home.text, base_url)
+    # Alarga o conjunto visitando algumas páginas de listagem (catálogo/coleções).
+    for listing_url in listing_urls[:12]:
+        if len(book_urls) >= max_urls * 4:
+            break
+        resp = fetch_url(listing_url)
+        if resp is not None:
+            more_books, _ = harvest_links(resp.text, base_url)
+            book_urls.extend(more_books)
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+    book_urls = list(dict.fromkeys(book_urls))
+    print(f"  [html] urls_livro={len(book_urls)} (de {len(listing_urls)} listagens)")
+
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    seen: set[str] = set()
+    for url in book_urls:
+        if len(records) >= max_urls:
+            break
+        extracted = extract_page(url, publisher)
+        if extracted is None:
+            continue
+        normalized, _ = extracted
+        if normalized["external_id"] in seen:
+            continue
+        seen.add(normalized["external_id"])
+        records.append(extracted)
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+    return records
+
+
 PLATFORM_COLLECTORS = {
     "shopify": collect_via_shopify,
     "vtex": collect_via_vtex,
     "sitemap": collect_via_sitemap,
+    "html": collect_via_html_crawl,
 }
+AUTO_ORDER = ["shopify", "vtex", "sitemap", "html"]
 
 
 def collect_publisher(
     publisher: dict[str, str], max_urls: int, sleep_seconds: float
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     platform = publisher.get("platform", "auto")
-    order = [platform] if platform in PLATFORM_COLLECTORS else ["shopify", "vtex", "sitemap"]
+    order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
     for name in order:
         collector = PLATFORM_COLLECTORS[name]
         try:
