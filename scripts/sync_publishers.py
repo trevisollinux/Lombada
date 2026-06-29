@@ -38,8 +38,9 @@ from bs4 import BeautifulSoup
 
 SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/sitemap-index.xml")
 BOOK_PATH_TERMS = ("livro", "produto", "obra", "catalogo", "detalhe", "product", "/p/", "book")
-REQUEST_TIMEOUT_SECONDS = 25
-MAX_RETRIES = 3
+# (connect, read): connect curto evita ficar minutos preso em host que não responde.
+REQUEST_TIMEOUT_SECONDS = (6, 15)
+MAX_RETRIES = 2
 RETRYABLE_STATUS = {403, 429, 500, 502, 503, 504}
 # UA de navegador real reduz bloqueio por WAF/Cloudflare; mantemos contato no header.
 HEADERS = {
@@ -147,10 +148,9 @@ def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
         try:
             response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
+            # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
+            # acumular minutos de tempo morto × várias URLs por editora).
             print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(2 ** attempt)
-                continue
             return None
         if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
             time.sleep(2 ** attempt)
