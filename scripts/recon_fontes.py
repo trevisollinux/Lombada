@@ -14,6 +14,14 @@ dos hosts por política):
 
 Sem dependências externas — só a stdlib. Edite TESTES para incluir os livros
 que você sabe que somem.
+
+Fontes opcionais por env:
+    GOOGLE_BOOKS_API_KEY   evita o 429 do Google Books
+    PENGUIN_API_KEY        chave grátis em developer.penguinrandomhouse.com
+    PENGUIN_DOMAIN         domínio PRH a consultar (default PRH.US; teste PRH.UK)
+
+Nota: a Companhia das Letras é do grupo Penguin Random House — vale ver se a
+API da PRH expõe o catálogo BR em algum domínio. O recon revela isso.
 """
 import json
 import os
@@ -25,6 +33,8 @@ import urllib.request
 TIMEOUT = 20
 UA = {"User-Agent": "Lombada-recon/1.0 (diario de leitura)"}
 GB_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "")
+PENGUIN_KEY = os.getenv("PENGUIN_API_KEY", "")
+PENGUIN_DOMAIN = os.getenv("PENGUIN_DOMAIN", "PRH.US")
 
 # (titulo, autor/sobrenome esperado, isbn_conhecido opcional)
 TESTES = [
@@ -113,7 +123,35 @@ def ml(q):
     return out
 
 
-FONTES = {"Google Books": gb, "Open Library": ol, "Mercado Livre": ml}
+# ─── Penguin Random House (Cia das Letras é do grupo) ─────
+def penguin(q):
+    if not PENGUIN_KEY:
+        raise RuntimeError("defina PENGUIN_API_KEY (grátis em developer.penguinrandomhouse.com)")
+    base = f"https://api.penguinrandomhouse.com/resources/v2/title/domains/{PENGUIN_DOMAIN}/search/title"
+    url = base + "?" + urllib.parse.urlencode({"q": q, "rows": 10, "start": 0, "api_key": PENGUIN_KEY})
+    data = _get_json(url)
+    # A resposta da PRH aninha em data->titles (ou results); parse defensivo.
+    bloco = data.get("data") if isinstance(data, dict) else None
+    titulos = []
+    if isinstance(bloco, dict):
+        titulos = bloco.get("titles") or bloco.get("results") or []
+    out = []
+    for t in titulos:
+        if not isinstance(t, dict):
+            continue
+        out.append({
+            "titulo": t.get("title") or t.get("titleweb") or "",
+            "autor": t.get("author") or t.get("authorweb") or "",
+            "ano": str(t.get("onsaledate") or t.get("pubdate") or "")[:4],
+            "idioma": t.get("language") or "",
+            "isbn": str(t.get("isbn") or t.get("isbn13") or ""),
+            "capa": bool(t.get("isbn")),  # PRH monta capa por ISBN (images.randomhouse.com)
+            "editora": t.get("imprint") or t.get("division") or "",
+        })
+    return out
+
+
+FONTES = {"Google Books": gb, "Open Library": ol, "Mercado Livre": ml, "Penguin RH": penguin}
 
 
 def avalia(resultados, titulo, autor):
