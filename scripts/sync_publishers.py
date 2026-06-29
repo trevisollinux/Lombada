@@ -151,7 +151,9 @@ def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
     """GET com retry e backoff. Retorna None em falha definitiva (>=400 não-retryável)."""
     headers = dict(HEADERS)
     if accept:
-        headers["Accept"] = accept
+        # Mantém a preferência (json/xml) mas aceita qualquer coisa: alguns servidores
+        # (ex.: IIS) devolvem 404/406 a um Accept restritivo e escondem o sitemap.
+        headers["Accept"] = f"{accept}, */*;q=0.1"
     for attempt in range(MAX_RETRIES):
         try:
             response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
@@ -296,6 +298,34 @@ def extract_author_from_soup(soup: BeautifulSoup, bookish: dict[str, Any]) -> st
     return match.group(1).strip() if match else ""
 
 
+def clean_title(title: str, publisher_name: str) -> str:
+    """Remove segmentos finais com o nome/branding da editora (og:title/<title>)."""
+    title = " ".join((title or "").split())
+    parts = re.split(r"\s+[\-|–—]\s+", title)
+    if len(parts) <= 1:
+        return title
+    brand_words = {w for w in re.findall(r"\w+", publisher_name.lower()) if len(w) > 2}
+    brand_words |= {"grupo", "editora", "livraria", "loja"}
+    kept: list[str] = []
+    for index, part in enumerate(parts):
+        words = set(re.findall(r"\w+", part.lower()))
+        if index > 0 and words and words <= brand_words:
+            continue  # segmento que é só branding da editora
+        kept.append(part)
+    return " - ".join(kept).strip() or title
+
+
+def isbn_from_jsonld(objects: list[dict[str, Any]]) -> str:
+    for obj in objects:
+        for key in ("isbn", "gtin13", "gtin", "gtin14", "productID"):
+            value = obj.get(key)
+            if value:
+                isbn = extract_isbn(str(value if not isinstance(value, list) else (value[0] if value else "")))
+                if isbn:
+                    return isbn
+    return ""
+
+
 def extract_isbn(text: str) -> str:
     match = ISBN_RE.search(text)
     if not match:
@@ -403,11 +433,14 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
         h1 = soup.find("h1")
         title = h1.get_text(" ", strip=True) if h1 else ""
 
+    title = clean_title(title, publisher["name"])
+
     visible_text = soup.get_text(" ", strip=True)
-    raw_text = " ".join(filter(None, [title, author, description, visible_text[:5000]]))
+    raw_text = " ".join(filter(None, [author, description, visible_text]))
     isbn = (
         isbn_from_url(url)
-        or extract_isbn(first_text(bookish.get("isbn")))
+        or isbn_from_jsonld(json_ld_objects)
+        or extract_isbn(meta_content(soup, "book:isbn"))
         or extract_isbn(raw_text)
     )
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
