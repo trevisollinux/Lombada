@@ -1,7 +1,26 @@
 name: Sync publisher source records
 
+# Raspa catálogos de editoras -> source_records (a busca do app lê isso via promote).
+# Dispare pela aba Actions (funciona do celular).
+#   dry_run=true  -> só coleta e mostra amostra/cobertura no log (não grava no banco)
+#   dry_run=false -> grava em source_records (status=pending)
+
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = só testa e mostra amostra; false = grava no banco'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      max_urls:
+        description: 'máx. de livros por editora'
+        required: false
+        default: '20'
+      slugs:
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
+        required: false
+        default: ''
   schedule:
     - cron: "0 8 * * *"
 
@@ -21,8 +40,18 @@ jobs:
         run: pip install -r requirements-sync.txt
 
       - name: Sync publisher source records
-        run: python scripts/sync_publishers.py
+        run: |
+          python scripts/sync_publishers.py | tee sync_resultado.txt
+          {
+            echo '### Sync de editoras -> source_records'
+            echo ''
+            echo '```'
+            cat sync_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          PUBLISHER_MAX_URLS: "20"
+          PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
+          PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: "1.0"

@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 """
-Varredura curta de páginas oficiais de editoras brasileiras para popular source_records.
+Varredura de catálogos de editoras brasileiras para popular source_records.
+
+Estratégia (da mais robusta para a mais frágil), por editora:
+  1) Shopify  -> {base}/products.json            (dados estruturados, com ISBN)
+  2) VTEX     -> {base}/api/catalog_system/...    (dados estruturados, com EAN)
+  3) Sitemap + JSON-LD / Open Graph nas páginas dos livros
+
+Descoberta de sitemap: tenta a diretiva `Sitemap:` do robots.txt e, em seguida,
+caminhos conhecidos (/sitemap.xml, /sitemap_index.xml, /wp-sitemap.xml).
+
+Para escapar de bloqueio de bot (403/429) usamos User-Agent de navegador e
+retry com backoff exponencial.
 
 Configuração por variáveis de ambiente:
 - DATABASE_URL: conexão Postgres/Neon obrigatória.
-- PUBLISHER_MAX_URLS: máximo de páginas candidatas por editora (default: 20).
+- PUBLISHER_MAX_URLS: máximo de livros por editora (default: 20).
 - PUBLISHER_SLEEP_SECONDS: pausa entre páginas HTML (default: 1.0).
+- PUBLISHER_SLUGS: lista separada por vírgula para filtrar editoras (default: todas).
 """
 from __future__ import annotations
 
@@ -24,33 +36,72 @@ from psycopg2.extras import Json
 import requests
 from bs4 import BeautifulSoup
 
-SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml")
-BOOK_PATH_TERMS = ("livro", "produto", "obra", "catalogo", "detalhe", "product")
-REQUEST_TIMEOUT_SECONDS = 20
+SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/sitemap-index.xml")
+BOOK_PATH_TERMS = ("livro", "produto", "obra", "catalogo", "detalhe", "product", "/p/", "book")
+REQUEST_TIMEOUT_SECONDS = 25
+MAX_RETRIES = 3
+RETRYABLE_STATUS = {403, 429, 500, 502, 503, 504}
+# UA de navegador real reduz bloqueio por WAF/Cloudflare; mantemos contato no header.
 HEADERS = {
-    "Accept": "text/html,application/xhtml+xml",
-    "Accept-Language": "pt-BR,pt;q=0.9",
-    "User-Agent": "LombadaPublisherSync/0.1 (+https://lombada.onrender.com)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "X-Contact": "https://github.com/trevisollinux/lombada (LombadaPublisherSync)",
 }
+# platform: "auto" tenta shopify -> vtex -> sitemap. Pode forçar uma só.
 SOURCES = [
     {
         "slug": "cia_das_letras",
-        "name": "Cia das Letras",
+        "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
+        "platform": "auto",
     },
     {
         "slug": "editora_34",
         "name": "Editora 34",
         "base_url": "https://www.editora34.com.br",
+        "platform": "auto",
     },
     {
         "slug": "record",
         "name": "Grupo Editorial Record",
         "base_url": "https://www.record.com.br",
+        "platform": "auto",
+    },
+    {
+        "slug": "intrinseca",
+        "name": "Intrínseca",
+        "base_url": "https://www.intrinseca.com.br",
+        "platform": "auto",
+    },
+    {
+        "slug": "todavia",
+        "name": "Todavia",
+        "base_url": "https://todavialivros.com.br",
+        "platform": "auto",
+    },
+    {
+        "slug": "sextante",
+        "name": "Sextante",
+        "base_url": "https://www.sextante.com.br",
+        "platform": "auto",
+    },
+    {
+        "slug": "autentica",
+        "name": "Autêntica",
+        "base_url": "https://grupoautentica.com.br",
+        "platform": "auto",
     },
 ]
 ISBN_RE = re.compile(r"(?:ISBN(?:-1[03])?[:\s]*)?((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])")
 YEAR_RE = re.compile(r"\b(1[5-9]\d{2}|20\d{2})\b")
+
+
+def getenv_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "y"}
 
 
 def getenv_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -87,15 +138,51 @@ def connect_database():
     return psycopg2.connect(normalized_url)
 
 
-def fetch_url(url: str) -> requests.Response | None:
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
+def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
+    """GET com retry e backoff. Retorna None em falha definitiva (>=400 não-retryável)."""
+    headers = dict(HEADERS)
+    if accept:
+        headers["Accept"] = accept
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+        except requests.RequestException as exc:
+            print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(2 ** attempt)
+                continue
+            return None
+        if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
+            time.sleep(2 ** attempt)
+            continue
         if response.status_code >= 400:
             return None
         return response
-    except requests.RequestException as exc:
-        print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
+    return None
+
+
+def fetch_json(url: str) -> Any:
+    response = fetch_url(url, accept="application/json")
+    if response is None:
         return None
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+# ─── sitemap ──────────────────────────────────────────────
+def discover_sitemaps_from_robots(base_url: str) -> list[str]:
+    response = fetch_url(urljoin(base_url, "/robots.txt"), accept="text/plain")
+    if response is None:
+        return []
+    sitemaps: list[str] = []
+    for line in response.text.splitlines():
+        if line.lower().startswith("sitemap:"):
+            url = line.split(":", 1)[1].strip()
+            if url:
+                sitemaps.append(url)
+    return sitemaps
 
 
 def parse_sitemap_urls(xml_text: str) -> tuple[list[str], list[str]]:
@@ -105,14 +192,16 @@ def parse_sitemap_urls(xml_text: str) -> tuple[list[str], list[str]]:
         return [], []
     sitemap_urls: list[str] = []
     page_urls: list[str] = []
-    for element in root:
+    for element in root.iter():
         tag_name = element.tag.rsplit("}", 1)[-1]
+        if tag_name not in {"sitemap", "url"}:
+            continue
         loc = next((child for child in element if child.tag.rsplit("}", 1)[-1] == "loc"), None)
         if loc is None or not loc.text:
             continue
         if tag_name == "sitemap":
             sitemap_urls.append(loc.text.strip())
-        elif tag_name == "url":
+        else:
             page_urls.append(loc.text.strip())
     return sitemap_urls, page_urls
 
@@ -125,7 +214,7 @@ def collect_sitemap_urls(base_url: str) -> list[str]:
         if sitemap_url in seen_sitemaps or depth > 2:
             return
         seen_sitemaps.add(sitemap_url)
-        response = fetch_url(sitemap_url)
+        response = fetch_url(sitemap_url, accept="application/xml")
         if response is None:
             return
         child_sitemaps, page_urls = parse_sitemap_urls(response.text)
@@ -133,8 +222,11 @@ def collect_sitemap_urls(base_url: str) -> list[str]:
         for child_url in child_sitemaps[:25]:
             visit(child_url, depth + 1)
 
-    for path in SITEMAP_PATHS:
-        visit(urljoin(base_url, path))
+    # 1) sitemaps anunciados no robots.txt; 2) caminhos conhecidos.
+    candidates = discover_sitemaps_from_robots(base_url)
+    candidates += [urljoin(base_url, path) for path in SITEMAP_PATHS]
+    for sitemap_url in dict.fromkeys(candidates):
+        visit(sitemap_url)
     return list(dict.fromkeys(all_urls))
 
 
@@ -143,6 +235,7 @@ def looks_like_book_url(url: str) -> bool:
     return any(term in path for term in BOOK_PATH_TERMS)
 
 
+# ─── extração genérica (JSON-LD / Open Graph) ─────────────
 def load_json_ld(soup: BeautifulSoup) -> list[Any]:
     values: list[Any] = []
     for tag in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -181,6 +274,20 @@ def meta_content(soup: BeautifulSoup, property_name: str) -> str:
     return str(tag.get("content") or "").strip() if tag else ""
 
 
+def extract_author_from_soup(soup: BeautifulSoup, bookish: dict[str, Any]) -> str:
+    author = first_text(bookish.get("author") or bookish.get("creator"))
+    if author:
+        return author
+    for prop in ("book:author", "author", "og:author", "article:author"):
+        value = meta_content(soup, prop)
+        if value and not value.lower().startswith("http"):
+            return value
+    # padrão comum em e-commerce de livro: "Autor: Fulano"
+    text = soup.get_text(" ", strip=True)
+    match = re.search(r"Autor(?:\(a\)|es)?\s*[:\-]\s*([A-ZÀ-Ý][^\n|·•]{2,60})", text)
+    return match.group(1).strip() if match else ""
+
+
 def extract_isbn(text: str) -> str:
     match = ISBN_RE.search(text)
     if not match:
@@ -201,6 +308,51 @@ def stable_external_id(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 
+def build_record(
+    publisher: dict[str, str],
+    url: str,
+    *,
+    title: str,
+    author: str = "",
+    isbn: str = "",
+    year: int | None = None,
+    thumbnail: str = "",
+    description: str = "",
+    structured: bool = False,
+    raw_extra: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    title = (title or "").strip()
+    if not title:
+        return None
+    normalized = {
+        "source": f"publisher:{publisher['slug']}",
+        "external_id": stable_external_id(url),
+        "status": "pending",
+        "title": title,
+        "author": (author or "").strip(),
+        "isbn": isbn or "",
+        "publisher": publisher["name"],
+        "publication_year": year,
+        "price": None,
+        "currency_id": "",
+        "permalink": url,
+        "thumbnail": (thumbnail or "").strip(),
+        "category_id": "",
+        "search_term": publisher["name"],
+    }
+    score = 0.0
+    score += 0.3 if normalized["title"] else 0.0
+    score += 0.2 if normalized["author"] else 0.0
+    score += 0.2 if normalized["isbn"] else 0.0
+    score += 0.2 if normalized["thumbnail"] else 0.0
+    score += 0.1 if structured else 0.0
+    normalized["confidence_score"] = round(min(score, 1.0), 4)
+    raw = {"url": url, "publisher": publisher, "description": description}
+    if raw_extra:
+        raw.update(raw_extra)
+    return normalized, raw
+
+
 def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], dict[str, Any]] | None:
     response = fetch_url(url)
     if response is None:
@@ -218,7 +370,7 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
     )
 
     title = first_text(bookish.get("name") or bookish.get("headline"))
-    author = first_text(bookish.get("author") or bookish.get("creator"))
+    author = extract_author_from_soup(soup, bookish)
     thumbnail = first_text(bookish.get("image"))
     description = first_text(bookish.get("description"))
 
@@ -236,48 +388,182 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
 
     visible_text = soup.get_text(" ", strip=True)
     raw_text = " ".join(filter(None, [title, author, description, visible_text[:5000]]))
-    isbn = first_text(bookish.get("isbn")) or extract_isbn(raw_text)
+    isbn = extract_isbn(first_text(bookish.get("isbn"))) or extract_isbn(raw_text)
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
 
-    normalized = {
-        "source": f"publisher:{publisher['slug']}",
-        "external_id": stable_external_id(url),
-        "status": "pending",
-        "title": title,
-        "author": author,
-        "isbn": isbn,
-        "publisher": publisher["name"],
-        "publication_year": year,
-        "price": None,
-        "currency_id": "",
-        "permalink": url,
-        "thumbnail": thumbnail,
-        "category_id": "",
-        "search_term": publisher["name"],
-    }
-    score = 0.0
-    score += 0.3 if title else 0.0
-    score += 0.2 if author else 0.0
-    score += 0.2 if isbn else 0.0
-    score += 0.2 if thumbnail else 0.0
-    score += 0.1 if json_ld else 0.0
-    normalized["confidence_score"] = round(min(score, 1.0), 4)
-    raw = {
-        "url": url,
-        "publisher": publisher,
-        "json_ld": json_ld,
-        "open_graph": {
-            "title": meta_content(soup, "og:title"),
-            "description": meta_content(soup, "og:description"),
-            "image": meta_content(soup, "og:image"),
+    return build_record(
+        publisher,
+        url,
+        title=title,
+        author=author,
+        isbn=isbn,
+        year=year,
+        thumbnail=thumbnail,
+        description=description,
+        structured=bool(json_ld),
+        raw_extra={
+            "json_ld": json_ld,
+            "open_graph": {
+                "title": meta_content(soup, "og:title"),
+                "description": meta_content(soup, "og:description"),
+                "image": meta_content(soup, "og:image"),
+            },
         },
-        "html": {
-            "title": soup.title.get_text(" ", strip=True) if soup.title else "",
-            "h1": soup.find("h1").get_text(" ", strip=True) if soup.find("h1") else "",
-            "isbn": isbn,
-        },
-    }
-    return normalized, raw
+    )
+
+
+# ─── plataformas estruturadas ─────────────────────────────
+def norm_isbn(value: Any) -> str:
+    c = re.sub(r"[^0-9Xx]", "", str(value or "")).upper()
+    if len(c) == 13 and c.isdigit():
+        return c
+    if len(c) == 10 and re.fullmatch(r"[0-9]{9}[0-9X]", c):
+        return c
+    return ""
+
+
+def collect_via_shopify(
+    publisher: dict[str, str], max_urls: int, sleep_seconds: float
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    base_url = publisher["base_url"].rstrip("/")
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for page in range(1, 11):
+        data = fetch_json(f"{base_url}/products.json?limit=250&page={page}")
+        if not isinstance(data, dict):
+            break
+        products = data.get("products") or []
+        if not products:
+            break
+        for product in products:
+            variants = product.get("variants") or []
+            isbn = next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+            images = product.get("images") or []
+            thumbnail = (images[0].get("src") if images else "") or ""
+            year = extract_year(str(product.get("published_at") or ""))
+            url = f"{base_url}/products/{product.get('handle', '')}"
+            record = build_record(
+                publisher,
+                url,
+                title=product.get("title") or "",
+                author=(product.get("vendor") or "").strip(),
+                isbn=isbn,
+                year=year,
+                thumbnail=thumbnail,
+                description=BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600],
+                structured=True,
+                raw_extra={"platform": "shopify", "product_id": product.get("id")},
+            )
+            if record:
+                records.append(record)
+            if len(records) >= max_urls:
+                return records
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+    return records
+
+
+def vtex_author(product: dict[str, Any]) -> str:
+    for key, value in product.items():
+        if "autor" in key.lower() and isinstance(value, list) and value:
+            return str(value[0]).strip()
+    return str(product.get("brand") or "").strip()
+
+
+def collect_via_vtex(
+    publisher: dict[str, str], max_urls: int, sleep_seconds: float
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    base_url = publisher["base_url"].rstrip("/")
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    step = 50
+    for start in range(0, 2500, step):
+        url = f"{base_url}/api/catalog_system/pub/products/search?_from={start}&_to={start + step - 1}"
+        data = fetch_json(url)
+        if not isinstance(data, list) or not data:
+            break
+        for product in data:
+            items = product.get("items") or []
+            isbn = ""
+            thumbnail = ""
+            for item in items:
+                isbn = isbn or norm_isbn(item.get("ean"))
+                images = item.get("images") or []
+                thumbnail = thumbnail or (images[0].get("imageUrl") if images else "")
+            link = product.get("link") or (
+                f"{base_url}/{product['linkText']}/p" if product.get("linkText") else base_url
+            )
+            year = extract_year(str(product.get("releaseDate") or ""))
+            record = build_record(
+                publisher,
+                link,
+                title=product.get("productName") or "",
+                author=vtex_author(product),
+                isbn=isbn,
+                year=year,
+                thumbnail=thumbnail or "",
+                description=BeautifulSoup(product.get("description") or "", "html.parser").get_text(" ", strip=True)[:600],
+                structured=True,
+                raw_extra={"platform": "vtex", "product_id": product.get("productId")},
+            )
+            if record:
+                records.append(record)
+            if len(records) >= max_urls:
+                return records
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+    return records
+
+
+def collect_via_sitemap(
+    publisher: dict[str, str], max_urls: int, sleep_seconds: float
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    sitemap_urls = collect_sitemap_urls(publisher["base_url"])
+    if not sitemap_urls:
+        print(f"  [sitemap] nenhum sitemap acessível para {publisher['slug']} ({publisher['base_url']}).")
+        return []
+    book_urls = [url for url in sitemap_urls if looks_like_book_url(url)]
+    print(f"  [sitemap] urls={len(sitemap_urls)} candidatos_livro={len(book_urls)}")
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    seen: set[str] = set()
+    for url in book_urls:
+        if len(records) >= max_urls:
+            break
+        extracted = extract_page(url, publisher)
+        if extracted is None:
+            continue
+        normalized, _ = extracted
+        if normalized["external_id"] in seen:
+            continue
+        seen.add(normalized["external_id"])
+        records.append(extracted)
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+    return records
+
+
+PLATFORM_COLLECTORS = {
+    "shopify": collect_via_shopify,
+    "vtex": collect_via_vtex,
+    "sitemap": collect_via_sitemap,
+}
+
+
+def collect_publisher(
+    publisher: dict[str, str], max_urls: int, sleep_seconds: float
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    platform = publisher.get("platform", "auto")
+    order = [platform] if platform in PLATFORM_COLLECTORS else ["shopify", "vtex", "sitemap"]
+    for name in order:
+        collector = PLATFORM_COLLECTORS[name]
+        try:
+            records = collector(publisher, max_urls, sleep_seconds)
+        except Exception as exc:  # noqa: BLE001 — uma plataforma falhar não derruba as outras
+            print(f"  [{name}] erro: {exc!r}", file=sys.stderr)
+            continue
+        if records:
+            print(f"  método={name} registros={len(records)}")
+            return records
+    print(f"  nenhum método retornou registros para {publisher['slug']}.")
+    return []
 
 
 def upsert_records(conn, records: list[tuple[dict[str, Any], dict[str, Any]]]) -> int:
@@ -324,35 +610,45 @@ def upsert_records(conn, records: list[tuple[dict[str, Any], dict[str, Any]]]) -
     return written
 
 
+def select_sources() -> list[dict[str, str]]:
+    raw = os.getenv("PUBLISHER_SLUGS", "").strip()
+    if not raw:
+        return SOURCES
+    wanted = {s.strip().lower() for s in raw.split(",") if s.strip()}
+    return [s for s in SOURCES if s["slug"].lower() in wanted] or SOURCES
+
+
 def main() -> int:
-    max_urls = getenv_int("PUBLISHER_MAX_URLS", 20, minimum=1, maximum=500)
+    max_urls = getenv_int("PUBLISHER_MAX_URLS", 20, minimum=1, maximum=2000)
     sleep_seconds = getenv_float("PUBLISHER_SLEEP_SECONDS", 1.0)
+    dry_run = getenv_bool("PUBLISHER_DRY_RUN", False)
+    sources = select_sources()
+    modo = "DRY_RUN (não grava)" if dry_run else "gravando no banco"
+    print(f"max_urls={max_urls}/editora sleep={sleep_seconds}s editoras={len(sources)} — {modo}\n")
+
     all_records: list[tuple[dict[str, Any], dict[str, Any]]] = []
-
-    for publisher in SOURCES:
-        sitemap_urls = collect_sitemap_urls(publisher["base_url"])
-        if not sitemap_urls:
-            print(f"Aviso: nenhum sitemap acessível para {publisher['slug']} ({publisher['base_url']}).")
-        print(f"publisher={publisher['slug']} sitemap_urls={len(sitemap_urls)}")
-        book_urls = [url for url in sitemap_urls if looks_like_book_url(url)]
-        print(f"publisher={publisher['slug']} candidate_book_urls={len(book_urls)}")
-
-        records: list[tuple[dict[str, Any], dict[str, Any]]] = []
-        seen: set[tuple[str, str]] = set()
-        for url in book_urls[:max_urls]:
-            extracted = extract_page(url, publisher)
-            if extracted is None:
-                continue
-            normalized, raw = extracted
-            key = (normalized["source"], normalized["external_id"])
-            if key in seen:
-                continue
-            seen.add(key)
-            records.append((normalized, raw))
-            if sleep_seconds:
-                time.sleep(sleep_seconds)
-        print(f"publisher={publisher['slug']} records_ready={len(records)}")
+    for publisher in sources:
+        print("=" * 60)
+        print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
+        records = collect_publisher(publisher, max_urls, sleep_seconds)
+        with_isbn = sum(1 for normalized, _ in records if normalized["isbn"])
+        with_author = sum(1 for normalized, _ in records if normalized["author"])
+        print(f"  cobertura: ISBN {with_isbn}/{len(records)} · autor {with_author}/{len(records)}")
+        for normalized, _ in records[:5]:
+            print(
+                f"   - {normalized['title'][:44]:44} | {normalized['author'][:20]:20} "
+                f"| isbn={normalized['isbn'] or '-'}"
+            )
         all_records.extend(records)
+        print()
+
+    if not all_records:
+        print("Nenhum registro coletado.")
+        return 0
+
+    if dry_run:
+        print(f"DRY_RUN: {len(all_records)} registros coletados, nada gravado.")
+        return 0
 
     with connect_database() as conn:
         written = upsert_records(conn, all_records)
