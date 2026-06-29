@@ -64,6 +64,19 @@ def _query_norm(q: str) -> str:
     return re.sub(r"\s+", " ", _sem_acento(q or "")).strip()
 
 
+def _match_norm(s: str) -> str:
+    """Forma comparável para casamento: sem acento, pontuação vira espaço e
+    espaços colapsam. 'Comporte-se!', 'comporte-se' e 'comporte se' convergem
+    todos para 'comporte se' — evita que pontuação derrube o match."""
+    return re.sub(r"[^a-z0-9]+", " ", _sem_acento(s or "")).strip()
+
+
+def _gb_query(q: str) -> str:
+    """Query de texto livre para o Google Books: troca pontuação por espaço
+    (preservando acentos e caixa, que ajudam no índice PT), colapsa espaços."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", q or "", flags=re.UNICODE)).strip()
+
+
 def _ano_de_data(data) -> int | None:
     m = re.search(r"\b(\d{4})\b", str(data or ""))
     return int(m.group(1)) if m else None
@@ -84,8 +97,8 @@ def _isbn_exato(isbn: str, candidatos) -> bool:
 
 
 def _relevancia(titulo_resultado: str, titulo_busca: str) -> int:
-    tr = _sem_acento(titulo_resultado)
-    tb = _sem_acento(titulo_busca)
+    tr = _match_norm(titulo_resultado)
+    tb = _match_norm(titulo_busca)
     if not tb:    return 2
     if tr == tb:  return 0
     if tr.startswith(tb): return 1
@@ -272,9 +285,9 @@ def _gbooks_volumes(q: str, maxr: int = 40) -> list:
 def gbooks_buscar(q: str, limite: int = 18) -> list:
     """Busca espinha: volumes do GB colapsados em obras (sem segunda chamada à API)."""
     titulo_q, autor_q = _split_q(q)
-    eds = _gbooks_volumes(q)
+    eds = _gbooks_volumes(_gb_query(q))
     if not eds and autor_q:
-        eds = _gbooks_volumes(titulo_q)
+        eds = _gbooks_volumes(_gb_query(titulo_q))
     if not eds:
         return []
 
