@@ -618,7 +618,39 @@ def select_sources() -> list[dict[str, str]]:
     return [s for s in SOURCES if s["slug"].lower() in wanted] or SOURCES
 
 
+def diagnose(publisher: dict[str, str]) -> None:
+    """Mostra status/content-type de cada endpoint candidato — revela a plataforma."""
+    base_url = publisher["base_url"].rstrip("/")
+    probes = [
+        ("home", base_url + "/"),
+        ("robots", base_url + "/robots.txt"),
+        ("shopify", base_url + "/products.json?limit=1"),
+        ("vtex", base_url + "/api/catalog_system/pub/products/search?_from=0&_to=1"),
+        ("sitemap.xml", base_url + "/sitemap.xml"),
+        ("sitemap_index", base_url + "/sitemap_index.xml"),
+        ("wp-sitemap", base_url + "/wp-sitemap.xml"),
+    ]
+    for label, url in probes:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT_SECONDS, allow_redirects=True)
+            ct = r.headers.get("content-type", "")
+            server = r.headers.get("server", "") or r.headers.get("x-powered-by", "")
+            snippet = " ".join(r.text[:180].split())
+            print(f"  [{label}] {r.status_code} ct={ct} server={server} final={r.url}")
+            print(f"       {snippet}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [{label}] ERRO {exc!r}")
+
+
 def main() -> int:
+    if getenv_bool("PUBLISHER_DIAGNOSE", False):
+        for publisher in select_sources():
+            print("=" * 60)
+            print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
+            diagnose(publisher)
+            print()
+        return 0
+
     max_urls = getenv_int("PUBLISHER_MAX_URLS", 20, minimum=1, maximum=2000)
     sleep_seconds = getenv_float("PUBLISHER_SLEEP_SECONDS", 1.0)
     dry_run = getenv_bool("PUBLISHER_DRY_RUN", False)

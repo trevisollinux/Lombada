@@ -13,6 +13,11 @@ on:
         type: choice
         options: ['true', 'false']
         default: 'true'
+      diagnose:
+        description: 'true = só mostra status/plataforma de cada editora (não coleta)'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
       max_urls:
         description: 'máx. de livros por editora'
         required: false
@@ -52,6 +57,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: "1.0"
