@@ -1,0 +1,28 @@
+name: Sync publisher source records
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *"
+
+jobs:
+  sync-publishers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      - name: Sync publisher source records
+        run: python scripts/sync_publishers.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PUBLISHER_MAX_URLS: "20"
+          PUBLISHER_SLEEP_SECONDS: "1.0"
