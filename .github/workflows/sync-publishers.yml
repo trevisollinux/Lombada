@@ -26,6 +26,10 @@ on:
         description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
         required: false
         default: ''
+      dump_url:
+        description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
+        required: false
+        default: ''
   schedule:
     - cron: "0 8 * * *"
 
@@ -58,6 +62,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
+          PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: "1.0"

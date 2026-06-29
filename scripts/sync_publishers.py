@@ -790,7 +790,37 @@ def diagnose(publisher: dict[str, str]) -> None:
         break
 
 
+def dump_url(url: str) -> None:
+    """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
+    response = fetch_url(url)
+    if response is None:
+        print(f"  inacessível: {url}")
+        return
+    soup = BeautifulSoup(response.text, "html.parser")
+    print(f"  URL {url} ({len(response.text)} bytes)")
+    json_ld = load_json_ld(soup)
+    print(f"  JSON-LD blocos={len(json_ld)}")
+    for obj in list(iter_json_objects(json_ld))[:8]:
+        keys = sorted(obj.keys())
+        print(f"    @type={obj.get('@type')} keys={keys}")
+    for prop in ("og:title", "og:image", "author", "book:author", "book:isbn", "twitter:title"):
+        value = meta_content(soup, prop)
+        if value:
+            print(f"    meta[{prop}]={value[:120]}")
+    text = soup.get_text(" ", strip=True)
+    for label in ("ISBN", "Autor", "Tradu", "Editora", "Ano"):
+        idx = text.find(label)
+        if idx != -1:
+            print(f"    txt~{label}: {text[idx:idx+80]!r}")
+
+
 def main() -> int:
+    dump = os.getenv("PUBLISHER_DUMP_URL", "").strip()
+    if dump:
+        print(f"DUMP {dump}")
+        dump_url(dump)
+        return 0
+
     if getenv_bool("PUBLISHER_DIAGNOSE", False):
         for publisher in select_sources():
             print("=" * 60)
