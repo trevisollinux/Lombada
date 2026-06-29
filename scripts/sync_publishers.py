@@ -105,7 +105,8 @@ SOURCES = [
         "platform": "auto",
     },
 ]
-ISBN_RE = re.compile(r"(?:ISBN(?:-1[03])?[:\s]*)?((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])")
+ISBN_RE = re.compile(r"((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])")
+LABELED_ISBN_RE = re.compile(r"ISBN(?:-1[03])?[:\s]*((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])", re.I)
 YEAR_RE = re.compile(r"\b(1[5-9]\d{2}|20\d{2})\b")
 
 
@@ -326,12 +327,40 @@ def isbn_from_jsonld(objects: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _valid_isbn(raw: str) -> str:
+    """Validação estrita: o trecho limpo precisa ter exatamente 10 ou 13 dígitos."""
+    isbn = re.sub(r"[^0-9Xx]", "", raw).upper()
+    if len(isbn) == 13 and isbn.isdigit():
+        return isbn
+    if len(isbn) == 10 and re.fullmatch(r"[0-9]{9}[0-9X]", isbn):
+        return isbn
+    return ""
+
+
+def _isbn_prefix(raw: str) -> str:
+    """Para trechos já rotulados como ISBN: tolera lixo no fim pegando o prefixo
+    válido (o regex às vezes engole o ano seguinte: 'ISBN 978-...-1 2025')."""
+    digits = re.sub(r"[^0-9Xx]", "", raw).upper()
+    if len(digits) >= 13 and digits[:3] in {"978", "979"} and digits[:13].isdigit():
+        return digits[:13]
+    if len(digits) >= 10 and re.fullmatch(r"[0-9]{9}[0-9X]", digits[:10]):
+        return digits[:10]
+    return ""
+
+
 def extract_isbn(text: str) -> str:
-    match = ISBN_RE.search(text)
-    if not match:
-        return ""
-    isbn = re.sub(r"[^0-9Xx]", "", match.group(1))
-    return isbn if len(isbn) in {10, 13} else ""
+    """ISBN rotulado tem prioridade (e tolera ruído à direita); senão varre todos os
+    candidatos exatos (não só o 1º, que costuma ser falso positivo: telefone/CNPJ)."""
+    text = text or ""
+    for match in LABELED_ISBN_RE.finditer(text):
+        isbn = _isbn_prefix(match.group(1))
+        if isbn:
+            return isbn
+    for match in ISBN_RE.finditer(text):
+        isbn = _valid_isbn(match.group(1))
+        if isbn:
+            return isbn
+    return ""
 
 
 def extract_year(text: str) -> int | None:
@@ -439,6 +468,7 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
     raw_text = " ".join(filter(None, [author, description, visible_text]))
     isbn = (
         isbn_from_url(url)
+        or isbn_from_url(thumbnail)  # muitos sites nomeiam a capa pelo ISBN (/livros/<isbn>.jpg)
         or isbn_from_jsonld(json_ld_objects)
         or extract_isbn(meta_content(soup, "book:isbn"))
         or extract_isbn(raw_text)
