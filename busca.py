@@ -11,7 +11,7 @@ from models import BuscaCache
 from fontes import (
     gbooks_buscar, ol_buscar,
     _gbooks_info, _ol_isbn,
-    normalizar_isbn, _sem_acento, _query_norm, _relevancia, _split_q,
+    normalizar_isbn, _sem_acento, _query_norm, _match_norm, _relevancia, _split_q,
     _limpa_capa_gb, _capa_ol_isbn,
     EDITORAS_BR_FORTES,
 )
@@ -117,11 +117,11 @@ def _isbn_parece_br(isbn: str) -> bool:
 
 
 def _tokens_busca(q: str) -> list[str]:
-    return [t for t in _query_norm(q).split() if len(t) >= 3]
+    return [t for t in _match_norm(q).split() if len(t) >= 3]
 
 
 def _match_tokens(texto: str, tokens: list[str]) -> int:
-    alvo = _query_norm(texto)
+    alvo = _match_norm(texto)
     return sum(1 for t in tokens if t in alvo)
 
 
@@ -236,13 +236,22 @@ def _filtrar_relevancia(obras: list, q: str) -> list:
     """Corta ruído: mantém quem casa no título OU no autor.
     Se sobrar vazio, devolve tudo (nunca deixa o usuário na mão)."""
     titulo_q, autor_q = _split_q(q)
-    tokens = [t for t in _sem_acento(autor_q or titulo_q).split() if len(t) >= 3]
+    tokens = [t for t in _match_norm(autor_q or titulo_q).split() if len(t) >= 3]
+    titulo_tokens = [t for t in _match_norm(titulo_q).split() if len(t) >= 3]
 
     def relevante(o):
         if _relevancia(o.get("titulo", ""), titulo_q) <= 2:
             return True
-        alvo = _sem_acento(" ".join(o.get("_autores") or []) + " " + (o.get("autor") or ""))
-        return any(t in alvo for t in tokens)
+        alvo_autor = _match_norm(" ".join(o.get("_autores") or []) + " " + (o.get("autor") or ""))
+        if any(t in alvo_autor for t in tokens):
+            return True
+        # rede de segurança: metade ou mais dos tokens do título batem no título do resultado
+        if titulo_tokens:
+            alvo_titulo = _match_norm(o.get("titulo", ""))
+            hits = sum(1 for t in titulo_tokens if t in alvo_titulo)
+            if hits >= (len(titulo_tokens) + 1) // 2:
+                return True
+        return False
 
     filtrados = [o for o in obras if relevante(o)]
     return filtrados or obras
