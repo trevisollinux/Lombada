@@ -1184,3 +1184,12 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   edit_profile: 'Editar perfil', profile_display_name: 'Nombre mostrado', profile_username: 'Nombre de usuario', profile_short_bio: 'Bio corta', profile_bio_placeholder: '¿qué te gusta leer?', save_changes: 'Guardar cambios', profile_preview: 'Tu perfil:', profile_preview_empty: 'Tu perfil: elige un nombre de usuario', profile_updated: 'Perfil actualizado.', profile_save_error: 'No fue posible guardar el perfil ahora.', profile_name_required: 'El nombre mostrado es obligatorio.', profile_name_length: 'El nombre mostrado debe tener entre 2 y 40 caracteres.', profile_name_no_email: 'Elige un nombre público que no sea tu correo.', profile_handle_invalid: 'Usa solo letras, números y guion.', profile_handle_taken: 'Ese nombre de usuario ya está en uso.', profile_bio_count: '{count}/160 caracteres', profile_bio_length: 'La bio corta debe tener máximo 160 caracteres.'
 });
+Object.assign(I18N['pt-BR'], {
+  pwa_app_label: 'App', pwa_install_message: 'Instale a Lombada para acessar como app no celular.', pwa_install_action: 'Instalar Lombada', pwa_install_dismiss: 'Agora não', pwa_installed: 'Lombada instalada.', pwa_update_available: 'Nova versão da Lombada disponível.', pwa_update_action: 'Atualizar', pwa_update_installed: 'Atualização instalada.', confirm_removal: 'confirmar remoção'
+});
+Object.assign(I18N['en'], {
+  pwa_app_label: 'App', pwa_install_message: 'Install Lombada to use it as an app on your phone.', pwa_install_action: 'Install Lombada', pwa_install_dismiss: 'Not now', pwa_installed: 'Lombada installed.', pwa_update_available: 'A new version of Lombada is available.', pwa_update_action: 'Update', pwa_update_installed: 'Update installed.', confirm_removal: 'confirm removal'
+});
+Object.assign(I18N['es'], {
+  pwa_app_label: 'App', pwa_install_message: 'Instala Lombada para usarla como app en el celular.', pwa_install_action: 'Instalar Lombada', pwa_install_dismiss: 'Ahora no', pwa_installed: 'Lombada instalada.', pwa_update_available: 'Hay una nueva versión de Lombada.', pwa_update_action: 'Actualizar', pwa_update_installed: 'Actualización instalada.', confirm_removal: 'confirmar eliminación'
+});
