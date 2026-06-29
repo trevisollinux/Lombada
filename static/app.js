@@ -243,16 +243,16 @@ function dispensarInstalacao(){
 }
 function installCtaHTML(){
   if(!deveMostrarInstalar()) return '';
-  return `<div id="installCtaBox" class="account-box install-box"><div class="label">App</div><p>Instale a Lombada para acessar como app no celular.</p><div class="profile-actions"><button class="pbtn solid" type="button" onclick="instalarLombada()">Instalar Lombada</button><button class="pbtn" type="button" onclick="dispensarInstalacao()">Agora não</button></div></div>`;
+  return `<div id="installCtaBox" class="account-box install-box"><div class="label">${t('pwa_app_label')}</div><p>${t('pwa_install_message')}</p><div class="profile-actions"><button class="pbtn solid" type="button" onclick="instalarLombada()">${t('pwa_install_action')}</button><button class="pbtn" type="button" onclick="dispensarInstalacao()">${t('pwa_install_dismiss')}</button></div></div>`;
 }
 function talvezMostrarBannerInstalacao(){
   if(!deveMostrarInstalar() || document.getElementById('installBanner')) return;
   mostrarBannerPwa({
     id:'installBanner',
-    mensagem:'Instale a Lombada para acessar como app no celular.',
-    acaoTexto:'Instalar Lombada',
+    mensagem:t('pwa_install_message'),
+    acaoTexto:t('pwa_install_action'),
     acao:instalarLombada,
-    secundarioTexto:'Agora não',
+    secundarioTexto:t('pwa_install_dismiss'),
     secundario:dispensarInstalacao
   });
 }
@@ -269,7 +269,7 @@ function registrarPwa(){
     deferredInstallPrompt=null;
     localStorage.setItem(INSTALL_DISMISSED_KEY,String(Date.now()));
     document.getElementById('installBanner')?.remove();
-    toast('Lombada instalada.');
+    toast(t('pwa_installed'));
   });
   if(!('serviceWorker' in navigator)) return;
   window.addEventListener('load', async () => {
@@ -277,7 +277,7 @@ function registrarPwa(){
       const registration=await navigator.serviceWorker.register('/sw.js');
       const mostrarAtualizacao=worker=>{
         if(!worker) return;
-        mostrarBannerPwa({id:'updateBanner',mensagem:'Nova versão da Lombada disponível.',acaoTexto:'Atualizar',acao:()=>{ swUpdateAccepted=true; worker.postMessage({type:'SKIP_WAITING'}); }});
+        mostrarBannerPwa({id:'updateBanner',mensagem:t('pwa_update_available'),acaoTexto:t('pwa_update_action'),acao:()=>{ swUpdateAccepted=true; worker.postMessage({type:'SKIP_WAITING'}); }});
       };
       if(registration.waiting) mostrarAtualizacao(registration.waiting);
       registration.addEventListener('updatefound',()=>{
@@ -289,7 +289,7 @@ function registrarPwa(){
       navigator.serviceWorker.addEventListener('controllerchange',()=>{
         if(swRefreshing || !swUpdateAccepted) return;
         swRefreshing=true;
-        toast('Atualização instalada.');
+        toast(t('pwa_update_installed'));
         window.location.reload();
       });
     }catch(err){ console.warn('service worker não registrado',err); }
@@ -314,7 +314,7 @@ function mostrarErroFormulario(form,mensagem){
   else form.appendChild(el);
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function confirmarEmDoisPassos(botao, chave, acao, texto='confirmar remoção'){
+function confirmarEmDoisPassos(botao, chave, acao, texto=t('confirm_removal')){
   if(!botao) return acao();
   const agora=Date.now();
   const confirmado=botao.dataset.confirmKey===String(chave) && Number(botao.dataset.confirmUntil||0)>agora;
@@ -1101,7 +1101,7 @@ function registrarLeituraObra(event){
   setButtonBusy(trigger,t('loading_editions'));
   setTimeout(()=>clearButtonBusy(trigger),900);
   const edicoesAtualLength=edicoesAtual?.length||0;
-  console.debug('registrarLeituraObra', {
+  debugLog('registrarLeituraObra', {
     escolha,
     edicoesAtualLength,
     edicoesAtual
@@ -1180,7 +1180,7 @@ function escolherEdicao(j,event){
   const edicao=edicoesAtual?.[j];
   if(!edicao){
     clearButtonBusy(trigger);
-    console.warn('invalid edition selected', j, edicoesAtual);
+    debugLog('invalid edition selected', j, edicoesAtual);
     toast(t('invalid_edition_selected'));
     abrirManual();
     return;
@@ -1285,7 +1285,7 @@ function atualizarFormularioLeituraPorStatus(prefix='f'){
     ratingField.setAttribute('aria-hidden', isWant ? 'true' : 'false');
   }
 
-  console.debug('reading form status copy', { status, copy });
+  debugLog('reading form status copy', { status, copy });
 }
 
 function atualizarCopyRelato(prefix){
@@ -1303,16 +1303,16 @@ function montarStars(id,get,set){
       s.onclick=()=>{ set(get()===i?i-0.5:i); paint(); };
       w.appendChild(s);
     }
-    const t=document.createElement('span');
-    t.className='stxt'; t.textContent=n?n.toLocaleString('pt-BR')+'★':t('no_rating');
-    w.appendChild(t);
+    const txt=document.createElement('span');
+    txt.className='stxt'; txt.textContent=n?n.toLocaleString(getLocale())+'★':t('no_rating');
+    w.appendChild(txt);
   }
   paint();
 }
 
 async function salvar(event){
   if(!escolha || !edicaoSel){
-    console.warn('save without selected work/edition', { escolha, edicaoSel, edicoesAtual });
+    debugLog('save without selected work/edition', { escolha, edicaoSel, edicoesAtual });
     toast(t('invalid_edition_selected'));
     abrirManual();
     return;
@@ -1361,7 +1361,7 @@ function abrirManual(event){
   const trigger=event?.target?.closest?.('button');
   setButtonBusy(trigger,t('opening_form'));
   setTimeout(()=>clearButtonBusy(trigger),700);
-  console.debug('abrirManual', { escolha, q: $('#q')?.value });
+  debugLog('abrirManual', { escolha, q: $('#q')?.value });
   notaSel=0;
   if($('#secBuscar')?.style.display==='none') irPara('buscar',{resetBusca:false,registrar:false,scrollTop:false});
   const q=$('#q')?.value.trim()||'';
@@ -1655,7 +1655,7 @@ async function salvarDiario(leituraId,id='',el=null){
   const form=el?.closest?.('[data-diary-form]')||null;
   limparErroFormulario(form);
   if(!payload){ mostrarErroFormulario(form,t('diary_save_error')); return; }
-  console.debug('diary payload',payload);
+  debugLog('diary payload',payload);
   const erro=validarPayloadDiario(payload);
   if(erro){ console.warn('invalid diary payload',payload,erro); mostrarErroFormulario(form,erro); return; }
   const url=id?`/api/diario/${id}`:`/api/leitura/${leituraId}/diario`;

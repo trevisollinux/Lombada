@@ -2,7 +2,7 @@
    Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v4';
+const CACHE_NAME = 'lombada-shell-v5';
 
 const APP_SHELL = [
   '/',
@@ -129,18 +129,40 @@ async function networkFirst(request) {
   }
 }
 
+function offlineCopy() {
+  const lang = (self.navigator && self.navigator.language || 'pt').toLowerCase();
+  if (lang.startsWith('en')) {
+    return { lang: 'en', title: 'Lombada offline', heading: 'You are offline.', body: 'Lombada needs a connection to search for books and sync your shelf. Try again when you are back online.', retry: 'Try again' };
+  }
+  if (lang.startsWith('es')) {
+    return { lang: 'es', title: 'Lombada sin conexión', heading: 'Estás sin conexión.', body: 'Lombada necesita conexión para buscar libros y sincronizar tu estante. Inténtalo de nuevo cuando vuelva internet.', retry: 'Reintentar' };
+  }
+  return { lang: 'pt-BR', title: 'Lombada offline', heading: 'Você está offline.', body: 'A Lombada precisa de conexão para buscar livros e sincronizar sua estante. Tente novamente quando a internet voltar.', retry: 'Tentar novamente' };
+}
+
 function offlineHTML() {
+  const c = offlineCopy();
   return `<!doctype html>
-<html lang="pt-BR">
+<html lang="${c.lang}">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lombada offline</title>
-<body style="margin:0;font-family:Georgia,serif;background:#ECE4D4;color:#1A1714;display:grid;min-height:100vh;place-items:center;padding:24px">
-  <main style="max-width:36rem;border:1px solid rgba(26,23,20,.18);background:#F4EFE6;padding:28px;border-radius:18px">
-    <p style="font-family:monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:#6F6655">Lombada</p>
-    <h1 style="font-size:32px;margin:.35rem 0 1rem">Você está offline.</h1>
-    <p style="font-size:18px;line-height:1.45">A Lombada precisa de conexão para buscar livros e sincronizar sua estante. Tente novamente quando a internet voltar.</p>
-    <button type="button" onclick="location.reload()" style="margin-top:1.25rem;border:1px solid #1A1714;background:#1A1714;color:#ECE4D4;border-radius:999px;padding:12px 18px;font:700 11px monospace;text-transform:uppercase;letter-spacing:.12em">Tentar novamente</button>
+<title>${c.title}</title>
+<style>
+  :root{--paper:#F4EFE6;--card:#F4EFE6;--ink:#1A1714;--muted:#6F6655;--rule:rgba(26,23,20,.18)}
+  @media (prefers-color-scheme: dark){:root{--paper:#0D0B09;--card:#1A1714;--ink:#F4EFE6;--muted:#B7AA99;--rule:rgba(247,240,229,.20)}}
+  body{margin:0;font-family:Georgia,serif;background:var(--paper);color:var(--ink);display:grid;min-height:100vh;place-items:center;padding:24px}
+  main{max-width:36rem;border:1px solid var(--rule);background:var(--card);padding:28px;border-radius:18px}
+  .eyebrow{font-family:monospace;text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--muted)}
+  h1{font-size:32px;margin:.35rem 0 1rem}
+  p{font-size:18px;line-height:1.45}
+  button{margin-top:1.25rem;border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:999px;padding:12px 18px;font:700 11px monospace;text-transform:uppercase;letter-spacing:.12em;cursor:pointer}
+</style>
+<body>
+  <main>
+    <p class="eyebrow">Lombada</p>
+    <h1>${c.heading}</h1>
+    <p>${c.body}</p>
+    <button type="button" onclick="location.reload()">${c.retry}</button>
   </main>
 </body>
 </html>`;
