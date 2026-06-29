@@ -608,8 +608,11 @@ def collect_via_sitemap(
     print(f"  [sitemap] urls={len(sitemap_urls)} candidatos_livro={len(book_urls)}")
     records: list[tuple[dict[str, Any], dict[str, Any]]] = []
     seen: set[str] = set()
-    for url in book_urls:
-        if len(records) >= max_urls:
+    # Teto de tentativas: hosts lentos/instáveis não devem fazer o loop varrer
+    # centenas de URLs (cada timeout custa segundos) atrás da meta de max_urls.
+    max_attempts = max_urls * 3
+    for attempts, url in enumerate(book_urls):
+        if len(records) >= max_urls or attempts >= max_attempts:
             break
         extracted = extract_page(url, publisher)
         if extracted is None:
@@ -669,8 +672,11 @@ def collect_via_html_crawl(
 
     records: list[tuple[dict[str, Any], dict[str, Any]]] = []
     seen: set[str] = set()
-    for url in book_urls:
-        if len(records) >= max_urls:
+    # Teto de tentativas: hosts lentos/instáveis não devem fazer o loop varrer
+    # centenas de URLs (cada timeout custa segundos) atrás da meta de max_urls.
+    max_attempts = max_urls * 3
+    for attempts, url in enumerate(book_urls):
+        if len(records) >= max_urls or attempts >= max_attempts:
             break
         extracted = extract_page(url, publisher)
         if extracted is None:

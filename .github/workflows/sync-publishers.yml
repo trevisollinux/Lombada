@@ -65,4 +65,4 @@ jobs:
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
-          PUBLISHER_SLEEP_SECONDS: "1.0"
+          PUBLISHER_SLEEP_SECONDS: "0.5"
