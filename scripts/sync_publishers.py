@@ -641,6 +641,37 @@ def diagnose(publisher: dict[str, str]) -> None:
         except Exception as exc:  # noqa: BLE001
             print(f"  [{label}] ERRO {exc!r}")
 
+    # Amostra de links internos da home (revela o padrão de URL de livro)
+    host = urlparse(base_url).netloc.replace("www.", "")
+    try:
+        home = requests.get(base_url + "/", headers=HEADERS, timeout=REQUEST_TIMEOUT_SECONDS)
+        soup = BeautifulSoup(home.text, "html.parser")
+        paths: list[str] = []
+        for a in soup.find_all("a", href=True):
+            full = urljoin(base_url, a["href"])
+            if urlparse(full).netloc.replace("www.", "") == host:
+                p = urlparse(full).path
+                if p and p != "/":
+                    paths.append(p)
+        uniq = list(dict.fromkeys(paths))
+        bookish = [p for p in uniq if looks_like_book_url(base_url + p)]
+        print(f"  home: {len(uniq)} links internos; {len(bookish)} parecem livro")
+        for p in (bookish or uniq)[:15]:
+            print(f"       {p}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  home: ERRO {exc!r}")
+
+    # Amostra de URLs do sitemap anunciado no robots (confirma parsing/padrão)
+    for sm in discover_sitemaps_from_robots(base_url) + [base_url + "/sitemap.xml"]:
+        resp = fetch_url(sm, accept="application/xml")
+        if resp is None:
+            continue
+        children, pages = parse_sitemap_urls(resp.text)
+        print(f"  sitemap {sm}: filhos={len(children)} paginas={len(pages)}")
+        for u in (pages or children)[:10]:
+            print(f"       {u}")
+        break
+
 
 def main() -> int:
     if getenv_bool("PUBLISHER_DIAGNOSE", False):
