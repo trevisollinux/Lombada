@@ -10,6 +10,7 @@ Configuração por variáveis de ambiente:
 - MELI_PAGES: número de páginas por termo/categoria.
 - SYNC_SLEEP_SECONDS: pausa entre chamadas.
 - DRY_RUN: true/1/yes para imprimir sem gravar.
+- MELI_ACCESS_TOKEN: token opcional para autenticar chamadas ao Mercado Livre.
 """
 from __future__ import annotations
 
@@ -31,6 +32,11 @@ SOURCE = "mercado_livre"
 DEFAULT_TERMS = "livro romance,literatura brasileira,livro infantil"
 DEFAULT_CATEGORY_IDS = "MLB1196"
 REQUEST_TIMEOUT_SECONDS = 20
+MELI_HEADERS = {
+    "Accept": "application/json",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "User-Agent": "LombadaBookSync/0.1 (+https://lombada.onrender.com)",
+}
 
 
 def getenv_list(name: str, default: str = "") -> list[str]:
@@ -145,11 +151,48 @@ def normalize_item(item: dict[str, Any], search_term: str) -> dict[str, Any]:
     return normalized
 
 
+def build_meli_headers() -> dict[str, str]:
+    headers = dict(MELI_HEADERS)
+    access_token = os.getenv("MELI_ACCESS_TOKEN", "").strip()
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    return headers
+
+
+def request_meli_search(params: dict[str, Any]) -> requests.Response:
+    return requests.get(
+        MELI_SEARCH_URL,
+        params=params,
+        headers=build_meli_headers(),
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+
+
+def raise_meli_forbidden() -> None:
+    raise RuntimeError(
+        "Mercado Livre recusou a requisição com HTTP 403. "
+        "Verifique token, permissões da aplicação e possível bloqueio do endpoint de busca."
+    )
+
+
 def fetch_page(term: str, category_id: str, limit: int, page: int) -> list[dict[str, Any]]:
     params: dict[str, Any] = {"q": term, "limit": limit, "offset": page * limit}
     if category_id:
         params["category"] = category_id
-    response = requests.get(MELI_SEARCH_URL, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+
+    response = request_meli_search(params)
+    if response.status_code == 403 and category_id:
+        retry_params = dict(params)
+        retry_params.pop("category", None)
+        print(
+            "Mercado Livre retornou HTTP 403 com category; tentando novamente sem category.",
+            file=sys.stderr,
+        )
+        response = request_meli_search(retry_params)
+
+    if response.status_code == 403:
+        raise_meli_forbidden()
+
     response.raise_for_status()
     payload = response.json()
     return payload.get("results") or []
