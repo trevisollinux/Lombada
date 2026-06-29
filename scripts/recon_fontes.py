@@ -25,6 +25,7 @@ API da PRH expõe o catálogo BR em algum domínio. O recon revela isso.
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.parse
@@ -172,9 +173,27 @@ def avalia(resultados, titulo, autor):
     return False, "não achou no top dos resultados"
 
 
+def _testes_de_entrada():
+    """Prioridade: argumentos da linha de comando > env RECON_QUERIES > TESTES.
+    Cada item é "Titulo | Autor | ISBN" (autor e ISBN opcionais)."""
+    brutos = list(sys.argv[1:])
+    if not brutos:
+        env = os.getenv("RECON_QUERIES", "")
+        brutos = [l for l in re.split(r"[\n;]", env) if l.strip()]
+    if not brutos:
+        return TESTES
+    out = []
+    for item in brutos:
+        partes = [p.strip() for p in item.split("|")]
+        if partes and partes[0]:
+            out.append((partes[0], partes[1] if len(partes) > 1 else "", partes[2] if len(partes) > 2 else ""))
+    return out or TESTES
+
+
 def main():
-    print(f"GOOGLE_BOOKS_API_KEY: {'definida' if GB_KEY else 'AUSENTE (sujeito a 429)'}\n")
-    for titulo, autor, isbn in TESTES:
+    print(f"GOOGLE_BOOKS_API_KEY: {'definida' if GB_KEY else 'AUSENTE (sujeito a 429)'}")
+    print(f"PENGUIN_API_KEY: {'definida' if PENGUIN_KEY else 'ausente'}  (domínio {PENGUIN_DOMAIN})\n")
+    for titulo, autor, isbn in _testes_de_entrada():
         print("=" * 70)
         print(f"LIVRO: {titulo}  ·  autor~{autor}  ·  isbn={isbn or '-'}")
         for nome, fn in FONTES.items():
