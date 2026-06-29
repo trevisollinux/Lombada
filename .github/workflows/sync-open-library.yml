@@ -1,0 +1,29 @@
+name: Sync Open Library source records
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *"
+
+jobs:
+  sync-open-library:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      - name: Sync Open Library source records
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SYNC_TERMS: "Comporte-se,Determinados,Dom Casmurro,Grande Sertão: Veredas,Clarice Lispector,Machado de Assis"
+          OPEN_LIBRARY_LIMIT: "10"
+        run: python scripts/sync_open_library.py
