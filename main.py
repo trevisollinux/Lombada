@@ -28,13 +28,14 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, get_session, migrar
 from auth import usuario_sessao, router as auth_router
-from fontes import ol_edicoes, normalizar_isbn, TIMEOUT, _UA
+from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
+RECON_TOKEN = os.getenv("RECON_TOKEN", "")
 logger = logging.getLogger(__name__)
 
 
@@ -630,6 +631,89 @@ def eu(request: Request, s: Session = Depends(get_session)):
         **_follow_counts(s, u.id),
         **_user_edition_counts(s, u.id),
     }
+
+
+def _recon_resumo(docs, limite: int = 6) -> list[dict]:
+    out = []
+    for d in (docs or [])[:limite]:
+        ed = d.get("edicao_isbn") or {}
+        out.append({
+            "titulo": d.get("titulo", ""),
+            "autor": d.get("autor", ""),
+            "ano": d.get("ano") or ed.get("ano"),
+            "idioma": d.get("idioma_original") or ed.get("idioma") or "",
+            "isbn": ed.get("isbn") or "",
+            "tem_capa": bool(d.get("capa_url")),
+        })
+    return out
+
+
+def _recon_mercado_livre(q: str) -> list[dict]:
+    with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+        r = c.get("https://api.mercadolibre.com/sites/MLB/search", params={"q": q, "limit": 8})
+        r.raise_for_status()
+        data = r.json()
+    out = []
+    for it in (data.get("results") or [])[:8]:
+        attrs = {a.get("id"): a.get("value_name") for a in (it.get("attributes") or [])}
+        out.append({
+            "titulo": it.get("title", ""),
+            "autor": attrs.get("AUTHOR") or attrs.get("BOOK_AUTHOR") or "",
+            "isbn": attrs.get("ISBN") or attrs.get("GTIN") or "",
+            "ano": attrs.get("PUBLICATION_YEAR") or "",
+            "editora": attrs.get("PUBLISHER") or "",
+            "tem_capa": bool(it.get("thumbnail")),
+        })
+    return out
+
+
+def _recon_penguin(q: str) -> dict | list:
+    key = os.getenv("PENGUIN_API_KEY", "")
+    if not key:
+        return {"erro": "defina PENGUIN_API_KEY no ambiente para testar a Penguin"}
+    dominio = os.getenv("PENGUIN_DOMAIN", "PRH.US")
+    url = f"https://api.penguinrandomhouse.com/resources/v2/title/domains/{dominio}/search/title"
+    with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+        r = c.get(url, params={"q": q, "rows": 8, "start": 0, "api_key": key})
+        r.raise_for_status()
+        data = r.json()
+    bloco = data.get("data") if isinstance(data, dict) else {}
+    titulos = (bloco or {}).get("titles") or (bloco or {}).get("results") or []
+    out = []
+    for t in titulos[:8]:
+        if not isinstance(t, dict):
+            continue
+        out.append({
+            "titulo": t.get("title") or t.get("titleweb") or "",
+            "autor": t.get("author") or t.get("authorweb") or "",
+            "isbn": str(t.get("isbn") or ""),
+            "ano": str(t.get("onsaledate") or t.get("pubdate") or "")[:4],
+            "editora": t.get("imprint") or t.get("division") or "",
+        })
+    return out or {"info": f"sem resultados no domínio {dominio}", "amostra_chaves": list(data)[:8] if isinstance(data, dict) else None}
+
+
+@app.get("/api/_recon")
+def api_recon(q: str = Query(..., min_length=2), token: str = Query("")):
+    """Diagnóstico de cobertura de fontes (gated por RECON_TOKEN).
+    Use no navegador: /api/_recon?q=comporte-se&token=SEU_TOKEN
+    Desativado (404) enquanto RECON_TOKEN não estiver definido no ambiente."""
+    if not RECON_TOKEN or token != RECON_TOKEN:
+        raise HTTPException(404, "not found")
+    resultado: dict = {"query": q, "fontes": {}}
+
+    def _safe(label, fn):
+        try:
+            resultado["fontes"][label] = fn()
+        except Exception as e:
+            resultado["fontes"][label] = {"erro": repr(e)[:200]}
+
+    _safe("pipeline_app", lambda: _recon_resumo(buscar_titulo_v2(q)))
+    _safe("google_books", lambda: _recon_resumo(gbooks_buscar(q)))
+    _safe("open_library", lambda: _recon_resumo(ol_buscar(q)))
+    _safe("mercado_livre", lambda: _recon_mercado_livre(q))
+    _safe("penguin_rh", lambda: _recon_penguin(q))
+    return Response(json.dumps(resultado, ensure_ascii=False, indent=2), media_type="application/json; charset=utf-8")
 
 
 @app.get("/api/buscar")

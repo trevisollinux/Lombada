@@ -1,0 +1,53 @@
+name: Recon de fontes de livro
+
+# Roda na nuvem do GitHub (internet aberta) o reconhecimento de fontes de
+# dados de livro. Dispare manualmente pela aba Actions (botão "Run workflow")
+# — funciona do celular. O resultado aparece no "Summary" do run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      queries:
+        description: 'Livros a testar (um por linha: "Titulo | Autor")'
+        required: false
+        default: |
+          Comporte-se | Sapolsky
+          Sapiens | Harari
+          Torto Arado | Itamar Vieira
+      penguin_domain:
+        description: 'Domínio Penguin Random House (PRH.US, PRH.UK, ...)'
+        required: false
+        default: 'PRH.US'
+
+jobs:
+  recon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rodar reconhecimento de fontes
+        env:
+          RECON_QUERIES: ${{ inputs.queries }}
+          GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
+          PENGUIN_API_KEY: ${{ secrets.PENGUIN_API_KEY }}
+          PENGUIN_DOMAIN: ${{ inputs.penguin_domain }}
+        run: |
+          python3 scripts/recon_fontes.py | tee recon_resultado.txt
+          {
+            echo '### Resultado do recon de fontes'
+            echo ''
+            echo '```'
+            cat recon_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatório como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recon-resultado
+          path: recon_resultado.txt
