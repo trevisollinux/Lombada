@@ -43,8 +43,15 @@ on:
         required: false
         default: ''
   schedule:
-    # A cada 6h, em lotes pequenos e gentis, pra injetar o catálogo aos poucos.
-    - cron: "0 */6 * * *"
+    # De hora em hora, em lotes pequenos e gentis, pra injetar o catálogo aos poucos.
+    # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
+    - cron: "0 * * * *"
+
+# Garante um run por vez: se um ainda está rodando, o próximo espera (não atropela
+# nem duplica trabalho).
+concurrency:
+  group: sync-publishers
+  cancel-in-progress: false
 
 jobs:
   sync-publishers:
