@@ -70,7 +70,11 @@ jobs:
 
       - name: Sync publisher source records
         run: |
-          python scripts/sync_publishers.py | tee sync_resultado.txt
+          # pipefail + status: sem isto, o `| tee` engolia o código de saída e o job
+          # ficava VERDE mesmo quando o script morria no meio (ex.: SSL caído).
+          set -o pipefail
+          status=0
+          python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
           {
             echo '### Sync de editoras -> source_records'
             echo ''
@@ -78,6 +82,7 @@ jobs:
             cat sync_resultado.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
@@ -89,10 +94,14 @@ jobs:
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
 
       - name: Promote new records to catalog
-        # Só promove em ingestão real (não em dry-run nem diagnose/dump).
-        if: ${{ (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        # Só promove em ingestão real (não em dry-run nem diagnose/dump). `always()`
+        # garante que promovemos o que JÁ foi coletado mesmo se uma editora falhou e
+        # o passo anterior saiu vermelho — o trabalho salvo não fica esperando.
+        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
         run: |
-          python scripts/promote_source_records.py | tee promote_resultado.txt
+          set -o pipefail
+          status=0
+          python scripts/promote_source_records.py | tee promote_resultado.txt || status=$?
           {
             echo '### Promoção source_records -> catálogo'
             echo ''
@@ -100,6 +109,7 @@ jobs:
             cat promote_resultado.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DRY_RUN: 'false'
