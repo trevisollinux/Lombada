@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 lombada.db
 .env
+data/aliases.proposed.json
