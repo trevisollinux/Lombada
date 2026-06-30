@@ -43,9 +43,9 @@ on:
         required: false
         default: ''
   schedule:
-    # De hora em hora, em lotes pequenos e gentis, pra injetar o catálogo aos poucos.
+    # De hora em hora no minuto 13, evitando o pico do minuto zero do GitHub Actions.
     # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
-    - cron: "0 * * * *"
+    - cron: "13 * * * *"
 
 # Garante um run por vez: se um ainda está rodando, o próximo espera (não atropela
 # nem duplica trabalho).

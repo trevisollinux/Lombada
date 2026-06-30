@@ -2,6 +2,7 @@
 Lombada — app FastAPI e rotas.
 """
 import html
+import hashlib
 import ipaddress
 import json
 import logging
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
@@ -326,6 +327,22 @@ def _clean_url(v, max_len: int = 500) -> str:
     if p.scheme != "https" or not p.netloc:
         raise HTTPException(422, "URL da capa inválida")
     return v
+
+
+def _plain_text(v, max_len: int = 500) -> str:
+    if v is None:
+        return ""
+    return str(v).replace("\x00", "").strip()[:max_len]
+
+
+def _parse_int_optional(v) -> int | None:
+    v = _plain_text(v, 20)
+    if not v:
+        return None
+    try:
+        return int(v)
+    except ValueError:
+        raise HTTPException(422, "ano de publicação inválido")
 
 
 def _entrada_payload(e: BaseModel) -> dict:
@@ -1540,8 +1557,210 @@ def admin_page(request: Request, s: Session = Depends(get_session)):
             f'<form method="post" action="/admin/suggestions/{sug.id}/duplicate" style="display:inline"><button>Marcar duplicado</button></form>'
             f'</article>'
         )
-    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
+    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><p><a href="/admin/source-records">Revisar source_records de editoras</a></p><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
     return HTMLResponse(_pagina("Admin · Lombada", corpo))
+
+
+SOURCE_RECORD_FILTERS = {
+    "pending": "status = 'pending'",
+    "missing_isbn": "trim(coalesce(isbn, '')) = ''",
+    "missing_author": "trim(coalesce(author, '')) = ''",
+    "missing_thumbnail": "trim(coalesce(thumbnail, '')) = ''",
+    "low_confidence": "confidence_score < 0.5",
+    "approved": "status = 'approved'",
+    "rejected": "status = 'rejected'",
+}
+
+
+def _source_record_work_key(titulo: str, autor: str) -> str:
+    base = (titulo or "").strip().lower() + "|" + (autor or "").strip().lower()
+    return "src:" + hashlib.sha1(base.encode("utf-8")).hexdigest()[:24]
+
+
+def _promote_source_record(s: Session, sr_id: int) -> None:
+    sr = s.exec(text("SELECT id, title, author, isbn, publisher, publication_year, thumbnail FROM source_records WHERE id = :id"), {"id": sr_id}).mappings().first()
+    if not sr:
+        raise HTTPException(404, "source_record não encontrado")
+    titulo = _plain_text(sr["title"], 240)
+    autor = _plain_text(sr["author"], 240)
+    isbn = normalizar_isbn(_plain_text(sr["isbn"], 32))
+    if not titulo or not isbn:
+        raise HTTPException(422, "só é possível aprovar/promover registros com title e isbn válidos")
+
+    edicao = s.exec(select(Edicao).where(Edicao.isbn == isbn)).first()
+    if edicao:
+        s.exec(text("UPDATE source_records SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = :id"), {"id": sr_id})
+        s.commit()
+        return
+
+    obra = None
+    if autor:
+        obra = s.exec(select(Obra).where(func.lower(Obra.titulo) == titulo.lower(), func.lower(Obra.autor) == autor.lower())).first()
+    if not obra:
+        obra = s.exec(select(Obra).where(func.lower(Obra.titulo) == titulo.lower())).first()
+    if not obra:
+        obra = Obra(
+            ol_work_key=_source_record_work_key(titulo, autor),
+            titulo=titulo,
+            autor=autor,
+            idioma_original="",
+            ano=sr["publication_year"],
+        )
+        s.add(obra); s.commit(); s.refresh(obra)
+
+    s.add(Edicao(
+        obra_id=obra.id,
+        ol_edition_key="isbn:" + isbn,
+        editora=_plain_text(sr["publisher"], 160),
+        tradutor="",
+        isbn=isbn,
+        idioma="Português",
+        ano=sr["publication_year"],
+        capa_url=_plain_text(sr["thumbnail"], 500),
+    ))
+    s.exec(text("UPDATE source_records SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = :id"), {"id": sr_id})
+    s.commit()
+
+
+@app.get("/admin/source-records")
+def admin_source_records(request: Request, filter: str = Query("pending"), source: str = Query(""), s: Session = Depends(get_session)):
+    _require_admin(request, s)
+    where = SOURCE_RECORD_FILTERS.get(filter, "1=1")
+    params = {}
+    if source:
+        where += " AND source = :source"
+        params["source"] = source
+
+    counts = s.exec(text("""
+        SELECT
+          count(*) AS total,
+          count(*) FILTER (WHERE status = 'pending') AS pending,
+          count(*) FILTER (WHERE status = 'approved') AS approved,
+          count(*) FILTER (WHERE status = 'rejected') AS rejected,
+          count(*) FILTER (WHERE trim(coalesce(isbn, '')) = '') AS missing_isbn,
+          count(*) FILTER (WHERE trim(coalesce(author, '')) = '') AS missing_author,
+          count(*) FILTER (WHERE confidence_score < 0.5) AS low_confidence
+        FROM source_records
+    """)).mappings().first()
+    by_source = s.exec(text("SELECT source, count(*) AS total FROM source_records GROUP BY source ORDER BY total DESC, source")).mappings().all()
+    sources = [r["source"] for r in by_source]
+
+    rows = s.exec(text(f"""
+        SELECT sr.*,
+          EXISTS (
+            SELECT 1 FROM source_records dup
+            WHERE dup.id <> sr.id
+              AND trim(coalesce(dup.isbn, '')) <> ''
+              AND dup.isbn = sr.isbn
+              AND lower(trim(coalesce(dup.title, ''))) <> lower(trim(coalesce(sr.title, '')))
+          ) AS duplicate_isbn_title,
+          EXISTS (
+            SELECT 1 FROM obra o
+            WHERE trim(coalesce(sr.author, '')) = ''
+              AND lower(o.titulo) LIKE '%' || lower(trim(coalesce(sr.title, ''))) || '%'
+          ) AS similar_existing_missing_author
+        FROM source_records sr
+        WHERE {where}
+        ORDER BY updated_at DESC
+        LIMIT 100
+    """), params).mappings().all()
+
+    filter_links = " ".join(
+        f'<a href="/admin/source-records?filter={_esc(k)}">{_esc(label)}</a>'
+        for k, label in {
+            "all": "todos",
+            "pending": "todos pendentes",
+            "missing_isbn": "sem ISBN",
+            "missing_author": "sem autor",
+            "missing_thumbnail": "sem capa",
+            "low_confidence": "baixa confiança",
+            "approved": "já aprovados",
+            "rejected": "rejeitados",
+        }.items()
+    )
+    source_options = ''.join(f'<option value="{_esc(src)}" {"selected" if src == source else ""}>{_esc(src)}</option>' for src in sources)
+    summary = (
+        f'<p class="meta">total={counts["total"]} · pendentes={counts["pending"]} · aprovados={counts["approved"]} · '
+        f'rejeitados={counts["rejected"]} · sem ISBN={counts["missing_isbn"]} · sem autor={counts["missing_author"]} · '
+        f'baixa confiança={counts["low_confidence"]}</p>'
+        '<h3>Por editora/source</h3><ul>' + ''.join(f'<li>{_esc(r["source"])}: {r["total"]}</li>' for r in by_source) + '</ul>'
+    )
+    items = []
+    for r in rows:
+        badges = []
+        if r["duplicate_isbn_title"]:
+            badges.append("ISBN repetido com título diferente")
+        if r["similar_existing_missing_author"]:
+            badges.append("título parecido com obra existente e autor ausente")
+        thumb = f'<img src="{_esc(r["thumbnail"])}" alt="" style="max-width:72px;max-height:110px;float:right;margin-left:12px">' if r["thumbnail"] else ""
+        permalink = f'<a href="{_esc(r["permalink"])}" rel="noopener noreferrer" target="_blank">abrir original</a>' if r["permalink"] else "sem permalink"
+        items.append(f'''
+          <article class="card-form" style="margin:16px 0;overflow:auto">{thumb}
+            <div class="meta">#{r["id"]} · {_esc(r["source"])} · status={_esc(r["status"])} · confiança={r["confidence_score"]} · criado={r["created_at"]} · atualizado={r["updated_at"]}</div>
+            <p><strong>{_esc(r["title"]) or "(sem título)"}</strong> — {_esc(r["author"]) or "(sem autor)"}</p>
+            <p>ISBN: {_esc(r["isbn"]) or "(sem ISBN)"} · editora: {_esc(r["publisher"])} · ano: {_esc(r["publication_year"])}</p>
+            <p>{permalink}</p>
+            <p class="meta">{_esc(" · ".join(badges))}</p>
+            <form method="post" action="/admin/source-records/{r["id"]}/edit">
+              <input name="title" value="{_esc(r["title"])}" placeholder="title">
+              <input name="author" value="{_esc(r["author"])}" placeholder="author">
+              <input name="isbn" value="{_esc(r["isbn"])}" placeholder="isbn">
+              <input name="publisher" value="{_esc(r["publisher"])}" placeholder="publisher">
+              <input name="publication_year" value="{_esc(r["publication_year"])}" placeholder="ano">
+              <input name="thumbnail" value="{_esc(r["thumbnail"])}" placeholder="thumbnail">
+              <button>Salvar</button>
+            </form>
+            <form method="post" action="/admin/source-records/{r["id"]}/pending" style="display:inline"><button>Marcar pending</button></form>
+            <form method="post" action="/admin/source-records/{r["id"]}/rejected" style="display:inline"><button>Rejeitar</button></form>
+            <form method="post" action="/admin/source-records/{r["id"]}/approve" style="display:inline"><button>Aprovar/promover</button></form>
+          </article>
+        ''')
+    corpo = (
+        '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+        '<h1>Revisão de source_records</h1><p><a href="/admin">voltar ao admin</a></p>'
+        + summary + '<h2>Filtros</h2><p>' + filter_links + '</p>'
+        f'<form method="get"><input type="hidden" name="filter" value="{_esc(filter)}"><select name="source"><option value="">todas as sources</option>{source_options}</select><button>Filtrar source</button></form>'
+        + (''.join(items) or '<p>Nenhum registro para este filtro.</p>') + '</div>'
+    )
+    return HTMLResponse(_pagina("Source records · Admin · Lombada", corpo))
+
+
+@app.post("/admin/source-records/{source_record_id}/edit")
+async def admin_source_record_edit(source_record_id: int, request: Request, s: Session = Depends(get_session)):
+    _require_admin(request, s)
+    raw_body = (await request.body()).decode("utf-8", errors="replace")
+    parsed_form = parse_qs(raw_body, keep_blank_values=True)
+    form = {key: values[-1] if values else "" for key, values in parsed_form.items()}
+    isbn = normalizar_isbn(_plain_text(form.get("isbn"), 32))
+    s.exec(text("""
+        UPDATE source_records
+        SET title = :title, author = :author, isbn = :isbn, publisher = :publisher,
+            publication_year = :publication_year, thumbnail = :thumbnail, updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+    """), {
+        "id": source_record_id,
+        "title": _plain_text(form.get("title"), 240),
+        "author": _plain_text(form.get("author"), 240),
+        "isbn": isbn,
+        "publisher": _plain_text(form.get("publisher"), 160),
+        "publication_year": _parse_int_optional(form.get("publication_year")),
+        "thumbnail": _plain_text(form.get("thumbnail"), 500),
+    })
+    s.commit()
+    return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin/source-records">')
+
+
+@app.post("/admin/source-records/{source_record_id}/{action}")
+def admin_source_record_action(source_record_id: int, action: str, request: Request, s: Session = Depends(get_session)):
+    _require_admin(request, s)
+    if action == "approve":
+        _promote_source_record(s, source_record_id)
+    elif action in {"pending", "rejected"}:
+        s.exec(text("UPDATE source_records SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id"), {"id": source_record_id, "status": action})
+        s.commit()
+    else:
+        raise HTTPException(404, "ação inválida")
+    return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin/source-records">')
 
 
 
