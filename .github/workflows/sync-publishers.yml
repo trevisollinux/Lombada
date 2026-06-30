@@ -23,9 +23,13 @@ on:
         options: ['false', 'true']
         default: 'false'
       max_urls:
-        description: 'máx. de livros NOVOS por editora nesta execução'
+        description: 'tamanho do lote: nº de livros por editora nesta execução'
         required: false
         default: '20'
+      offset:
+        description: 'faixa: começar do livro nº (ex.: 0, depois 100, 200...). Vazio = incremental automático'
+        required: false
+        default: ''
       slugs:
         description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
         required: false
@@ -73,6 +77,7 @@ jobs:
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
+          PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
 

@@ -515,12 +515,17 @@ def norm_isbn(value: Any) -> str:
 
 
 def collect_via_shopify(
-    publisher: dict[str, str], max_urls: int, sleep_seconds: float, seen: set[str] | None = None
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     seen = seen or set()
     base_url = publisher["base_url"].rstrip("/")
     records: list[tuple[dict[str, Any], dict[str, Any]]] = []
-    for page in range(1, 11):
+    index = -1  # posição do produto no catálogo (p/ modo faixa)
+    for page in range(1, 21):
         data = fetch_json(f"{base_url}/products.json?limit=250&page={page}")
         if not isinstance(data, dict):
             break
@@ -528,9 +533,12 @@ def collect_via_shopify(
         if not products:
             break
         for product in products:
+            index += 1
+            if offset is not None and index < offset:
+                continue  # ainda antes da faixa pedida
             url = f"{base_url}/products/{product.get('handle', '')}"
-            if stable_external_id(url) in seen:
-                continue  # já ingerido em run anterior
+            if offset is None and stable_external_id(url) in seen:
+                continue  # incremental: já ingerido em run anterior
             variants = product.get("variants") or []
             isbn = next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
             images = product.get("images") or []
@@ -565,23 +573,35 @@ def vtex_author(product: dict[str, Any]) -> str:
 
 
 def collect_via_vtex(
-    publisher: dict[str, str], max_urls: int, sleep_seconds: float, seen: set[str] | None = None
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     seen = seen or set()
     base_url = publisher["base_url"].rstrip("/")
     records: list[tuple[dict[str, Any], dict[str, Any]]] = []
     step = 50
-    for start in range(0, 2500, step):
+    index = -1
+    # Em modo faixa, começa a paginar já perto do offset (passos de 50).
+    start_at = (offset // step * step) if offset is not None else 0
+    if offset is not None:
+        index = start_at - 1
+    for start in range(start_at, start_at + 2500, step):
         url = f"{base_url}/api/catalog_system/pub/products/search?_from={start}&_to={start + step - 1}"
         data = fetch_json(url)
         if not isinstance(data, list) or not data:
             break
         for product in data:
+            index += 1
+            if offset is not None and index < offset:
+                continue
             link = product.get("link") or (
                 f"{base_url}/{product['linkText']}/p" if product.get("linkText") else base_url
             )
-            if stable_external_id(link) in seen:
-                continue  # já ingerido em run anterior
+            if offset is None and stable_external_id(link) in seen:
+                continue  # incremental: já ingerido em run anterior
             items = product.get("items") or []
             isbn = ""
             thumbnail = ""
@@ -617,13 +637,35 @@ def _collect_from_urls(
     max_urls: int,
     sleep_seconds: float,
     seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    """Baixa páginas de livro pulando as já ingeridas (seen) — ingestão incremental.
-    O teto conta só downloads de fato; pular URL conhecida é de graça e não consome.
+    """Baixa páginas de livro do catálogo.
+
+    - Modo FAIXA (offset != None): pega exatamente a fatia [offset : offset+max_urls]
+      da lista ordenada de candidatos. Serve p/ ir "0-100, 101-200..." na mão.
+    - Modo INCREMENTAL (offset None): pula as já ingeridas (seen) e leva as próximas
+      max_urls novas. O teto conta só downloads; pular URL conhecida é de graça.
     """
+    if offset is not None:
+        window = book_urls[offset : offset + max_urls]
+        print(f"  faixa: {offset}–{offset + len(window) - 1} de {len(book_urls)} candidatos")
+        records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        local_seen: set[str] = set()
+        for url in window:
+            external_id = stable_external_id(url)
+            if external_id in local_seen:
+                continue
+            local_seen.add(external_id)
+            extracted = extract_page(url, publisher)
+            if extracted is not None:
+                records.append(extracted)
+            if sleep_seconds:
+                time.sleep(sleep_seconds)
+        return records
+
     seen = seen or set()
-    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
-    local_seen: set[str] = set()
+    records = []
+    local_seen = set()
     fetched = 0
     max_attempts = max_urls * 3
     for url in book_urls:
@@ -644,7 +686,11 @@ def _collect_from_urls(
 
 
 def collect_via_sitemap(
-    publisher: dict[str, str], max_urls: int, sleep_seconds: float, seen: set[str] | None = None
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     sitemap_urls = collect_sitemap_urls(publisher["base_url"])
     if not sitemap_urls:
@@ -652,7 +698,7 @@ def collect_via_sitemap(
         return []
     book_urls = [url for url in sitemap_urls if looks_like_book_url(url)]
     print(f"  [sitemap] urls={len(sitemap_urls)} candidatos_livro={len(book_urls)}")
-    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen)
+    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
 def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
@@ -676,7 +722,11 @@ def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
 
 
 def collect_via_html_crawl(
-    publisher: dict[str, str], max_urls: int, sleep_seconds: float, seen: set[str] | None = None
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """Fallback p/ sites sem sitemap/JSON: parte da home e segue páginas de listagem."""
     base_url = publisher["base_url"].rstrip("/")
@@ -685,9 +735,11 @@ def collect_via_html_crawl(
         print(f"  [html] home inacessível para {publisher['slug']}.")
         return []
     book_urls, listing_urls = harvest_links(home.text, base_url)
-    # Alarga o conjunto visitando algumas páginas de listagem (catálogo/coleções).
-    for listing_url in listing_urls[:12]:
-        if len(book_urls) >= max_urls * 6:
+    # Alarga o conjunto visitando páginas de listagem (catálogo/coleções). Em modo
+    # faixa precisamos de URLs suficientes pra alcançar o offset pedido.
+    needed = (offset or 0) + max_urls
+    for listing_url in listing_urls[:24]:
+        if len(book_urls) >= max(max_urls * 6, needed * 2):
             break
         resp = fetch_url(listing_url)
         if resp is not None:
@@ -697,7 +749,7 @@ def collect_via_html_crawl(
             time.sleep(sleep_seconds)
     book_urls = list(dict.fromkeys(book_urls))
     print(f"  [html] urls_livro={len(book_urls)} (de {len(listing_urls)} listagens)")
-    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen)
+    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
 PLATFORM_COLLECTORS = {
@@ -710,14 +762,18 @@ AUTO_ORDER = ["shopify", "vtex", "sitemap", "html"]
 
 
 def collect_publisher(
-    publisher: dict[str, str], max_urls: int, sleep_seconds: float, seen: set[str] | None = None
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     platform = publisher.get("platform", "auto")
     order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
     for name in order:
         collector = PLATFORM_COLLECTORS[name]
         try:
-            records = collector(publisher, max_urls, sleep_seconds, seen)
+            records = collector(publisher, max_urls, sleep_seconds, seen, offset)
         except Exception as exc:  # noqa: BLE001 — uma plataforma falhar não derruba as outras
             print(f"  [{name}] erro: {exc!r}", file=sys.stderr)
             continue
@@ -884,9 +940,13 @@ def main() -> int:
     max_urls = getenv_int("PUBLISHER_MAX_URLS", 20, minimum=1, maximum=2000)
     sleep_seconds = getenv_float("PUBLISHER_SLEEP_SECONDS", 1.0)
     dry_run = getenv_bool("PUBLISHER_DRY_RUN", False)
+    # offset vazio => modo incremental (pula o que já tem); número => modo FAIXA.
+    offset_raw = os.getenv("PUBLISHER_OFFSET", "").strip()
+    offset = max(0, int(offset_raw)) if offset_raw.lstrip("-").isdigit() else None
     sources = select_sources()
     modo = "DRY_RUN (não grava)" if dry_run else "gravando no banco"
-    print(f"max_urls={max_urls}/editora sleep={sleep_seconds}s editoras={len(sources)} — {modo}\n")
+    faixa = f" faixa a partir de {offset}" if offset is not None else " incremental (pula já gravados)"
+    print(f"max_urls={max_urls}/editora sleep={sleep_seconds}s editoras={len(sources)} —{faixa} — {modo}\n")
 
     # Conecta antes de coletar: a ingestão é incremental (pula o que já gravamos),
     # então cada run avança pelos PRÓXIMOS livros do catálogo, sem repetir os mesmos.
@@ -901,10 +961,11 @@ def main() -> int:
             print("=" * 60)
             print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
             source = f"publisher:{publisher['slug']}"
-            seen = load_seen_external_ids(conn, source) if conn else set()
+            # No modo faixa não pulamos por "seen" (o usuário escolheu a fatia exata).
+            seen = load_seen_external_ids(conn, source) if (conn and offset is None) else set()
             if seen:
                 print(f"  já no banco: {len(seen)} (serão pulados)")
-            records = collect_publisher(publisher, max_urls, sleep_seconds, seen)
+            records = collect_publisher(publisher, max_urls, sleep_seconds, seen, offset)
             with_isbn = sum(1 for normalized, _ in records if normalized["isbn"])
             with_author = sum(1 for normalized, _ in records if normalized["author"])
             print(f"  cobertura: ISBN {with_isbn}/{len(records)} · autor {with_author}/{len(records)}")

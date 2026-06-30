@@ -1,0 +1,50 @@
+name: List catalog
+
+# Lista o que já está na base: resumo por editora + catálogo da busca + os livros.
+# Dispare pela aba Actions (funciona do celular). O resultado sai no Summary do run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: 'filtrar por editora(s), slugs separados por vírgula (vazio = todas)'
+        required: false
+        default: ''
+      limit:
+        description: 'máx. de livros na listagem'
+        required: false
+        default: '500'
+      only_isbn:
+        description: 'listar só os que têm ISBN'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      - name: List catalog
+        run: |
+          python scripts/list_catalog.py | tee lista.txt
+          {
+            echo '### Catálogo na base'
+            echo ''
+            echo '```'
+            cat lista.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LIST_SLUGS: ${{ inputs.slugs || '' }}
+          LIST_LIMIT: ${{ inputs.limit || '500' }}
+          LIST_ONLY_ISBN: ${{ inputs.only_isbn || 'false' }}
