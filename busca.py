@@ -3,6 +3,7 @@ Lombada — scoring, deduplicação e orquestração da busca.
 """
 import json
 import concurrent.futures as _fut
+from difflib import SequenceMatcher
 from datetime import datetime, timedelta
 
 from sqlmodel import select, Session
@@ -18,6 +19,9 @@ from fontes import (
 
 
 # ─── cache de busca (banco) ───────────────────────────────
+_CACHE_SCHEMA_VERSION = 2
+
+
 def _cache_get(q: str, s: Session, minutos: int = 1440):
     qn = _query_norm(q)
     row = s.exec(
@@ -30,9 +34,15 @@ def _cache_get(q: str, s: Session, minutos: int = 1440):
     if datetime.utcnow() - row.criado_em > timedelta(minutes=minutos):
         return None
     try:
-        return json.loads(row.resultados_json)
+        payload = json.loads(row.resultados_json)
     except Exception:
         return None
+    if not isinstance(payload, dict) or payload.get("_cache_schema_version") != _CACHE_SCHEMA_VERSION:
+        # Invalida caches antigos: versões anteriores guardavam a lista crua,
+        # sem a consolidação final, e podem reintroduzir duplicatas.
+        return None
+    resultados = payload.get("resultados")
+    return resultados if isinstance(resultados, list) else None
 
 
 def _cache_set(q: str, resultados: list, s: Session) -> None:
@@ -40,7 +50,7 @@ def _cache_set(q: str, resultados: list, s: Session) -> None:
         row = BuscaCache(
             query=q,
             query_norm=_query_norm(q),
-            resultados_json=json.dumps(resultados, ensure_ascii=False),
+            resultados_json=json.dumps({"_cache_schema_version": _CACHE_SCHEMA_VERSION, "resultados": resultados}, ensure_ascii=False),
         )
         s.add(row)
         s.commit()
@@ -230,6 +240,107 @@ def deduplicar_docs(docs: list) -> list:
         if not atual or doc.get("quality_score", 0) > atual.get("quality_score", 0):
             melhores[k] = doc
     return list(melhores.values())
+
+
+def _titulo_para_dedup_final(titulo: str, autor: str = "") -> str:
+    titulo_norm = _match_norm(titulo or "")
+    autor_norm = _match_norm(autor or "")
+    if autor_norm:
+        titulo_norm = titulo_norm.replace(autor_norm, " ")
+        for parte in autor_norm.split():
+            if len(parte) >= 4:
+                titulo_norm = titulo_norm.replace(parte, " ")
+    for sep in (" by ", " por ", " de "):
+        if sep in titulo_norm:
+            titulo_norm = titulo_norm.split(sep, 1)[0]
+    return " ".join(titulo_norm.split())
+
+
+def _titulo_muito_parecido_com_busca(titulo: str, autor: str, q: str) -> bool:
+    titulo_q, _autor_q = _split_q(q)
+    alvo = _titulo_para_dedup_final(titulo, autor)
+    busca = _titulo_para_dedup_final(titulo_q)
+    if not alvo or not busca:
+        return False
+    if alvo == busca or alvo in busca or busca in alvo:
+        return True
+    stop = {"the", "uma", "uns", "das", "dos", "por"}
+    tokens_busca = {t for t in busca.split() if len(t) >= 3 and t not in stop}
+    tokens_alvo = {t for t in alvo.split() if len(t) >= 3 and t not in stop}
+    if tokens_busca and tokens_busca.issubset(tokens_alvo):
+        return True
+    return SequenceMatcher(None, alvo, busca).ratio() >= 0.88
+
+
+def _chave_dedup_final(q: str, doc: dict) -> str:
+    titulo = doc.get("titulo", "")
+    autor = doc.get("autor", "")
+    if _titulo_muito_parecido_com_busca(titulo, autor, q):
+        return f"query-title:{_titulo_para_dedup_final(q)}"
+    chave = (doc.get("chave_obra") or "").strip()
+    if chave:
+        return f"obra:{chave}"
+    chave = chave_obra_canonica(titulo, autor)
+    if chave:
+        doc["chave_obra"] = chave
+        return f"obra:{chave}"
+    return f"doc:{_dedup_key(doc)}"
+
+
+def _merge_doc_busca_final(vitrine: dict, extra: dict) -> dict:
+    edicoes = list(vitrine.get("edicoes") or [])
+    vistos = {_assinatura_edicao(e) for e in edicoes}
+    for e in _edicoes_do_doc(extra):
+        assinatura = _assinatura_edicao(e)
+        if assinatura not in vistos:
+            vistos.add(assinatura)
+            edicoes.append(e)
+    if not edicoes:
+        edicoes = _edicoes_do_doc(vitrine)
+    vitrine["edicoes"] = edicoes
+    vitrine["edicoes_encontradas"] = max(
+        int(vitrine.get("edicoes_encontradas") or 0),
+        int(extra.get("edicoes_encontradas") or 0),
+        len(edicoes),
+    )
+    if not vitrine.get("capa_url") and extra.get("capa_url"):
+        vitrine["capa_url"] = extra["capa_url"]
+    if not vitrine.get("edicao_isbn") and extra.get("edicao_isbn"):
+        vitrine["edicao_isbn"] = extra["edicao_isbn"]
+    vitrine["tem_pt"] = vitrine.get("tem_pt") or extra.get("tem_pt")
+    return vitrine
+
+
+def consolidar_resultados_busca_final(q: str, resultados: list[dict]) -> list[dict]:
+    """Consolida a resposta completa de /api/buscar antes de devolvê-la.
+
+    Essa barreira final impede que combinações local+cache, local+externo ou
+    caches antigos tragam variações da mesma obra como cards separados.
+    """
+    grupos: dict[str, dict] = {}
+    ordem: list[str] = []
+    for doc in resultados or []:
+        if not doc:
+            continue
+        doc = quality_score(doc, q)
+        chave = _chave_dedup_final(q, doc)
+        atual = grupos.get(chave)
+        if atual is None:
+            grupos[chave] = doc
+            ordem.append(chave)
+            continue
+        if doc.get("quality_score", 0) > atual.get("quality_score", 0):
+            vitrine, extra = doc, atual
+            grupos[chave] = vitrine
+        else:
+            vitrine, extra = atual, doc
+        _merge_doc_busca_final(vitrine, extra)
+
+    saida = [grupos[chave] for chave in ordem if chave in grupos]
+    saida.sort(key=lambda d: d.get("quality_score", 0), reverse=True)
+    for doc in saida:
+        doc.pop("_autores", None)
+    return saida
 
 
 # ─── fusão obra-first (uma obra, várias edições) ──────────────────────────
