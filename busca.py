@@ -12,7 +12,7 @@ from fontes import (
     gbooks_buscar, ol_buscar,
     _gbooks_info, _ol_isbn,
     normalizar_isbn, _sem_acento, _query_norm, _match_norm, _relevancia, _split_q,
-    _limpa_capa_gb, _capa_ol_isbn,
+    _limpa_capa_gb, _capa_ol_isbn, chave_obra_canonica,
     EDITORAS_BR_FORTES,
 )
 
@@ -232,6 +232,72 @@ def deduplicar_docs(docs: list) -> list:
     return list(melhores.values())
 
 
+# ─── fusão obra-first (uma obra, várias edições) ──────────────────────────
+def _assinatura_edicao(ed: dict) -> str:
+    isbn = normalizar_isbn((ed or {}).get("isbn") or "")
+    if isbn:
+        return f"isbn:{isbn}"
+    titulo  = _sem_acento((ed or {}).get("titulo_edicao") or "")
+    editora = _sem_acento((ed or {}).get("editora") or "")
+    ano     = (ed or {}).get("ano") or ""
+    chave   = (ed or {}).get("ol_edition_key") or ""
+    return f"{titulo}|{editora}|{ano}|{chave}"
+
+
+def _edicoes_do_doc(doc: dict) -> list:
+    eds = list(doc.get("edicoes") or [])
+    ed_isbn = doc.get("edicao_isbn")
+    if ed_isbn:
+        eds = [ed_isbn] + eds
+    return eds
+
+
+def _merge_obras_canonico(docs: list) -> list:
+    """Junta docs que são a MESMA obra (título/autor canônicos), somando edições.
+    O doc de melhor qualidade vira a vitrine; os demais viram edições dele."""
+    grupos: dict[str, dict] = {}
+    ordem: list[str] = []
+    for doc in docs:
+        if not doc:
+            continue
+        chave = chave_obra_canonica(doc.get("titulo", ""), doc.get("autor", ""))
+        if not chave:
+            chave = f"uniq:{id(doc)}"
+        atual = grupos.get(chave)
+        if atual is None:
+            grupos[chave] = doc
+            ordem.append(chave)
+            continue
+        # vitrine = doc de maior quality_score; o outro vira só fonte de edições
+        if doc.get("quality_score", 0) > atual.get("quality_score", 0):
+            vitrine, extra = doc, atual
+            grupos[chave] = vitrine
+        else:
+            vitrine, extra = atual, doc
+        vistas = {_assinatura_edicao(e) for e in _edicoes_do_doc(vitrine)}
+        merged = list(vitrine.get("edicoes") or _edicoes_do_doc(vitrine))
+        for e in _edicoes_do_doc(extra):
+            a = _assinatura_edicao(e)
+            if a not in vistas:
+                vistas.add(a)
+                merged.append(e)
+        vitrine["edicoes"] = merged
+        if not vitrine.get("capa_url") and extra.get("capa_url"):
+            vitrine["capa_url"] = extra["capa_url"]
+        vitrine["tem_pt"] = vitrine.get("tem_pt") or extra.get("tem_pt")
+
+    saida = []
+    for chave in ordem:
+        obra = grupos[chave]
+        edicoes = obra.get("edicoes")
+        if edicoes is None:
+            edicoes = _edicoes_do_doc(obra)
+            obra["edicoes"] = edicoes
+        obra["edicoes_encontradas"] = len(edicoes)
+        saida.append(obra)
+    return saida
+
+
 def _filtrar_relevancia(obras: list, q: str) -> list:
     """Corta ruído: mantém quem casa no título OU no autor.
     Se sobrar vazio, devolve tudo (nunca deixa o usuário na mão)."""
@@ -287,6 +353,7 @@ def buscar_titulo_v2(q: str) -> list:
     obras = _filtrar_relevancia(obras, q)
     obras = ordenar_por_qualidade(obras, q)
     obras = deduplicar_docs(obras)
+    obras = _merge_obras_canonico(obras)
     obras = ordenar_por_qualidade(obras, q)
     for o in obras:
         o.pop("_autores", None)
