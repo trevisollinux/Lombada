@@ -122,8 +122,9 @@ def _chave_obra(titulo: str, autor: str) -> str:
 
 # ─── chave canônica de obra (colapsa edições/transliterações) ─────────────
 # Sobrenomes que aparecem em mil grafias: tudo converge pra um rótulo só.
-# Pode crescer aos poucos a partir do catálogo (ver scripts/build_aliases.py).
-_AUTOR_ALIASES = {
+# Semente embutida (fallback) + data/aliases.json, que cresce aos poucos a
+# partir do catálogo (ver scripts/build_aliases.py).
+_AUTOR_ALIASES_SEED = {
     "dostoievski": (
         "dostoievski", "dostoevsky", "dostoyevsky", "dostoievsky",
         "dostoevski", "dostoiewski", "dostoiévski", "достоевскии",
@@ -132,6 +133,33 @@ _AUTOR_ALIASES = {
     "tchekhov": ("tchekhov", "tchekov", "chekhov", "tchecov", "chekov", "чехов"),
     "kafka": ("kafka",),
 }
+
+
+def _carregar_aliases() -> dict[str, tuple]:
+    """Funde a semente embutida com data/aliases.json (o JSON estende/sobrescreve)."""
+    import json
+    from pathlib import Path
+    aliases = {k: set(v) for k, v in _AUTOR_ALIASES_SEED.items()}
+    caminho = Path(__file__).resolve().parent / "data" / "aliases.json"
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        for canon, variantes in (dados.get("autores") or {}).items():
+            canon = (canon or "").strip().lower()
+            if not canon:
+                continue
+            alvo = aliases.setdefault(canon, set())
+            alvo.add(canon)
+            for v in variantes or []:
+                if isinstance(v, str) and v.strip():
+                    alvo.add(v.strip().lower())
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass  # JSON inválido não derruba a busca; fica só a semente
+    return {k: tuple(sorted(v)) for k, v in aliases.items()}
+
+
+_AUTOR_ALIASES = _carregar_aliases()
 
 # Romanização mínima de cirílico → latim (chave estável; não é translit. exata).
 _CIRILICO = {

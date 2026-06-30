@@ -1,0 +1,13 @@
+{
+  "_comment": "Aliases de autor para a busca. Semente curada + crescida aos poucos por scripts/build_aliases.py. Chave = rótulo canônico (sobrenome); valor = grafias equivalentes (latim ou cirílico; typos conhecidos). O fontes.py carrega isto no boot e funde com a semente embutida.",
+  "autores": {
+    "dostoievski": ["dostoievski", "dostoevsky", "dostoyevsky", "dostoievsky", "dostoevski", "dostoiewski", "dostoievskii", "dotoievski", "достоевский"],
+    "tolstoi": ["tolstoi", "tolstoy", "tolstoj", "tolstoii", "толстой"],
+    "tchekhov": ["tchekhov", "tchekov", "chekhov", "tchecov", "chekov", "чехов"],
+    "gogol": ["gogol", "goghol", "гоголь"],
+    "turgueniev": ["turgueniev", "turgenev", "turgueniew", "тургенев"],
+    "pushkin": ["pushkin", "puchkin", "pushkine", "пушкин"],
+    "soljenitsin": ["soljenitsin", "solzhenitsyn", "solzenitsin", "солженицын"],
+    "kafka": ["kafka"]
+  }
+}
