@@ -856,6 +856,13 @@ function mesclarEdicoesLocais(edicoes){
   adicionarEdicoesUnicas(lista, edicoes||[]);
   return lista;
 }
+function contagemEdicoesResultadoBusca(item, fallback=0){
+  const total=Number(item?.edicoes_encontradas);
+  if(Number.isFinite(total) && total>0) return total;
+  const edicoes=item?.edicoes;
+  if(Array.isArray(edicoes) && edicoes.length) return edicoes.length;
+  return fallback;
+}
 function agruparResultadosPorObra(docs,q){
   const grupos=[]; const porChave=new Map();
   (docs||[]).forEach((doc,idx)=>{
@@ -868,7 +875,7 @@ function agruparResultadosPorObra(docs,q){
     const eds=edicoesDoDoc(doc);
     g.docs.push(doc);
     adicionarEdicoesUnicas(g.edicoes, eds);
-    g.edicoes_encontradas=g.edicoes.length || g.docs.length;
+    g.edicoes_encontradas=Math.max(g.edicoes_encontradas, contagemEdicoesResultadoBusca(doc), g.edicoes.length || g.docs.length);
     const s=scoreResultadoBusca(doc,q);
     if(s>g.score_obra || !g.capa_url){
       g.score_obra=s; g.titulo=doc.titulo||g.titulo; g.autor=doc.autor||g.autor; g.ano=doc.ano||g.ano; g.capa_url=doc.capa_url||g.capa_url; g.tem_pt=doc.tem_pt||g.tem_pt; g.work_key=doc.work_key||g.work_key; g.idioma_original=doc.idioma_original||g.idioma_original;
@@ -936,7 +943,7 @@ async function buscar(event){
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>
       <div class="a">${esc(d.autor)}</div>
-      <div class="yr">${plural(d.edicoes_encontradas,'edition_found_one','edition_found_many')}</div>
+      <div class="yr">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')}</div>
       <div class="e">${t('see_editions')}</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
 }
 
