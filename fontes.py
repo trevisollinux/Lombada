@@ -120,6 +120,72 @@ def _chave_obra(titulo: str, autor: str) -> str:
     return f"{t}|{a_tok}"
 
 
+# ─── chave canônica de obra (colapsa edições/transliterações) ─────────────
+# Sobrenomes que aparecem em mil grafias: tudo converge pra um rótulo só.
+_AUTOR_ALIASES = {
+    "dostoievski": (
+        "dostoievski", "dostoevsky", "dostoyevsky", "dostoievsky",
+        "dostoevski", "dostoiewski", "dostoiévski",
+    ),
+    "tolstoi": ("tolstoi", "tolstoy", "tolstoj", "tolstoii"),
+    "tchekhov": ("tchekhov", "tchekov", "chekhov", "tchecov", "chekov"),
+    "kafka": ("kafka",),
+}
+
+
+def _fold_sobrenome(tok: str) -> str:
+    """Dobra de transliteração: 'tolstoy'→'tolstoi', 'dostoyevsky'→'dostoievski'."""
+    t = re.sub(r"[^a-z]", "", _sem_acento(tok))
+    t = t.replace("y", "i").replace("w", "v")
+    t = re.sub(r"(.)\1+", r"\1", t)  # colapsa letras dobradas (tolstoii→tolstoi)
+    return t
+
+
+def _autor_sobrenome(autor: str) -> str:
+    """Sobrenome canônico do autor, robusto a 'Nome Sobrenome' e 'Sobrenome, Nome'."""
+    norm = _sem_acento(autor or "")
+    if not norm:
+        return ""
+    if "," in norm:                       # 'Tolstoy, Leo, Graf, 1828-1910'
+        cand = norm.split(",", 1)[0]
+    else:                                 # 'Liev Tolstói'
+        toks = [t for t in re.split(r"[^a-z]+", norm) if t]
+        cand = toks[-1] if toks else ""
+    sob = _fold_sobrenome((cand.split() or [""])[-1])
+    for canon, variantes in _AUTOR_ALIASES.items():
+        if sob and (sob in {_fold_sobrenome(v) for v in variantes} or canon in sob):
+            return canon
+    return sob
+
+
+def _titulo_nucleo(titulo: str, autor: str = "") -> str:
+    """Título-núcleo para agrupar: sem subtítulo, sem parênteses, sem o autor colado.
+    'Crime e castigo, Fiódor Dostoiévski' e 'Guerra e Paz (Português)' viram o núcleo."""
+    norm = _sem_acento(titulo or "")
+    norm = re.sub(r"\([^)]*\)", " ", norm)          # tira parênteses ('(portugues)')
+    if ":" in norm:
+        norm = norm.split(":", 1)[0]                # descarta subtítulo
+    norm = re.sub(r"[^a-z0-9]+", " ", norm).strip()
+    if not norm:
+        return ""
+    autor_norm = re.sub(r"[^a-z0-9]+", " ", _sem_acento(autor or "")).strip()
+    sob = _autor_sobrenome(autor)
+    for frag in [f for f in (autor_norm, sob) if f]:
+        cand = re.sub(rf"^\s*{re.escape(frag)}\s+", "", norm)
+        cand = re.sub(rf"\s+{re.escape(frag)}\s*$", "", cand)
+        if cand.strip():                            # nunca esvazia o título
+            norm = cand.strip()
+    return re.sub(r"\s+", " ", norm).strip()
+
+
+def chave_obra_canonica(titulo: str, autor: str) -> str:
+    """Chave que junta a MESMA obra mesmo com título/autor escritos de outro jeito."""
+    nucleo = _titulo_nucleo(titulo, autor)
+    if not nucleo:
+        return ""
+    return f"{nucleo}|{_autor_sobrenome(autor) or 'autor-desconhecido'}"
+
+
 # ─── helpers de capa ──────────────────────────────────────
 _LANG_RANK = {"Português": 0, "Inglês": 1}
 
@@ -293,7 +359,9 @@ def gbooks_buscar(q: str, limite: int = 18) -> list:
 
     grupos: dict[str, list] = {}
     for e in eds:
-        grupos.setdefault(_chave_obra(e["titulo_edicao"], e["_autor"]), []).append(e)
+        chave = chave_obra_canonica(e["titulo_edicao"], e["_autor"]) \
+            or _chave_obra(e["titulo_edicao"], e["_autor"])
+        grupos.setdefault(chave, []).append(e)
 
     obras = []
     for k, lista in grupos.items():

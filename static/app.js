@@ -562,10 +562,74 @@ function aplicarHistorico(estado){
 window.onpopstate=e=>aplicarHistorico(e.state);
 
 
+/* ── sugestões de busca: recentes (localStorage) + mais buscadas (API) ── */
+const RECENTES_KEY='lombada_buscas_recentes';
+function buscasRecentes(){
+  try{ const v=JSON.parse(localStorage.getItem(RECENTES_KEY)); return Array.isArray(v)?v:[]; }
+  catch(e){ return []; }
+}
+function lembrarBuscaRecente(q){
+  q=(q||'').trim();
+  if(q.length<2) return;
+  const lista=buscasRecentes().filter(x=>normBusca(x)!==normBusca(q));
+  lista.unshift(q);
+  try{ localStorage.setItem(RECENTES_KEY,JSON.stringify(lista.slice(0,8))); }catch(e){}
+}
+function limparBuscasRecentes(){
+  try{ localStorage.removeItem(RECENTES_KEY); }catch(e){}
+  onQFocus();
+}
+let buscasPopularesCache=null;
+async function carregarBuscasPopulares(){
+  if(buscasPopularesCache) return buscasPopularesCache;
+  try{
+    const r=await fetch('/api/buscas/populares');
+    if(r.ok) buscasPopularesCache=await r.json();
+  }catch(e){}
+  return buscasPopularesCache||[];
+}
+function termoChipHTML(termo){
+  return `<button type="button" class="chip" data-termo="${esc(termo)}" onclick="buscarSugestao(this)">${esc(termo)}</button>`;
+}
+async function renderSugestoesBusca(){
+  const box=$('#searchSuggest');
+  if(!box) return false;
+  const recentes=buscasRecentes();
+  const populares=await carregarBuscasPopulares();
+  let html='';
+  if(recentes.length){
+    html+=`<div class="suggest-group"><div class="suggest-head"><div class="label">${t('recent_searches')}</div><button type="button" class="suggest-clear" onclick="limparBuscasRecentes()">${t('clear_recent_searches')}</button></div><div class="chips">${recentes.map(termoChipHTML).join('')}</div></div>`;
+  }
+  const pops=(populares||[]).map(p=>p&&p.termo).filter(Boolean).filter(termo=>!recentes.some(r=>normBusca(r)===normBusca(termo)));
+  if(pops.length){
+    html+=`<div class="suggest-group"><div class="label">${t('popular_searches')}</div><div class="chips">${pops.map(termoChipHTML).join('')}</div></div>`;
+  }
+  box.innerHTML=html;
+  return !!html;
+}
+function buscarSugestao(el){
+  const termo=el&&el.getAttribute('data-termo')||'';
+  const box=$('#searchSuggest'); if(box) box.hidden=true;
+  if(termo) buscarTermo(termo);
+}
+async function onQFocus(){
+  if(($('#q').value||'').trim()) return;
+  const tem=await renderSugestoesBusca();
+  const box=$('#searchSuggest');
+  if(box) box.hidden=!tem || document.activeElement!==$('#q');
+}
+function onQBlur(){
+  setTimeout(()=>{ const box=$('#searchSuggest'); if(box) box.hidden=true; },150);
+}
+
 /* mostra/esconde feed da home conforme há busca */
 function onQInput(){
   const v=$('#q').value.trim();
-  if(!v){ limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home'); }
+  const box=$('#searchSuggest');
+  if(v){ if(box) box.hidden=true; return; }
+  if(box) box.hidden=true;
+  limparBusca(); mostrarBusca('home',{registrar:false}); registrarHistorico('buscar','home');
+  if(box) renderSugestoesBusca().then(tem=>{ if(document.activeElement===$('#q')) box.hidden=!tem; });
 }
 function limparBusca(){
   resultadosArr=[];
@@ -793,7 +857,8 @@ function normalizarTextoObra(s){
 }
 const normalizarTextoBase = normalizarTextoObra;
 function normalizarTituloObra(t){
-  const base=normalizarTextoObra(t);
+  const semParens=(t||'').toString().replace(/\([^)]*\)/g,' ');
+  const base=normalizarTextoObra(semParens);
   const partes=base.split(':').map(p=>p.trim()).filter(Boolean);
   return (partes[0]||base).replace(/\s+/g,' ').trim();
 }
@@ -908,6 +973,8 @@ async function buscar(event){
     mostrarBusca('resultados');
     return;
   }
+  lembrarBuscaRecente(q);
+  const suggestBox=$('#searchSuggest'); if(suggestBox) suggestBox.hidden=true;
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
   renderBuscaSkeleton();
   mostrarBusca('resultados');

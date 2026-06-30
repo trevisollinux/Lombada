@@ -27,7 +27,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
@@ -831,6 +831,30 @@ def explore_populares(s: Session = Depends(get_session)):
             if len(obras) >= 12:
                 break
     return obras or EDITORIAL_POPULARES
+
+@app.get("/api/buscas/populares")
+def buscas_populares(s: Session = Depends(get_session)):
+    """Termos mais buscados (agregados do cache de busca) — alimenta as sugestões."""
+    rows = s.exec(
+        select(BuscaCache.query, BuscaCache.query_norm, func.count(BuscaCache.id))
+        .where(BuscaCache.query_norm != "")
+        .group_by(BuscaCache.query, BuscaCache.query_norm)
+    ).all()
+    # agrega por forma normalizada; a grafia exibida é a mais frequente
+    buckets: dict[str, dict] = {}
+    for query, query_norm, total in rows:
+        termo = (query or query_norm or "").strip()
+        chave = _normalizar_busca(termo)
+        if not termo or len(chave) < 3 or normalizar_isbn(termo):
+            continue
+        total = int(total or 0)
+        b = buckets.setdefault(chave, {"total": 0, "termo": termo, "termo_freq": 0})
+        b["total"] += total
+        if total > b["termo_freq"]:
+            b["termo_freq"], b["termo"] = total, termo
+    melhores = sorted(buckets.values(), key=lambda b: b["total"], reverse=True)[:8]
+    return [{"termo": b["termo"], "total": b["total"]} for b in melhores]
+
 
 @app.get("/api/eu")
 def eu(request: Request, s: Session = Depends(get_session)):

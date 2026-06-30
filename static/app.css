@@ -87,6 +87,15 @@ input,textarea,select{font:inherit;color:inherit}
 .chip{border:1px solid var(--rule);padding:7px 11px;font-size:13px;font-style:italic;color:var(--ink-2);background:var(--paper-2);cursor:pointer;transition:background .15s,color .15s}
 .chip:hover,.chip:active{background:var(--ink);color:var(--paper)}
 
+.search-suggest{margin:-12px 0 18px;border:1px solid var(--rule);background:var(--paper-2);box-shadow:var(--shadow-sm);padding:13px 14px 15px}
+.search-suggest[hidden]{display:none}
+.suggest-group{margin-top:14px}
+.suggest-group:first-child{margin-top:0}
+.suggest-group .chips{margin-top:0}
+.suggest-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.suggest-clear{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;padding:0}
+.suggest-clear:hover{color:var(--ink)}
+
 /* ---------- poster wall ---------- */
 .wall{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 14px;margin-top:6px}
 @media(min-width:440px){.wall{grid-template-columns:repeat(3,1fr)}}
