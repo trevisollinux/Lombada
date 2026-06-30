@@ -1,0 +1,93 @@
+name: Seed demo users
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without persisting changes"
+        required: true
+        default: true
+        type: boolean
+      reset_user_email:
+        description: "Optional real user email to reset"
+        required: false
+        type: string
+      reset_user_handle:
+        description: "Optional real user handle to reset"
+        required: false
+        type: string
+      reset_demo_users:
+        description: "Delete/recreate demo users before seeding"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  seed-demo-users:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+
+      - name: Run demo user maintenance
+        id: seed
+        shell: bash
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          RESET_DEMO_USERS: ${{ inputs.reset_demo_users }}
+          RESET_USER_EMAIL: ${{ inputs.reset_user_email }}
+          RESET_USER_HANDLE: ${{ inputs.reset_user_handle }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL secret is required." >&2
+            exit 1
+          fi
+
+          if [ -n "${RESET_USER_EMAIL}" ] && [ -n "${RESET_USER_HANDLE}" ]; then
+            echo "Use reset_user_email or reset_user_handle, not both." >&2
+            exit 1
+          fi
+
+          args=()
+          if [ "${DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          else
+            args+=(--apply)
+          fi
+          if [ "${RESET_DEMO_USERS}" = "true" ]; then
+            args+=(--reset-demo-users)
+          fi
+          if [ -n "${RESET_USER_EMAIL}" ]; then
+            args+=(--reset-user-email "${RESET_USER_EMAIL}")
+          fi
+          if [ -n "${RESET_USER_HANDLE}" ]; then
+            args+=(--reset-user-handle "${RESET_USER_HANDLE}")
+          fi
+
+          python scripts/seed_demo_users.py "${args[@]}" | tee seed-demo-users-summary.txt
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo '## Seed demo users' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f seed-demo-users-summary.txt ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat seed-demo-users-summary.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Script did not produce a summary.' >> "$GITHUB_STEP_SUMMARY"
+          fi
