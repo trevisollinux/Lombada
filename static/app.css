@@ -710,7 +710,7 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 @media (max-width:899px) and (hover:none), (max-width:899px) and (pointer:coarse){
   html,body{max-width:100%;overflow-x:hidden}
   .app{width:min(100%,560px);max-width:560px;margin:0 auto;padding:16px 16px 92px;overflow-x:hidden}
-  .tabs{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;inset:auto 0 0 0;z-index:10;border-top:1px solid var(--rule);border-right:0;background:var(--nav-bg);backdrop-filter:none;-webkit-backdrop-filter:none;display:block}
+  .tabs{position:fixed;left:0;right:0;top:auto;bottom:0;width:auto;inset:auto 0 0 0;transform:none;z-index:10;border-top:1px solid var(--rule);border-right:0;background:var(--nav-bg);backdrop-filter:none;-webkit-backdrop-filter:none;display:block}
   .tabs::before,.tabs::after{display:none}
   .tabs-inner{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);padding:9px 0 calc(9px + env(safe-area-inset-bottom))}
   .tab{width:auto;min-height:0;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:4px 0;border:0;border-radius:0;font-size:9px;color:var(--dim)}

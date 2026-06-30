@@ -867,6 +867,8 @@ function autorPrincipal(a){
 }
 function normalizarAutorObra(a){ return normalizarTextoObra(autorPrincipal(a)); }
 function chaveAgrupamentoObra(doc,idx=0){
+  const backend=(doc?.chave_obra||'').trim();
+  if(backend) return backend;   // chave canônica do servidor (mesma p/ local e externo)
   const titulo=normalizarTituloObra(doc?.titulo||doc?.titulo_edicao);
   const autor=normalizarAutorObra(doc?.autor);
   if(!titulo) return `sem-titulo|${idx}`;
