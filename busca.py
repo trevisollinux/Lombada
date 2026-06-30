@@ -294,6 +294,8 @@ def _merge_obras_canonico(docs: list) -> list:
             edicoes = _edicoes_do_doc(obra)
             obra["edicoes"] = edicoes
         obra["edicoes_encontradas"] = len(edicoes)
+        if not chave.startswith("uniq:"):
+            obra["chave_obra"] = chave        # o front agrupa por esta chave canônica
         saida.append(obra)
     return saida
 
@@ -391,5 +393,6 @@ def _edicao_por_isbn(isbn: str) -> dict | None:
         "ano": ano, "idioma_original": idioma,
         "tem_pt": idioma == "Português", "capa_url": capa,
         "isbn_match": True, "edicao_isbn": edicao, "_fonte": "isbn",
+        "chave_obra": chave_obra_canonica(titulo, autor),
     }
     return quality_score(doc, titulo)

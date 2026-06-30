@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
-from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, TIMEOUT, _UA
+from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 
@@ -589,6 +589,7 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
             "idioma_original": obra_principal.idioma_original, "ano": obra_principal.ano, "tem_pt": _idioma_portugues(ed.idioma),
             "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
             "edicoes_encontradas": len(edicoes_docs),
+            "chave_obra": chave_obra_canonica(obra_principal.titulo, obra_principal.autor),
             "_fonte": "local", "_ranking_score": bucket["score"], "_match": bucket["match"],
         })
     return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:10]
