@@ -5,7 +5,9 @@ Varredura de catálogos de editoras brasileiras para popular source_records.
 Estratégia (da mais robusta para a mais frágil), por editora:
   1) Shopify  -> {base}/products.json            (dados estruturados, com ISBN)
   2) VTEX     -> {base}/api/catalog_system/...    (dados estruturados, com EAN)
-  3) Sitemap + JSON-LD / Open Graph nas páginas dos livros
+  3) id_range -> enumera páginas /livro/{id}      (catálogos custom/JS)
+  4) Sitemap  -> URLs anunciadas + extração das páginas dos livros
+  5) HTML     -> crawl de listagens/categorias como fallback
 
 Descoberta de sitemap: tenta a diretiva `Sitemap:` do robots.txt e, em seguida,
 caminhos conhecidos (/sitemap.xml, /sitemap_index.xml, /wp-sitemap.xml).
@@ -84,7 +86,7 @@ HEADERS = {
     ),
     "X-Contact": "https://github.com/trevisollinux/lombada (LombadaPublisherSync)",
 }
-# platform: "auto" tenta shopify -> vtex -> sitemap. Pode forçar uma só.
+# platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
         # Plataforma custom (Communiplex): sem sitemap/JSON de catálogo, mas a home
@@ -98,7 +100,10 @@ SOURCES = [
         "slug": "editora_34",
         "name": "Editora 34",
         "base_url": "https://www.editora34.com.br",
-        "platform": "auto",
+        "platform": "id_range",
+        "id_template": "https://www.editora34.com.br/livro/{id}",
+        "id_start": 1,
+        "id_end": 1700,
     },
     {
         "slug": "record",
@@ -661,6 +666,81 @@ def collect_via_vtex(
     return records
 
 
+def valid_extracted_record(extracted: tuple[dict[str, Any], dict[str, Any]] | None) -> bool:
+    """Filtro mínimo anti-lixo: precisa ter título e permalink http(s)."""
+    if extracted is None:
+        return False
+    normalized, _ = extracted
+    permalink = str(normalized.get("permalink") or "").strip()
+    parsed = urlparse(permalink)
+    return bool(str(normalized.get("title") or "").strip() and parsed.scheme in {"http", "https"} and parsed.netloc)
+
+
+def collect_via_id_range(
+    publisher: dict[str, Any],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Enumera URLs numéricas configuradas em id_template/id_start/id_end.
+
+    Em modo incremental, IDs já vistos em source_records são pulados sem download.
+    Em modo faixa, offset é a posição zero-based dentro da faixa configurada.
+    """
+    seen = seen or set()
+    id_template = str(publisher.get("id_template") or "").strip()
+    if "{id}" not in id_template:
+        print(f"  [id_range] id_template inválido para {publisher['slug']}: {id_template!r}")
+        return []
+
+    id_start = int(publisher.get("id_start") or 1)
+    id_end = int(publisher.get("id_end") or id_start)
+    if id_end < id_start:
+        print(f"  [id_range] faixa inválida para {publisher['slug']}: {id_start}–{id_end}")
+        return []
+
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    attempted = 0
+    valid_pages = 0
+    with_isbn = 0
+    with_author = 0
+
+    if offset is not None:
+        first_id = id_start + offset
+        last_id = min(id_end, first_id + max_urls - 1)
+        candidate_ids = range(first_id, last_id + 1) if first_id <= id_end else range(0)
+        print(f"  [id_range] faixa: offset={offset} ids={first_id}–{last_id} de {id_start}–{id_end}")
+    else:
+        candidate_ids = range(id_start, id_end + 1)
+
+    for numeric_id in candidate_ids:
+        if offset is None and len(records) >= max_urls:
+            break
+        url = id_template.format(id=numeric_id)
+        external_id = stable_external_id(url)
+        if offset is None and external_id in seen:
+            continue
+
+        attempted += 1
+        extracted = extract_page(url, publisher)
+        if valid_extracted_record(extracted):
+            normalized, raw = extracted
+            valid_pages += 1
+            with_isbn += 1 if normalized["isbn"] else 0
+            with_author += 1 if normalized["author"] else 0
+            records.append((normalized, raw))
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+
+    print(
+        "  [id_range] "
+        f"ids_tentados={attempted} paginas_validas={valid_pages} "
+        f"isbn={with_isbn}/{valid_pages} autor={with_author}/{valid_pages}"
+    )
+    return records
+
+
 def _collect_from_urls(
     book_urls: list[str],
     publisher: dict[str, str],
@@ -836,10 +916,11 @@ def collect_via_html_crawl(
 PLATFORM_COLLECTORS = {
     "shopify": collect_via_shopify,
     "vtex": collect_via_vtex,
+    "id_range": collect_via_id_range,
     "sitemap": collect_via_sitemap,
     "html": collect_via_html_crawl,
 }
-AUTO_ORDER = ["shopify", "vtex", "sitemap", "html"]
+AUTO_ORDER = ["shopify", "vtex", "id_range", "sitemap", "html"]
 
 
 def collect_publisher(
@@ -927,6 +1008,12 @@ def select_sources() -> list[dict[str, str]]:
 def diagnose(publisher: dict[str, str]) -> None:
     """Mostra status/content-type de cada endpoint candidato — revela a plataforma."""
     base_url = publisher["base_url"].rstrip("/")
+    if publisher.get("platform") == "id_range":
+        print(
+            "  id_range: "
+            f"template={publisher.get('id_template')} "
+            f"start={publisher.get('id_start')} end={publisher.get('id_end')}"
+        )
     probes = [
         ("home", base_url + "/"),
         ("robots", base_url + "/robots.txt"),
