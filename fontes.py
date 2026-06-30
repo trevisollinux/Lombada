@@ -122,60 +122,126 @@ def _chave_obra(titulo: str, autor: str) -> str:
 
 # ─── chave canônica de obra (colapsa edições/transliterações) ─────────────
 # Sobrenomes que aparecem em mil grafias: tudo converge pra um rótulo só.
+# Pode crescer aos poucos a partir do catálogo (ver scripts/build_aliases.py).
 _AUTOR_ALIASES = {
     "dostoievski": (
         "dostoievski", "dostoevsky", "dostoyevsky", "dostoievsky",
-        "dostoevski", "dostoiewski", "dostoiévski",
+        "dostoevski", "dostoiewski", "dostoiévski", "достоевскии",
     ),
-    "tolstoi": ("tolstoi", "tolstoy", "tolstoj", "tolstoii"),
-    "tchekhov": ("tchekhov", "tchekov", "chekhov", "tchecov", "chekov"),
+    "tolstoi": ("tolstoi", "tolstoy", "tolstoj", "tolstoii", "толстои"),
+    "tchekhov": ("tchekhov", "tchekov", "chekhov", "tchecov", "chekov", "чехов"),
     "kafka": ("kafka",),
 }
+
+# Romanização mínima de cirílico → latim (chave estável; não é translit. exata).
+_CIRILICO = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+    "ж": "zh", "з": "z", "и": "i", "й": "i", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch",
+    "ъ": "", "ы": "i", "ь": "", "э": "e", "ю": "iu", "я": "ia",
+}
+
+
+def _romanizar(s: str) -> str:
+    """Converte cirílico em latim pra chave (Достоевский → dostoevskii)."""
+    if not s:
+        return ""
+    return "".join(_CIRILICO.get(ch, ch) for ch in s)
 
 
 def _fold_sobrenome(tok: str) -> str:
     """Dobra de transliteração: 'tolstoy'→'tolstoi', 'dostoyevsky'→'dostoievski'."""
-    t = re.sub(r"[^a-z]", "", _sem_acento(tok))
+    t = re.sub(r"[^a-z]", "", _romanizar(_sem_acento(tok)))
     t = t.replace("y", "i").replace("w", "v")
     t = re.sub(r"(.)\1+", r"\1", t)  # colapsa letras dobradas (tolstoii→tolstoi)
     return t
 
 
+def _alias_de_tokens(tokens: list[str]) -> str:
+    """Casa QUALQUER token do autor contra os aliases conhecidos.
+    Pega 'Dostoevsky Fyodor', 'Fyodor M. Dostoiévski' e o cirílico no mesmo rótulo."""
+    folded = {_fold_sobrenome(t) for t in tokens if t}
+    for canon, variantes in _AUTOR_ALIASES.items():
+        if folded & {_fold_sobrenome(v) for v in variantes}:
+            return canon
+    return ""
+
+
 def _autor_sobrenome(autor: str) -> str:
-    """Sobrenome canônico do autor, robusto a 'Nome Sobrenome' e 'Sobrenome, Nome'."""
-    norm = _sem_acento(autor or "")
+    """Sobrenome canônico do autor, robusto a 'Nome Sobrenome', 'Sobrenome, Nome',
+    nome com patronímico e cirílico. Aliases conhecidos têm prioridade."""
+    norm = _romanizar(_sem_acento(autor or ""))
     if not norm:
         return ""
+    tokens = [t for t in re.split(r"[^a-z]+", norm) if t]
+    canon = _alias_de_tokens(tokens)
+    if canon:
+        return canon
     if "," in norm:                       # 'Tolstoy, Leo, Graf, 1828-1910'
         cand = norm.split(",", 1)[0]
-    else:                                 # 'Liev Tolstói'
-        toks = [t for t in re.split(r"[^a-z]+", norm) if t]
-        cand = toks[-1] if toks else ""
-    sob = _fold_sobrenome((cand.split() or [""])[-1])
-    for canon, variantes in _AUTOR_ALIASES.items():
-        if sob and (sob in {_fold_sobrenome(v) for v in variantes} or canon in sob):
-            return canon
-    return sob
+        return _fold_sobrenome((cand.split() or [""])[-1])
+    return _fold_sobrenome(tokens[-1] if tokens else "")  # 'Liev Tolstói'
+
+
+# rótulos de edição/coleção (não de volume): só estes justificam cortar o travessão
+_EDICAO_MARCADOR = (
+    r"\b(?:col|colecao|colecion|pocket|bolso|edicao|edition|ed|deluxe|classics?|"
+    r"ilustrad\w*|illustrated|annotated|unabridged|abridged|large print|"
+    r"capa dura|brochura|l\s*pm|penguin)\b"
+)
+
+
+_CONECTORES = {"by", "por", "de", "del", "do", "da", "of", "the"}
 
 
 def _titulo_nucleo(titulo: str, autor: str = "") -> str:
     """Título-núcleo para agrupar: sem subtítulo, sem parênteses, sem o autor colado.
-    'Crime e castigo, Fiódor Dostoiévski' e 'Guerra e Paz (Português)' viram o núcleo."""
-    norm = _sem_acento(titulo or "")
+    'Crime e castigo, Fiódor Dostoiévski', 'Guerra e Paz (Português)' e
+    'Crime and Punishment by Fyodor Dostoyevsky' convergem para o núcleo."""
+    norm = _romanizar(_sem_acento(titulo or ""))
     norm = re.sub(r"\([^)]*\)", " ", norm)          # tira parênteses ('(portugues)')
+    # tira só rótulo de edição após travessão ('- Col. L&pm Pocket'), nunca volume de série
+    m = re.match(r"(.+?)\s[-–—]\s+(.+)$", norm)
+    if m and re.search(_EDICAO_MARCADOR, m.group(2)):
+        norm = m.group(1)
     if ":" in norm:
         norm = norm.split(":", 1)[0]                # descarta subtítulo
-    norm = re.sub(r"[^a-z0-9]+", " ", norm).strip()
-    if not norm:
+    tokens = [t for t in re.split(r"[^a-z0-9]+", norm) if t]
+    if not tokens:
         return ""
-    autor_norm = re.sub(r"[^a-z0-9]+", " ", _sem_acento(autor or "")).strip()
-    sob = _autor_sobrenome(autor)
-    for frag in [f for f in (autor_norm, sob) if f]:
-        cand = re.sub(rf"^\s*{re.escape(frag)}\s+", "", norm)
-        cand = re.sub(rf"\s+{re.escape(frag)}\s*$", "", cand)
-        if cand.strip():                            # nunca esvazia o título
-            norm = cand.strip()
-    return re.sub(r"\s+", " ", norm).strip()
+
+    # remove o autor colado nas pontas, mesmo com grafia diferente do campo autor
+    autor_folded = {_fold_sobrenome(t) for t in re.split(r"[^a-z0-9]+", _romanizar(_sem_acento(autor or ""))) if t}
+    canon = _autor_sobrenome(autor)
+
+    def _autoral(tok: str) -> bool:
+        f = _fold_sobrenome(tok)
+        if not f:
+            return False
+        return f in autor_folded or (bool(canon) and (f == canon or _alias_de_tokens([tok]) == canon))
+
+    def _apara_fim(seq: list[str]) -> list[str]:
+        i, cortou_autor = len(seq), False
+        while i > 0:
+            tok = seq[i - 1]
+            if _autoral(tok):
+                cortou_autor, i = True, i - 1
+            elif _fold_sobrenome(tok) in _CONECTORES or tok in _CONECTORES:
+                i -= 1
+            else:
+                break
+        return seq[:i] if cortou_autor and i > 0 else seq
+
+    # corta a atribuição 'by/por <autor…>' no fim, mesmo com nome do meio desconhecido
+    for i in range(len(tokens) - 1, 0, -1):
+        if tokens[i] in ("by", "por") and any(_autoral(x) for x in tokens[i + 1:]):
+            tokens = tokens[:i]
+            break
+
+    tokens = _apara_fim(tokens)
+    tokens = _apara_fim(tokens[::-1])[::-1]
+    return " ".join(tokens).strip()
 
 
 def chave_obra_canonica(titulo: str, autor: str) -> str:
