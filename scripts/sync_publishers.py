@@ -38,6 +38,12 @@ from bs4 import BeautifulSoup
 
 SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/sitemap-index.xml")
 BOOK_PATH_TERMS = ("livro", "produto", "obra", "detalhe", "product", "/p/", "book")
+# Caminhos que parecem livro mas são editorial/institucional (geram registros-lixo
+# sem ISBN). Ex.: /blog/.../novo-livro..., /imprensa, /autor-detalhe.
+EXCLUDE_PATH_TERMS = (
+    "/blog", "noticia", "/news", "/tag/", "/categoria", "imprensa", "autor-detalhe",
+    "/agenda", "/evento", "/release", "lancamentos", "/colecao", "/serie",
+)
 # Páginas de listagem para alargar o crawl quando o sitemap não serve.
 LISTING_TERMS = (
     "livros", "catalogo", "categoria", "categorias", "colecao", "colecoes",
@@ -243,6 +249,8 @@ def collect_sitemap_urls(base_url: str) -> list[str]:
 
 def looks_like_book_url(url: str) -> bool:
     path = urlparse(url).path.lower()
+    if any(term in path for term in EXCLUDE_PATH_TERMS):
+        return False
     return any(term in path for term in BOOK_PATH_TERMS)
 
 
