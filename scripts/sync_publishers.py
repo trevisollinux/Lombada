@@ -782,30 +782,41 @@ def collect_via_html_crawl(
         print(f"  [html] home inacessível para {publisher['slug']}.")
         return []
 
+    seen = seen or set()
     needed = (offset or 0) + max_urls
-    target = max(max_urls * 4, needed * 2)          # quantas URLs de livro juntar
-    max_pages = max(40, min(200, target // 8))      # teto de páginas de listagem visitadas
+    # Modo faixa precisa da lista ordenada inteira até offset+max_urls.
+    target = max(max_urls * 5, needed * 2)
+    max_pages = max(60, min(250, target // 4))      # teto de páginas de listagem visitadas
 
     book_urls: list[str] = []
     book_set: set[str] = set()
     enqueued: set[str] = set()
     visited: set[str] = set()
     queue: deque[str] = deque()
+    new_found = 0  # URLs de livro ainda NÃO ingeridas (avança a fronteira no incremental)
 
     def absorb(html_text: str) -> None:
+        nonlocal new_found
         books, listings = harvest_links(html_text, base_url)
         for url in books:
             if url not in book_set:
                 book_set.add(url)
                 book_urls.append(url)
+                if offset is None and stable_external_id(url) not in seen:
+                    new_found += 1
         for url in listings:
             if url not in enqueued:
                 enqueued.add(url)
                 queue.append(url)
 
+    def enough() -> bool:
+        # Incremental: para ao achar livros novos suficientes (frente avança a cada run).
+        # Faixa: junta URLs bastante pra conseguir fatiar [offset : offset+max_urls].
+        return len(book_urls) >= target if offset is not None else new_found >= needed
+
     absorb(home.text)
     pages = 0
-    while queue and pages < max_pages and len(book_urls) < target:
+    while queue and pages < max_pages and not enough():
         listing_url = queue.popleft()
         if listing_url in visited:
             continue
@@ -817,7 +828,8 @@ def collect_via_html_crawl(
         if sleep_seconds:
             time.sleep(sleep_seconds)
 
-    print(f"  [html] urls_livro={len(book_urls)} (visitou {pages} páginas de listagem)")
+    extra = "" if offset is not None else f" novos~{new_found}"
+    print(f"  [html] urls_livro={len(book_urls)}{extra} (visitou {pages} páginas de listagem)")
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
