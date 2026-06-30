@@ -379,6 +379,69 @@ def _normalizar_busca(valor: str | None) -> str:
     return re.sub(r"\s+", " ", texto.lower().strip())
 
 
+_AUTORES_DOSTOIEVSKI = {
+    "dostoievski", "dostoevsky", "dostoyevsky", "dostoiévski", "dostoievsky",
+    "fiodor dostoievski", "fiodor dostoevsky", "fiodor dostoyevsky",
+    "fiodor mikhailovitch dostoievski", "fiodor mikhailovich dostoevsky",
+    "fedor dostoievski", "fyodor dostoevsky", "fyodor dostoyevsky",
+    "feodor dostoievski", "feodor dostoevsky",
+}
+_TERMOS_RELACIONADOS_NAO_AGRUPAR = {
+    "colecao", "ensaios", "sobre", "biografia", "vida de", "obra de", "romances de",
+}
+
+
+def _normalizar_autor_canonico(autor: str | None) -> str:
+    norm = re.sub(r"[^a-z0-9]+", " ", _normalizar_busca(autor)).strip()
+    if not norm:
+        return ""
+    if norm in _AUTORES_DOSTOIEVSKI or "dostoevsk" in norm or "dostoievsk" in norm or "dostoyevsk" in norm:
+        return "dostoievski"
+    return norm
+
+
+def _titulo_tem_marcador_relacionado(titulo_norm: str) -> bool:
+    return any(re.search(rf"\b{re.escape(termo)}\b", titulo_norm) for termo in _TERMOS_RELACIONADOS_NAO_AGRUPAR)
+
+
+def _titulo_canonico_busca(titulo: str | None, autor: str | None = None) -> str:
+    norm = _normalizar_busca(titulo)
+    autor_norm = _normalizar_autor_canonico(autor)
+    if ":" in norm and not _titulo_tem_marcador_relacionado(norm):
+        norm = norm.split(":", 1)[0]
+    if autor_norm:
+        aliases = sorted(_AUTORES_DOSTOIEVSKI if autor_norm == "dostoievski" else {autor_norm}, key=len, reverse=True)
+        for alias in aliases:
+            alias_norm = re.sub(r"[^a-z0-9]+", " ", _normalizar_busca(alias)).strip()
+            norm = re.sub(rf"\s*[,–—-]\s*{re.escape(alias_norm)}\s*$", "", norm)
+    norm = re.sub(r"[^a-z0-9]+", " ", norm)
+    norm = re.sub(r"\s+", " ", norm).strip()
+    return norm
+
+
+def _chave_canonica_obra_busca(obra: Obra) -> str:
+    titulo = _titulo_canonico_busca(obra.titulo, obra.autor)
+    autor = _normalizar_autor_canonico(obra.autor)
+    if not titulo or _titulo_tem_marcador_relacionado(titulo):
+        return f"obra:{obra.id}"
+    return f"{titulo}|{autor or 'autor-desconhecido'}"
+
+
+def _titulo_exibicao_score(titulo: str | None, autor: str | None) -> tuple[int, int]:
+    norm = _normalizar_busca(titulo)
+    autor_norm = _normalizar_autor_canonico(autor)
+    penalidade = 0
+    if not titulo:
+        penalidade += 1000
+    if norm.endswith("...") or "..." in norm:
+        penalidade += 40
+    if "," in (titulo or ""):
+        penalidade += 15
+    if autor_norm and autor_norm in _titulo_canonico_busca(titulo, None):
+        penalidade += 80
+    return (penalidade, len(titulo or ""))
+
+
 def _idioma_portugues(idioma: str | None) -> bool:
     norm = _normalizar_busca(idioma)
     return norm in {"pt", "pt-br", "por", "portugues", "portuguese"}
@@ -447,7 +510,7 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
         .group_by(Leitura.edicao_id)
     ).all()) if ed_ids else {}
 
-    por_obra: dict[int, dict] = {}
+    por_obra: dict[str, dict] = {}
     for obra, ed in rows:
         leituras_count = int(leituras.get(ed.id, 0))
         score, match = _score_local(obra, ed, q_norm, isbn, editora_norm, leituras_count)
@@ -458,7 +521,9 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
             continue
         if score <= 0:
             continue
-        bucket = por_obra.setdefault(obra.id, {"obra": obra, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}})
+        chave = _chave_canonica_obra_busca(obra)
+        bucket = por_obra.setdefault(chave, {"obras": {}, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}})
+        bucket["obras"][obra.id] = obra
         bucket["items"].append((score, leituras_count, obra, ed, match))
         bucket["score"] = max(bucket["score"], score)
         for key, value in match.items():
@@ -472,12 +537,58 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
             return (bool(editora_hit), bool(ed.capa_url), bool(ed.isbn), _idioma_portugues(ed.idioma), ed.ano or 0, ed.id or 0, score, leituras_count)
         items = sorted(bucket["items"], key=ed_sort, reverse=True)
         best_score, best_leituras, obra, ed, best_match = items[0]
-        edicoes = [_edicao_doc(item_obra, item_ed, item_leituras) for _score, item_leituras, item_obra, item_ed, _match in items[:5]]
+        obras_stats = {
+            item_obra.id: {
+                "obra": item_obra,
+                "edicoes": 0,
+                "capas": 0,
+                "isbns": 0,
+                "leituras": 0,
+                "score": 0,
+            }
+            for _score, _leituras, item_obra, _item_ed, _match in items
+        }
+        for item_score, item_leituras, item_obra, item_ed, _match in items:
+            stats = obras_stats[item_obra.id]
+            stats["edicoes"] += 1
+            stats["capas"] += 1 if item_ed.capa_url else 0
+            stats["isbns"] += 1 if item_ed.isbn else 0
+            stats["leituras"] += item_leituras
+            stats["score"] = max(stats["score"], item_score)
+
+        def obra_principal_sort(stats):
+            principal = stats["obra"]
+            titulo_score = _titulo_exibicao_score(principal.titulo, principal.autor)
+            return (
+                titulo_score[0], titulo_score[1],
+                0 if principal.autor else 1,
+                -stats["edicoes"], -stats["capas"], -stats["isbns"], -stats["leituras"],
+                -(principal.id or 0),
+            )
+
+        obra_principal = sorted(obras_stats.values(), key=obra_principal_sort)[0]["obra"]
+        edicoes_docs = []
+        assinaturas_edicoes = set()
+        for _score, item_leituras, item_obra, item_ed, _match in items:
+            assinatura = (
+                _titulo_canonico_busca(item_obra.titulo, item_obra.autor),
+                _normalizar_busca(item_ed.editora),
+                item_ed.ano or "",
+                normalizar_isbn(item_ed.isbn or ""),
+                item_ed.ol_edition_key or "",
+            )
+            if assinatura in assinaturas_edicoes:
+                continue
+            assinaturas_edicoes.add(assinatura)
+            edicoes_docs.append(_edicao_doc(item_obra, item_ed, item_leituras))
+
+        edicoes = edicoes_docs[:5]
         ed_doc = _edicao_doc(obra, ed, best_leituras)
         docs.append({
-            "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor,
-            "idioma_original": obra.idioma_original, "ano": obra.ano, "tem_pt": _idioma_portugues(ed.idioma),
+            "work_key": obra_principal.ol_work_key, "titulo": obra_principal.titulo, "autor": obra_principal.autor,
+            "idioma_original": obra_principal.idioma_original, "ano": obra_principal.ano, "tem_pt": _idioma_portugues(ed.idioma),
             "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
+            "edicoes_encontradas": len(edicoes_docs),
             "_fonte": "local", "_ranking_score": bucket["score"], "_match": bucket["match"],
         })
     return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:10]
