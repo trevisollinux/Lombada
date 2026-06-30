@@ -30,7 +30,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, TIMEOUT, _UA
-from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn
+from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 
 AQUI = Path(__file__).resolve().parent
@@ -961,6 +961,9 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Sessi
     inicio = datetime.utcnow()
     logger.info("search_started", extra={"query_len": len(q)})
     locais = _buscar_catalogo_local(q, s, editora=editora)
+    def _resposta_final(externos: list[dict]) -> list[dict]:
+        return consolidar_resultados_busca_final(q, locais + (externos or []))
+
     isbn = normalizar_isbn(q)
     if isbn:
         try:
@@ -970,33 +973,40 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Sessi
             achado = None
         externos = [achado] if achado else []
         logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(externos), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-        return locais + externos
+        return _resposta_final(externos)
 
     cache = _cache_get(q, s)
     if cache:
+        resposta = _resposta_final(cache)
         logger.info("search_cache_hit", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(cache), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-        return locais + cache
+        return resposta
 
     try:
         logger.info("external_search_started", extra={"provider": "google_books", "query_len": len(q)})
         docs = buscar_titulo_v2(q)
         if docs:
+            docs = consolidar_resultados_busca_final(q, docs)
             _cache_set(q, docs, s)
+            resposta = _resposta_final(docs)
             logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-            return locais + docs
+            return resposta
         logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
         docs = ol_buscar(q)
+        docs = consolidar_resultados_busca_final(q, docs)
         _cache_set(q, docs, s)
+        resposta = _resposta_final(docs)
         logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-        return locais + docs
+        return resposta
     except Exception:
         logger.warning("external_search_failed", extra={"provider": "google_books", "query_len": len(q)}, exc_info=True)
         try:
             logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
             docs = ol_buscar(q)
+            docs = consolidar_resultados_busca_final(q, docs)
             _cache_set(q, docs, s)
+            resposta = _resposta_final(docs)
             logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-            return locais + docs
+            return resposta
         except Exception:
             logger.error("external_search_failed", extra={"provider": "open_library", "query_len": len(q)}, exc_info=True)
             raise HTTPException(502, "busca indisponível")
