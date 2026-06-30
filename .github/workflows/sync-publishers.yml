@@ -83,7 +83,7 @@ jobs:
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
-          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}

@@ -28,6 +28,7 @@ import re
 import sys
 import time
 import xml.etree.ElementTree as ET
+from collections import deque
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -38,6 +39,15 @@ from bs4 import BeautifulSoup
 
 SITEMAP_PATHS = ("/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml", "/sitemap-index.xml")
 BOOK_PATH_TERMS = ("livro", "produto", "obra", "detalhe", "product", "/p/", "book")
+# Segmento de caminho que indica uma PÁGINA de livro (precisa ter um slug/id depois):
+# /livro/9788.../slug, /livro/1292, /produto/abc, /products/handle. Já /livros (índice)
+# ou /produtos (categoria) NÃO são livro — viram listagem (pra seguir a paginação).
+BOOK_SEGMENTS = {
+    "livro", "livros", "produto", "produtos", "product", "products",
+    "obra", "obras", "book", "books", "detalhe", "p",
+}
+# Links de paginação (?page=2, /pagina/3 ...): sempre tratados como listagem a seguir.
+PAGINATION_RE = re.compile(r"[?&](?:page|pagina|pg|start|offset)=\d+|/(?:page|pagina)/\d+", re.I)
 # Caminhos que parecem livro mas são editorial/institucional (geram registros-lixo
 # sem ISBN). Ex.: /blog/.../novo-livro..., /imprensa, /autor-detalhe.
 EXCLUDE_PATH_TERMS = (
@@ -46,10 +56,20 @@ EXCLUDE_PATH_TERMS = (
 )
 # Páginas de listagem para alargar o crawl quando o sitemap não serve.
 LISTING_TERMS = (
-    "livros", "catalogo", "categoria", "categorias", "colecao", "colecoes",
-    "genero", "generos", "assunto", "autor", "autores", "lancamento",
-    "lancamentos", "mais-vendidos", "selo", "selos",
+    "livros", "catalogo", "catalogos", "categoria", "categorias", "colecao",
+    "colecoes", "genero", "generos", "assunto", "assuntos", "autor", "autores",
+    "lancamento", "lancamentos", "mais-vendidos", "selo", "selos", "tema", "temas",
+    "novidades", "ficcao", "infantil", "produtos",
 )
+# No crawl de HTML, não vale a pena seguir (não listam livros): conta, busca, blog...
+CRAWL_SKIP_TERMS = (
+    "/blog", "noticia", "/news", "/tag/", "imprensa", "autor-detalhe", "/agenda",
+    "/evento", "/release", "/login", "/cadastro", "/carrinho", "/cart", "/checkout",
+    "/minha-conta", "/conta", "/busca", "/search", "/wishlist", "/favoritos",
+    "/contato", "/sobre", "/ajuda", "/politica", "/termos",
+)
+# Segmentos SINGULARES que indicam página de produto no crawl (plural vira listagem).
+BOOK_SINGULAR_SEGMENTS = {"livro", "produto", "obra", "product", "book", "detalhe", "p"}
 # (connect, read): connect curto evita ficar minutos preso em host que não responde.
 REQUEST_TIMEOUT_SECONDS = (6, 15)
 MAX_RETRIES = 2
@@ -251,7 +271,17 @@ def looks_like_book_url(url: str) -> bool:
     path = urlparse(url).path.lower()
     if any(term in path for term in EXCLUDE_PATH_TERMS):
         return False
-    return any(term in path for term in BOOK_PATH_TERMS)
+    segments = [seg for seg in path.split("/") if seg]
+    # Livro = segmento conhecido (livro/produto/...) seguido de outro segmento (slug/id).
+    for index, seg in enumerate(segments):
+        if seg in BOOK_SEGMENTS and index < len(segments) - 1:
+            return True
+    # Mantém compatibilidade com padrões soltos (ex.: /p/123, /book123) via termos.
+    if any(term in path for term in BOOK_PATH_TERMS) and not any(
+        seg in BOOK_SEGMENTS for seg in segments
+    ):
+        return True
+    return False
 
 
 # ─── extração genérica (JSON-LD / Open Graph) ─────────────
@@ -701,8 +731,22 @@ def collect_via_sitemap(
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
+def _is_book_path(path: str) -> bool:
+    """Página de produto: segmento singular conhecido seguido de slug/id."""
+    segments = [seg for seg in path.split("/") if seg]
+    return any(
+        seg in BOOK_SINGULAR_SEGMENTS and index < len(segments) - 1
+        for index, seg in enumerate(segments)
+    )
+
+
 def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
-    """Separa links internos em (urls_de_livro, urls_de_listagem)."""
+    """Separa links internos em (urls_de_livro, urls_de_listagem).
+
+    Ordem importa: paginação e termos de listagem (incl. plurais como /livros) vêm
+    antes do teste de livro, pra que categorias/paginação sejam seguidas e só as
+    páginas de produto (/livro/{x}) sejam coletadas.
+    """
     host = urlparse(base_url).netloc.replace("www.", "")
     soup = BeautifulSoup(html, "html.parser")
     book_urls: list[str] = []
@@ -714,10 +758,12 @@ def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
             continue
         clean = full.split("#", 1)[0]
         path = parsed.path.lower()
-        if looks_like_book_url(clean):
-            book_urls.append(clean)
-        elif any(term in path for term in LISTING_TERMS):
+        if any(term in path for term in CRAWL_SKIP_TERMS):
+            continue
+        if PAGINATION_RE.search(clean) or any(term in path for term in LISTING_TERMS):
             listing_urls.append(clean)
+        elif _is_book_path(path):
+            book_urls.append(clean)
     return list(dict.fromkeys(book_urls)), list(dict.fromkeys(listing_urls))
 
 
@@ -728,27 +774,50 @@ def collect_via_html_crawl(
     seen: set[str] | None = None,
     offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    """Fallback p/ sites sem sitemap/JSON: parte da home e segue páginas de listagem."""
+    """Fallback p/ sites sem sitemap/JSON: BFS a partir da home, seguindo categorias
+    e PAGINAÇÃO (?page=2...) pra descobrir o catálogo fundo, não só os destaques."""
     base_url = publisher["base_url"].rstrip("/")
     home = fetch_url(base_url + "/")
     if home is None:
         print(f"  [html] home inacessível para {publisher['slug']}.")
         return []
-    book_urls, listing_urls = harvest_links(home.text, base_url)
-    # Alarga o conjunto visitando páginas de listagem (catálogo/coleções). Em modo
-    # faixa precisamos de URLs suficientes pra alcançar o offset pedido.
+
     needed = (offset or 0) + max_urls
-    for listing_url in listing_urls[:24]:
-        if len(book_urls) >= max(max_urls * 6, needed * 2):
-            break
+    target = max(max_urls * 4, needed * 2)          # quantas URLs de livro juntar
+    max_pages = max(40, min(200, target // 8))      # teto de páginas de listagem visitadas
+
+    book_urls: list[str] = []
+    book_set: set[str] = set()
+    enqueued: set[str] = set()
+    visited: set[str] = set()
+    queue: deque[str] = deque()
+
+    def absorb(html_text: str) -> None:
+        books, listings = harvest_links(html_text, base_url)
+        for url in books:
+            if url not in book_set:
+                book_set.add(url)
+                book_urls.append(url)
+        for url in listings:
+            if url not in enqueued:
+                enqueued.add(url)
+                queue.append(url)
+
+    absorb(home.text)
+    pages = 0
+    while queue and pages < max_pages and len(book_urls) < target:
+        listing_url = queue.popleft()
+        if listing_url in visited:
+            continue
+        visited.add(listing_url)
         resp = fetch_url(listing_url)
+        pages += 1
         if resp is not None:
-            more_books, _ = harvest_links(resp.text, base_url)
-            book_urls.extend(more_books)
+            absorb(resp.text)
         if sleep_seconds:
             time.sleep(sleep_seconds)
-    book_urls = list(dict.fromkeys(book_urls))
-    print(f"  [html] urls_livro={len(book_urls)} (de {len(listing_urls)} listagens)")
+
+    print(f"  [html] urls_livro={len(book_urls)} (visitou {pages} páginas de listagem)")
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
