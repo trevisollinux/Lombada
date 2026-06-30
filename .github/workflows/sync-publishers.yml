@@ -1,15 +1,19 @@
 name: Sync publisher source records
 
-# Raspa catálogos de editoras -> source_records (a busca do app lê isso via promote).
-# Dispare pela aba Actions (funciona do celular).
-#   dry_run=true  -> só coleta e mostra amostra/cobertura no log (não grava no banco)
-#   dry_run=false -> grava em source_records (status=pending)
+# Raspa catálogos de editoras -> source_records e (quando não é dry-run) promove
+# para o catálogo que a busca do app lê. A ingestão é INCREMENTAL: cada execução
+# pula os livros já gravados e avança pelos próximos, então rodando aos poucos
+# (via cron) a base cresce sozinha, sem ser agressivo.
+#
+# Dispare pela aba Actions (funciona do celular):
+#   dry_run=true  -> só coleta e mostra amostra/cobertura (não grava, não promove)
+#   dry_run=false -> grava o lote novo em source_records e promove pro catálogo
 
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'true = só testa e mostra amostra; false = grava no banco'
+        description: 'true = só testa e mostra amostra; false = grava + promove'
         type: choice
         options: ['true', 'false']
         default: 'true'
@@ -19,19 +23,24 @@ on:
         options: ['false', 'true']
         default: 'false'
       max_urls:
-        description: 'máx. de livros por editora'
+        description: 'máx. de livros NOVOS por editora nesta execução'
         required: false
         default: '20'
       slugs:
         description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
         required: false
         default: ''
+      sleep_seconds:
+        description: 'pausa entre páginas (segundos) — maior = mais gentil'
+        required: false
+        default: '1.0'
       dump_url:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
   schedule:
-    - cron: "0 8 * * *"
+    # A cada 6h, em lotes pequenos e gentis, pra injetar o catálogo aos poucos.
+    - cron: "0 */6 * * *"
 
 jobs:
   sync-publishers:
@@ -65,4 +74,22 @@ jobs:
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '20' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
-          PUBLISHER_SLEEP_SECONDS: "0.5"
+          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
+
+      - name: Promote new records to catalog
+        # Só promove em ingestão real (não em dry-run nem diagnose/dump).
+        if: ${{ (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        run: |
+          python scripts/promote_source_records.py | tee promote_resultado.txt
+          {
+            echo '### Promoção source_records -> catálogo'
+            echo ''
+            echo '```'
+            cat promote_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRY_RUN: 'false'
+          PROMOTE_MIN_CONFIDENCE: '0.5'
+          PROMOTE_LIMIT: '5000'
