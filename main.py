@@ -373,27 +373,114 @@ def _criar_sugestao(e: BaseModel, u: Usuario, s: Session, tipo: str = "new_book"
     return sug
 
 
-def _buscar_catalogo_local(q: str, s: Session) -> list[dict]:
-    termo = f"%{q.lower().strip()}%"
-    rows = s.exec(
-        select(Obra, Edicao)
-        .join(Edicao, Edicao.obra_id == Obra.id)
-        .where((func.lower(Obra.titulo).like(termo)) | (func.lower(Obra.autor).like(termo)) | (func.lower(Edicao.isbn).like(termo)))
-        .limit(10)
-    ).all()
-    docs = []
+def _normalizar_busca(valor: str | None) -> str:
+    texto = unicodedata.normalize("NFKD", str(valor or ""))
+    texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", texto.lower().strip())
+
+
+def _idioma_portugues(idioma: str | None) -> bool:
+    norm = _normalizar_busca(idioma)
+    return norm in {"pt", "pt-br", "por", "portugues", "portuguese"}
+
+
+def _edicao_doc(obra: Obra, ed: Edicao, leituras_count: int = 0) -> dict:
+    return {
+        "ol_edition_key": ed.ol_edition_key or f"local:{ed.id}", "titulo_edicao": obra.titulo,
+        "editora": ed.editora, "tradutor": ed.tradutor, "isbn": ed.isbn, "idioma": ed.idioma,
+        "ano": ed.ano, "capa_url": ed.capa_url, "leituras_count": leituras_count,
+    }
+
+
+def _score_local(obra: Obra, ed: Edicao, q_norm: str, isbn: str, editora_norm: str, leituras_count: int) -> tuple[int, dict]:
+    titulo = _normalizar_busca(obra.titulo)
+    autor = _normalizar_busca(obra.autor)
+    editora = _normalizar_busca(ed.editora)
+    tradutor = _normalizar_busca(ed.tradutor)
+    ed_isbn = normalizar_isbn(ed.isbn or "")
+    match = {
+        "titulo": bool(q_norm and q_norm in titulo),
+        "autor": bool(q_norm and q_norm in autor),
+        "editora": bool(q_norm and q_norm in editora) or bool(editora_norm and editora_norm in editora),
+        "isbn": bool(isbn and ed_isbn == isbn),
+    }
+    score = 0
+    if match["isbn"]:
+        score += 100
+    if q_norm and titulo == q_norm:
+        score += 80
+    elif q_norm and titulo.startswith(q_norm):
+        score += 60
+    elif match["titulo"]:
+        score += 45
+    if match["autor"]:
+        score += 35
+    if q_norm and q_norm in editora:
+        score += 30
+    if editora_norm and editora_norm in editora:
+        score += 25
+    if ed_isbn:
+        score += 20
+    if ed.capa_url:
+        score += 15
+    if _idioma_portugues(ed.idioma):
+        score += 10
+    if ed.ano or obra.ano:
+        score += 5
+    if q_norm and q_norm in tradutor:
+        score += 20
+    return score + min(leituras_count, 50), match
+
+
+def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
+    q_norm = _normalizar_busca(q)
+    editora_norm = _normalizar_busca(editora)
+    isbn = normalizar_isbn(q or "")
+    if not q_norm and not editora_norm:
+        return []
+
+    rows = s.exec(select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id).limit(5000)).all()
+    ed_ids = [ed.id for _, ed in rows if ed.id is not None]
+    leituras = dict(s.exec(
+        select(Leitura.edicao_id, func.count())
+        .where(Leitura.edicao_id.in_(ed_ids))
+        .group_by(Leitura.edicao_id)
+    ).all()) if ed_ids else {}
+
+    por_obra: dict[int, dict] = {}
     for obra, ed in rows:
-        ed_doc = {
-            "ol_edition_key": ed.ol_edition_key or f"local:{ed.id}", "titulo_edicao": obra.titulo,
-            "editora": ed.editora, "tradutor": ed.tradutor, "isbn": ed.isbn, "idioma": ed.idioma,
-            "ano": ed.ano, "capa_url": ed.capa_url,
-        }
+        leituras_count = int(leituras.get(ed.id, 0))
+        score, match = _score_local(obra, ed, q_norm, isbn, editora_norm, leituras_count)
+        searchable = " ".join([_normalizar_busca(obra.titulo), _normalizar_busca(obra.autor), _normalizar_busca(ed.isbn), _normalizar_busca(ed.editora), _normalizar_busca(ed.tradutor)])
+        if q_norm and q_norm not in searchable and not (isbn and normalizar_isbn(ed.isbn or "") == isbn):
+            continue
+        if editora_norm and editora_norm not in _normalizar_busca(ed.editora):
+            continue
+        if score <= 0:
+            continue
+        bucket = por_obra.setdefault(obra.id, {"obra": obra, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}})
+        bucket["items"].append((score, leituras_count, obra, ed, match))
+        bucket["score"] = max(bucket["score"], score)
+        for key, value in match.items():
+            bucket["match"][key] = bucket["match"][key] or value
+
+    docs = []
+    for bucket in por_obra.values():
+        def ed_sort(item):
+            score, leituras_count, _obra, ed, _match = item
+            editora_hit = editora_norm and editora_norm in _normalizar_busca(ed.editora)
+            return (bool(editora_hit), bool(ed.capa_url), bool(ed.isbn), _idioma_portugues(ed.idioma), ed.ano or 0, ed.id or 0, score, leituras_count)
+        items = sorted(bucket["items"], key=ed_sort, reverse=True)
+        best_score, best_leituras, obra, ed, best_match = items[0]
+        edicoes = [_edicao_doc(item_obra, item_ed, item_leituras) for _score, item_leituras, item_obra, item_ed, _match in items[:5]]
+        ed_doc = _edicao_doc(obra, ed, best_leituras)
         docs.append({
             "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor,
-            "idioma_original": obra.idioma_original, "ano": obra.ano, "tem_pt": ed.idioma == "Português",
-            "capa_url": ed.capa_url, "isbn_match": False, "edicao_isbn": ed_doc, "edicoes": [ed_doc], "_fonte": "local",
+            "idioma_original": obra.idioma_original, "ano": obra.ano, "tem_pt": _idioma_portugues(ed.idioma),
+            "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
+            "_fonte": "local", "_ranking_score": bucket["score"], "_match": bucket["match"],
         })
-    return docs
+    return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:10]
 
 
 def _follow_counts(s: Session, usuario_id: int) -> dict:
@@ -734,10 +821,10 @@ def api_recon(q: str = Query(..., min_length=2), token: str = Query("")):
 
 
 @app.get("/api/buscar")
-def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session)):
+def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
     logger.info("search_started", extra={"query_len": len(q)})
-    locais = _buscar_catalogo_local(q, s)
+    locais = _buscar_catalogo_local(q, s, editora=editora)
     isbn = normalizar_isbn(q)
     if isbn:
         try:
@@ -745,12 +832,13 @@ def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session))
         except Exception:
             logger.warning("external_search_failed", extra={"provider": "isbn"}, exc_info=True)
             achado = None
-        logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
-        return ([achado] if achado else []) + locais
+        externos = [achado] if achado else []
+        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(externos), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        return locais + externos
 
     cache = _cache_get(q, s)
     if cache:
-        logger.info("search_cache_hit", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        logger.info("search_cache_hit", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(cache), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
         return locais + cache
 
     try:
@@ -758,12 +846,12 @@ def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session))
         docs = buscar_titulo_v2(q)
         if docs:
             _cache_set(q, docs, s)
-            logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
             return locais + docs
         logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
         docs = ol_buscar(q)
         _cache_set(q, docs, s)
-        logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
         return locais + docs
     except Exception:
         logger.warning("external_search_failed", extra={"provider": "google_books", "query_len": len(q)}, exc_info=True)
@@ -771,11 +859,44 @@ def buscar(q: str = Query(..., min_length=2), s: Session = Depends(get_session))
             logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
             docs = ol_buscar(q)
             _cache_set(q, docs, s)
-            logger.info("search_finished", extra={"query_len": len(q), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
             return locais + docs
         except Exception:
             logger.error("external_search_failed", extra={"provider": "open_library", "query_len": len(q)}, exc_info=True)
             raise HTTPException(502, "busca indisponível")
+
+
+def _slug_editora(valor: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", _normalizar_busca(valor)).strip("-")
+    return slug or "editora"
+
+
+@app.get("/api/editoras")
+def listar_editoras(s: Session = Depends(get_session)):
+    agregadas: dict[str, dict] = {}
+    rows = s.exec(select(Edicao).where(Edicao.editora != "")).all()
+    for ed in rows:
+        nome = (ed.editora or "").strip()
+        if not nome:
+            continue
+        chave = _normalizar_busca(nome)
+        item = agregadas.setdefault(chave, {
+            "editora": nome, "slug": _slug_editora(nome), "obras": set(), "edicoes_count": 0,
+            "com_capa_count": 0, "com_isbn_count": 0,
+        })
+        if len(nome) < len(item["editora"]):
+            item["editora"] = nome
+            item["slug"] = _slug_editora(nome)
+        item["obras"].add(ed.obra_id)
+        item["edicoes_count"] += 1
+        item["com_capa_count"] += 1 if ed.capa_url else 0
+        item["com_isbn_count"] += 1 if ed.isbn else 0
+    saida = [{
+        "editora": item["editora"], "slug": item["slug"], "obras_count": len(item["obras"]),
+        "edicoes_count": item["edicoes_count"], "com_capa_count": item["com_capa_count"],
+        "com_isbn_count": item["com_isbn_count"],
+    } for item in agregadas.values()]
+    return sorted(saida, key=lambda item: (-item["obras_count"], item["editora"].lower()))
 
 
 @app.get("/api/edicoes")
