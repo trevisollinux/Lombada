@@ -1437,8 +1437,13 @@ class EntradaPrateleira(BaseModel):
 STATUS_LEITURA = {"Lido", "Lendo", "Quero ler"}
 
 
-def _validar_entrada_leitura(e):
-    if not e.titulo.strip() or not e.autor.strip():
+def _validar_entrada_leitura(e, exigir_autor: bool = True):
+    if not e.titulo.strip():
+        raise HTTPException(422, "título é obrigatório")
+    # Livros vindos do catálogo podem estar sem autor (ex.: Editora 34, cujo scraper
+    # ainda não extrai autor) — não dá pra travar o registro de leitura por causa
+    # disso. O cadastro manual continua exigindo autor (pelo próprio formulário).
+    if exigir_autor and not e.autor.strip():
         raise HTTPException(422, "título e autor são obrigatórios")
     if e.status not in STATUS_LEITURA:
         raise HTTPException(422, "status inválido")
@@ -1512,7 +1517,8 @@ def _buscar_leitura_duplicada(usuario_id: int, e, obra: Obra, edicao: Edicao, s:
     return row or (None, None)
 
 def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool = False):
-    _validar_entrada_leitura(e)
+    # Registro a partir do catálogo: autor pode faltar na edição, então não exigimos.
+    _validar_entrada_leitura(e, exigir_autor=False)
     obra = None
     if e.work_key:
         obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
