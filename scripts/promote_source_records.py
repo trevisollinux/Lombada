@@ -87,11 +87,37 @@ def find_obra(cur, titulo: str, autor: str):
     return row[0] if row else None
 
 
+def _tem_coluna(cur, tabela: str, coluna: str) -> bool:
+    cur.execute(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name=%s AND column_name=%s LIMIT 1",
+        (tabela, coluna),
+    )
+    return cur.fetchone() is not None
+
+
+def _preencher_descricao(cur, obra_id: int, descricao: str) -> bool:
+    """Grava a descrição na obra só quando está vazia — nunca sobrescreve. Corta em
+    2000 chars pra não guardar página inteira."""
+    descricao = (descricao or "").strip()[:2000]
+    if not descricao:
+        return False
+    cur.execute(
+        "UPDATE obra SET descricao=%s WHERE id=%s AND (descricao IS NULL OR btrim(descricao)='')",
+        (descricao, obra_id),
+    )
+    return bool(cur.rowcount)
+
+
 def promote(conn, rows, dry_run: bool) -> dict:
-    stats = {"candidatos": len(rows), "promovidos": 0, "ja_existiam": 0, "obras_criadas": 0, "autores_preenchidos": 0}
+    stats = {"candidatos": len(rows), "promovidos": 0, "ja_existiam": 0, "obras_criadas": 0,
+             "autores_preenchidos": 0, "descricoes_preenchidas": 0}
     with conn.cursor() as cur:
+        # A coluna obra.descricao é criada pelo migrar() do app (no deploy). Enquanto
+        # não existir (janela entre merge e deploy), pulamos a escrita sem quebrar.
+        tem_descricao = _tem_coluna(cur, "obra", "descricao")
         for r in rows:
-            sr_id, titulo, autor, isbn_raw, editora, ano, capa = r
+            sr_id, titulo, autor, isbn_raw, editora, ano, capa, descricao = r
             isbn = normalize_isbn(isbn_raw)
             if not titulo or not isbn:
                 continue
@@ -111,6 +137,8 @@ def promote(conn, rows, dry_run: bool) -> dict:
                         )
                         if cur.rowcount:
                             stats["autores_preenchidos"] += 1
+                    if tem_descricao and _preencher_descricao(cur, edic[1], descricao):
+                        stats["descricoes_preenchidas"] += 1
                     cur.execute("UPDATE source_records SET status='approved', updated_at=NOW() WHERE id=%s", (sr_id,))
                 continue
 
@@ -133,6 +161,8 @@ def promote(conn, rows, dry_run: bool) -> dict:
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                 (obra_id, "isbn:" + isbn, editora or "", "", isbn, "Português", ano, capa or ""),
             )
+            if tem_descricao and _preencher_descricao(cur, obra_id, descricao):
+                stats["descricoes_preenchidas"] += 1
             cur.execute("UPDATE source_records SET status='approved', updated_at=NOW() WHERE id=%s", (sr_id,))
             stats["promovidos"] += 1
     if not dry_run:
@@ -157,7 +187,8 @@ def main() -> int:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, author, isbn, publisher, publication_year, thumbnail
+                SELECT id, title, author, isbn, publisher, publication_year, thumbnail,
+                       btrim(coalesce(raw_json->>'description', '')) AS descricao
                 FROM source_records
                 WHERE title <> '' AND isbn <> ''
                   AND confidence_score >= %s
@@ -175,7 +206,8 @@ def main() -> int:
     print(
         f"candidatos={stats['candidatos']} promovidos={stats['promovidos']} "
         f"ja_existiam={stats['ja_existiam']} obras_criadas={stats['obras_criadas']} "
-        f"autores_preenchidos={stats['autores_preenchidos']}"
+        f"autores_preenchidos={stats['autores_preenchidos']} "
+        f"descricoes_preenchidas={stats['descricoes_preenchidas']}"
     )
     if dry_run:
         print("DRY_RUN: nada gravado.")

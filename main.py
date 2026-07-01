@@ -586,6 +586,7 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
         ed_doc = _edicao_doc(obra, ed, best_leituras)
         docs.append({
             "work_key": obra_principal.ol_work_key, "titulo": obra_principal.titulo, "autor": obra_principal.autor,
+            "descricao": getattr(obra_principal, "descricao", "") or "",
             "idioma_original": obra_principal.idioma_original, "ano": obra_principal.ano, "tem_pt": _idioma_portugues(ed.idioma),
             "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
             "edicoes_encontradas": len(edicoes_docs),

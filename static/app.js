@@ -1297,6 +1297,7 @@ function escolherEdicao(j,event){
         <h3>${esc(titulo||t('book'))}</h3>
         ${autor?`<p class="selected-edition-author">${esc(autor)}</p>`:''}
         ${metaHTML?`<div class="selected-edition-meta">${metaHTML}</div>`:`<p class="selected-edition-meta muted">${t('catalog_data_missing')}</p>`}
+        ${escolha?.descricao?`<p class="selected-edition-desc">${esc(escolha.descricao)}</p>`:''}
       </div>
     </div>`;
   clearButtonBusy(trigger);
