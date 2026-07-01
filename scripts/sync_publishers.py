@@ -395,6 +395,13 @@ _ED34_MARCADOR = re.compile(
     r"Edi[çc][ãa]o|Cole[çc][ãa]o|ISBN|R\$|\d|—)",
     re.I,
 )
+# Primeira palavra que denuncia subtítulo (não é nome de autor).
+_ED34_NAO_AUTOR = {
+    "poemas", "poema", "poesia", "poesias", "contos", "conto", "antologia",
+    "obras", "obra", "romance", "romances", "ensaios", "ensaio", "cartas",
+    "teatro", "crônicas", "cronicas", "diário", "diario", "volume", "novelas",
+    "novela", "correspondência", "correspondencia", "memórias", "memorias",
+}
 
 
 def autor_editora34(soup: BeautifulSoup) -> str:
@@ -414,9 +421,14 @@ def autor_editora34(soup: BeautifulSoup) -> str:
     resto = bloco[len(titulo):].strip()
     m = _ED34_MARCADOR.search(resto)
     autor = (resto[:m.start()] if m else resto).strip(" -–—·|,;").strip()
-    if 2 <= len(autor) <= 60 and re.match(r"[A-ZÀ-Ý]", autor):
-        return autor
-    return ""
+    if not (2 <= len(autor) <= 60 and re.match(r"[A-ZÀ-Ý]", autor)):
+        return ""
+    # Rejeita subtítulos que vazam pro lugar do autor (o h1 traz só o título
+    # principal): "Poemas escolhidos ...", "Contos reunidos ...", "Antologia ...".
+    primeira = autor.split()[0].lower()
+    if primeira in _ED34_NAO_AUTOR or re.search(r"\b(escolhid|reunid|complet|selecionad)", autor, re.I):
+        return ""
+    return autor
 
 
 def clean_title(title: str, publisher_name: str) -> str:
