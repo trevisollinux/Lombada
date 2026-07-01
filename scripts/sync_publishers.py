@@ -1201,6 +1201,20 @@ def dump_url(url: str) -> None:
         idx = text.find(label)
         if idx != -1:
             print(f"    txt~{label}: {text[idx:idx+80]!r}")
+    # hrefs crus (sem os filtros de CRAWL_SKIP_TERMS/harvest_links) — revela para
+    # onde apontam menus de categoria que o crawl normal pode estar descartando.
+    hrefs = []
+    for a in soup.find_all("a", href=True):
+        full = urljoin(url, a["href"]).split("#", 1)[0]
+        if full not in hrefs:
+            hrefs.append(full)
+    print(f"    hrefs brutos: {len(hrefs)} únicos")
+    suspeitos = [h for h in hrefs if re.search(r"busca|categoria|selo|assunto|colecao", h, re.I)]
+    print(f"    hrefs suspeitos (busca/categoria/selo/assunto/colecao): {len(suspeitos)}")
+    for h in suspeitos[:25]:
+        print(f"      {h}")
+    for h in hrefs[:20]:
+        print(f"      * {h}")
 
 
 def main() -> int:
