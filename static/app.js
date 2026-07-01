@@ -1215,6 +1215,11 @@ function verMinhaLeitura(){
 function renderPaginaObra(){
   return renderEdicoes();
 }
+function toggleAboutWork(btn){
+  const sec=btn.closest('.about-work'); if(!sec) return;
+  const clamped=sec.classList.toggle('clamp');   // true = recolhido, false = expandido
+  btn.textContent=clamped?t('see_more'):t('see_less');
+}
 function renderEdicoes(){
   const st=obraSocial?.estatisticas||{};
   const media=st.media?fmtMedia(st.media):t('no_average_yet');
@@ -1233,7 +1238,8 @@ function renderEdicoes(){
       <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>
     </div></div>`;
   const descricao=(escolha.descricao||escolha.description||'').trim();
-  const sobreObra=`<section class="about-work work-section"><div class="label">${t('about_work')}</div>${descricao?`<p>${esc(descricao).slice(0,420)}</p>`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
+  const descLonga=descricao.length>320;
+  const sobreObra=`<section class="about-work work-section${descLonga?' clamp':''}"><div class="label">${t('about_work')}</div>${descricao?`<p class="about-work-text">${esc(descricao)}</p>${descLonga?`<button class="linklike about-work-toggle" type="button" onclick="toggleAboutWork(this)">${t('see_more')}</button>`:''}`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
   const poucosDados=(!edicoesAtual.length&&!leituras&&!criticas)||(!escolha.capa_url&&!escolha.ano&&!escolha.idioma_original&&!criticas);
   const estadoPoucosDados=poucosDados?`<section class="work-section work-low-data"><p>${t('work_low_data')}</p><div class="work-actions"><button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button><button class="secondary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div></section>`:'';
   const minhas='';
