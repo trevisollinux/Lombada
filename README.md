@@ -122,8 +122,11 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 - Editora 34: ~800 livros, ~634 com autor.
 - Descrições (sinopses): ~2.450 obras preenchidas (~87% do catálogo).
-- Companhia das Letras: platô ~255 (ver diagnóstico abaixo — catálogo profundo
-  ainda carrega via JS, mas não do jeito que a nota antiga supunha).
+- Companhia das Letras: **1.366 livros candidatos** descobertos (era platô de
+  ~255) — ver diagnóstico e solução abaixo (`collect_via_categoria_playwright`).
+  Ainda por gravar de fato (rodado só em `dry_run`); e cobertura de autor nas
+  páginas de livro dessa editora ficou baixa (1/171 na amostra) — não
+  investigado ainda.
 
 ## Próximos passos possíveis
 
@@ -156,10 +159,21 @@ Promote source records to catalog → dry_run=false, limit=5000
     real independente do resto). Não decifrado: token/nonce por requisição?
     nome de selo diferente do esperado? Vale testar outro selo (`/Selo/
     Escarlate`) ou inspecionar a Network tab de uma navegação real.
-  - **Conclusão:** pra ir além do platô por essa via, provavelmente precisa de
-    um browser headless (Playwright/Selenium) que execute o JS da página de
-    resultado — bem mais pesado que o `requests`+`BeautifulSoup` atual, e só
-    valeria a pena pra essa editora especificamente. Não implementado; decisão
-    de investir nisso fica em aberto.
+  - **Resolvido:** implementado `collect_via_categoria_playwright()`, isolado
+    só pra essa editora (não afeta as outras). Usa Chromium headless
+    (Playwright) SÓ pra renderizar as páginas `/Busca?categoria=...` e extrair
+    os links `/livro/{isbn}/...` do DOM já processado pelo Angular; as páginas
+    de livro em si continuam via `requests` normal (são estáticas). Registrado
+    como plataforma `"categoria_js"` em `SOURCES`, com fallback pro crawl HTML
+    antigo se o Playwright falhar. Testado ao vivo via `workflow_dispatch`
+    (`dry_run=true`): **218 páginas de categoria visitadas, 1.366 livros
+    candidatos únicos encontrados** — 5x+ o platô anterior. O workflow ganhou
+    um passo `playwright install --with-deps chromium` (só usado por essa
+    editora, mas roda toda vez que o job dispara).
+  - Pendências: cobertura de autor ficou baixa nas páginas de livro dessa
+    editora (1/171 na amostra) — não investigado, possivelmente a extração
+    genérica de autor não reconhece o padrão específico do site. E `/Selo/
+    {nome}` continua retornando `"Erro: Selo inválido"` sem explicação — não
+    bloqueante, já que `categoria_js` resolveu o problema principal.
 - **Sinopse da Editora 34:** se faltar cobertura, extrator dedicado (a sinopse
   está no `h1.parent`, depois dos metadados — mesma técnica do autor).
