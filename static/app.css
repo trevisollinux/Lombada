@@ -1202,6 +1202,14 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 .work-page .about-work{
   margin:0;
 }
+/* Sinopse "Sobre a obra": recolhida em ~6 linhas; o botão "ver mais" expande. */
+.about-work.clamp .about-work-text{
+  display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;
+}
+.about-work-toggle{
+  margin-top:.5rem;font-family:"Space Mono",monospace;font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;
+}
 .work-stats-empty p{
   margin:0;
   color:var(--ink-2);
