@@ -1237,9 +1237,11 @@ function renderEdicoes(){
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
       <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>
     </div></div>`;
-  const descricao=(escolha.descricao||escolha.description||'').trim();
+  const descricao=(escolha.descricao||escolha.description||obraSocial?.obra?.descricao||'').trim();
   const descLonga=descricao.length>320;
-  const sobreObra=`<section class="about-work work-section${descLonga?' clamp':''}"><div class="label">${t('about_work')}</div>${descricao?`<p class="about-work-text">${esc(descricao)}</p>${descLonga?`<button class="linklike about-work-toggle" type="button" onclick="toggleAboutWork(this)">${t('see_more')}</button>`:''}`:`<p class="muted">${t('no_work_description')}</p><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>`}</section>`;
+  const tituloAutorBusca=[escolha.titulo,escolha.autor].filter(Boolean).join(' ');
+  const linkSaibaMais=tituloAutorBusca?`<a class="linklike about-work-external" href="https://www.google.com/search?q=${encodeURIComponent('livro '+tituloAutorBusca+' sinopse')}" target="_blank" rel="noopener">${t('learn_more_external')}</a>`:'';
+  const sobreObra=`<section class="about-work work-section${descLonga?' clamp':''}"><div class="label">${t('about_work')}</div>${descricao?`<p class="about-work-text">${esc(descricao)}</p><div class="about-work-actions">${descLonga?`<button class="linklike about-work-toggle" type="button" onclick="toggleAboutWork(this)">${t('see_more')}</button>`:''}${linkSaibaMais}</div>`:`<p class="muted">${t('no_work_description')}</p><div class="about-work-actions"><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>${linkSaibaMais}</div>`}</section>`;
   const poucosDados=(!edicoesAtual.length&&!leituras&&!criticas)||(!escolha.capa_url&&!escolha.ano&&!escolha.idioma_original&&!criticas);
   const estadoPoucosDados=poucosDados?`<section class="work-section work-low-data"><p>${t('work_low_data')}</p><div class="work-actions"><button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button><button class="secondary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div></section>`:'';
   const minhas='';

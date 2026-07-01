@@ -651,14 +651,15 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
   .rail{overflow-x:visible;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px;padding-bottom:0}
   .rail .book{flex:auto}
 
-  /* obra / edições */
-  #edicoes:not([style*="display:none"]){display:grid!important;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:34px 42px;align-items:start}
-  #edicoes .busca-back{grid-column:1/-1}
-  #edicoes .work-head{position:sticky;top:32px;display:block;border-bottom:0;margin:0;padding:0}
-  #edicoes .work-head .cover{width:min(100%,260px);max-height:none;margin-bottom:18px}
-  #edicoes .work-head .wmeta h2{font-size:clamp(32px,3vw,46px)}
-  #edicoes .community-summary,#edicoes .work-my-reading,#edicoes .work-editions,#edicoes .community-section{grid-column:2}
-  #edicoes .community-summary{margin-top:0}
+  /* obra / edições — .work-page é o grid real (o antigo alvo #edicoes ficou
+     órfão depois que o markup passou a envolver tudo em <main class="work-page">,
+     o que espremia a página inteira na 1ª coluna e deixava metade da tela vazia). */
+  .work-page{grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:34px 42px;align-items:start}
+  .work-page .work-hero{grid-row:1/-1;position:sticky;top:32px;display:block;border-bottom:0;margin:0;padding:0}
+  .work-page .work-hero .cover{width:min(100%,260px);max-height:none;margin-bottom:18px}
+  .work-page .work-hero .wmeta h2{font-size:clamp(32px,3vw,46px)}
+  .work-page .work-hero ~ *{grid-column:2}
+  .work-page .community-summary{margin-top:0}
   .work-editions .edition,.edition{grid-template-columns:82px 1fr;gap:18px;padding:18px 10px}
   .edition-cover .cover{width:82px}
   .reviews-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
@@ -723,9 +724,10 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
   .tab.active{background:transparent;border-color:transparent;color:var(--ink);font-weight:400}
   body.theme-dark .tab.active{background:transparent;border-color:transparent;color:var(--ink)}
   #edicoes:not([style*="display:none"]){display:block!important;width:100%;max-width:100%;overflow-x:hidden}
-  #edicoes .work-head{position:static;display:flex;border-bottom:1px solid var(--rule);margin-bottom:8px;padding:4px 0 16px}
-  #edicoes .work-head .cover{width:92px;max-width:100%;max-height:340px;margin-bottom:0;flex:0 0 92px}
-  #edicoes .community-summary,#edicoes .work-my-reading,#edicoes .work-editions,#edicoes .community-section,#edicoes .work-edition-highlights{grid-column:auto}
+  .work-page{grid-template-columns:none}
+  .work-page .work-hero{grid-row:auto;position:static;display:flex;border-bottom:1px solid var(--rule);margin-bottom:8px;padding:4px 0 16px}
+  .work-page .work-hero .cover{width:92px;max-width:100%;max-height:340px;margin-bottom:0;flex:0 0 92px}
+  .work-page .work-hero ~ *{grid-column:auto}
   .work-editions{width:100%;max-width:100%}
   .work-editions .edition,.edition{grid-template-columns:64px minmax(0,1fr);gap:12px;width:100%;max-width:100%;padding:16px 2px;overflow-wrap:anywhere}
   .edition-cover .cover{width:64px;max-width:100%}
@@ -1206,9 +1208,17 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 .about-work.clamp .about-work-text{
   display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;
 }
+.about-work-actions{
+  display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1rem;margin-top:.5rem;
+}
 .about-work-toggle{
-  margin-top:.5rem;font-family:"Space Mono",monospace;font-size:10px;
+  margin-top:0;font-family:"Space Mono",monospace;font-size:10px;
   letter-spacing:.12em;text-transform:uppercase;
+}
+.about-work-external{
+  margin-top:0;font-family:"Space Mono",monospace;font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--wine);
+  text-decoration:underline;text-underline-offset:3px;
 }
 .work-stats-empty p{
   margin:0;
