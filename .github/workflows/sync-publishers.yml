@@ -68,6 +68,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
+      - name: Install Playwright browser (Chromium)
+        # Só a Cia das Letras usa isto hoje (collect_via_categoria_playwright,
+        # scripts/sync_publishers.py) — a página de resultado de categoria
+        # renderiza o grid de livros via JS/Angular, requests não dá conta.
+        run: playwright install --with-deps chromium
+
       - name: Sync publisher source records
         run: |
           # pipefail + status: sem isto, o `| tee` engolia o código de saída e o job

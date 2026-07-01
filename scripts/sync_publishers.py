@@ -95,14 +95,16 @@ SESSION.headers.update(HEADERS)
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
-        # Plataforma custom (Communiplex): a home lista /livro/{ISBN}/{slug} e o ISBN
-        # vem da URL. O crawl de HTML sozinho empaca (~230 livros) porque o catálogo
-        # profundo carrega via JS. Tenta o sitemap primeiro (se existir, alcança o
-        # catálogo inteiro de uma vez) e cai no crawl como fallback — sem regressão.
+        # Plataforma custom (agência "Communiplex", não é uma API): a home lista
+        # /livro/{ISBN}/{slug} e o ISBN vem da URL. O crawl de HTML sozinho empaca
+        # (~255 livros) porque a página de RESULTADO de categoria (/Busca?categoria=)
+        # renderiza o grid via JS/Angular — ver collect_via_categoria_playwright.
+        # Tenta sitemap (não existe hoje) -> categoria via browser headless -> crawl
+        # HTML como fallback se o Playwright falhar por qualquer motivo.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platforms": ["sitemap", "html"],
+        "platforms": ["sitemap", "categoria_js", "html"],
     },
     {
         "slug": "editora_34",
@@ -1020,12 +1022,110 @@ def collect_via_html_crawl(
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
+def collect_via_categoria_playwright(
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Isolado pra cia_das_letras (não usado por nenhuma outra editora).
+
+    O menu "COMPRE POR CATEGORIAS" da home é HTML estático e leva a páginas
+    /Busca?categoria=...&subcategoria=..., mas o GRID DE RESULTADO dessas
+    páginas é montado via JS/Angular (confirmado: HTML bruto tinha um
+    placeholder tipo "{{ extras.anoMin }}" não renderizado — ver README).
+    requests+BeautifulSoup só baixa a casca vazia. Aqui usamos Chromium
+    headless (Playwright) SÓ pra essas páginas de listagem; as páginas de
+    livro em si (extract_page, dentro de _collect_from_urls) continuam via
+    requests normal — são estáticas, não precisam de browser.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  [categoria-js] playwright não instalado — pulando este método.", file=sys.stderr)
+        return []
+
+    base_url = publisher["base_url"].rstrip("/")
+    home = fetch_url(base_url + "/")
+    if home is None:
+        print(f"  [categoria-js] home inacessível para {publisher['slug']}.")
+        return []
+    # Extração direta (não usa harvest_links: aquela função descarta /busca de
+    # propósito pro crawl HTML genérico — aqui é exatamente esse link que
+    # queremos, só que renderizado por browser em vez de requests).
+    host = urlparse(base_url).netloc.replace("www.", "")
+    soup = BeautifulSoup(home.text, "html.parser")
+    categoria_urls: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        full = urljoin(base_url, anchor["href"]).split("#", 1)[0]
+        parsed = urlparse(full)
+        if parsed.netloc.replace("www.", "") != host:
+            continue
+        query = parsed.query.lower()
+        if "/busca" in parsed.path.lower() and "categoria=" in query and full not in categoria_urls:
+            categoria_urls.append(full)
+    if not categoria_urls:
+        print("  [categoria-js] nenhuma página de categoria encontrada na home.")
+        return []
+    print(f"  [categoria-js] {len(categoria_urls)} páginas de categoria na home")
+
+    seen = seen or set()
+    needed = (offset or 0) + max_urls
+    target = max(max_urls * 5, needed * 2)
+    max_pages = min(len(categoria_urls), max(40, target // 4))
+
+    book_urls: list[str] = []
+    book_set: set[str] = set()
+    new_found = 0
+
+    def absorb(html_text: str) -> None:
+        nonlocal new_found
+        books, _ = harvest_links(html_text, base_url)
+        for url in books:
+            if url not in book_set:
+                book_set.add(url)
+                book_urls.append(url)
+                if offset is None and stable_external_id(url) not in seen:
+                    new_found += 1
+
+    def enough() -> bool:
+        return len(book_urls) >= target if offset is not None else new_found >= needed
+
+    visited_pages = 0
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(user_agent=HEADERS["User-Agent"])
+        for url in categoria_urls:
+            if visited_pages >= max_pages or enough():
+                break
+            visited_pages += 1
+            try:
+                page.goto(url, timeout=20000, wait_until="domcontentloaded")
+                page.wait_for_selector("a[href*='/livro/']", timeout=8000)
+            except Exception as exc:  # noqa: BLE001 — timeout numa categoria não derruba o resto
+                print(f"  [categoria-js] aviso: {url}: {exc!r}", file=sys.stderr)
+                continue
+            absorb(page.content())
+            if sleep_seconds:
+                time.sleep(sleep_seconds)
+        browser.close()
+
+    extra = "" if offset is not None else f" novos~{new_found}"
+    print(
+        f"  [categoria-js] urls_livro={len(book_urls)}{extra} "
+        f"(visitou {visited_pages}/{len(categoria_urls)} páginas de categoria)"
+    )
+    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
+
+
 PLATFORM_COLLECTORS = {
     "shopify": collect_via_shopify,
     "vtex": collect_via_vtex,
     "id_range": collect_via_id_range,
     "sitemap": collect_via_sitemap,
     "html": collect_via_html_crawl,
+    "categoria_js": collect_via_categoria_playwright,
 }
 AUTO_ORDER = ["shopify", "vtex", "id_range", "sitemap", "html"]
 
