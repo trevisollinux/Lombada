@@ -232,17 +232,23 @@ def ensure_connection(conn):
 
 
 # Diagnóstico: por que extract_page() volta None em tanta URL (ex.: cia_das_letras
-# teve 171/1264 de sucesso). Contadores globais, resetados por chamador via
-# reset_fetch_diagnostics() — não custa nada às outras editoras.
+# teve 171/1264 de sucesso). Contadores + amostra de URLs, resetados por chamador
+# via reset_fetch_diagnostics() — não custa nada às outras editoras.
 FETCH_FAILURE_COUNTS: dict[str, int] = {}
+FETCH_FAILURE_SAMPLES: dict[str, list[str]] = {}
 
 
 def reset_fetch_diagnostics() -> None:
     FETCH_FAILURE_COUNTS.clear()
+    FETCH_FAILURE_SAMPLES.clear()
 
 
-def _record_fetch_failure(reason: str) -> None:
+def _record_fetch_failure(reason: str, url: str = "") -> None:
     FETCH_FAILURE_COUNTS[reason] = FETCH_FAILURE_COUNTS.get(reason, 0) + 1
+    if url:
+        samples = FETCH_FAILURE_SAMPLES.setdefault(reason, [])
+        if len(samples) < 3:
+            samples.append(url)
 
 
 def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None) -> requests.Response | None:
@@ -261,13 +267,13 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
             # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
             # acumular minutos de tempo morto × várias URLs por editora).
             print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
-            _record_fetch_failure(f"exception:{type(exc).__name__}")
+            _record_fetch_failure(f"exception:{type(exc).__name__}", url)
             return None
         if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
             time.sleep(2 ** attempt)
             continue
         if response.status_code >= 400:
-            _record_fetch_failure(f"status:{response.status_code}")
+            _record_fetch_failure(f"status:{response.status_code}", url)
             return None
         return response
     return None
@@ -636,7 +642,7 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
 
     if not title.strip():
-        _record_fetch_failure("titulo_vazio")
+        _record_fetch_failure("titulo_vazio", url)
 
     return build_record(
         publisher,
@@ -1139,6 +1145,8 @@ def collect_via_categoria_playwright(
     records = _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
     if FETCH_FAILURE_COUNTS:
         print(f"  [categoria-js] motivos de falha na extração de página de livro: {FETCH_FAILURE_COUNTS}")
+        for reason, urls in FETCH_FAILURE_SAMPLES.items():
+            print(f"  [categoria-js] exemplos de {reason}: {urls}")
     return records
 
 
