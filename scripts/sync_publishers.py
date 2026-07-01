@@ -925,6 +925,13 @@ def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
     Ordem importa: paginação e termos de listagem (incl. plurais como /livros) vêm
     antes do teste de livro, pra que categorias/paginação sejam seguidas e só as
     páginas de produto (/livro/{x}) sejam coletadas.
+
+    Exceção deliberada: /busca?categoria=...[&subcategoria=...] é normalmente
+    descartado por CRAWL_SKIP_TERMS (pensado pra caixa de busca genérica), mas
+    em cia_das_letras é ONDE MORA A NAVEGAÇÃO POR CATEGORIA inteira — sem isso
+    o crawl empaca em ~255 livros (só o que aparece solto na home). O robots.txt
+    do site proíbe /Busca; seguimos esses links específicos mesmo assim (decisão
+    consciente, não descuido — plain /busca sem categoria continua descartado).
     """
     host = urlparse(base_url).netloc.replace("www.", "")
     soup = BeautifulSoup(html, "html.parser")
@@ -937,9 +944,11 @@ def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
             continue
         clean = full.split("#", 1)[0]
         path = parsed.path.lower()
-        if any(term in path for term in CRAWL_SKIP_TERMS):
+        query = parsed.query.lower()
+        categoria_browse = "/busca" in path and ("categoria=" in query or "subcategoria=" in query)
+        if any(term in path for term in CRAWL_SKIP_TERMS) and not categoria_browse:
             continue
-        if PAGINATION_RE.search(clean) or any(term in path for term in LISTING_TERMS):
+        if categoria_browse or PAGINATION_RE.search(clean) or any(term in path for term in LISTING_TERMS):
             listing_urls.append(clean)
         elif _is_book_path(path):
             book_urls.append(clean)
