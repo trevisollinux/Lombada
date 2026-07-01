@@ -88,7 +88,7 @@ def find_obra(cur, titulo: str, autor: str):
 
 
 def promote(conn, rows, dry_run: bool) -> dict:
-    stats = {"candidatos": len(rows), "promovidos": 0, "ja_existiam": 0, "obras_criadas": 0}
+    stats = {"candidatos": len(rows), "promovidos": 0, "ja_existiam": 0, "obras_criadas": 0, "autores_preenchidos": 0}
     with conn.cursor() as cur:
         for r in rows:
             sr_id, titulo, autor, isbn_raw, editora, ano, capa = r
@@ -96,10 +96,21 @@ def promote(conn, rows, dry_run: bool) -> dict:
             if not titulo or not isbn:
                 continue
 
-            cur.execute("SELECT id FROM edicao WHERE isbn = %s LIMIT 1", (isbn,))
-            if cur.fetchone():
+            cur.execute("SELECT id, obra_id FROM edicao WHERE isbn = %s LIMIT 1", (isbn,))
+            edic = cur.fetchone()
+            if edic:
                 stats["ja_existiam"] += 1
                 if not dry_run:
+                    # Backfill: se a obra ligada está sem autor e agora temos um
+                    # (ex.: Editora 34 re-scrapeada com o extrator de autor), preenche.
+                    # Só preenche quando está vazio — nunca sobrescreve autor bom.
+                    if autor.strip():
+                        cur.execute(
+                            "UPDATE obra SET autor=%s WHERE id=%s AND (autor IS NULL OR btrim(autor)='')",
+                            (autor.strip(), edic[1]),
+                        )
+                        if cur.rowcount:
+                            stats["autores_preenchidos"] += 1
                     cur.execute("UPDATE source_records SET status='approved', updated_at=NOW() WHERE id=%s", (sr_id,))
                 continue
 
@@ -163,7 +174,8 @@ def main() -> int:
 
     print(
         f"candidatos={stats['candidatos']} promovidos={stats['promovidos']} "
-        f"ja_existiam={stats['ja_existiam']} obras_criadas={stats['obras_criadas']}"
+        f"ja_existiam={stats['ja_existiam']} obras_criadas={stats['obras_criadas']} "
+        f"autores_preenchidos={stats['autores_preenchidos']}"
     )
     if dry_run:
         print("DRY_RUN: nada gravado.")
