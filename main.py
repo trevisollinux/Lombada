@@ -1141,7 +1141,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
     destaques_edicao["traducao_mais_lida"] = max(trad_counts.items(), key=lambda x: x[1])[0] if trad_counts else None
     destaques_edicao["editora_mais_lida"] = max(pub_counts.items(), key=lambda x: x[1])[0] if pub_counts else None
     return {
-        "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor, "ano": obra.ano, "idioma_original": obra.idioma_original},
+        "obra": {"id": obra.id, "work_key": obra.ol_work_key, "titulo": obra.titulo, "autor": obra.autor, "ano": obra.ano, "idioma_original": obra.idioma_original, "descricao": obra.descricao or ""},
         "estatisticas": {
             "leituras": len(leituras),
             "criticas": len(criticas),
