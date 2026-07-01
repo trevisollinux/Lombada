@@ -267,7 +267,14 @@ def migrar():
         _run_ddl("index/social", ddl)
 
     if postgres:
-        for table in ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry"):
+        # Inclui as tabelas CENTRAIS (usuario/obra/edicao/leitura/buscacache): se o
+        # `id` delas ficou sem sequence/identity (tabela criada sem default), todo
+        # INSERT estoura com "null value in column id" — é o que quebra o salvar na
+        # estante. O DO-block só age quando realmente falta o default, então é
+        # idempotente e não toca tabelas já saudáveis.
+        core_tables = ("usuario", "obra", "edicao", "leitura", "buscacache")
+        social_tables = ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry")
+        for table in core_tables + social_tables:
             _run_ddl(
                 f"{table}.id identity",
                 f"""

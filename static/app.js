@@ -1425,6 +1425,7 @@ async function salvar(event){
   };
   const duplicadoLocal=encontrarLeituraDuplicada(body);
   if(duplicadoLocal){ clearButtonBusy(saveBtn); avisarDuplicado(duplicadoLocal.leitura_id); return; }
+  let motivoServidor='';
   try{
     const r=await fetch('/api/prateleira',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){
@@ -1435,10 +1436,12 @@ async function salvar(event){
         avisarDuplicado(detalhe.leitura_id||erro.leitura_id);
         return;
       }
-      throw new Error(JSON.stringify(erro)||r.statusText);
+      // guarda o motivo real do servidor (string) pra mostrar ao usuário
+      motivoServidor=typeof detalhe==='string'?detalhe:(detalhe?.mensagem||detalhe?.detail||'');
+      throw new Error(motivoServidor||JSON.stringify(erro)||r.statusText);
     }
   }
-  catch(e){ console.error('erro ao salvar leitura', e); clearButtonBusy(saveBtn); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
+  catch(e){ console.error('erro ao salvar leitura', e); clearButtonBusy(saveBtn); mostrarErroFormulario(form,motivoServidor||t('save_error')||'não consegui salvar. tenta de novo.'); return; }
 fecharModalParaNavegacao();
 
 limparBusca(); $('#q').value=''; mostrarBusca('home',
