@@ -89,12 +89,14 @@ HEADERS = {
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
-        # Plataforma custom (Communiplex): sem sitemap/JSON de catálogo, mas a home
-        # lista /livro/{ISBN}/{slug} — crawl de HTML resolve e o ISBN vem da URL.
+        # Plataforma custom (Communiplex): a home lista /livro/{ISBN}/{slug} e o ISBN
+        # vem da URL. O crawl de HTML sozinho empaca (~230 livros) porque o catálogo
+        # profundo carrega via JS. Tenta o sitemap primeiro (se existir, alcança o
+        # catálogo inteiro de uma vez) e cai no crawl como fallback — sem regressão.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platform": "html",
+        "platforms": ["sitemap", "html"],
     },
     {
         "slug": "editora_34",
@@ -972,8 +974,14 @@ def collect_publisher(
     seen: set[str] | None = None,
     offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    platform = publisher.get("platform", "auto")
-    order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
+    # `platforms` (lista) permite uma ordem explícita de métodos com fallback:
+    # ex.: ["sitemap", "html"] tenta o sitemap e, se não render nada, cai no crawl.
+    platforms = publisher.get("platforms")
+    if isinstance(platforms, (list, tuple)) and platforms:
+        order = [p for p in platforms if p in PLATFORM_COLLECTORS]
+    else:
+        platform = publisher.get("platform", "auto")
+        order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
     for name in order:
         collector = PLATFORM_COLLECTORS[name]
         try:
