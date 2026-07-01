@@ -86,17 +86,25 @@ HEADERS = {
     ),
     "X-Contact": "https://github.com/trevisollinux/lombada (LombadaPublisherSync)",
 }
+# Sessão compartilhada: alguns sites (ex.: cia_das_letras, ASP.NET clássico) validam
+# rotas contra um cookie de sessão emitido na primeira resposta (home). requests.get()
+# avulso não carrega cookies entre chamadas — a Session resolve isso e, de quebra,
+# reaproveita conexões HTTP entre as páginas de uma mesma editora.
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
-        # Plataforma custom (Communiplex): a home lista /livro/{ISBN}/{slug} e o ISBN
-        # vem da URL. O crawl de HTML sozinho empaca (~230 livros) porque o catálogo
-        # profundo carrega via JS. Tenta o sitemap primeiro (se existir, alcança o
-        # catálogo inteiro de uma vez) e cai no crawl como fallback — sem regressão.
+        # Plataforma custom (agência "Communiplex", não é uma API): a home lista
+        # /livro/{ISBN}/{slug} e o ISBN vem da URL. O crawl de HTML sozinho empaca
+        # (~255 livros) porque a página de RESULTADO de categoria (/Busca?categoria=)
+        # renderiza o grid via JS/Angular — ver collect_via_categoria_playwright.
+        # Tenta sitemap (não existe hoje) -> categoria via browser headless -> crawl
+        # HTML como fallback se o Playwright falhar por qualquer motivo.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platforms": ["sitemap", "html"],
+        "platforms": ["sitemap", "categoria_js", "html"],
     },
     {
         "slug": "editora_34",
@@ -223,25 +231,49 @@ def ensure_connection(conn):
     return connect_database()
 
 
-def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
+# Diagnóstico: por que extract_page() volta None em tanta URL (ex.: cia_das_letras
+# teve 171/1264 de sucesso). Contadores + amostra de URLs, resetados por chamador
+# via reset_fetch_diagnostics() — não custa nada às outras editoras.
+FETCH_FAILURE_COUNTS: dict[str, int] = {}
+FETCH_FAILURE_SAMPLES: dict[str, list[str]] = {}
+
+
+def reset_fetch_diagnostics() -> None:
+    FETCH_FAILURE_COUNTS.clear()
+    FETCH_FAILURE_SAMPLES.clear()
+
+
+def _record_fetch_failure(reason: str, url: str = "") -> None:
+    FETCH_FAILURE_COUNTS[reason] = FETCH_FAILURE_COUNTS.get(reason, 0) + 1
+    if url:
+        samples = FETCH_FAILURE_SAMPLES.setdefault(reason, [])
+        if len(samples) < 3:
+            samples.append(url)
+
+
+def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None) -> requests.Response | None:
     """GET com retry e backoff. Retorna None em falha definitiva (>=400 não-retryável)."""
     headers = dict(HEADERS)
+    if extra_headers:
+        headers.update(extra_headers)
     if accept:
         # Mantém a preferência (json/xml) mas aceita qualquer coisa: alguns servidores
         # (ex.: IIS) devolvem 404/406 a um Accept restritivo e escondem o sitemap.
         headers["Accept"] = f"{accept}, */*;q=0.1"
     for attempt in range(MAX_RETRIES):
         try:
-            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            response = SESSION.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
             # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
             # acumular minutos de tempo morto × várias URLs por editora).
             print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
+            _record_fetch_failure(f"exception:{type(exc).__name__}", url)
             return None
         if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
             time.sleep(2 ** attempt)
             continue
         if response.status_code >= 400:
+            _record_fetch_failure(f"status:{response.status_code}", url)
             return None
         return response
     return None
@@ -609,6 +641,9 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
     )
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
 
+    if not title.strip():
+        _record_fetch_failure("titulo_vazio", url)
+
     return build_record(
         publisher,
         url,
@@ -917,6 +952,14 @@ def harvest_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
     Ordem importa: paginação e termos de listagem (incl. plurais como /livros) vêm
     antes do teste de livro, pra que categorias/paginação sejam seguidas e só as
     páginas de produto (/livro/{x}) sejam coletadas.
+
+    Nota sobre cia_das_letras: chegamos a seguir /busca?categoria=... de propósito
+    (o menu de categorias da home é estático e ISSO é onde a navegação mora), mas
+    testado ao vivo o resultado piorou (131 livros contra o platô de ~255) — a
+    PÁGINA DE RESULTADO em si vem com template não renderizado no HTML bruto
+    (ex.: "{{ extras.anoMin }}" literal), ou seja o grid de livros é populado via
+    JS/AJAX depois do load. Revertido; ver README (Companhia das Letras) pro
+    diagnóstico completo.
     """
     host = urlparse(base_url).netloc.replace("www.", "")
     soup = BeautifulSoup(html, "html.parser")
@@ -1004,12 +1047,116 @@ def collect_via_html_crawl(
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
+def collect_via_categoria_playwright(
+    publisher: dict[str, str],
+    max_urls: int,
+    sleep_seconds: float,
+    seen: set[str] | None = None,
+    offset: int | None = None,
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Isolado pra cia_das_letras (não usado por nenhuma outra editora).
+
+    O menu "COMPRE POR CATEGORIAS" da home é HTML estático e leva a páginas
+    /Busca?categoria=...&subcategoria=..., mas o GRID DE RESULTADO dessas
+    páginas é montado via JS/Angular (confirmado: HTML bruto tinha um
+    placeholder tipo "{{ extras.anoMin }}" não renderizado — ver README).
+    requests+BeautifulSoup só baixa a casca vazia. Aqui usamos Chromium
+    headless (Playwright) SÓ pra essas páginas de listagem; as páginas de
+    livro em si (extract_page, dentro de _collect_from_urls) continuam via
+    requests normal — são estáticas, não precisam de browser.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  [categoria-js] playwright não instalado — pulando este método.", file=sys.stderr)
+        return []
+
+    base_url = publisher["base_url"].rstrip("/")
+    home = fetch_url(base_url + "/")
+    if home is None:
+        print(f"  [categoria-js] home inacessível para {publisher['slug']}.")
+        return []
+    # Extração direta (não usa harvest_links: aquela função descarta /busca de
+    # propósito pro crawl HTML genérico — aqui é exatamente esse link que
+    # queremos, só que renderizado por browser em vez de requests).
+    host = urlparse(base_url).netloc.replace("www.", "")
+    soup = BeautifulSoup(home.text, "html.parser")
+    categoria_urls: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        full = urljoin(base_url, anchor["href"]).split("#", 1)[0]
+        parsed = urlparse(full)
+        if parsed.netloc.replace("www.", "") != host:
+            continue
+        query = parsed.query.lower()
+        if "/busca" in parsed.path.lower() and "categoria=" in query and full not in categoria_urls:
+            categoria_urls.append(full)
+    if not categoria_urls:
+        print("  [categoria-js] nenhuma página de categoria encontrada na home.")
+        return []
+    print(f"  [categoria-js] {len(categoria_urls)} páginas de categoria na home")
+
+    seen = seen or set()
+    needed = (offset or 0) + max_urls
+    target = max(max_urls * 5, needed * 2)
+    max_pages = min(len(categoria_urls), max(40, target // 4))
+
+    book_urls: list[str] = []
+    book_set: set[str] = set()
+    new_found = 0
+
+    def absorb(html_text: str) -> None:
+        nonlocal new_found
+        books, _ = harvest_links(html_text, base_url)
+        for url in books:
+            if url not in book_set:
+                book_set.add(url)
+                book_urls.append(url)
+                if offset is None and stable_external_id(url) not in seen:
+                    new_found += 1
+
+    def enough() -> bool:
+        return len(book_urls) >= target if offset is not None else new_found >= needed
+
+    visited_pages = 0
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(user_agent=HEADERS["User-Agent"])
+        for url in categoria_urls:
+            if visited_pages >= max_pages or enough():
+                break
+            visited_pages += 1
+            try:
+                page.goto(url, timeout=20000, wait_until="domcontentloaded")
+                page.wait_for_selector("a[href*='/livro/']", timeout=8000)
+            except Exception as exc:  # noqa: BLE001 — timeout numa categoria não derruba o resto
+                print(f"  [categoria-js] aviso: {url}: {exc!r}", file=sys.stderr)
+                continue
+            absorb(page.content())
+            if sleep_seconds:
+                time.sleep(sleep_seconds)
+        browser.close()
+
+    extra = "" if offset is not None else f" novos~{new_found}"
+    print(
+        f"  [categoria-js] urls_livro={len(book_urls)}{extra} "
+        f"(visitou {visited_pages}/{len(categoria_urls)} páginas de categoria)"
+    )
+    reset_fetch_diagnostics()
+    records = _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
+    if FETCH_FAILURE_COUNTS:
+        print(f"  [categoria-js] motivos de falha na extração de página de livro: {FETCH_FAILURE_COUNTS}")
+        for reason, urls in FETCH_FAILURE_SAMPLES.items():
+            print(f"  [categoria-js] exemplos de {reason}: {urls}")
+    return records
+
+
 PLATFORM_COLLECTORS = {
     "shopify": collect_via_shopify,
     "vtex": collect_via_vtex,
     "id_range": collect_via_id_range,
     "sitemap": collect_via_sitemap,
     "html": collect_via_html_crawl,
+    "categoria_js": collect_via_categoria_playwright,
 }
 AUTO_ORDER = ["shopify", "vtex", "id_range", "sitemap", "html"]
 
@@ -1165,7 +1312,13 @@ def diagnose(publisher: dict[str, str]) -> None:
 
 def dump_url(url: str) -> None:
     """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
-    response = fetch_url(url)
+    home = urlparse(url)._replace(path="/", query="").geturl()
+    if home != url:
+        # Visita a home antes: alguns sites (ASP.NET clássico) só liberam rotas
+        # internas depois de um cookie de sessão emitido na primeira resposta —
+        # SESSION (requests.Session) guarda esse cookie para a chamada seguinte.
+        fetch_url(home)
+    response = fetch_url(url, extra_headers={"Referer": home})
     if response is None:
         print(f"  inacessível: {url}")
         return
@@ -1201,6 +1354,22 @@ def dump_url(url: str) -> None:
         idx = text.find(label)
         if idx != -1:
             print(f"    txt~{label}: {text[idx:idx+80]!r}")
+    # hrefs crus (sem os filtros de CRAWL_SKIP_TERMS/harvest_links) — revela para
+    # onde apontam menus de categoria que o crawl normal pode estar descartando.
+    hrefs = []
+    for a in soup.find_all("a", href=True):
+        full = urljoin(url, a["href"]).split("#", 1)[0]
+        if full not in hrefs:
+            hrefs.append(full)
+    print(f"    hrefs brutos: {len(hrefs)} únicos")
+    nao_busca = [h for h in hrefs if "/busca" not in h.lower() and looks_like_book_url(h) is False]
+    selo = [h for h in nao_busca if re.search(r"selo", h, re.I)]
+    outros_padroes = [h for h in nao_busca if h not in selo and not re.search(r"login|carrinho|valepresente|^https://www\.companhiadasletras\.com\.br/$", h, re.I)]
+    print(f"    hrefs SEM /busca, não-livro: {len(nao_busca)} (selo={len(selo)})")
+    for h in selo[:20]:
+        print(f"      [selo] {h}")
+    for h in outros_padroes[:25]:
+        print(f"      [outro] {h}")
 
 
 def main() -> int:

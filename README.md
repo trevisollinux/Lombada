@@ -122,14 +122,58 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 - Editora 34: ~800 livros, ~634 com autor.
 - Descrições (sinopses): ~2.450 obras preenchidas (~87% do catálogo).
-- Companhia das Letras: platô ~255 (sem sitemap; catálogo via JS).
+- Companhia das Letras: **1.366 livros candidatos** descobertos (era platô de
+  ~255) — ver diagnóstico e solução abaixo (`collect_via_categoria_playwright`).
+  Ainda por gravar de fato (rodado só em `dry_run`); e cobertura de autor nas
+  páginas de livro dessa editora ficou baixa (1/171 na amostra) — não
+  investigado ainda.
 
 ## Próximos passos possíveis
 
 - **Record/Sextante (Shopify):** achar o ISBN em outro campo (tags/metafields/
   página do produto) — hoje entram sem ISBN e o `promote` os ignora.
 - **Intrínseca:** descobrir por que a coleta retorna 0.
-- **Companhia das Letras:** usar a API interna (Communiplex) para ir além do
-  platô do crawl HTML.
+- **Companhia das Letras — diagnóstico do platô (~255), feito via `dump_url`
+  no workflow (rede aberta; o sandbox de dev bloqueia o site):**
+  - "Communiplex" é só a agência que hospeda/desenvolve o site (aparece num
+    comentário HTML em toda resposta) — **não é uma plataforma/API conhecida**.
+    Shopify e VTEX voltam HTML puro (não JSON): não achamos API REST exposta.
+  - A **home** (~210KB) tem o mega-menu "COMPRE POR CATEGORIAS" inteiro em
+    HTML estático — 256 dos 433 links são `/Busca?categoria=...`. Testamos
+    seguir esses links (ignorando de propósito o `Disallow: /Busca` do
+    robots.txt) esperando estourar o platô — **piorou**: só 131 livros depois
+    de visitar as 250 páginas de listagem permitidas por execução (contra o
+    platô de ~255). Causa: a **página de resultado** de `/Busca?categoria=...`
+    (diferente do menu) vem com template não renderizado no HTML bruto (ex.:
+    literalmente `"{{ extras.anoMin }}"`, sintaxe Angular) — o grid de livros
+    daquela página é montado via JS/AJAX depois do load, então `requests` só
+    baixa a casca vazia. Ou seja: a intuição antiga de "catálogo carrega via
+    JS" era certa, só errava o ONDE (não é a home, é o resultado da busca).
+    **Revertido** (`harvest_links()` voltou a descartar `/busca` como antes).
+  - Alternativa ainda não resolvida: páginas `/Selo/{nome}` (imprint),
+    linkadas em "Navegue por selos" na home, já são reconhecidas como listagem
+    pelo crawler (`selo` está em `LISTING_TERMS`), sem esbarrar no robots.txt.
+    Mas uma requisição direta a `/Selo/Companhia+das+Letrinhas` devolve
+    `"Erro: Selo inválido"` (19 bytes) mesmo com Referer e cookies de sessão
+    persistidos (`requests.Session`, mantido em `fetch_url`/`SESSION` — ganho
+    real independente do resto). Não decifrado: token/nonce por requisição?
+    nome de selo diferente do esperado? Vale testar outro selo (`/Selo/
+    Escarlate`) ou inspecionar a Network tab de uma navegação real.
+  - **Resolvido:** implementado `collect_via_categoria_playwright()`, isolado
+    só pra essa editora (não afeta as outras). Usa Chromium headless
+    (Playwright) SÓ pra renderizar as páginas `/Busca?categoria=...` e extrair
+    os links `/livro/{isbn}/...` do DOM já processado pelo Angular; as páginas
+    de livro em si continuam via `requests` normal (são estáticas). Registrado
+    como plataforma `"categoria_js"` em `SOURCES`, com fallback pro crawl HTML
+    antigo se o Playwright falhar. Testado ao vivo via `workflow_dispatch`
+    (`dry_run=true`): **218 páginas de categoria visitadas, 1.366 livros
+    candidatos únicos encontrados** — 5x+ o platô anterior. O workflow ganhou
+    um passo `playwright install --with-deps chromium` (só usado por essa
+    editora, mas roda toda vez que o job dispara).
+  - Pendências: cobertura de autor ficou baixa nas páginas de livro dessa
+    editora (1/171 na amostra) — não investigado, possivelmente a extração
+    genérica de autor não reconhece o padrão específico do site. E `/Selo/
+    {nome}` continua retornando `"Erro: Selo inválido"` sem explicação — não
+    bloqueante, já que `categoria_js` resolveu o problema principal.
 - **Sinopse da Editora 34:** se faltar cobertura, extrator dedicado (a sinopse
   está no `h1.parent`, depois dos metadados — mesma técnica do autor).
