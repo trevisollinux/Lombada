@@ -122,14 +122,40 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 - Editora 34: ~800 livros, ~634 com autor.
 - Descrições (sinopses): ~2.450 obras preenchidas (~87% do catálogo).
-- Companhia das Letras: platô ~255 (sem sitemap; catálogo via JS).
+- Companhia das Letras: platô ~255 (ver diagnóstico abaixo — não é limitação de JS).
 
 ## Próximos passos possíveis
 
 - **Record/Sextante (Shopify):** achar o ISBN em outro campo (tags/metafields/
   página do produto) — hoje entram sem ISBN e o `promote` os ignora.
 - **Intrínseca:** descobrir por que a coleta retorna 0.
-- **Companhia das Letras:** usar a API interna (Communiplex) para ir além do
-  platô do crawl HTML.
+- **Companhia das Letras — causa do platô (~255), diagnosticado via `dump_url`
+  no workflow:**
+  - "Communiplex" é só a agência que hospeda/desenvolve o site (aparece num
+    comentário HTML em toda resposta) — **não é uma plataforma/API conhecida**.
+    Os probes de Shopify e VTEX voltam HTML puro (não JSON): não há API REST
+    exposta que a gente tenha achado.
+  - A home (~210KB, HTML estático, sem JS) tem um mega-menu "COMPRE POR
+    CATEGORIAS" com a navegação por categoria **inteira**: 256 dos 433 links
+    da home são `/Busca?categoria=...&subcategoria=...`. **`/Busca` é
+    justamente o path que o `robots.txt` do site proíbe** (`Disallow: /Busca`)
+    — e `CRAWL_SKIP_TERMS` do nosso crawler também descarta qualquer link com
+    `/busca`, então a navegação por categoria nunca é seguida. É essa a causa
+    real do platô, não JS.
+  - Alternativa sem esbarrar no robots.txt: páginas `/Selo/{nome}` (imprint),
+    linkadas em "Navegue por selos" na home, já são reconhecidas como listagem
+    pelo crawler (`selo` está em `LISTING_TERMS`). Só que uma requisição
+    direta a `/Selo/Companhia+das+Letrinhas` devolve `"Erro: Selo inválido"`
+    (19 bytes) mesmo com Referer e com cookies de sessão persistidos
+    (`requests.Session`, já aplicado em `fetch_url`/`SESSION` — ver commit).
+    Não decifrado ainda: pode ser um token/nonce por requisição, um selo
+    inválido especificamente para esse nome, ou outra validação server-side.
+    Vale investigar com `dump_url` em outro selo (ex.: `/Selo/Escarlate`) ou
+    inspecionar a requisição real do navegador (Network tab) pra ver o que
+    de fato é enviado numa navegação legítima.
+  - Decisão em aberto: vale contornar `/Busca` (ignorando o robots.txt) pra
+    alcançar o catálogo completo, ou seguir só por rotas permitidas (`/Selo`,
+    `/colaborador/{id}/{slug}` — páginas de autor, também vistas no dump)?
+    Isso é uma escolha de política de scraping, não só técnica.
 - **Sinopse da Editora 34:** se faltar cobertura, extrator dedicado (a sinopse
   está no `h1.parent`, depois dos metadados — mesma técnica do autor).
