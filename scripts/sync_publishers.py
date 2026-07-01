@@ -1133,6 +1133,18 @@ def dump_url(url: str) -> None:
         value = meta_content(soup, prop)
         if value:
             print(f"    meta[{prop}]={value[:120]}")
+    if soup.title:
+        print(f"    <title>={soup.title.get_text(' ', strip=True)[:140]!r}")
+    for tag in soup.find_all(["h1", "h2", "h3"])[:12]:
+        classe = " ".join(tag.get("class") or [])
+        txt = tag.get_text(" ", strip=True)
+        if txt:
+            print(f"    <{tag.name} class={classe!r}>={txt[:90]!r}")
+    # Elementos cuja classe/id menciona autor/author (onde o nome costuma ficar).
+    for tag in soup.find_all(attrs={"class": re.compile(r"autor|author", re.I)})[:6]:
+        print(f"    .autor <{tag.name} class={' '.join(tag.get('class') or [])!r}>={tag.get_text(' ', strip=True)[:90]!r}")
+    for tag in soup.find_all(attrs={"id": re.compile(r"autor|author", re.I)})[:6]:
+        print(f"    #autor <{tag.name} id={tag.get('id')!r}>={tag.get_text(' ', strip=True)[:90]!r}")
     text = soup.get_text(" ", strip=True)
     for label in ("ISBN", "Autor", "Tradu", "Editora", "Ano"):
         idx = text.find(label)
