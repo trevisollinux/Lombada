@@ -1145,7 +1145,11 @@ def dump_url(url: str) -> None:
         print(f"    .autor <{tag.name} class={' '.join(tag.get('class') or [])!r}>={tag.get_text(' ', strip=True)[:90]!r}")
     for tag in soup.find_all(attrs={"id": re.compile(r"autor|author", re.I)})[:6]:
         print(f"    #autor <{tag.name} id={tag.get('id')!r}>={tag.get_text(' ', strip=True)[:90]!r}")
+    h1 = soup.find("h1")
+    if h1 and h1.parent:
+        print(f"    h1.parent<{h1.parent.name}>={h1.parent.get_text(' ', strip=True)[:280]!r}")
     text = soup.get_text(" ", strip=True)
+    print(f"    txt[:900]={text[:900]!r}")
     for label in ("ISBN", "Autor", "Tradu", "Editora", "Ano"):
         idx = text.find(label)
         if idx != -1:
