@@ -86,6 +86,12 @@ HEADERS = {
     ),
     "X-Contact": "https://github.com/trevisollinux/lombada (LombadaPublisherSync)",
 }
+# Sessão compartilhada: alguns sites (ex.: cia_das_letras, ASP.NET clássico) validam
+# rotas contra um cookie de sessão emitido na primeira resposta (home). requests.get()
+# avulso não carrega cookies entre chamadas — a Session resolve isso e, de quebra,
+# reaproveita conexões HTTP entre as páginas de uma mesma editora.
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
@@ -234,7 +240,7 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
         headers["Accept"] = f"{accept}, */*;q=0.1"
     for attempt in range(MAX_RETRIES):
         try:
-            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            response = SESSION.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
             # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
             # acumular minutos de tempo morto × várias URLs por editora).
@@ -1167,8 +1173,13 @@ def diagnose(publisher: dict[str, str]) -> None:
 
 def dump_url(url: str) -> None:
     """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
-    referer_headers = {"Referer": urlparse(url)._replace(path="/", query="").geturl()}
-    response = fetch_url(url, extra_headers=referer_headers)
+    home = urlparse(url)._replace(path="/", query="").geturl()
+    if home != url:
+        # Visita a home antes: alguns sites (ASP.NET clássico) só liberam rotas
+        # internas depois de um cookie de sessão emitido na primeira resposta —
+        # SESSION (requests.Session) guarda esse cookie para a chamada seguinte.
+        fetch_url(home)
+    response = fetch_url(url, extra_headers={"Referer": home})
     if response is None:
         print(f"  inacessível: {url}")
         return
