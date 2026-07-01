@@ -45,6 +45,7 @@ class Obra(SQLModel, table=True):
     autor:           str           = ""
     idioma_original: str           = ""
     ano:             Optional[int] = None
+    descricao:       str           = ""
 
 
 class Edicao(SQLModel, table=True):
@@ -220,6 +221,8 @@ def migrar():
     else:
         _add_column_if_missing("leitura", "publico", "ALTER TABLE leitura ADD COLUMN publico BOOLEAN NOT NULL DEFAULT 0")
         _add_column_if_missing("leitura", "spoiler", "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0")
+
+    _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
 
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
