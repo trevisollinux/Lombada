@@ -122,40 +122,44 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 - Editora 34: ~800 livros, ~634 com autor.
 - Descrições (sinopses): ~2.450 obras preenchidas (~87% do catálogo).
-- Companhia das Letras: platô ~255 (ver diagnóstico abaixo — não é limitação de JS).
+- Companhia das Letras: platô ~255 (ver diagnóstico abaixo — catálogo profundo
+  ainda carrega via JS, mas não do jeito que a nota antiga supunha).
 
 ## Próximos passos possíveis
 
 - **Record/Sextante (Shopify):** achar o ISBN em outro campo (tags/metafields/
   página do produto) — hoje entram sem ISBN e o `promote` os ignora.
 - **Intrínseca:** descobrir por que a coleta retorna 0.
-- **Companhia das Letras — causa do platô (~255), diagnosticado via `dump_url`
-  no workflow:**
+- **Companhia das Letras — diagnóstico do platô (~255), feito via `dump_url`
+  no workflow (rede aberta; o sandbox de dev bloqueia o site):**
   - "Communiplex" é só a agência que hospeda/desenvolve o site (aparece num
     comentário HTML em toda resposta) — **não é uma plataforma/API conhecida**.
-    Os probes de Shopify e VTEX voltam HTML puro (não JSON): não há API REST
-    exposta que a gente tenha achado.
-  - A home (~210KB, HTML estático, sem JS) tem um mega-menu "COMPRE POR
-    CATEGORIAS" com a navegação por categoria **inteira**: 256 dos 433 links
-    da home são `/Busca?categoria=...&subcategoria=...`. **`/Busca` é
-    justamente o path que o `robots.txt` do site proíbe** (`Disallow: /Busca`)
-    — e `CRAWL_SKIP_TERMS` do nosso crawler também descarta qualquer link com
-    `/busca`, então a navegação por categoria nunca é seguida. É essa a causa
-    real do platô, não JS.
-  - Alternativa sem esbarrar no robots.txt: páginas `/Selo/{nome}` (imprint),
+    Shopify e VTEX voltam HTML puro (não JSON): não achamos API REST exposta.
+  - A **home** (~210KB) tem o mega-menu "COMPRE POR CATEGORIAS" inteiro em
+    HTML estático — 256 dos 433 links são `/Busca?categoria=...`. Testamos
+    seguir esses links (ignorando de propósito o `Disallow: /Busca` do
+    robots.txt) esperando estourar o platô — **piorou**: só 131 livros depois
+    de visitar as 250 páginas de listagem permitidas por execução (contra o
+    platô de ~255). Causa: a **página de resultado** de `/Busca?categoria=...`
+    (diferente do menu) vem com template não renderizado no HTML bruto (ex.:
+    literalmente `"{{ extras.anoMin }}"`, sintaxe Angular) — o grid de livros
+    daquela página é montado via JS/AJAX depois do load, então `requests` só
+    baixa a casca vazia. Ou seja: a intuição antiga de "catálogo carrega via
+    JS" era certa, só errava o ONDE (não é a home, é o resultado da busca).
+    **Revertido** (`harvest_links()` voltou a descartar `/busca` como antes).
+  - Alternativa ainda não resolvida: páginas `/Selo/{nome}` (imprint),
     linkadas em "Navegue por selos" na home, já são reconhecidas como listagem
-    pelo crawler (`selo` está em `LISTING_TERMS`). Só que uma requisição
-    direta a `/Selo/Companhia+das+Letrinhas` devolve `"Erro: Selo inválido"`
-    (19 bytes) mesmo com Referer e com cookies de sessão persistidos
-    (`requests.Session`, já aplicado em `fetch_url`/`SESSION` — ver commit).
-    Não decifrado ainda: pode ser um token/nonce por requisição, um selo
-    inválido especificamente para esse nome, ou outra validação server-side.
-    Vale investigar com `dump_url` em outro selo (ex.: `/Selo/Escarlate`) ou
-    inspecionar a requisição real do navegador (Network tab) pra ver o que
-    de fato é enviado numa navegação legítima.
-  - Decisão em aberto: vale contornar `/Busca` (ignorando o robots.txt) pra
-    alcançar o catálogo completo, ou seguir só por rotas permitidas (`/Selo`,
-    `/colaborador/{id}/{slug}` — páginas de autor, também vistas no dump)?
-    Isso é uma escolha de política de scraping, não só técnica.
+    pelo crawler (`selo` está em `LISTING_TERMS`), sem esbarrar no robots.txt.
+    Mas uma requisição direta a `/Selo/Companhia+das+Letrinhas` devolve
+    `"Erro: Selo inválido"` (19 bytes) mesmo com Referer e cookies de sessão
+    persistidos (`requests.Session`, mantido em `fetch_url`/`SESSION` — ganho
+    real independente do resto). Não decifrado: token/nonce por requisição?
+    nome de selo diferente do esperado? Vale testar outro selo (`/Selo/
+    Escarlate`) ou inspecionar a Network tab de uma navegação real.
+  - **Conclusão:** pra ir além do platô por essa via, provavelmente precisa de
+    um browser headless (Playwright/Selenium) que execute o JS da página de
+    resultado — bem mais pesado que o `requests`+`BeautifulSoup` atual, e só
+    valeria a pena pra essa editora especificamente. Não implementado; decisão
+    de investir nisso fica em aberto.
 - **Sinopse da Editora 34:** se faltar cobertura, extrator dedicado (a sinopse
   está no `h1.parent`, depois dos metadados — mesma técnica do autor).
