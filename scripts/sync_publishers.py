@@ -223,9 +223,11 @@ def ensure_connection(conn):
     return connect_database()
 
 
-def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
+def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None) -> requests.Response | None:
     """GET com retry e backoff. Retorna None em falha definitiva (>=400 não-retryável)."""
     headers = dict(HEADERS)
+    if extra_headers:
+        headers.update(extra_headers)
     if accept:
         # Mantém a preferência (json/xml) mas aceita qualquer coisa: alguns servidores
         # (ex.: IIS) devolvem 404/406 a um Accept restritivo e escondem o sitemap.
@@ -1165,7 +1167,8 @@ def diagnose(publisher: dict[str, str]) -> None:
 
 def dump_url(url: str) -> None:
     """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
-    response = fetch_url(url)
+    referer_headers = {"Referer": urlparse(url)._replace(path="/", query="").geturl()}
+    response = fetch_url(url, extra_headers=referer_headers)
     if response is None:
         print(f"  inacessível: {url}")
         return
