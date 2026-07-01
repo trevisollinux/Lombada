@@ -1209,12 +1209,14 @@ def dump_url(url: str) -> None:
         if full not in hrefs:
             hrefs.append(full)
     print(f"    hrefs brutos: {len(hrefs)} únicos")
-    suspeitos = [h for h in hrefs if re.search(r"busca|categoria|selo|assunto|colecao", h, re.I)]
-    print(f"    hrefs suspeitos (busca/categoria/selo/assunto/colecao): {len(suspeitos)}")
-    for h in suspeitos[:25]:
-        print(f"      {h}")
-    for h in hrefs[:20]:
-        print(f"      * {h}")
+    nao_busca = [h for h in hrefs if "/busca" not in h.lower() and looks_like_book_url(h) is False]
+    selo = [h for h in nao_busca if re.search(r"selo", h, re.I)]
+    outros_padroes = [h for h in nao_busca if h not in selo and not re.search(r"login|carrinho|valepresente|^https://www\.companhiadasletras\.com\.br/$", h, re.I)]
+    print(f"    hrefs SEM /busca, não-livro: {len(nao_busca)} (selo={len(selo)})")
+    for h in selo[:20]:
+        print(f"      [selo] {h}")
+    for h in outros_padroes[:25]:
+        print(f"      [outro] {h}")
 
 
 def main() -> int:
