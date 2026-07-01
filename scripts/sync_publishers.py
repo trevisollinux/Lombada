@@ -231,6 +231,20 @@ def ensure_connection(conn):
     return connect_database()
 
 
+# Diagnóstico: por que extract_page() volta None em tanta URL (ex.: cia_das_letras
+# teve 171/1264 de sucesso). Contadores globais, resetados por chamador via
+# reset_fetch_diagnostics() — não custa nada às outras editoras.
+FETCH_FAILURE_COUNTS: dict[str, int] = {}
+
+
+def reset_fetch_diagnostics() -> None:
+    FETCH_FAILURE_COUNTS.clear()
+
+
+def _record_fetch_failure(reason: str) -> None:
+    FETCH_FAILURE_COUNTS[reason] = FETCH_FAILURE_COUNTS.get(reason, 0) + 1
+
+
 def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None) -> requests.Response | None:
     """GET com retry e backoff. Retorna None em falha definitiva (>=400 não-retryável)."""
     headers = dict(HEADERS)
@@ -247,11 +261,13 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
             # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
             # acumular minutos de tempo morto × várias URLs por editora).
             print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
+            _record_fetch_failure(f"exception:{type(exc).__name__}")
             return None
         if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
             time.sleep(2 ** attempt)
             continue
         if response.status_code >= 400:
+            _record_fetch_failure(f"status:{response.status_code}")
             return None
         return response
     return None
@@ -618,6 +634,9 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
         or extract_isbn(raw_text)
     )
     year = extract_year(first_text(bookish.get("datePublished")) or raw_text)
+
+    if not title.strip():
+        _record_fetch_failure("titulo_vazio")
 
     return build_record(
         publisher,
@@ -1116,7 +1135,11 @@ def collect_via_categoria_playwright(
         f"  [categoria-js] urls_livro={len(book_urls)}{extra} "
         f"(visitou {visited_pages}/{len(categoria_urls)} páginas de categoria)"
     )
-    return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
+    reset_fetch_diagnostics()
+    records = _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
+    if FETCH_FAILURE_COUNTS:
+        print(f"  [categoria-js] motivos de falha na extração de página de livro: {FETCH_FAILURE_COUNTS}")
+    return records
 
 
 PLATFORM_COLLECTORS = {
