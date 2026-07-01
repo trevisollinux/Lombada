@@ -386,6 +386,51 @@ def extract_author_from_soup(soup: BeautifulSoup, bookish: dict[str, Any]) -> st
     return match.group(1).strip() if match else ""
 
 
+# Marcadores que, no bloco do título da Editora 34, vêm DEPOIS do nome do autor
+# (o layout é: "{título} {autor} Tradução de ... ISBN ... {ano}"). O autor é o
+# trecho entre o fim do título e o primeiro destes marcadores (ou o 1º dígito).
+_ED34_MARCADOR = re.compile(
+    r"(Tradu[çc][ãa]o|Ilustra[çc][õo]es|Organiza[çc][ãa]o|Sele[çc][ãa]o|"
+    r"Introdu[çc][ãa]o|Pref[áa]cio|Posf[áa]cio|Apresenta[çc][ãa]o|Notas|"
+    r"Edi[çc][ãa]o|Cole[çc][ãa]o|ISBN|R\$|\d|—)",
+    re.I,
+)
+# Primeira palavra que denuncia subtítulo (não é nome de autor).
+_ED34_NAO_AUTOR = {
+    "poemas", "poema", "poesia", "poesias", "contos", "conto", "antologia",
+    "obras", "obra", "romance", "romances", "ensaios", "ensaio", "cartas",
+    "teatro", "crônicas", "cronicas", "diário", "diario", "volume", "novelas",
+    "novela", "correspondência", "correspondencia", "memórias", "memorias",
+}
+
+
+def autor_editora34(soup: BeautifulSoup) -> str:
+    """Extrai o autor no layout da Editora 34, que não tem JSON-LD/meta/label.
+
+    No container (parent) do <h1> o texto é "{título} {autor} Tradução de ...";
+    então tiramos o título do começo e pegamos o trecho até o primeiro marcador
+    de metadado da edição. Livros só "organizados" (sem autor) caem para "".
+    """
+    h1 = soup.find("h1")
+    if not h1 or not h1.parent:
+        return ""
+    titulo = " ".join(h1.get_text(" ", strip=True).split())
+    bloco = " ".join(h1.parent.get_text(" ", strip=True).split())
+    if not titulo or not bloco.lower().startswith(titulo.lower()):
+        return ""
+    resto = bloco[len(titulo):].strip()
+    m = _ED34_MARCADOR.search(resto)
+    autor = (resto[:m.start()] if m else resto).strip(" -–—·|,;").strip()
+    if not (2 <= len(autor) <= 60 and re.match(r"[A-ZÀ-Ý]", autor)):
+        return ""
+    # Rejeita subtítulos que vazam pro lugar do autor (o h1 traz só o título
+    # principal): "Poemas escolhidos ...", "Contos reunidos ...", "Antologia ...".
+    primeira = autor.split()[0].lower()
+    if primeira in _ED34_NAO_AUTOR or re.search(r"\b(escolhid|reunid|complet|selecionad)", autor, re.I):
+        return ""
+    return autor
+
+
 def clean_title(title: str, publisher_name: str) -> str:
     """Remove segmentos finais com o nome/branding da editora (og:title/<title>)."""
     title = " ".join((title or "").split())
@@ -534,6 +579,8 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
 
     title = first_text(bookish.get("name") or bookish.get("headline"))
     author = extract_author_from_soup(soup, bookish)
+    if not author and publisher.get("slug") == "editora_34":
+        author = autor_editora34(soup)
     thumbnail = first_text(bookish.get("image"))
     description = first_text(bookish.get("description"))
 
@@ -1133,7 +1180,23 @@ def dump_url(url: str) -> None:
         value = meta_content(soup, prop)
         if value:
             print(f"    meta[{prop}]={value[:120]}")
+    if soup.title:
+        print(f"    <title>={soup.title.get_text(' ', strip=True)[:140]!r}")
+    for tag in soup.find_all(["h1", "h2", "h3"])[:12]:
+        classe = " ".join(tag.get("class") or [])
+        txt = tag.get_text(" ", strip=True)
+        if txt:
+            print(f"    <{tag.name} class={classe!r}>={txt[:90]!r}")
+    # Elementos cuja classe/id menciona autor/author (onde o nome costuma ficar).
+    for tag in soup.find_all(attrs={"class": re.compile(r"autor|author", re.I)})[:6]:
+        print(f"    .autor <{tag.name} class={' '.join(tag.get('class') or [])!r}>={tag.get_text(' ', strip=True)[:90]!r}")
+    for tag in soup.find_all(attrs={"id": re.compile(r"autor|author", re.I)})[:6]:
+        print(f"    #autor <{tag.name} id={tag.get('id')!r}>={tag.get_text(' ', strip=True)[:90]!r}")
+    h1 = soup.find("h1")
+    if h1 and h1.parent:
+        print(f"    h1.parent<{h1.parent.name}>={h1.parent.get_text(' ', strip=True)[:280]!r}")
     text = soup.get_text(" ", strip=True)
+    print(f"    txt[:900]={text[:900]!r}")
     for label in ("ISBN", "Autor", "Tradu", "Editora", "Ano"):
         idx = text.find(label)
         if idx != -1:
