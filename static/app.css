@@ -198,10 +198,10 @@ input,textarea,select{font:inherit;color:inherit}
 .rating-field .stars .st{font-size:24px}
 .reading-text-block textarea{min-height:118px;background:color-mix(in srgb,var(--paper),transparent 8%);line-height:1.5}
 .reading-text-block .field,.reading-options-block .field,.edition-relation-block .field{margin-bottom:0}
-.reading-options-block,.edition-relation-block{display:grid;gap:.65rem}
-.check-line{display:flex;align-items:center;gap:.7rem;min-height:44px;padding:.5rem .15rem;color:var(--ink-2);cursor:pointer}
+.reading-options-block,.edition-relation-block{display:grid;gap:.2rem}
+.check-line{display:flex;align-items:center;gap:.7rem;min-height:38px;padding:.3rem .15rem;color:var(--ink-2);cursor:pointer}
 .check-line input{width:20px;height:20px;flex:0 0 20px;accent-color:var(--wine)}
-.option-helper{margin:.1rem 0 .2rem;padding-left:calc(20px + .85rem);font-size:.9rem;color:var(--muted-readable,var(--dim))}
+.option-helper{margin:0 0 .15rem;padding-left:calc(20px + .85rem);font-size:.9rem;color:var(--muted-readable,var(--dim))}
 .reading-submit{min-height:52px;margin-top:.35rem;border-radius:999px;box-shadow:var(--shadow-sm)}
 @media(min-width:520px){
   .reading-secondary-fields{grid-template-columns:minmax(0,1fr) minmax(160px,.9fr);align-items:end}
@@ -213,7 +213,7 @@ input,textarea,select{font:inherit;color:inherit}
   .selected-edition-cover .cover{width:58px}
   .selected-edition-copy h3{font-size:20px}
   .field input[type=text],.field textarea,.field select{font-size:16px}
-  .check-line{min-height:48px}
+  .check-line{min-height:40px}
 }
 
 /* ---------- estante / diário / perfil ---------- */

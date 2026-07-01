@@ -1444,6 +1444,13 @@ def _validar_entrada_leitura(e):
         raise HTTPException(422, "status inválido")
 
 
+def _motivo_db_erro(exc: Exception) -> str:
+    """Resumo curto e legível de um erro do banco (o driver anexa detalhes em .orig)."""
+    origem = getattr(exc, "orig", None) or exc
+    texto = " ".join(str(origem).split())
+    return texto[:180] if texto else exc.__class__.__name__
+
+
 
 
 def _norm_texto(valor):
@@ -1555,7 +1562,10 @@ def adicionar(e: EntradaPrateleira, request: Request, s: Session = Depends(get_s
     except SQLAlchemyError as exc:
         s.rollback()
         logger.exception("reading_save_failed", extra={"usuario_id": u.id})
-        raise HTTPException(500, "erro ao salvar leitura; verifique as migrações do banco")
+        # Devolve o motivo real (curto) além de logar: sem acesso aos logs, era
+        # impossível saber se é tabela faltando, sequence do id, etc.
+        motivo = _motivo_db_erro(exc)
+        raise HTTPException(500, f"erro ao salvar leitura ({motivo}); verifique as migrações do banco")
     return {"leitura_id": leitura.id, "obra_id": obra.id, "edicao_id": edicao.id}
 
 

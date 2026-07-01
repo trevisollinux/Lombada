@@ -89,12 +89,14 @@ HEADERS = {
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
-        # Plataforma custom (Communiplex): sem sitemap/JSON de catálogo, mas a home
-        # lista /livro/{ISBN}/{slug} — crawl de HTML resolve e o ISBN vem da URL.
+        # Plataforma custom (Communiplex): a home lista /livro/{ISBN}/{slug} e o ISBN
+        # vem da URL. O crawl de HTML sozinho empaca (~230 livros) porque o catálogo
+        # profundo carrega via JS. Tenta o sitemap primeiro (se existir, alcança o
+        # catálogo inteiro de uma vez) e cai no crawl como fallback — sem regressão.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platform": "html",
+        "platforms": ["sitemap", "html"],
     },
     {
         "slug": "editora_34",
@@ -103,7 +105,9 @@ SOURCES = [
         "platform": "id_range",
         "id_template": "https://www.editora34.com.br/livro/{id}",
         "id_start": 1,
-        "id_end": 1700,
+        # Faixa ampla: ~40% dos ids são páginas mortas (puladas de graça), então o
+        # teto efetivo de livros reais fica bem abaixo do fim da faixa.
+        "id_end": 3000,
     },
     {
         "slug": "record",
@@ -177,6 +181,46 @@ def connect_database():
     if parsed.scheme not in {"postgresql", "postgres"}:
         raise RuntimeError("DATABASE_URL deve apontar para Postgres/Neon.")
     return psycopg2.connect(normalized_url)
+
+
+def connection_alive(conn) -> bool:
+    """True se a conexão responde a um ping barato (SELECT 1).
+
+    O Neon derruba conexões TCP ociosas e o upsert seguinte estourava com
+    "SSL connection has been closed unexpectedly"; este ping detecta isso. Faz
+    rollback depois para não deixar transação 'idle in transaction' pendurada.
+    """
+    if conn is None or conn.closed:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        conn.rollback()
+        return True
+    except psycopg2.Error:
+        try:
+            conn.rollback()
+        except psycopg2.Error:
+            pass
+        return False
+
+
+def ensure_connection(conn):
+    """Devolve uma conexão VIVA, reabrindo se a atual caiu.
+
+    O scraping de cada editora leva minutos (centenas de páginas com sleep), e a
+    conexão fica ociosa nesse meio-tempo. O Neon encerra conexões ociosas, então
+    chamamos isto logo antes de cada operação de banco para reabrir quando preciso
+    — assim o lote coletado não se perde por uma queda de socket.
+    """
+    if connection_alive(conn):
+        return conn
+    if conn is not None and not conn.closed:
+        try:
+            conn.close()
+        except psycopg2.Error:
+            pass
+    return connect_database()
 
 
 def fetch_url(url: str, accept: str | None = None) -> requests.Response | None:
@@ -930,8 +974,14 @@ def collect_publisher(
     seen: set[str] | None = None,
     offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    platform = publisher.get("platform", "auto")
-    order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
+    # `platforms` (lista) permite uma ordem explícita de métodos com fallback:
+    # ex.: ["sitemap", "html"] tenta o sitemap e, se não render nada, cai no crawl.
+    platforms = publisher.get("platforms")
+    if isinstance(platforms, (list, tuple)) and platforms:
+        order = [p for p in platforms if p in PLATFORM_COLLECTORS]
+    else:
+        platform = publisher.get("platform", "auto")
+        order = [platform] if platform in PLATFORM_COLLECTORS else AUTO_ORDER
     for name in order:
         collector = PLATFORM_COLLECTORS[name]
         try:
@@ -1124,36 +1174,64 @@ def main() -> int:
 
     total_written = 0
     total_collected = 0
+    failures: list[str] = []
     try:
         for publisher in sources:
             print("=" * 60)
             print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
             source = f"publisher:{publisher['slug']}"
-            # No modo faixa não pulamos por "seen" (o usuário escolheu a fatia exata).
-            seen = load_seen_external_ids(conn, source) if (conn and offset is None) else set()
-            if seen:
-                print(f"  já no banco: {len(seen)} (serão pulados)")
-            records = collect_publisher(publisher, max_urls, sleep_seconds, seen, offset)
-            with_isbn = sum(1 for normalized, _ in records if normalized["isbn"])
-            with_author = sum(1 for normalized, _ in records if normalized["author"])
-            print(f"  cobertura: ISBN {with_isbn}/{len(records)} · autor {with_author}/{len(records)}")
-            for normalized, _ in records[:5]:
-                print(
-                    f"   - {normalized['title'][:44]:44} | {normalized['author'][:20]:20} "
-                    f"| isbn={normalized['isbn'] or '-'}"
-                )
-            total_collected += len(records)
-            if records and not dry_run and conn:
-                total_written += upsert_records(conn, records)
+            # Uma editora que falha (queda de socket, erro de parsing) NÃO derruba o
+            # run inteiro: registramos a falha e seguimos para a próxima.
+            try:
+                # No modo faixa não pulamos por "seen" (o usuário escolheu a fatia exata).
+                if conn is not None and offset is None:
+                    conn = ensure_connection(conn)
+                    seen = load_seen_external_ids(conn, source)
+                else:
+                    seen = set()
+                if seen:
+                    print(f"  já no banco: {len(seen)} (serão pulados)")
+                records = collect_publisher(publisher, max_urls, sleep_seconds, seen, offset)
+                with_isbn = sum(1 for normalized, _ in records if normalized["isbn"])
+                with_author = sum(1 for normalized, _ in records if normalized["author"])
+                print(f"  cobertura: ISBN {with_isbn}/{len(records)} · autor {with_author}/{len(records)}")
+                for normalized, _ in records[:5]:
+                    print(
+                        f"   - {normalized['title'][:44]:44} | {normalized['author'][:20]:20} "
+                        f"| isbn={normalized['isbn'] or '-'}"
+                    )
+                total_collected += len(records)
+                if records and not dry_run and conn is not None:
+                    # Reabre a conexão (ela ficou ociosa durante o scraping) ANTES de
+                    # gravar, para o lote não se perder por SSL caído.
+                    conn = ensure_connection(conn)
+                    written = upsert_records(conn, records)
+                    total_written += written
+                    print(f"  gravados: {written}")
+            except Exception as exc:  # noqa: BLE001 — isola a falha de UMA editora
+                print(f"  ERRO em {publisher['slug']}: {exc!r}", file=sys.stderr)
+                failures.append(publisher["slug"])
+                # Reabre a conexão para a próxima editora não herdar um socket morto.
+                if conn is not None:
+                    try:
+                        conn = ensure_connection(conn)
+                    except Exception as reconnect_exc:  # noqa: BLE001
+                        print(f"  reconexão falhou: {reconnect_exc!r}", file=sys.stderr)
+                        conn = None
             print()
     finally:
-        if conn:
+        if conn is not None and not conn.closed:
             conn.close()
 
     if dry_run:
         print(f"DRY_RUN: {total_collected} registros novos coletados, nada gravado.")
     else:
         print(f"{total_written} registros novos salvos em source_records com status=pending.")
+    if failures:
+        # Sai com erro para o job ficar VERMELHO e visível (mas só depois de ter
+        # gravado tudo o que deu — as editoras que funcionaram já estão salvas).
+        print(f"⚠️  {len(failures)} editora(s) com falha: {', '.join(failures)}", file=sys.stderr)
+        return 1
     return 0
 
 
