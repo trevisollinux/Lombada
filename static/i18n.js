@@ -1208,3 +1208,12 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   pwa_app_label: 'App', pwa_install_message: 'Instala Lombada para usarla como app en el celular.', pwa_install_action: 'Instalar Lombada', pwa_install_dismiss: 'Ahora no', pwa_installed: 'Lombada instalada.', pwa_update_available: 'Hay una nueva versión de Lombada.', pwa_update_action: 'Actualizar', pwa_update_installed: 'Actualización instalada.', confirm_removal: 'confirmar eliminación'
 });
+Object.assign(I18N['pt-BR'], {
+  reading_on_lombada_one: 'leitura na Lombada', person_wants_to_read: 'quer ler', sample_profile: 'perfil de exemplo'
+});
+Object.assign(I18N['en'], {
+  reading_on_lombada_one: 'reading on Lombada', person_wants_to_read: 'wants to read', sample_profile: 'sample profile'
+});
+Object.assign(I18N['es'], {
+  reading_on_lombada_one: 'lectura en Lombada', person_wants_to_read: 'quiere leer', sample_profile: 'perfil de ejemplo'
+});
