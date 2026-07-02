@@ -1649,7 +1649,7 @@ async function carregarCapitulosEdicao(form){
     const res=await fetch(`/api/edicoes/${edicaoId}/capitulos`);
     if(!res.ok) return;
     const capitulos=await res.json();
-    datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c)}">`).join('');
+    datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c.titulo)}">`).join('');
   }catch(_){ datalist.dataset.loaded=''; }
 }
 function configurarInputProgressoDiario(form,tipoSeguro){
@@ -1658,11 +1658,14 @@ function configurarInputProgressoDiario(form,tipoSeguro){
   const suffix=form?.querySelector('[data-diary-progress-suffix]');
   if(!valorInput) return;
   const datalist=form.querySelector('[data-diary-chapter-list]');
+  const ordemField=form.querySelector('[data-diary-chapter-order-field]');
   if(tipoSeguro==='capitulo'){
     if(datalist) valorInput.setAttribute('list',datalist.id);
     carregarCapitulosEdicao(form);
+    if(ordemField) ordemField.hidden=false;
   } else {
     valorInput.removeAttribute('list');
+    if(ordemField) ordemField.hidden=true;
   }
   const config={
     pagina:{type:'number',inputmode:'numeric',min:'1',max:'',placeholder:t('diary_page_placeholder'),label:t('diary_page_label'),suffix:''},
@@ -1727,6 +1730,7 @@ function formDiarioHTML(leituraId, entry=null, edicaoId=null){
     <p class="form-helper diary-form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
     <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''}><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div><datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
+    <div class="field diary-chapter-order-field" data-diary-chapter-order-field${tipo==='capitulo'?'':' hidden'}><label class="label" for="diaryChapterOrderInput_${formKey}">${t('diary_chapter_order_label')}</label><input id="diaryChapterOrderInput_${formKey}" data-diary-input="capitulo_ordem" type="number" inputmode="numeric" min="1" step="1" value="${esc(entry?.capitulo_ordem??'')}" placeholder="${t('diary_chapter_order_placeholder')}"></div>
     <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
     <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
     <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}',this)">${t('save_diary')}</button>
@@ -1748,11 +1752,15 @@ function buildDiaryPayload(form){
   const pagina=progresso_tipo==='pagina'&&valorRaw!==''&&Number.isInteger(valorNumber)&&valorNumber>0?valorNumber:null;
   const porcentagem=progresso_tipo==='porcentagem'&&valorRaw!==''&&Number.isFinite(valorNumber)&&valorNumber>=0&&valorNumber<=100?valorNumber:null;
   const capitulo=progresso_tipo==='capitulo'?valorRaw:'';
+  const ordemRaw=(campo('capitulo_ordem')?.value||'').trim();
+  const ordemNumber=Number(ordemRaw);
+  const capitulo_ordem=progresso_tipo==='capitulo'&&ordemRaw!==''&&Number.isInteger(ordemNumber)&&ordemNumber>0?ordemNumber:null;
   return {
     progresso_tipo,
     pagina,
     porcentagem,
     capitulo,
+    capitulo_ordem,
     nota:(campo('nota')?.value||'').trim(),
     publico:!!campo('publico')?.checked,
     spoiler:!!campo('spoiler')?.checked

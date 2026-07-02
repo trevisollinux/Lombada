@@ -82,11 +82,25 @@ class ReadingJournalEntry(SQLModel, table=True):
     pagina: Optional[int] = None
     porcentagem: Optional[int] = None
     capitulo: str = ""
+    capitulo_ordem: Optional[int] = None
     nota: str = ""
     publico: bool = Field(default=False, index=True)
     spoiler: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EdicaoCapitulo(SQLModel, table=True):
+    """Sumário (tabela de capítulos) de uma edição — construído aos poucos, seja
+    por leitores registrando progresso com posição (fonte='comunidade'), seja por
+    sincronização de metadado externo (fonte='openlibrary'). Alimenta o
+    autocomplete/seletor de capítulo no diário de leitura."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    edicao_id: int = Field(foreign_key="edicao.id", index=True)
+    ordem: int
+    titulo: str
+    fonte: str = Field(default="comunidade")
+    criado_em: datetime = Field(default_factory=datetime.utcnow)
 
 
 class UserEdition(SQLModel, table=True):
@@ -223,6 +237,7 @@ def migrar():
         _add_column_if_missing("leitura", "spoiler", "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0")
 
     _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
+    _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
 
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
@@ -265,6 +280,8 @@ def migrar():
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_leitura_id ON readingjournalentry (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_usuario_id ON readingjournalentry (usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_created_at ON readingjournalentry (created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_edicaocapitulo_edicao_id ON edicaocapitulo (edicao_id)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_edicaocapitulo_pos ON edicaocapitulo (edicao_id, ordem)",
     ]
     for ddl in ddls:
         _run_ddl("index/social", ddl)

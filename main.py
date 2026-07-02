@@ -27,7 +27,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, BuscaCache, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
@@ -1293,6 +1293,7 @@ class DiarioPayload(BaseModel):
     pagina: Optional[int] = None
     porcentagem: Optional[float] = None
     capitulo: str = ""
+    capitulo_ordem: Optional[int] = None
     nota: str = ""
     publico: bool = False
     spoiler: bool = False
@@ -1314,10 +1315,12 @@ def _validar_diario(payload: DiarioPayload) -> dict:
     porcentagem = data.get("porcentagem")
     nota = _clean_text(data.get("nota", ""), 2000)
     capitulo = _clean_text(data.get("capitulo", ""), 120)
+    capitulo_ordem = data.get("capitulo_ordem")
 
     pagina_valida = pagina is not None and pagina > 0
     porcentagem_valida = porcentagem is not None and 0 <= porcentagem <= 100
     capitulo_valido = bool(capitulo)
+    capitulo_ordem_valida = capitulo_ordem is not None and capitulo_ordem > 0
 
     if pagina is not None and not pagina_valida:
         raise HTTPException(422, "informe um progresso ou uma anotação")
@@ -1331,6 +1334,7 @@ def _validar_diario(payload: DiarioPayload) -> dict:
         "pagina": pagina if tipo == "pagina" and pagina_valida else None,
         "porcentagem": porcentagem if tipo == "porcentagem" and porcentagem_valida else None,
         "capitulo": capitulo if tipo in {"capitulo", "livre"} and capitulo_valido else "",
+        "capitulo_ordem": capitulo_ordem if tipo == "capitulo" and capitulo_valido and capitulo_ordem_valida else None,
         "nota": nota,
         "publico": bool(data.get("publico", False)),
         "spoiler": bool(data.get("spoiler", False))
@@ -1340,10 +1344,30 @@ def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Ed
     return {
         "id": entry.id, "leitura_id": entry.leitura_id, "progresso_tipo": entry.progresso_tipo,
         "pagina": entry.pagina, "porcentagem": entry.porcentagem, "capitulo": entry.capitulo,
+        "capitulo_ordem": entry.capitulo_ordem,
         "nota": entry.nota, "publico": bool(entry.publico), "spoiler": bool(entry.spoiler),
         "created_at": entry.created_at.isoformat(), "updated_at": entry.updated_at.isoformat(),
         **({"status": l.status, "titulo": o.titulo, "autor": o.autor, "capa_url": ed.capa_url} if l and ed and o else {}),
     }
+
+
+def _registrar_capitulo_sumario(edicao_id: int, ordem: int | None, titulo: str, s: Session, fonte: str = "comunidade") -> None:
+    """Registra uma posição no sumário da edição (primeira vez escreve, não sobrescreve
+    contribuição já existente na mesma posição — sem moderação ainda, então evita
+    disputa de edição; a leitura de /capitulos já cai pro fallback por popularidade
+    onde o sumário estruturado estiver incompleto)."""
+    if not ordem or not titulo:
+        return
+    ja_existe = s.exec(
+        select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id, EdicaoCapitulo.ordem == ordem)
+    ).first()
+    if ja_existe:
+        return
+    try:
+        s.add(EdicaoCapitulo(edicao_id=edicao_id, ordem=ordem, titulo=titulo, fonte=fonte))
+        s.commit()
+    except SQLAlchemyError:
+        s.rollback()
 
 
 @app.get("/api/leitura/{leitura_id}/diario")
@@ -1356,9 +1380,18 @@ def listar_diario_leitura(leitura_id: int, request: Request, s: Session = Depend
 
 @app.get("/api/edicoes/{edicao_id}/capitulos")
 def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
-    """Capítulos que leitores já digitaram pra esta edição (progresso_tipo='capitulo'),
-    por popularidade — alimenta o autocomplete do diário. Cresce sozinho com o uso;
-    não depende de sumário estruturado da editora (que a gente não tem)."""
+    """Sumário da edição pro autocomplete/seletor de capítulo no diário.
+
+    Prioridade: sumário estruturado (EdicaoCapitulo, ordenado — comunidade ou
+    Open Library) e, só onde a posição ainda não foi preenchida, cai pro
+    fallback antigo (capítulos que leitores digitaram sem posição, por
+    popularidade). Cresce sozinho com o uso; não depende de a editora publicar
+    um sumário (a maioria não publica)."""
+    estruturado = s.exec(
+        select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id).order_by(EdicaoCapitulo.ordem)
+    ).all()
+    if estruturado:
+        return [{"titulo": c.titulo, "ordem": c.ordem, "fonte": c.fonte} for c in estruturado]
     rows = s.exec(
         select(ReadingJournalEntry.capitulo, func.count())
         .join(Leitura, ReadingJournalEntry.leitura_id == Leitura.id)
@@ -1371,7 +1404,7 @@ def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
         .order_by(func.count().desc())
         .limit(50)
     ).all()
-    return [capitulo for capitulo, _contagem in rows]
+    return [{"titulo": capitulo, "ordem": None, "fonte": "comunidade"} for capitulo, _contagem in rows]
 
 
 @app.get("/api/diario")
@@ -1391,7 +1424,7 @@ def listar_diario_usuario(request: Request, s: Session = Depends(get_session)):
 @app.post("/api/leitura/{leitura_id}/diario")
 def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    _leitura_do_usuario(leitura_id, u.id, s)
+    leitura = _leitura_do_usuario(leitura_id, u.id, s)
     data = _validar_diario(payload)
     entry = ReadingJournalEntry(leitura_id=leitura_id, usuario_id=u.id, **data)
     try:
@@ -1400,6 +1433,7 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
         s.rollback()
         logger.exception("diary_create_failed", extra={"leitura_id": leitura_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
+    _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s)
     return _diario_payload(entry)
 
 
@@ -1419,6 +1453,9 @@ def editar_diario(entrada_id: int, payload: DiarioPayload, request: Request, s: 
         s.rollback()
         logger.exception("diary_update_failed", extra={"entrada_id": entrada_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
+    leitura = s.get(Leitura, entry.leitura_id)
+    if leitura:
+        _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s)
     return _diario_payload(entry)
 
 

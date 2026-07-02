@@ -868,6 +868,7 @@ body.theme-dark select:-webkit-autofill{
   transition:background-color 9999s ease-out 0s;
 }
 .diary-progress-field[hidden]{display:none!important}
+.diary-chapter-order-field[hidden]{display:none!important}
 
 /* diário — campo único de progresso */
 .diary-progress-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
