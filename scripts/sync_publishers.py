@@ -701,7 +701,16 @@ def collect_via_shopify(
             if offset is None and stable_external_id(url) in seen:
                 continue  # incremental: já ingerido em run anterior
             variants = product.get("variants") or []
-            isbn = next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+            description = BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600]
+            # barcode é o campo "certo", mas muita loja de livro (ex.: record.com.br)
+            # deixa barcode vazio e põe o ISBN no sku da variante — cai pra descrição
+            # e pra própria URL só como último recurso.
+            isbn = (
+                next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+                or next((norm_isbn(v.get("sku")) for v in variants if norm_isbn(v.get("sku"))), "")
+                or extract_isbn(description)
+                or isbn_from_url(url)
+            )
             images = product.get("images") or []
             thumbnail = (images[0].get("src") if images else "") or ""
             year = extract_year(str(product.get("published_at") or ""))
@@ -713,7 +722,7 @@ def collect_via_shopify(
                 isbn=isbn,
                 year=year,
                 thumbnail=thumbnail,
-                description=BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600],
+                description=description,
                 structured=True,
                 raw_extra={"platform": "shopify", "product_id": product.get("id")},
             )
