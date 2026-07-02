@@ -1354,6 +1354,26 @@ def listar_diario_leitura(leitura_id: int, request: Request, s: Session = Depend
     return [_diario_payload(e) for e in entries]
 
 
+@app.get("/api/edicoes/{edicao_id}/capitulos")
+def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
+    """Capítulos que leitores já digitaram pra esta edição (progresso_tipo='capitulo'),
+    por popularidade — alimenta o autocomplete do diário. Cresce sozinho com o uso;
+    não depende de sumário estruturado da editora (que a gente não tem)."""
+    rows = s.exec(
+        select(ReadingJournalEntry.capitulo, func.count())
+        .join(Leitura, ReadingJournalEntry.leitura_id == Leitura.id)
+        .where(
+            Leitura.edicao_id == edicao_id,
+            ReadingJournalEntry.progresso_tipo == "capitulo",
+            ReadingJournalEntry.capitulo != "",
+        )
+        .group_by(ReadingJournalEntry.capitulo)
+        .order_by(func.count().desc())
+        .limit(50)
+    ).all()
+    return [capitulo for capitulo, _contagem in rows]
+
+
 @app.get("/api/diario")
 def listar_diario_usuario(request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
