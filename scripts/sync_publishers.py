@@ -675,6 +675,30 @@ def norm_isbn(value: Any) -> str:
     return ""
 
 
+def _isbn_de_variantes(variants: list[dict[str, Any]]) -> str:
+    return (
+        next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+        or next((norm_isbn(v.get("sku")) for v in variants if norm_isbn(v.get("sku"))), "")
+    )
+
+
+def _isbn_via_produto_unico(base_url: str, handle: str, sleep_seconds: float) -> str:
+    """Fallback quando a listagem em lote (/products.json) não trouxe barcode/sku —
+    algumas lojas (ex.: sextante.com.br) omitem barcode do endpoint de listagem mas
+    incluem no endpoint de produto único (/products/{handle}.json). 1 request a mais
+    só quando os outros sinais falharam, então não pesa nas lojas que já funcionam
+    (ex.: record.com.br) via listagem."""
+    if not handle:
+        return ""
+    data = fetch_json(f"{base_url}/products/{handle}.json")
+    if sleep_seconds:
+        time.sleep(sleep_seconds / 4)
+    if not isinstance(data, dict):
+        return ""
+    variants = (data.get("product") or {}).get("variants") or []
+    return _isbn_de_variantes(variants)
+
+
 def collect_via_shopify(
     publisher: dict[str, str],
     max_urls: int,
@@ -697,11 +721,22 @@ def collect_via_shopify(
             index += 1
             if offset is not None and index < offset:
                 continue  # ainda antes da faixa pedida
-            url = f"{base_url}/products/{product.get('handle', '')}"
+            handle = product.get("handle", "")
+            url = f"{base_url}/products/{handle}"
             if offset is None and stable_external_id(url) in seen:
                 continue  # incremental: já ingerido em run anterior
             variants = product.get("variants") or []
-            isbn = next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+            description = BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600]
+            # barcode é o campo "certo", mas muita loja de livro (ex.: record.com.br)
+            # deixa barcode vazio e põe o ISBN no sku da variante — cai pra descrição,
+            # depois pro endpoint de produto único (mais lento, só quando precisa) e
+            # pra própria URL só como último recurso.
+            isbn = (
+                _isbn_de_variantes(variants)
+                or extract_isbn(description)
+                or _isbn_via_produto_unico(base_url, handle, sleep_seconds)
+                or isbn_from_url(url)
+            )
             images = product.get("images") or []
             thumbnail = (images[0].get("src") if images else "") or ""
             year = extract_year(str(product.get("published_at") or ""))
@@ -713,7 +748,7 @@ def collect_via_shopify(
                 isbn=isbn,
                 year=year,
                 thumbnail=thumbnail,
-                description=BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600],
+                description=description,
                 structured=True,
                 raw_extra={"platform": "shopify", "product_id": product.get("id")},
             )
@@ -1310,6 +1345,23 @@ def diagnose(publisher: dict[str, str]) -> None:
         break
 
 
+def _iter_json_paths(payload: Any, key: tuple[str, ...]):
+    """Acha listas em `payload[key[0]][key[1]]...` não importa o quão fundo
+    estejam aninhadas (ex.: {"product": {"variants": [...]}} ou {"variants": [...]})."""
+    if isinstance(payload, dict):
+        if key[0] in payload:
+            found = payload[key[0]]
+            if len(key) == 1 and isinstance(found, list):
+                yield from found
+                return
+            yield from _iter_json_paths(found, key[1:] if len(key) > 1 else key)
+        for value in payload.values():
+            yield from _iter_json_paths(value, key)
+    elif isinstance(payload, list):
+        for item in payload:
+            yield from _iter_json_paths(item, key)
+
+
 def dump_url(url: str) -> None:
     """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
     home = urlparse(url)._replace(path="/", query="").geturl()
@@ -1322,8 +1374,21 @@ def dump_url(url: str) -> None:
     if response is None:
         print(f"  inacessível: {url}")
         return
-    soup = BeautifulSoup(response.text, "html.parser")
     print(f"  URL {url} ({len(response.text)} bytes)")
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if payload is not None:
+        # Endpoint JSON (ex.: {handle}.json do Shopify) — mostra campos que
+        # costumam guardar o ISBN (barcode/sku), que o texto[:900] recortado
+        # pode não alcançar.
+        print(f"  JSON top-level keys={sorted(payload.keys()) if isinstance(payload, dict) else type(payload)}")
+        for variant in _iter_json_paths(payload, ("variants",)):
+            print(f"    variant: barcode={variant.get('barcode')!r} sku={variant.get('sku')!r} title={variant.get('title')!r}")
+        print(f"    json[:2000]={json.dumps(payload, ensure_ascii=False)[:2000]!r}")
+        return
+    soup = BeautifulSoup(response.text, "html.parser")
     json_ld = load_json_ld(soup)
     print(f"  JSON-LD blocos={len(json_ld)}")
     for obj in list(iter_json_objects(json_ld))[:8]:
