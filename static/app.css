@@ -157,6 +157,8 @@ input,textarea,select{font:inherit;color:inherit}
 .edition-cover .cover-art-title{font-size:11px;line-height:1.04}
 .edition-body{min-width:0}
 .edition .pub{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink)}
+.publisher-link{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--rule)}
+.publisher-link:hover,.publisher-link:focus-visible{text-decoration-color:currentColor}
 .edition .te{font-family:"Fraunces",serif;font-style:italic;font-size:17px;margin-top:4px}
 .edition .tr{margin-top:6px;font-size:14px}
 .edition .tr b{font-weight:500;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:1px}

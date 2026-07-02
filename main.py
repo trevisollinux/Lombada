@@ -32,6 +32,7 @@ from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
+from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
@@ -1013,37 +1014,9 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Sessi
             raise HTTPException(502, "busca indisponível")
 
 
-def _slug_editora(valor: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", _normalizar_busca(valor)).strip("-")
-    return slug or "editora"
-
-
 @app.get("/api/editoras")
-def listar_editoras(s: Session = Depends(get_session)):
-    agregadas: dict[str, dict] = {}
-    rows = s.exec(select(Edicao).where(Edicao.editora != "")).all()
-    for ed in rows:
-        nome = (ed.editora or "").strip()
-        if not nome:
-            continue
-        chave = _normalizar_busca(nome)
-        item = agregadas.setdefault(chave, {
-            "editora": nome, "slug": _slug_editora(nome), "obras": set(), "edicoes_count": 0,
-            "com_capa_count": 0, "com_isbn_count": 0,
-        })
-        if len(nome) < len(item["editora"]):
-            item["editora"] = nome
-            item["slug"] = _slug_editora(nome)
-        item["obras"].add(ed.obra_id)
-        item["edicoes_count"] += 1
-        item["com_capa_count"] += 1 if ed.capa_url else 0
-        item["com_isbn_count"] += 1 if ed.isbn else 0
-    saida = [{
-        "editora": item["editora"], "slug": item["slug"], "obras_count": len(item["obras"]),
-        "edicoes_count": item["edicoes_count"], "com_capa_count": item["com_capa_count"],
-        "com_isbn_count": item["com_isbn_count"],
-    } for item in agregadas.values()]
-    return sorted(saida, key=lambda item: (-item["obras_count"], item["editora"].lower()))
+def api_listar_editoras(s: Session = Depends(get_session)):
+    return listar_editoras(s)
 
 
 @app.get("/api/edicoes")
@@ -1867,6 +1840,25 @@ def estante_publica(handle: str, request: Request, s: Session = Depends(get_sess
         return HTMLResponse(_pagina("estante não encontrada · Lombada", corpo), status_code=404)
     atual = usuario_sessao(request, s)
     return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id), _profile_social_payload(s, u, atual)))
+
+
+# ─── páginas das editoras ─────────────────────────────────
+@app.get("/editoras")
+def indice_editoras(s: Session = Depends(get_session)):
+    return HTMLResponse(render_indice_editoras(listar_editoras(s)))
+
+
+@app.get("/editora/{slug}")
+def pagina_editora(slug: str, s: Session = Depends(get_session)):
+    dados = dados_editora(s, slug.lower().strip())
+    if not dados:
+        corpo = (
+            '<div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+            '<div class="empty">essa editora ainda não está no catálogo.</div>'
+            '<a class="cta" href="/editoras">ver todas as editoras →</a>'
+        )
+        return HTMLResponse(_pagina("editora não encontrada · Lombada", corpo), status_code=404)
+    return HTMLResponse(render_pagina_editora(dados))
 
 
 
