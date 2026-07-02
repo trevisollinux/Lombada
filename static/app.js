@@ -110,6 +110,15 @@ function setupGlobalKeyboard(){
 }
 setupGlobalKeyboard();
 
+// o form do diário nasce no modo página; ao primeiro foco busca o total de
+// páginas da edição (catálogo → pergunta única) pra mostrar "de N" e a barra
+document.addEventListener('focusin',event=>{
+  const form=event.target?.closest?.('[data-diary-form]');
+  if(!form) return;
+  const tipo=form.querySelector('[data-diary-input="tipo"]')?.value||'pagina';
+  if(tipo==='pagina') carregarTotalPaginas(form);
+});
+
 function temaInicial(){
   const salvo=localStorage.getItem(THEME_KEY);
   return salvo==='light'?'light':'dark';
@@ -1453,6 +1462,7 @@ async function salvar(event){
     ol_edition_key:edicaoSel.ol_edition_key||null, editora:edicaoSel.editora||'',
     tradutor:edicaoSel.tradutor||'', isbn:edicaoSel.isbn||'', idioma:edicaoSel.idioma||'',
     ano_edicao:edicaoSel.ano||null, capa_url:edicaoSel.capa_url||escolha.capa_url||'',
+    paginas:Number(edicaoSel.paginas)>0?Number(edicaoSel.paginas):null,
     status:$('#f_status').value, nota:$('#f_status').value==='Quero ler'?null:(notaSel||null),
     relato:$('#f_relato').value.trim(), publico:$('#f_publico').checked, spoiler:$('#f_spoiler').checked, data:$('#f_data').value.trim(),
     tenho_edicao:$('#f_tenho')?.checked||false, quero_edicao:$('#f_quero')?.checked||false
@@ -1525,6 +1535,7 @@ function abrirManual(event){
         <div class="field"><label class="label">${t('language_field')}</label><input type="text" id="m_idioma" /></div></div>
         <div class="row"><div class="field"><label class="label">${t('edition_year')}</label><input type="text" id="m_ano_edicao" /></div>
         <div class="field"><label class="label">${t('cover_url')}</label><input type="text" id="m_capa_url" value="${esc(capaManual)}" /></div></div>
+        <div class="row"><div class="field"><label class="label">${t('edition_pages_label')}</label><input type="number" inputmode="numeric" min="1" step="1" id="m_paginas" /></div><div class="field"></div></div>
       </div>
       <div class="form-block"><div class="label">${t('your_reading')}</div>
         <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
@@ -1550,7 +1561,8 @@ async function salvarManual(event){
     titulo, autor, ano_obra:parseInt($('#m_ano_obra').value,10)||null, idioma_original:$('#m_idioma_original').value.trim(),
     titulo_edicao:$('#m_titulo_edicao').value.trim(), editora:$('#m_editora').value.trim(), tradutor:$('#m_tradutor').value.trim(),
     isbn:$('#m_isbn').value.trim(), idioma:$('#m_idioma').value.trim(), ano_edicao:parseInt($('#m_ano_edicao').value,10)||null,
-    capa_url:$('#m_capa_url').value.trim(), status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
+    capa_url:$('#m_capa_url').value.trim(), paginas:parseInt($('#m_paginas').value,10)||null,
+    status:$('#m_status').value, nota:notaSel||null, relato:$('#m_relato').value.trim(), data:$('#m_data').value.trim()
   };
   try{ const r=await fetch('/api/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); }
   catch(e){ console.error('erro ao salvar leitura', e); clearButtonBusy(saveBtn); mostrarErroFormulario(form,t('save_error') || 'não consegui salvar. tenta de novo.'); return; }
@@ -1659,7 +1671,14 @@ function progressoLeitura(l){
   const pct=entradas.find(e=>e.porcentagem!==null&&e.porcentagem!==undefined);
   if(pct) return {texto:t('percent_complete',{count:esc(pct.porcentagem)}),barra:Number(pct.porcentagem)};
   const pag=entradas.find(e=>e.pagina!==null&&e.pagina!==undefined);
-  if(pag) return {texto:t('page_short',{count:esc(pag.pagina)}),barra:null};
+  if(pag){
+    const total=Number(l.paginas)||0;
+    if(total>0&&Number(pag.pagina)<=total){
+      const pct=Math.max(0,Math.min(100,Math.round(Number(pag.pagina)/total*100)));
+      return {texto:`${t('page_of_total',{count:esc(pag.pagina),total})} · ${pct}%`,barra:pct};
+    }
+    return {texto:t('page_short',{count:esc(pag.pagina)}),barra:null};
+  }
   const cap=entradas.find(e=>e.capitulo);
   if(cap) return {texto:cap.progresso_tipo==='livre'?esc(cap.capitulo):`${t('chapter')} ${esc(cap.capitulo)}`,barra:null};
   if(l.status==='Lido') return {texto:t('percent_complete',{count:100}),barra:100};
@@ -1679,6 +1698,49 @@ async function carregarCapitulosEdicao(form){
     const capitulos=await res.json();
     datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c.titulo)}">`).join('');
   }catch(_){ datalist.dataset.loaded=''; }
+}
+async function carregarTotalPaginas(form){
+  if(!form||form.dataset.paginasLoaded==='1'||form.dataset.paginasLoading==='1') return;
+  const edicaoId=form.dataset.edicaoId;
+  if(!edicaoId){ form.dataset.paginasLoaded='1'; return; }
+  const local=prateleira.find(l=>String(l.edicao_id)===String(edicaoId));
+  if(Number(local?.paginas)>0){
+    form.dataset.paginasTotal=String(local.paginas);
+    form.dataset.paginasLoaded='1';
+    aplicarTotalPaginas(form);
+    return;
+  }
+  form.dataset.paginasLoading='1';
+  try{
+    const res=await fetch(`/api/edicoes/${edicaoId}/paginas`);
+    if(res.ok){
+      const data=await res.json();
+      if(Number(data?.paginas)>0){
+        form.dataset.paginasTotal=String(data.paginas);
+        if(local) local.paginas=data.paginas;
+      }
+    }
+  }catch(_){}
+  delete form.dataset.paginasLoading;
+  form.dataset.paginasLoaded='1';
+  aplicarTotalPaginas(form);
+}
+function aplicarTotalPaginas(form){
+  if(!form) return;
+  const tipo=form.querySelector('[data-diary-input="tipo"]')?.value||'pagina';
+  const pergunta=form.querySelector('[data-diary-total-field]');
+  if(tipo!=='pagina'){ if(pergunta) pergunta.hidden=true; return; }
+  const total=Number(form.dataset.paginasTotal)||0;
+  const suffix=form.querySelector('[data-diary-progress-suffix]');
+  const valorInput=form.querySelector('[data-diary-input="valor"]');
+  if(total){
+    if(suffix){ suffix.textContent=t('pages_suffix_of',{total}); suffix.hidden=false; }
+    if(valorInput) valorInput.max=String(total);
+    if(pergunta) pergunta.hidden=true;
+  } else if(pergunta){
+    // só pergunta depois que a busca automática falhou — uma vez por edição
+    pergunta.hidden=form.dataset.paginasLoaded!=='1';
+  }
 }
 function configurarInputProgressoDiario(form,tipoSeguro){
   const valorInput=form?.querySelector('[data-diary-input="valor"]');
@@ -1712,6 +1774,8 @@ function configurarInputProgressoDiario(form,tipoSeguro){
     suffix.textContent=config.suffix;
     suffix.hidden=!config.suffix;
   }
+  if(tipoSeguro==='pagina'){ carregarTotalPaginas(form); }
+  aplicarTotalPaginas(form);
   if(tipoSeguro==='pagina'||tipoSeguro==='porcentagem'){
     const numero=Number(valorAtual);
     const valido=valorAtual===''||(Number.isFinite(numero)&&Number.isInteger(numero)&&(tipoSeguro==='pagina'?numero>0:(numero>=0&&numero<=100)));
@@ -1758,6 +1822,7 @@ function formDiarioHTML(leituraId, entry=null, edicaoId=null){
     <p class="form-helper diary-form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
     <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''}><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div><datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
+    <div class="field diary-total-field" data-diary-total-field hidden><label class="label" for="diaryTotalInput_${formKey}">${t('edition_pages_question')}</label><input id="diaryTotalInput_${formKey}" data-diary-input="paginas_total" type="number" inputmode="numeric" min="1" step="1" placeholder="${t('diary_page_placeholder')}"><p class="form-helper">${t('edition_pages_hint')}</p></div>
     <div class="field diary-chapter-order-field" data-diary-chapter-order-field${tipo==='capitulo'?'':' hidden'}><label class="label" for="diaryChapterOrderInput_${formKey}">${t('diary_chapter_order_label')}</label><input id="diaryChapterOrderInput_${formKey}" data-diary-input="capitulo_ordem" type="number" inputmode="numeric" min="1" step="1" value="${esc(entry?.capitulo_ordem??'')}" placeholder="${t('diary_chapter_order_placeholder')}"></div>
     <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
     <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
@@ -1783,12 +1848,16 @@ function buildDiaryPayload(form){
   const ordemRaw=(campo('capitulo_ordem')?.value||'').trim();
   const ordemNumber=Number(ordemRaw);
   const capitulo_ordem=progresso_tipo==='capitulo'&&ordemRaw!==''&&Number.isInteger(ordemNumber)&&ordemNumber>0?ordemNumber:null;
+  const totalRaw=(campo('paginas_total')?.value||'').trim();
+  const totalNumber=Number(totalRaw);
+  const paginas_total=progresso_tipo==='pagina'&&totalRaw!==''&&Number.isInteger(totalNumber)&&totalNumber>0?totalNumber:null;
   return {
     progresso_tipo,
     pagina,
     porcentagem,
     capitulo,
     capitulo_ordem,
+    paginas_total,
     nota:(campo('nota')?.value||'').trim(),
     publico:!!campo('publico')?.checked,
     spoiler:!!campo('spoiler')?.checked
