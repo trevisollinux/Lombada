@@ -528,6 +528,7 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 .edition-group{position:absolute;left:2px;top:6px;z-index:1;padding:2px 6px;border-radius:3px;background:var(--paper);box-shadow:0 0 0 1px var(--rule);font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
 .work-editions .edition.most-read .edition-group{left:8px;color:var(--ink)}
 .edition-stats{margin-top:7px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.06em;color:var(--gold)}
+.edition-stats span.edition-stats-muted{font-style:italic;text-transform:none;letter-spacing:normal;white-space:normal;flex-basis:100%}
 .community-section{margin-top:28px;padding-bottom:8px}
 .community-label{margin:16px 0 8px;color:var(--gold)}
 .reviews-list{display:flex;flex-direction:column;gap:10px}
