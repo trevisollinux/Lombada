@@ -1225,10 +1225,6 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
   color:var(--ink-2);
   font-size:13px;
 }
-.spoiler-box p,
-.review-card.has-spoiler.spoiler-open .spoiler-box p{
-  display:none;
-}
 
 /* Context-specific cover behavior: shelf thumbnails crop like books; share/reading previews can contain. */
 .shelf-list .shelf-cover,

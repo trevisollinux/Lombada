@@ -1169,7 +1169,7 @@ function criticasHTML(){
   const edicaoMeta=c=>[c.status&&statusLabel(c.status),c.edicao?.editora&&`${t('publisher_abbr')} ${c.edicao.editora}`,c.edicao?.tradutor&&`${t('translator_abbr')} ${c.edicao.tradutor}`,c.edicao?.ano,c.data||dataFeed(c.criado_em)].filter(Boolean).map(esc).join(' · ');
   const trecho=c=>{ const txt=(c.relato||'').trim(); return txt.length>180?txt.slice(0,177)+'…':txt; };
   const corpo=c=>c.spoiler
-    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong></div>`
+    ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong>${trecho(c)?`<button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(trecho(c))}</p>`:''}</div>`
     : (trecho(c)?`<p>${esc(trecho(c))}</p>`:'');
   const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   return `<section class="community-section work-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
