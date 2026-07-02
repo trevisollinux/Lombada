@@ -53,11 +53,11 @@ campos vazios, nunca sobrescreve).
 
 | slug | método | observações |
 |---|---|---|
-| `cia_das_letras` | `["sitemap","html"]` | Sem sitemap → cai no crawl HTML, que empaca (~255): catálogo carrega via JS. |
+| `cia_das_letras` | `["sitemap","categoria_js","html"]` | Sem sitemap → categoria via Playwright (resolve o platô de ~255, ver "Status atual"), com fallback pro crawl HTML. |
 | `editora_34` | `id_range` 1–3000 | ~800 livros. Sem JSON-LD/meta; autor e sinopse ficam no bloco do `<h1>` (extrator dedicado `autor_editora34()`). |
-| `record`, `sextante` | `auto` → Shopify | ⚠️ `barcode`/ISBN vem vazio; sem ISBN o `promote` não cria a edição. |
+| `record`, `sextante` | `auto` → Shopify | **Resolvido:** ISBN vinha vazio (`record` só tinha 19/3920 promovidos; `sextante` 1/732). `collect_via_shopify` cai em cascata: `barcode` → `sku` da variante → varredura da descrição → endpoint de produto único (`/products/{handle}.json` — algumas lojas, ex. sextante, omitem `barcode` da listagem em lote mas incluem no produto único) → ISBN embutido na URL. |
 | `todavia`, `autentica` | `auto` → sitemap | Boa cobertura, com ISBN. |
-| `intrinseca` | `auto` | Hoje coleta 0 — investigar. |
+| `intrinseca` | `auto` | Boa cobertura (~1370 registros, ~98% com ISBN) — a nota antiga de "coleta 0" está desatualizada. |
 
 ## Workflows (aba Actions)
 
