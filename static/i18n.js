@@ -1301,3 +1301,15 @@ Object.assign(I18N['es'], {
   add_note_toggle: '+ anotación (opcional)',
   hide_note_toggle: '− anotación'
 });
+Object.assign(I18N['pt-BR'], {
+  cold_start_title: 'acordando a estante…',
+  cold_start_hint: 'a primeira visita depois de um tempo parado pode levar até 30 segundos.'
+});
+Object.assign(I18N['en'], {
+  cold_start_title: 'waking up the shelf…',
+  cold_start_hint: 'the first visit after a while can take up to 30 seconds.'
+});
+Object.assign(I18N['es'], {
+  cold_start_title: 'despertando la estantería…',
+  cold_start_hint: 'la primera visita después de un tiempo puede tardar hasta 30 segundos.'
+});

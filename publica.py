@@ -177,6 +177,11 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     follow_html = '<div class="follow-line">'
     if social.get("is_me"):
         follow_html += '<span class="you-note">este é seu perfil</span>'
+    elif getattr(u, "is_demo", False) and not social.get("is_following"):
+        # perfil de exemplo: não é uma pessoa real pra seguir. Mas se já
+        # segue (follow de antes desta regra existir), mantém o botão pra
+        # permitir deixar de seguir.
+        follow_html += '<span class="you-note">perfil de exemplo</span>'
     else:
         active = ' active' if social.get("is_following") else ''
         label = 'seguindo' if social.get("is_following") else 'seguir'
