@@ -1,6 +1,14 @@
 const $ = s => document.querySelector(s);
 const esc = s => (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
+function slugEditora(nome){
+  const semAcento=String(nome||'').normalize('NFKD').replace(new RegExp('[̀-ͯ]','g'),'').toLowerCase().trim();
+  return semAcento.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'editora';
+}
+function linkEditoraHTML(nome){
+  if(!(nome||'').trim()) return esc(nome);
+  return `<a class="publisher-link" href="/editora/${slugEditora(nome)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(nome)}</a>`;
+}
 
 const SUGESTOES = [
   {titulo:'Crime e Castigo',autor:'Fiódor Dostoiévski'},
@@ -394,6 +402,16 @@ function tratarMensagemConta(){
     const qs=params.toString();
     history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
   }
+}
+
+function extrairBuscaDeepLink(){
+  const params=new URLSearchParams(location.search);
+  const q=params.get('q');
+  if(!q) return '';
+  params.delete('q');
+  const qs=params.toString();
+  history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
+  return q;
 }
 
 const TINTAS_CAPA = ['#8B0E20','#11100E','#1E2F3F','#1F3A2E','#9A4A2F','#DCCEB6'];
@@ -1265,7 +1283,7 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${esc(e.editora||t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button></div></li>`;
+      <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button></div></li>`;
   }).join('');
   $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
@@ -1649,7 +1667,7 @@ async function carregarCapitulosEdicao(form){
     const res=await fetch(`/api/edicoes/${edicaoId}/capitulos`);
     if(!res.ok) return;
     const capitulos=await res.json();
-    datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c)}">`).join('');
+    datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c.titulo)}">`).join('');
   }catch(_){ datalist.dataset.loaded=''; }
 }
 function configurarInputProgressoDiario(form,tipoSeguro){
@@ -1658,11 +1676,14 @@ function configurarInputProgressoDiario(form,tipoSeguro){
   const suffix=form?.querySelector('[data-diary-progress-suffix]');
   if(!valorInput) return;
   const datalist=form.querySelector('[data-diary-chapter-list]');
+  const ordemField=form.querySelector('[data-diary-chapter-order-field]');
   if(tipoSeguro==='capitulo'){
     if(datalist) valorInput.setAttribute('list',datalist.id);
     carregarCapitulosEdicao(form);
+    if(ordemField) ordemField.hidden=false;
   } else {
     valorInput.removeAttribute('list');
+    if(ordemField) ordemField.hidden=true;
   }
   const config={
     pagina:{type:'number',inputmode:'numeric',min:'1',max:'',placeholder:t('diary_page_placeholder'),label:t('diary_page_label'),suffix:''},
@@ -1727,6 +1748,7 @@ function formDiarioHTML(leituraId, entry=null, edicaoId=null){
     <p class="form-helper diary-form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
     <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''}><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div><datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
+    <div class="field diary-chapter-order-field" data-diary-chapter-order-field${tipo==='capitulo'?'':' hidden'}><label class="label" for="diaryChapterOrderInput_${formKey}">${t('diary_chapter_order_label')}</label><input id="diaryChapterOrderInput_${formKey}" data-diary-input="capitulo_ordem" type="number" inputmode="numeric" min="1" step="1" value="${esc(entry?.capitulo_ordem??'')}" placeholder="${t('diary_chapter_order_placeholder')}"></div>
     <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
     <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
     <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}',this)">${t('save_diary')}</button>
@@ -1748,11 +1770,15 @@ function buildDiaryPayload(form){
   const pagina=progresso_tipo==='pagina'&&valorRaw!==''&&Number.isInteger(valorNumber)&&valorNumber>0?valorNumber:null;
   const porcentagem=progresso_tipo==='porcentagem'&&valorRaw!==''&&Number.isFinite(valorNumber)&&valorNumber>=0&&valorNumber<=100?valorNumber:null;
   const capitulo=progresso_tipo==='capitulo'?valorRaw:'';
+  const ordemRaw=(campo('capitulo_ordem')?.value||'').trim();
+  const ordemNumber=Number(ordemRaw);
+  const capitulo_ordem=progresso_tipo==='capitulo'&&ordemRaw!==''&&Number.isInteger(ordemNumber)&&ordemNumber>0?ordemNumber:null;
   return {
     progresso_tipo,
     pagina,
     porcentagem,
     capitulo,
+    capitulo_ordem,
     nota:(campo('nota')?.value||'').trim(),
     publico:!!campo('publico')?.checked,
     spoiler:!!campo('spoiler')?.checked
@@ -2146,7 +2172,7 @@ function cardPreviewActionsHTML(){
 }
 function renderDetalheLivro(l){
   const campos=[
-    [t('publisher'),l.editora],
+    [t('publisher'),l.editora,'editora'],
     [t('translator'),l.tradutor],
     [t('edition_year'),l.ano_edicao||l.ano],
     [t('language_field'),l.idioma],
@@ -2156,7 +2182,7 @@ function renderDetalheLivro(l){
   const notaTxt=nota ? `<span class="detail-rating-number">${nota.toLocaleString(getLocale())}</span>` : `<span class="detail-muted">${t('no_rating')}</span>`;
   const relato=l.relato ? `<blockquote>${esc(l.relato)}</blockquote>` : `<p class="detail-empty">${t('reading_note_placeholder')}</p>`;
   const dados=campos.length
-    ? `<dl class="edition-data">${campos.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>${campos.length<3?`<p class="detail-empty edition-note">${t('edition_data_incomplete')}</p>`:''}`
+    ? `<dl class="edition-data">${campos.map(([k,v,campo])=>`<div><dt>${esc(k)}</dt><dd>${campo==='editora'?linkEditoraHTML(v):esc(v)}</dd></div>`).join('')}</dl>${campos.length<3?`<p class="detail-empty edition-note">${t('edition_data_incomplete')}</p>`:''}`
     : `<p class="detail-empty edition-note">${t('edition_data_incomplete')}</p>`;
   if(cardContext.type!=='diario'){
     cardContext={type:(l.relato||'').trim()?'critica':'leitura',source:null};
@@ -2582,6 +2608,7 @@ async function init(){
   const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
   history.replaceState(estadoInicial,'');
   tratarMensagemConta();
+  const buscaDeepLink=extrairBuscaDeepLink();
   renderChips();
   atualizarSeletorIdioma();
   carregarObrasPopulares();
@@ -2595,5 +2622,6 @@ async function init(){
   }catch(e){}
   await carregarPrateleira();
   aplicarHistorico(estadoInicial);
+  if(buscaDeepLink){ $('#q').value=buscaDeepLink; buscar(); }
 }
 init();
