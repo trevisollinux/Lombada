@@ -1762,6 +1762,10 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         .order_by(Leitura.is_demo.asc(), Leitura.criado_em.desc())
         .limit(limit)
     ).all()
+    # conteúdo demo só preenche o feed enquanto não há atividade real
+    rows_reais = [r for r in rows if not r[0].is_demo]
+    if rows_reais:
+        rows = rows_reais
     reviews = [_feed_review_item(s, l, ed, o, autor, atual, trecho=False) for l, ed, o, autor in rows if (l.relato or "").strip()]
 
     active_rows = s.exec(
@@ -1772,6 +1776,9 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         .order_by(Usuario.is_demo.asc(), func.count(Leitura.id).desc())
         .limit(20)
     ).all()
+    leitores_reais = [r for r in active_rows if not bool(getattr(r[0], "is_demo", False))]
+    if leitores_reais:
+        active_rows = leitores_reais
     readers = []
     for leitor, reviews_count in active_rows:
         if atual.id and leitor.id == atual.id:

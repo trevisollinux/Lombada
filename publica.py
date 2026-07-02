@@ -71,6 +71,10 @@ _FONTES = (
 _CSS = """
 :root{--paper:#ECE4D4;--paper-3:#D6CBB3;--ink:#1A1714;--ink-2:#3A322A;--dim:#6F6655;--gold:#A8842F;
 --rule:rgba(26,23,20,.18);--shadow:6px 8px 0 rgba(26,23,20,.12),1px 2px 0 rgba(26,23,20,.25)}
+html[data-theme="dark"]{--paper:#0E0D0B;--paper-3:#261D19;--ink:#F3EBDD;--ink-2:#D8C9AD;--dim:#8E8273;--gold:#B64250;
+--rule:rgba(243,235,221,.16);--shadow:0 1px 0 rgba(243,235,221,.12)}
+html[data-theme="dark"] .cover .fb{color:rgba(243,235,221,.78)}
+html[data-theme="dark"] .cover .stars{background:rgba(243,235,221,.85);color:#1A1714}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font-family:"Spectral",Georgia,serif;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
@@ -107,6 +111,13 @@ def _pagina(titulo: str, corpo: str, og: dict | None = None, scripts: str = "") 
     return (
         '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        # aplica o tema antes do primeiro paint: usa a escolha feita no app
+        # (localStorage compartilhado, mesma origem) ou cai pro tema do sistema
+        '<script>(function(){try{var t=localStorage.getItem("lombada_theme");'
+        'if(t!=="light"&&t!=="dark"){t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}'
+        'document.documentElement.setAttribute("data-theme",t);'
+        'var m=document.createElement("meta");m.name="theme-color";m.content=t==="dark"?"#0E0D0B":"#ECE4D4";document.head.appendChild(m);'
+        '}catch(e){}})()</script>'
         f'<title>{_esc(titulo)}</title>{og_tags}{_FONTES}'
         f'<style>{_CSS}</style></head><body><div class="wrap">{corpo}</div>{scripts}</body></html>'
     )
