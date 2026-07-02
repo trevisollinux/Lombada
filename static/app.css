@@ -326,7 +326,7 @@ input,textarea,select{font:inherit;color:inherit}
 .account-box .pbtn{display:block;text-align:center;margin-top:14px}
 .account-box.connected{background:rgba(168,132,47,.08)}
 .account-line{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.04em;margin-top:8px;word-break:break-word}
-.account-logout{display:inline-block;margin-top:12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:1px}
+.account-logout{display:inline-block;margin-top:12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding:10px 2px 6px}
 .toast{position:fixed;left:50%;bottom:86px;z-index:80;max-width:min(420px,calc(100vw - 32px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--paper);box-shadow:var(--shadow-sm);padding:12px 14px;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:center;transition:opacity .22s ease,transform .22s ease}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
@@ -738,7 +738,7 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 }
 /* Compact language switcher in the header */
 .lang-switch{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
-.lang-switch button{position:relative;padding:3px 4px;border:0;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:9px;line-height:1;letter-spacing:.12em;text-transform:uppercase}
+.lang-switch button{position:relative;padding:10px 6px;border:0;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:9px;line-height:1;letter-spacing:.12em;text-transform:uppercase}
 .lang-switch button + button::before{content:"·";position:absolute;left:-3px;color:var(--rule)}
 .lang-switch button.active{color:var(--wine);font-weight:700;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .lang-switch button:focus-visible{outline:2px solid var(--wine);outline-offset:2px;border-radius:3px}
@@ -803,6 +803,7 @@ body.theme-dark .shelf-segment-btn.active{background:var(--paper-2);color:var(--
 .discover-readers{border:1px solid var(--rule);background:var(--paper-2);padding:12px;margin-bottom:16px}
 .discover-readers article{display:flex;justify-content:space-between;gap:12px;align-items:center;border-top:1px solid var(--rule);padding:10px 0}
 .discover-readers article:first-of-type{border-top:0}
+.discover-readers .demo-badge{font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);padding:2px 5px;margin-left:6px;vertical-align:middle;white-space:nowrap}
 .discover-readers small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
 
 .correction-hint{margin:12px 0 6px}

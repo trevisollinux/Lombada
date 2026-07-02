@@ -715,12 +715,12 @@ function abrirDiarioLeitura(idx){
     alvo?.querySelector('input, textarea, button')?.focus?.({preventScroll:true});
   },120);
 }
-function lendoAgoraCard(l,idx,compacto=false){
+function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
   const progresso=progressoLeitura(l);
   return `<div class="reading-now-card ${compacto?'compact':''}" role="button" tabindex="0" onclick="abrirCard(${idx})" aria-label="${esc(l.titulo)}">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
-      <div class="label">${t('continue_reading')}</div>
+      ${mostrarLabel?`<div class="label">${t('continue_reading')}</div>`:''}
       <h3>${esc(l.titulo)}</h3>
       <p>${esc(l.autor)}</p>
       <div class="reading-spacer"></div>
@@ -738,7 +738,7 @@ function renderLendoAgora(){
   const box=$('#lendoAgora');
   if(!lendo.length){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
-  box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx)}`;
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx,false,false)}`;
 }
 
 
@@ -815,7 +815,7 @@ function renderFeed(){
         ${l.relato?reviewActionsHTML(l):''}
       </div></article>`;
   }).join('');
-  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
+  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}${(r.is_demo||/^demo-/i.test(r.handle||''))?`<span class="demo-badge">${t('sample_profile')}</span>`:''}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
   const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
   box.innerHTML=tabs+intro+readers+title+reviewCards;
 }
@@ -1187,7 +1187,14 @@ function criticasHTML(){
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong>${trecho(c)?`<button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(trecho(c))}</p>`:''}</div>`
     : (trecho(c)?`<p>${esc(trecho(c))}</p>`:'');
   const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
-  return `<section class="community-section work-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${destaques.length?`<div class="label community-label">${t('featured')}</div><div class="reviews-list featured">${destaques.map(card).join('')}</div>`:''}<div class="label community-label">${t('recent')}</div><div class="reviews-list">${recentes.map(card).join('')}</div></section>`;
+  // não repete em "recentes" as críticas já mostradas em destaque
+  const idsDestaque=new Set(destaques.map(c=>c.leitura_id).filter(Boolean));
+  const recentesSemDestaque=recentes.filter(c=>!idsDestaque.has(c.leitura_id));
+  const blocos=[];
+  if(destaques.length) blocos.push([t('featured'),destaques,' featured']);
+  if(recentesSemDestaque.length) blocos.push([t('recent'),recentesSemDestaque,'']);
+  const listas=blocos.map(([rotulo,lista,cls])=>`${blocos.length>1?`<div class="label community-label">${rotulo}</div>`:''}<div class="reviews-list${cls}">${lista.map(card).join('')}</div>`).join('');
+  return `<section class="community-section work-section"><div class="section-head"><h2 class="h-section">${t('community_reviews')}</h2></div>${listas}</section>`;
 }
 function setButtonBusy(btn,text){
   if(!btn) return;
@@ -1247,31 +1254,34 @@ function renderEdicoes(){
     : `<button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button>`;
   const cab=`<div class="work-head social-work-head work-hero">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
     <div class="wmeta"><div class="label">${t('work_page')}</div><h2>${esc(escolha.titulo)}</h2>
-      <div class="a">${esc(escolha.autor||t('unknown_author'))}</div>
+      ${escolha.autor?`<div class="a">${esc(escolha.autor)}</div>`:''}
       ${anoIdioma?`<div class="y">${anoIdioma}</div>`:''}
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
-      <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>
+      <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div>${edicoesAtual.length?'':`<button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`}
     </div></div>`;
   const descricao=(escolha.descricao||escolha.description||obraSocial?.obra?.descricao||'').trim();
   const descLonga=descricao.length>320;
   const tituloAutorBusca=[escolha.titulo,escolha.autor].filter(Boolean).join(' ');
   const linkSaibaMais=tituloAutorBusca?`<a class="linklike about-work-external" href="https://www.google.com/search?q=${encodeURIComponent('livro '+tituloAutorBusca+' sinopse')}" target="_blank" rel="noopener">${t('learn_more_external')}</a>`:'';
-  const sobreObra=`<section class="about-work work-section${descLonga?' clamp':''}"><div class="label">${t('about_work')}</div>${descricao?`<p class="about-work-text">${esc(descricao)}</p><div class="about-work-actions">${descLonga?`<button class="linklike about-work-toggle" type="button" onclick="toggleAboutWork(this)">${t('see_more')}</button>`:''}${linkSaibaMais}</div>`:`<p class="muted">${t('no_work_description')}</p><div class="about-work-actions"><button class="linklike" type="button" onclick="toast(t('description_suggestions_soon'))">${t('suggest_description')}</button>${linkSaibaMais}</div>`}</section>`;
+  const sobreObra=`<section class="about-work work-section${descLonga?' clamp':''}"><div class="label">${t('about_work')}</div>${descricao?`<p class="about-work-text">${esc(descricao)}</p><div class="about-work-actions">${descLonga?`<button class="linklike about-work-toggle" type="button" onclick="toggleAboutWork(this)">${t('see_more')}</button>`:''}${linkSaibaMais}</div>`:`<p class="muted">${t('no_work_description')}</p><div class="about-work-actions">${linkSaibaMais}</div>`}</section>`;
   const poucosDados=(!edicoesAtual.length&&!leituras&&!criticas)||(!escolha.capa_url&&!escolha.ano&&!escolha.idioma_original&&!criticas);
   const estadoPoucosDados=poucosDados?`<section class="work-section work-low-data"><p>${t('work_low_data')}</p><div class="work-actions"><button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button><button class="secondary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div></section>`:'';
   const minhas='';
   const destaquesEd=obraSocial?.destaques_edicao||{};
   const maisLida=destaquesEd.mais_lida||(obraSocial?.edicoes||[]).slice().sort((a,b)=>(b.leituras||0)-(a.leituras||0))[0];
-  const destaqueObraHTML=[
-    destaquesEd.mais_lida&&`${t('most_read_edition')}: ${esc(destaquesEd.mais_lida.edicao?.editora||t('publisher_missing'))}`,
-    destaquesEd.mais_desejada&&`${t('most_wanted_edition')}: ${esc(destaquesEd.mais_desejada.edicao?.editora||t('publisher_missing'))}`,
-    destaquesEd.mais_possuida&&`${t('most_owned_edition')}: ${esc(destaquesEd.mais_possuida.edicao?.editora||t('publisher_missing'))}`,
-    destaquesEd.traducao_mais_lida&&`${t('most_read_translation')}: ${esc(destaquesEd.traducao_mais_lida)}`,
-    destaquesEd.editora_mais_lida&&`${t('most_read_publisher')}: ${esc(destaquesEd.editora_mais_lida)}`
+  const paresDestaque=[
+    destaquesEd.mais_lida&&[t('most_read_edition'),destaquesEd.mais_lida.edicao?.editora||t('publisher_missing')],
+    destaquesEd.mais_desejada&&[t('most_wanted_edition'),destaquesEd.mais_desejada.edicao?.editora||t('publisher_missing')],
+    destaquesEd.mais_possuida&&[t('most_owned_edition'),destaquesEd.mais_possuida.edicao?.editora||t('publisher_missing')],
+    destaquesEd.traducao_mais_lida&&[t('most_read_translation'),destaquesEd.traducao_mais_lida],
+    destaquesEd.editora_mais_lida&&[t('most_read_publisher'),destaquesEd.editora_mais_lida]
   ].filter(Boolean);
+  // com 1 edição (ou destaques todos iguais) a seção só repete a mesma editora — vira ruído
+  const destaquesUteis=edicoesAtual.length>1&&new Set(paresDestaque.map(p=>normalizarTextoBase(p[1]))).size>1;
+  const destaqueObraHTML=destaquesUteis?paresDestaque.map(([rotulo,valor])=>`${rotulo}: ${esc(valor)}`):[];
   const temEstatisticas=!!(leituras||st.media||lendo||querem);
   const estatisticasHTML=temEstatisticas
-    ? `<section class="community-summary work-stats"><div><span>${leituras}</span><small>${t('readings_on_lombada')}</small></div><div><span>${media}</span><small>${t('average_rating')}</small></div><div><span>${lendo}</span><small>${t('people_reading')}</small></div><div><span>${querem}</span><small>${t('people_want_to_read')}</small></div></section>`
+    ? `<section class="community-summary work-stats"><div><span>${leituras}</span><small>${t(leituras===1?'reading_on_lombada_one':'readings_on_lombada')}</small></div><div><span>${st.media?fmtMedia(st.media):'—'}</span><small>${t('average_rating')}</small></div><div><span>${lendo}</span><small>${t('people_reading')}</small></div><div><span>${querem}</span><small>${t(querem===1?'person_wants_to_read':'people_want_to_read')}</small></div></section>`
     : `<section class="work-section work-stats-empty"><p>${t('edition_stats')}</p></section>`;
   const cards=edicoesAtual.map((e,j)=>{
     const pt=normalizarTextoBase(e.idioma).includes('portugues')||normalizarTextoBase(e.pais).includes('brasil');
@@ -1285,7 +1295,7 @@ function renderEdicoes(){
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
       <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
+  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
 
 /* registrar */
@@ -1594,7 +1604,7 @@ function resumoEstante(){
 function blocoLendoEstante(){
   const l=prateleira.find(x=>x.status==='Lendo');
   if(!l) return '';
-  return `<section class="shelf-now"><div class="label">${t('reading_now')}</div>${lendoAgoraCard(l,prateleira.indexOf(l),true)}</section>`;
+  return `<section class="shelf-now"><div class="label">${t('reading_now')}</div>${lendoAgoraCard(l,prateleira.indexOf(l),true,false)}</section>`;
 }
 function renderPrateleira(){
   if(!prateleira.length){
