@@ -20,7 +20,7 @@ const SUGESTOES = [
 ];
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
-let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null;
+let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 const CARD_THEME_KEY='lombada_card_theme';
 let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=false, cardContext={type:'leitura',source:null};
@@ -164,8 +164,19 @@ let conviteLoginPendente=false;
 function estrelasStr(n){n=n||0;let o='';for(let i=1;i<=5;i++)o+=(i<=n?'★':(i-0.5===n?'⯪':'☆'));return o;}
 function hue(t){let h=0;for(let i=0;i<(t||'?').length;i++)h=(h*31+t.charCodeAt(i))%360;return h;}
 
+const LOGIN_HINT_RESURFACE_APOS=5;
+function loginHintDispensadoEmLivros(){
+  const v=localStorage.getItem(LOGIN_HINT_KEY);
+  if(v===null) return null;
+  // valor antigo era '1' (dispensa permanente) — trata como dispensado com 0 livros,
+  // então o aviso volta assim que a estante crescer (risco de perda também cresce)
+  const n=Number(v);
+  return Number.isFinite(n)?n:0;
+}
 function loginHintDispensado(){
-  return localStorage.getItem(LOGIN_HINT_KEY)==='1';
+  const desde=loginHintDispensadoEmLivros();
+  if(desde===null) return false;
+  return (prateleira.length-desde) < LOGIN_HINT_RESURFACE_APOS;
 }
 function deveMostrarConviteLogin(){
   return !minhaConta.logado && prateleira.length > 0 && !loginHintDispensado();
@@ -174,7 +185,7 @@ function conectarGoogle(){
   location.href='/api/auth/google/login';
 }
 function continuarSemConta(){
-  localStorage.setItem(LOGIN_HINT_KEY,'1');
+  localStorage.setItem(LOGIN_HINT_KEY,String(prateleira.length));
   conviteLoginPendente=false;
   renderPrateleira();
   renderDiario();
@@ -571,7 +582,11 @@ function aplicarHistorico(estado){
   if(proximo.aba==='buscar'){
     if(proximo.q) $('#q').value=proximo.q;
     mostrarBusca(proximo.busca||'home',{registrar:false});
-    if(proximo.busca==='resultados' && proximo.q) buscar();
+    // já temos esses resultados renderizados em #resultados (só ficaram
+    // escondidos ao navegar pra edições/form) — refazer a busca aqui
+    // significa skeleton + fetch de novo por nada
+    const jaTemResultadoCacheado=normBusca(proximo.q)===normBusca(ultimaBuscaQ) && $('#resultados').innerHTML.trim();
+    if(proximo.busca==='resultados' && proximo.q && !jaTemResultadoCacheado) buscar();
   }
   navAtual={aba:proximo.aba,busca:proximo.busca||'home',estanteSub:proximo.estanteSub||'shelf'};
   restaurandoHistorico=false;
@@ -1014,6 +1029,7 @@ async function buscar(event){
     return;
   }
   finally{ clearTimeout(avisoBusca); }
+  ultimaBuscaQ=q;
   resultadosArr=ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
   if(!obrasAgrupadas.length){
@@ -1106,8 +1122,10 @@ function fmtMedia(n){return n?Number(n).toLocaleString(getLocale(),{minimumFract
 function countLabel(n,oneKey,manyKey){ return plural(Number(n)||0,oneKey,manyKey); }
 function editionSocialCountsHTML(social){
   const leituras=social?.leituras||0, tem=social?.tem||0, querem=social?.querem||0;
-  const media=social?.media?' · '+fmtMedia(social.media):'';
-  return `<div class="edition-stats"><span>${countLabel(leituras,'reading_one','reading_many')}</span><span>${social?.media?fmtMedia(social.media):t('no_average_yet')}</span><span>${t('readers_have_this_edition',{count:tem})}</span><span>${t('readers_want_this_edition',{count:querem})}</span></div>`;
+  const posse=(tem||querem)
+    ? `<span>${t('readers_have_this_edition',{count:tem})}</span><span>${t('readers_want_this_edition',{count:querem})}</span>`
+    : `<span class="edition-stats-muted">${t('no_readers_have_or_want_edition')}</span>`;
+  return `<div class="edition-stats"><span>${countLabel(leituras,'reading_one','reading_many')}</span><span>${social?.media?fmtMedia(social.media):t('no_average_yet')}</span>${posse}</div>`;
 }
 function editionRelationHTML(social){
   if(!social?.edicao_id) return '';
@@ -2072,7 +2090,6 @@ function renderPerfil(){
       ${contaHTML}
       ${installCtaHTML()}
       ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
-      <div class="plink">${esc(url)}</div>
     </div>`;
 }
 

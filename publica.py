@@ -90,7 +90,7 @@ h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:30px
 .cover{position:relative;aspect-ratio:2/3;background:var(--paper-3);box-shadow:var(--shadow);overflow:hidden}
 .cover img{width:100%;height:100%;object-fit:cover;display:block}
 .cover .fb{position:absolute;inset:0;display:flex;align-items:flex-end;padding:12px;font-family:"Fraunces",serif;font-style:italic;font-size:18px;line-height:1.1;color:rgba(26,23,20,.75)}
-.cover .stars{position:absolute;left:6px;bottom:6px;font-family:"Space Mono",monospace;font-size:11px;color:var(--paper);background:rgba(26,23,20,.78);padding:3px 6px;letter-spacing:.05em}
+.cover .stars{position:absolute;left:6px;top:6px;font-family:"Space Mono",monospace;font-size:11px;color:var(--paper);background:rgba(26,23,20,.78);padding:3px 6px;letter-spacing:.05em}
 .t{font-family:"Fraunces",serif;font-style:italic;font-size:15px;line-height:1.15;margin-top:8px}
 .a{font-size:12px;color:var(--dim);margin-top:2px}
 .cta{display:block;text-align:center;margin:34px auto 0;max-width:360px;background:var(--ink);color:var(--paper);padding:16px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase}
@@ -181,6 +181,7 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
         active = ' active' if social.get("is_following") else ''
         label = 'seguindo' if social.get("is_following") else 'seguir'
         follow_html += f'<button id="followBtn" class="follow-btn{active}" data-following="{str(bool(social.get("is_following"))).lower()}" onclick="toggleFollow()">{label}</button>'
+    follow_html += '<button type="button" class="follow-btn copy-link-btn" onclick="copiarLinkPerfil(this)">copiar link</button>'
     follow_html += '</div>'
     header = (
         f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
@@ -221,6 +222,17 @@ async function toggleFollow(){{
     ['followingCount','followingPill'].forEach(id=>{{const el=document.getElementById(id); if(el) el.textContent=data.following_count;}});
   }}catch(e){{ alert('não foi possível atualizar agora.'); }}
   finally{{ btn.disabled=false; }}
+}}
+async function copiarLinkPerfil(btn){{
+  const url=location.href;
+  const original=btn.textContent;
+  try{{
+    await navigator.clipboard.writeText(url);
+    btn.textContent='link copiado';
+  }}catch(e){{
+    btn.textContent='não copiou';
+  }}
+  setTimeout(()=>{{ btn.textContent=original; }},1800);
 }}
 </script>""".format(json_handle=repr(u.handle))
     return _pagina(f"@{u.handle} · Lombada", corpo, og, scripts)
