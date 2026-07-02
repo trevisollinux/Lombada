@@ -1582,3 +1582,29 @@ body.theme-dark .diary-group{background:var(--surface);border-color:rgba(247,240
 .onboarding-check-item.done .onboarding-check-copy b{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--rule)}
 .onboarding-check-copy span{font-size:12px;color:var(--muted)}
 body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--paper-2),transparent 25%)}
+
+/* progresso: hero numérico + delta, no topo do form de atualizar progresso */
+.progress-hero{margin-bottom:16px}
+.progress-hero-num{font-family:"Fraunces",serif;font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.progress-hero-of{font-family:"Space Mono",monospace;font-size:12px;color:var(--muted);letter-spacing:.04em}
+.progress-hero-pct{font-family:"Space Mono",monospace;font-size:14px;color:var(--wine);letter-spacing:.04em}
+.progress-hero-track{margin-top:10px}
+.progress-hero-delta{font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:8px}
+
+/* slider de página: chrome mínimo, no mesmo tom do resto do form */
+.diary-progress-slider{width:100%;appearance:none;-webkit-appearance:none;height:28px;background:transparent;cursor:pointer;margin:10px 0 4px;padding:0}
+.diary-progress-slider[hidden]{display:none}
+.diary-progress-slider::-webkit-slider-runnable-track{height:4px;border-radius:999px;background:var(--rule)}
+.diary-progress-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--wine);border:3px solid var(--paper);box-shadow:0 0 0 1px var(--rule);margin-top:-9px}
+.diary-progress-slider::-moz-range-track{height:4px;border-radius:999px;background:var(--rule)}
+.diary-progress-slider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--wine);border:3px solid var(--paper);box-shadow:0 0 0 1px var(--rule)}
+.diary-progress-slider:focus-visible{outline:2px solid var(--wine);outline-offset:4px;border-radius:4px}
+
+.progress-quick-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
+.progress-quick-chips[hidden]{display:none}
+.progress-quick-chip{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.08em;color:var(--muted);background:transparent;border:1px solid var(--rule);border-radius:999px;padding:8px 13px;cursor:pointer;min-height:36px}
+.progress-quick-chip:hover{border-color:var(--muted)}
+
+.diary-extra-toggle{display:block;margin:2px 0 14px;padding:8px 0}
+.diary-extra[hidden]{display:none}
+@media(max-width:420px){.progress-hero-num{font-size:28px}.progress-quick-chip{flex:1 1 auto;text-align:center}}

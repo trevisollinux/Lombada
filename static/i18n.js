@@ -1280,3 +1280,24 @@ Object.assign(I18N['es'], {
   onboarding_step3_title: 'Conocer tu perfil',
   onboarding_step3_hint: 'ahí es donde tus lecturas se vuelven estantería pública'
 });
+Object.assign(I18N['pt-BR'], {
+  diary_delta_since: '+{count} páginas desde {date}',
+  diary_delta_same: 'mesma página de {date}',
+  diary_delta_back: 'voltou {count} páginas desde {date}',
+  add_note_toggle: '+ anotação (opcional)',
+  hide_note_toggle: '− anotação'
+});
+Object.assign(I18N['en'], {
+  diary_delta_since: '+{count} pages since {date}',
+  diary_delta_same: 'same page as {date}',
+  diary_delta_back: 'went back {count} pages since {date}',
+  add_note_toggle: '+ note (optional)',
+  hide_note_toggle: '− note'
+});
+Object.assign(I18N['es'], {
+  diary_delta_since: '+{count} páginas desde {date}',
+  diary_delta_same: 'misma página que {date}',
+  diary_delta_back: 'retrocediste {count} páginas desde {date}',
+  add_note_toggle: '+ anotación (opcional)',
+  hide_note_toggle: '− anotación'
+});
