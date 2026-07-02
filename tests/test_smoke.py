@@ -47,6 +47,62 @@ class SmokeTest(unittest.TestCase):
         r = self.client.get("/u/handle-que-nao-existe-123456")
         self.assertEqual(r.status_code, 404)
 
+    def test_profile_bio_special_chars_are_stored_raw_and_escaped_on_render(self):
+        bio = "Leio A & B <3"
+        r = self.client.get("/api/eu")
+        self.assertEqual(r.status_code, 200)
+        handle = r.json()["handle"]
+
+        with main.Session(main.engine) as s:
+            u = s.exec(main.select(main.Usuario).where(main.Usuario.handle == handle)).first()
+            u.google_sub = f"smoke-google-{u.id}"
+            s.add(u)
+            s.commit()
+
+        r = self.client.patch("/api/eu/perfil", json={"nome": "Leitor Teste", "handle": handle, "bio": bio})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["bio"], bio)
+
+        with main.Session(main.engine) as s:
+            u = s.exec(main.select(main.Usuario).where(main.Usuario.handle == handle)).first()
+            self.assertEqual(u.bio, bio)
+            self.assertNotIn("&amp;", u.bio)
+            self.assertNotIn("&lt;", u.bio)
+
+            reader = main.Usuario(handle="bio-reader", nome="Bio Reader", bio=bio)
+            s.add(reader)
+            s.commit()
+            s.refresh(reader)
+            obra = main.Obra(ol_work_key="smoke-bio-work", titulo="Livro Bio", autor="Autora Bio")
+            s.add(obra)
+            s.commit()
+            s.refresh(obra)
+            edicao = main.Edicao(obra_id=obra.id, ol_edition_key="smoke-bio-edition")
+            s.add(edicao)
+            s.commit()
+            s.refresh(edicao)
+            leitura = main.Leitura(edicao_id=edicao.id, usuario_id=reader.id, relato="Crítica pública", publico=True)
+            s.add(leitura)
+            s.commit()
+
+        r = self.client.get("/api/eu")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["bio"], bio)
+
+        r = self.client.get(f"/api/u/{handle}")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["bio"], bio)
+
+        r = self.client.get("/api/feed/discover")
+        self.assertEqual(r.status_code, 200)
+        reader = next(item for item in r.json()["readers"] if item["handle"] == "bio-reader")
+        self.assertEqual(reader["bio"], bio)
+
+        r = self.client.get(f"/u/{handle}")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Leio A &amp; B &lt;3", r.text)
+        self.assertNotIn("&amp;amp;", r.text)
+
     def test_version_endpoint(self):
         r = self.client.get("/api/version")
         self.assertEqual(r.status_code, 200)
