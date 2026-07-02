@@ -388,9 +388,30 @@ def _gbooks_info(isbn: str) -> dict:
             "ano":     _ano_de_data(info.get("publishedDate", "")),
             "idioma":  _lang(info.get("language") or ""),
             "capa":    capa,
+            "paginas": info.get("pageCount") if isinstance(info.get("pageCount"), int) and info.get("pageCount") > 0 else None,
         }
     except Exception:
         return {}
+
+
+@lru_cache(maxsize=512)
+def paginas_por_isbn(isbn: str) -> int | None:
+    """Total de páginas de uma edição pelo ISBN: Open Library primeiro
+    (number_of_pages), Google Books como fallback (pageCount)."""
+    isbn = normalizar_isbn(isbn) or (isbn or "").strip()
+    if not isbn:
+        return None
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
+            r = c.get(f"{BASE}/isbn/{isbn}.json")
+            if r.status_code == 200:
+                n = r.json().get("number_of_pages")
+                if isinstance(n, int) and n > 0:
+                    return n
+    except Exception:
+        pass
+    n = (_gbooks_info(isbn) or {}).get("paginas")
+    return n if isinstance(n, int) and n > 0 else None
 
 
 def _gbooks_volumes(q: str, maxr: int = 40) -> list:
@@ -436,6 +457,7 @@ def _gbooks_volumes(q: str, maxr: int = 40) -> list:
             "idioma":   _lang(info.get("language") or ""),
             "ano":      _ano_de_data(info.get("publishedDate", "")),
             "capa_url": capa,
+            "paginas":  info.get("pageCount") if isinstance(info.get("pageCount"), int) and info.get("pageCount") > 0 else None,
             "_autor":   (info.get("authors") or [""])[0],
             "_autores": info.get("authors") or [],
         })
@@ -708,6 +730,7 @@ def ol_edicoes(work_key: str, limite: int = 20) -> list:
             "idioma":   _lang(lang_code),
             "ano":      _ano_de_data(ed.get("publish_date", "")),
             "capa_url": _capa_ol_isbn(isbn),
+            "paginas":  ed.get("number_of_pages") if isinstance(ed.get("number_of_pages"), int) and ed.get("number_of_pages") > 0 else None,
         })
     out.sort(key=lambda e: (e["idioma"] != "Português", e["editora"] == "", -(e["ano"] or 0)))
     alvo = [e for e in out if e["isbn"] and e["idioma"] == "Português"]

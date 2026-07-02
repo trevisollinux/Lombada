@@ -58,6 +58,7 @@ class Edicao(SQLModel, table=True):
     idioma:          str           = ""
     ano:             Optional[int] = None
     capa_url:        str           = ""
+    paginas:         Optional[int] = None
 
 
 class Leitura(SQLModel, table=True):
@@ -238,6 +239,7 @@ def migrar():
 
     _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
+    _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
 
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
