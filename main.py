@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
-from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, TIMEOUT, _UA
+from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 
@@ -1392,6 +1392,15 @@ def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
     ).all()
     if estruturado:
         return [{"titulo": c.titulo, "ordem": c.ordem, "fonte": c.fonte} for c in estruturado]
+    edicao = s.get(Edicao, edicao_id)
+    if edicao and edicao.ol_edition_key:
+        for item in ol_table_of_contents(edicao.ol_edition_key):
+            _registrar_capitulo_sumario(edicao_id, item["ordem"], item["titulo"], s, fonte="openlibrary")
+        estruturado = s.exec(
+            select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id).order_by(EdicaoCapitulo.ordem)
+        ).all()
+        if estruturado:
+            return [{"titulo": c.titulo, "ordem": c.ordem, "fonte": c.fonte} for c in estruturado]
     rows = s.exec(
         select(ReadingJournalEntry.capitulo, func.count())
         .join(Leitura, ReadingJournalEntry.leitura_id == Leitura.id)

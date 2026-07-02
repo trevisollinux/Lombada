@@ -722,6 +722,35 @@ def ol_edicoes(work_key: str, limite: int = 20) -> list:
 
 
 @lru_cache(maxsize=256)
+def ol_table_of_contents(ol_edition_key: str) -> list[dict]:
+    """Sumário publicado pela Open Library pra uma edição, quando existe
+    (campo table_of_contents é raro — a maioria das edições, sobretudo em
+    português, não tem). Usado como segunda fonte pro sumário estruturado,
+    atrás só da contribuição da comunidade que já estiver na posição."""
+    if not ol_edition_key or not ol_edition_key.startswith("/books/"):
+        return []
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers=_UA) as c:
+            r = c.get(f"{BASE}{ol_edition_key}.json")
+            if r.status_code == 404:
+                return []
+            r.raise_for_status()
+            ed = r.json()
+    except Exception:
+        return []
+    itens = ed.get("table_of_contents") or []
+    out = []
+    for i, item in enumerate(itens, start=1):
+        if isinstance(item, dict):
+            titulo = str(item.get("title") or "").strip()
+        else:
+            titulo = str(item or "").strip()
+        if titulo:
+            out.append({"ordem": i, "titulo": titulo})
+    return out
+
+
+@lru_cache(maxsize=256)
 def _ol_isbn(isbn: str) -> dict:
     if not isbn: return {}
     try:
