@@ -1553,4 +1553,32 @@ body.theme-dark .diary-group{background:var(--surface);border-color:rgba(247,240
 .diary-form .visibility-box .check-line input{width:17px;height:17px;flex:0 0 17px;margin:0;accent-color:var(--primary)}
 .diary-form .visibility-box .check-line span{max-width:none}
 @media(max-width:420px){.diary-form .visibility-box{padding:7px 9px;margin:6px 0 12px}.diary-form .visibility-box .check-line{min-height:40px;margin:0;padding:5px 3px}.diary-form .visibility-box .check-line span{max-width:none}}
+
+/* onboarding: hero de primeira visita + checklist de primeiros passos */
+.onboarding-hero{border:1px solid var(--rule);border-radius:16px;background:var(--surface);padding:22px 20px;margin:18px 0 16px;text-align:center}
+.onboarding-hero h2{font-family:"Fraunces",serif;font-weight:500;font-size:24px;line-height:1.18;margin-bottom:8px}
+.onboarding-hero p{color:var(--muted-readable,var(--muted));font-size:14px;line-height:1.5;margin-bottom:16px}
+.onboarding-hero-sub{text-align:center;font-family:"Space Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;margin-top:9px}
+.onboarding-example{border:1px dashed var(--rule);border-radius:16px;padding:16px;margin-bottom:22px;background:color-mix(in srgb,var(--surface),transparent 24%)}
+.onboarding-example-tag{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.onboarding-example-card{display:grid;grid-template-columns:56px 1fr;gap:14px;align-items:start;opacity:.92}
+.onboarding-example-cover .cover{width:56px}
+.onboarding-example-cover .cover-art{padding:7px 6px}
+.onboarding-example-cover .cover-art-author,.onboarding-example-cover .cover-art-meta{display:none}
+.onboarding-example-cover .cover-art-title{font-size:11px;line-height:1.04}
+.onboarding-example-copy h4{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:17px;margin-bottom:2px}
+.onboarding-example-copy .a{font-size:12px;color:var(--muted);margin-bottom:8px}
+.onboarding-example-track{height:6px;border-radius:999px;background:color-mix(in srgb,var(--muted),transparent 70%);overflow:hidden;margin-bottom:8px}
+.onboarding-example-track span{display:block;height:100%;width:33%;background:var(--wine);border-radius:inherit}
+.onboarding-example-copy p{font-size:12.5px;color:var(--muted);font-style:italic;line-height:1.4}
+.onboarding-checklist-wrap{border:1px solid var(--rule);border-radius:16px;background:var(--surface);padding:18px 18px 6px;margin:18px 0 16px}
+.onboarding-progress{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.onboarding-check-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--rule)}
+.onboarding-check-item:first-child{border-top:0}
+.onboarding-check-mark{width:20px;height:20px;flex:0 0 20px;border-radius:50%;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;color:var(--muted)}
+.onboarding-check-item.done .onboarding-check-mark{background:var(--wine);border-color:var(--wine);color:var(--paper)}
+.onboarding-check-copy{display:flex;flex-direction:column;gap:2px}
+.onboarding-check-copy b{font-size:14px;font-weight:600}
+.onboarding-check-item.done .onboarding-check-copy b{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--rule)}
+.onboarding-check-copy span{font-size:12px;color:var(--muted)}
 body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--paper-2),transparent 25%)}

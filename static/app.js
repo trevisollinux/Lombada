@@ -34,6 +34,7 @@ let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
 const NAV_STATE_KEY='lombada_nav_state';
+const ONBOARDING_KEY='lombada_onboarding';
 const DEBUG = localStorage.getItem('lombada_debug') === '1';
 function debugLog(...args){ if(DEBUG) console.log(...args); }
 let appVersion='dev';
@@ -151,6 +152,7 @@ function mudarIdioma(locale){
   renderLendoAgora();
   renderPrateleira();
   renderDiario();
+  renderOnboarding();
   if(navAtual.aba==='buscar' && navAtual.busca==='edicoes') renderEdicoes();
   if(navAtual.aba==='buscar' && navAtual.busca==='form' && edicaoSel) escolherEdicao(edicoesAtual.indexOf(edicaoSel));
   if(navAtual.aba==='buscar' && navAtual.busca==='manual') abrirManual();
@@ -565,7 +567,7 @@ function irPara(aba,opcoes={}){
     if(recarregarEstante) carregarPrateleira();
     else renderDiario();
   }
-  if(aba==='perfil') renderPerfil();
+  if(aba==='perfil'){ renderPerfil(); marcarPerfilVisitado(); }
   navAtual={aba,busca:aba==='buscar'?navAtual.busca:'home',estanteSub};
   if(registrar) registrarHistorico(navAtual.aba,navAtual.busca,false,navAtual.estanteSub);
   if(opcoes.scrollTop !== false) window.scrollTo({top:0,behavior:'smooth'});
@@ -763,6 +765,75 @@ function renderLendoAgora(){
   if(!lendo.length){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
   box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx,false,false)}`;
+}
+
+/* onboarding: primeira visita, primeiros passos — some pra sempre depois de completar as 3 ações */
+function estadoOnboarding(){
+  try{ return JSON.parse(localStorage.getItem(ONBOARDING_KEY))||{}; }catch(e){ return {}; }
+}
+function salvarEstadoOnboarding(patch){
+  const novo={...estadoOnboarding(),...patch};
+  try{ localStorage.setItem(ONBOARDING_KEY,JSON.stringify(novo)); }catch(e){}
+  return novo;
+}
+function marcarPerfilVisitado(){
+  if(estadoOnboarding().perfilVisitado) return;
+  salvarEstadoOnboarding({perfilVisitado:true});
+  renderOnboarding();
+}
+function focarBuscaHero(){
+  const input=$('#q');
+  if(!input) return;
+  input.focus({preventScroll:true});
+  input.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function onboardingHeroHTML(){
+  return `<div class="onboarding-hero">
+    <h2>${t('onboarding_hero_title')}</h2>
+    <p>${t('onboarding_hero_text')}</p>
+    <button class="btn-primary" type="button" onclick="focarBuscaHero()">${t('onboarding_hero_cta')}</button>
+    <div class="onboarding-hero-sub">${t('onboarding_hero_cta_sub')}</div>
+  </div>
+  <div class="onboarding-example">
+    <div class="onboarding-example-tag">${t('onboarding_example_tag')}</div>
+    <div class="onboarding-example-card">
+      <div class="onboarding-example-cover">${coverFallbackHTML(t('onboarding_example_title'),t('onboarding_example_author'))}</div>
+      <div class="onboarding-example-copy">
+        <h4>${esc(t('onboarding_example_title'))}</h4>
+        <div class="a">${esc(t('onboarding_example_author'))}</div>
+        <div class="onboarding-example-track"><span></span></div>
+        <p>${esc(t('onboarding_example_note'))}</p>
+      </div>
+    </div>
+  </div>`;
+}
+function onboardingChecklistHTML(passos){
+  const {registrou,atualizouProgresso,conheceuPerfil}=passos;
+  const doneCount=[registrou,atualizouProgresso,conheceuPerfil].filter(Boolean).length;
+  const item=(done,titulo,dica)=>`<div class="onboarding-check-item ${done?'done':''}"><div class="onboarding-check-mark">${done?'✓':''}</div><div class="onboarding-check-copy"><b>${esc(titulo)}</b>${dica?`<span>${esc(dica)}</span>`:''}</div></div>`;
+  return `<div class="onboarding-checklist-wrap">
+    <div class="onboarding-progress">${t('onboarding_step_progress',{done:doneCount})}</div>
+    <div class="onboarding-checklist">
+      ${item(registrou,t('onboarding_step1_title'))}
+      ${item(atualizouProgresso,t('onboarding_step2_title'),atualizouProgresso?'':t('onboarding_step2_hint'))}
+      ${item(conheceuPerfil,t('onboarding_step3_title'),conheceuPerfil?'':t('onboarding_step3_hint'))}
+    </div>
+  </div>`;
+}
+function renderOnboarding(){
+  const box=$('#onboardingBox');
+  if(!box) return;
+  const est=estadoOnboarding();
+  if(est.concluido){ box.innerHTML=''; return; }
+  const registrou=prateleira.length>0;
+  const atualizouProgresso=diarioEntradas.length>0;
+  const conheceuPerfil=!!est.perfilVisitado;
+  if(registrou&&atualizouProgresso&&conheceuPerfil){
+    salvarEstadoOnboarding({concluido:true});
+    box.innerHTML='';
+    return;
+  }
+  box.innerHTML=registrou?onboardingChecklistHTML({registrou,atualizouProgresso,conheceuPerfil}):onboardingHeroHTML();
 }
 
 
@@ -1674,6 +1745,7 @@ async function carregarPrateleira(){
   renderPrateleira();
   renderDiario();
   aplicarSubabaEstante(navAtual.estanteSub||'shelf');
+  renderOnboarding();
 }
 
 /* diário — linha do tempo */
