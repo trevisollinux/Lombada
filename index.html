@@ -36,7 +36,7 @@
     <!-- busca persistente (fica em todas as telas da aba) -->
     <form class="search" id="searchForm" onsubmit="buscar(event)">
       <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-      <input id="q" type="search" placeholder="título, autor ou ISBN…" data-i18n-placeholder="search_placeholder" autocomplete="off" oninput="onQInput()" onfocus="onQFocus()" onblur="onQBlur()" />
+      <input id="q" type="search" placeholder="que livro você está lendo agora?" data-i18n-placeholder="search_placeholder" autocomplete="off" oninput="onQInput()" onfocus="onQFocus()" onblur="onQBlur()" />
       <button type="submit" aria-label="Buscar livros" data-i18n-aria-label="search_books" data-i18n="search_button">buscar</button>
     </form>
 
@@ -49,6 +49,7 @@
         <div class="label" data-i18n="home_label">um diário de leituras</div>
         <h1 class="h-display" data-i18n="home_title_html">o que você<br>está lendo<span class="q">?</span></h1>
       </div>
+      <div id="onboardingBox"></div>
       <div id="lendoAgora"></div>
       <div class="section-head"><div class="label" data-i18n="popular_works_label">explore · obras populares</div></div>
       <div class="wall wall-mini" id="populares"></div>

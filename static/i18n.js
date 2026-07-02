@@ -1217,3 +1217,54 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   reading_on_lombada_one: 'lectura en Lombada', person_wants_to_read: 'quiere leer', sample_profile: 'perfil de ejemplo'
 });
+Object.assign(I18N['pt-BR'], {
+  search_placeholder: 'que livro você está lendo agora?',
+  onboarding_hero_title: 'Seu diário de leituras.',
+  onboarding_hero_text: 'Registre o que está lendo, acompanhe página a página e guarde o que cada livro te deixou.',
+  onboarding_hero_cta: 'Registrar meu primeiro livro',
+  onboarding_hero_cta_sub: 'sem conta · leva 30 segundos',
+  onboarding_example_tag: 'como vai ficar',
+  onboarding_example_title: 'seu próximo livro',
+  onboarding_example_author: 'autoria',
+  onboarding_example_note: '"uma frase sobre o que você achou até aqui" — p. 120 de 320',
+  onboarding_step_progress: '{done} de 3 passos',
+  onboarding_step1_title: 'Registrar um livro',
+  onboarding_step2_title: 'Atualizar seu progresso',
+  onboarding_step2_hint: 'toque no livro pra marcar onde parou',
+  onboarding_step3_title: 'Conhecer seu perfil',
+  onboarding_step3_hint: 'é onde suas leituras viram estante pública'
+});
+Object.assign(I18N['en'], {
+  search_placeholder: 'what book are you reading right now?',
+  onboarding_hero_title: 'Your reading diary.',
+  onboarding_hero_text: 'Log what you are reading, track your progress page by page, and keep what each book left with you.',
+  onboarding_hero_cta: 'Log my first book',
+  onboarding_hero_cta_sub: 'no account needed · takes 30 seconds',
+  onboarding_example_tag: 'what it looks like',
+  onboarding_example_title: 'your next book',
+  onboarding_example_author: 'author',
+  onboarding_example_note: '"a line about what you think so far" — p. 120 of 320',
+  onboarding_step_progress: '{done} of 3 steps',
+  onboarding_step1_title: 'Log a book',
+  onboarding_step2_title: 'Update your progress',
+  onboarding_step2_hint: 'tap the book to mark where you stopped',
+  onboarding_step3_title: 'Get to know your profile',
+  onboarding_step3_hint: 'that is where your readings become a public shelf'
+});
+Object.assign(I18N['es'], {
+  search_placeholder: '¿qué libro estás leyendo ahora?',
+  onboarding_hero_title: 'Tu diario de lecturas.',
+  onboarding_hero_text: 'Registra lo que estás leyendo, sigue tu progreso página a página y guarda lo que cada libro te dejó.',
+  onboarding_hero_cta: 'Registrar mi primer libro',
+  onboarding_hero_cta_sub: 'sin cuenta · toma 30 segundos',
+  onboarding_example_tag: 'cómo va a quedar',
+  onboarding_example_title: 'tu próximo libro',
+  onboarding_example_author: 'autoría',
+  onboarding_example_note: '"una frase sobre lo que te pareció hasta ahora" — p. 120 de 320',
+  onboarding_step_progress: '{done} de 3 pasos',
+  onboarding_step1_title: 'Registrar un libro',
+  onboarding_step2_title: 'Actualizar tu progreso',
+  onboarding_step2_hint: 'toca el libro para marcar dónde quedaste',
+  onboarding_step3_title: 'Conocer tu perfil',
+  onboarding_step3_hint: 'ahí es donde tus lecturas se vuelven estantería pública'
+});
