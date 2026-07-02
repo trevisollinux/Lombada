@@ -844,6 +844,10 @@ function handleLinkHTML(handle, cls='feed-user') {
 }
 function followButtonHTML(u, extraClass='') {
   if(!u?.handle || u.is_me) return '';
+  // perfis de exemplo não são pessoas reais pra seguir — sem botão pra quem ainda
+  // não segue. Mas se por algum motivo já segue (ex.: follow de antes desta
+  // regra existir), mantém o botão só pra permitir deixar de seguir.
+  if(u.is_demo && !u.is_following) return '';
   return `<button type="button" class="follow-inline ${extraClass} ${u.is_following?'active':''}" onclick="toggleFollowHandle('${esc(u.handle).replace(/'/g,"\'")}')">${u.is_following?t('following'):t('follow')}</button>`;
 }
 function atualizarFollowLocal(handle, following, counts={}){
@@ -1284,7 +1288,7 @@ function criticasHTML(){
   const corpo=c=>c.spoiler
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong>${trecho(c)?`<button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(trecho(c))}</p>`:''}</div>`
     : (trecho(c)?`<p>${esc(trecho(c))}</p>`:'');
-  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me,is_demo:c.is_demo},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   // não repete em "recentes" as críticas já mostradas em destaque
   const idsDestaque=new Set(destaques.map(c=>c.leitura_id).filter(Boolean));
   const recentesSemDestaque=recentes.filter(c=>!idsDestaque.has(c.leitura_id));
@@ -2866,6 +2870,10 @@ async function carregarVersaoApp(){
 }
 
 async function init(){
+  // servidor grátis (Render free tier) hiberna após inatividade — a primeira
+  // requisição pode levar até ~30s pra "acordar". Sem isso, a tela fica em
+  // branco tempo suficiente pra parecer que o app quebrou.
+  const coldStartTimer=setTimeout(()=>{ $('#coldStartNotice')?.removeAttribute('hidden'); },2500);
   const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
   history.replaceState(estadoInicial,'');
   tratarMensagemConta();
@@ -2882,6 +2890,8 @@ async function init(){
     $('#crumb').classList.add('visible');
   }catch(e){}
   await carregarPrateleira();
+  clearTimeout(coldStartTimer);
+  $('#coldStartNotice')?.setAttribute('hidden','');
   aplicarHistorico(estadoInicial);
   if(buscaDeepLink){ $('#q').value=buscaDeepLink; buscar(); }
 }

@@ -1608,3 +1608,11 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .diary-extra-toggle{display:block;margin:2px 0 14px;padding:8px 0}
 .diary-extra[hidden]{display:none}
 @media(max-width:420px){.progress-hero-num{font-size:28px}.progress-quick-chip{flex:1 1 auto;text-align:center}}
+
+/* aviso de cold start (Render free tier hibernando) */
+.cold-start-notice{position:sticky;top:0;z-index:999;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--wine);color:#F4EFE6;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.04em;line-height:1.4}
+.cold-start-notice[hidden]{display:none}
+.cold-start-notice strong{display:block;font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:10px;margin-bottom:2px}
+.cold-start-spin{width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:2px solid rgba(244,239,230,.35);border-top-color:#F4EFE6;animation:cold-start-spin .8s linear infinite}
+@keyframes cold-start-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.cold-start-spin{animation:none}}

@@ -1070,6 +1070,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
                 "is_following": _is_following(s, usuario_id, u.id),
                 "is_me": bool(usuario_id and usuario_id == u.id),
+                "is_demo": bool(getattr(u, "is_demo", False)),
                 "edicao_id": ed.id, **_review_state(s, l.id, usuario_id), "edicao": {
                     "editora": ed.editora, "ano": ed.ano, "tradutor": ed.tradutor,
                     "isbn": ed.isbn, "idioma": ed.idioma, "capa_url": ed.capa_url,
@@ -1865,6 +1866,8 @@ def seguir_usuario(handle: str, request: Request, s: Session = Depends(get_sessi
         raise HTTPException(404, "perfil não encontrado")
     if atual.id == alvo.id:
         raise HTTPException(400, "você não pode seguir a si mesmo")
+    if getattr(alvo, "is_demo", False):
+        raise HTTPException(400, "perfis de exemplo não podem ser seguidos")
     follow = s.exec(select(Follow).where(Follow.follower_id == atual.id, Follow.following_id == alvo.id)).first()
     if not follow:
         s.add(Follow(follower_id=atual.id, following_id=alvo.id)); s.commit()
