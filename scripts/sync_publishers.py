@@ -675,6 +675,30 @@ def norm_isbn(value: Any) -> str:
     return ""
 
 
+def _isbn_de_variantes(variants: list[dict[str, Any]]) -> str:
+    return (
+        next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
+        or next((norm_isbn(v.get("sku")) for v in variants if norm_isbn(v.get("sku"))), "")
+    )
+
+
+def _isbn_via_produto_unico(base_url: str, handle: str, sleep_seconds: float) -> str:
+    """Fallback quando a listagem em lote (/products.json) não trouxe barcode/sku —
+    algumas lojas (ex.: sextante.com.br) omitem barcode do endpoint de listagem mas
+    incluem no endpoint de produto único (/products/{handle}.json). 1 request a mais
+    só quando os outros sinais falharam, então não pesa nas lojas que já funcionam
+    (ex.: record.com.br) via listagem."""
+    if not handle:
+        return ""
+    data = fetch_json(f"{base_url}/products/{handle}.json")
+    if sleep_seconds:
+        time.sleep(sleep_seconds / 4)
+    if not isinstance(data, dict):
+        return ""
+    variants = (data.get("product") or {}).get("variants") or []
+    return _isbn_de_variantes(variants)
+
+
 def collect_via_shopify(
     publisher: dict[str, str],
     max_urls: int,
@@ -697,18 +721,20 @@ def collect_via_shopify(
             index += 1
             if offset is not None and index < offset:
                 continue  # ainda antes da faixa pedida
-            url = f"{base_url}/products/{product.get('handle', '')}"
+            handle = product.get("handle", "")
+            url = f"{base_url}/products/{handle}"
             if offset is None and stable_external_id(url) in seen:
                 continue  # incremental: já ingerido em run anterior
             variants = product.get("variants") or []
             description = BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600]
             # barcode é o campo "certo", mas muita loja de livro (ex.: record.com.br)
-            # deixa barcode vazio e põe o ISBN no sku da variante — cai pra descrição
-            # e pra própria URL só como último recurso.
+            # deixa barcode vazio e põe o ISBN no sku da variante — cai pra descrição,
+            # depois pro endpoint de produto único (mais lento, só quando precisa) e
+            # pra própria URL só como último recurso.
             isbn = (
-                next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
-                or next((norm_isbn(v.get("sku")) for v in variants if norm_isbn(v.get("sku"))), "")
+                _isbn_de_variantes(variants)
                 or extract_isbn(description)
+                or _isbn_via_produto_unico(base_url, handle, sleep_seconds)
                 or isbn_from_url(url)
             )
             images = product.get("images") or []
