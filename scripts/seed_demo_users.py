@@ -40,16 +40,33 @@ from models import (  # noqa: E402
 )
 
 DEMO_USERS = [
-    ("Virginia Lobo", "demo-virginia-lobo", "Lê entre marés, quartos silenciosos e frases que parecem janelas."),
-    ("Franz Carteiro", "demo-franz-carteiro", "Abre processos contra livros que não terminam nunca."),
-    ("Clarice Lispectorinha", "demo-clarice-lispectorinha", "Procura epifanias em lombadas gastas e cafés frios."),
-    ("Jorge Labirinto", "demo-jorge-labirinto", "Perdeu-se numa biblioteca e decidiu morar nela."),
-    ("Machado de Bronze", "demo-machado-bronze", "Desconfia de narradores, principalmente dos muito simpáticos."),
-    ("Ursula das Estrelas", "demo-ursula-estrelas", "Ficção científica, mundos possíveis e sociedades impossíveis."),
-    ("Italo Viajante", "demo-italo-viajante", "Coleciona cidades invisíveis e capítulos curtos."),
-    ("Toni Morrisonal", "demo-toni-morrisonal", "Lê memória, trauma, beleza e assombro."),
-    ("Elena Ferragem", "demo-elena-ferragem", "Amizades difíceis, romances longos e capas dramáticas."),
-    ("Octavia Jardim", "demo-octavia-jardim", "Planta futuros estranhos em terrenos pós-apocalípticos."),
+    ("Virginia Lobo", "virginia-lobo", "Lê entre marés, quartos silenciosos e frases que parecem janelas."),
+    ("Franz Carteiro", "franz-carteiro", "Abre processos contra livros que não terminam nunca."),
+    ("Clarice Lispectorinha", "clarice-lispectorinha", "Procura epifanias em lombadas gastas e cafés frios."),
+    ("Jorge Labirinto", "jorge-labirinto", "Perdeu-se numa biblioteca e decidiu morar nela."),
+    ("Machado de Bronze", "machado-bronze", "Desconfia de narradores, principalmente dos muito simpáticos."),
+    ("Ursula das Estrelas", "ursula-estrelas", "Ficção científica, mundos possíveis e sociedades impossíveis."),
+    ("Italo Viajante", "italo-viajante", "Coleciona cidades invisíveis e capítulos curtos."),
+    ("Toni Morrisonal", "toni-morrisonal", "Lê memória, trauma, beleza e assombro."),
+    ("Elena Ferragem", "elena-ferragem", "Amizades difíceis, romances longos e capas dramáticas."),
+    ("Octavia Jardim", "octavia-jardim", "Planta futuros estranhos em terrenos pós-apocalípticos."),
+]
+
+# Handles antigos (com prefixo "demo-", de um dump anterior) que precisam
+# migrar pros handles novos acima. Usado só pelo script de rename dedicado
+# (rename_demo_handles.py) -- nunca toca em follows/reviews/likes, ao
+# contrário do reset_activity() deste script.
+LEGACY_HANDLE_RENAMES = [
+    ("demo-virginia-lobo", "virginia-lobo"),
+    ("demo-franz-carteiro", "franz-carteiro"),
+    ("demo-clarice-lispectorinha", "clarice-lispectorinha"),
+    ("demo-jorge-labirinto", "jorge-labirinto"),
+    ("demo-machado-bronze", "machado-bronze"),
+    ("demo-ursula-estrelas", "ursula-estrelas"),
+    ("demo-italo-viajante", "italo-viajante"),
+    ("demo-toni-morrisonal", "toni-morrisonal"),
+    ("demo-elena-ferragem", "elena-ferragem"),
+    ("demo-octavia-jardim", "octavia-jardim"),
 ]
 
 REVIEW_TEXTS = [
