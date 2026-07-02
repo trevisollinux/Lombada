@@ -842,6 +842,22 @@ function handleLinkHTML(handle, cls='feed-user') {
   const h=esc(handle||'leitor');
   return `<button type="button" class="${cls}" onclick="abrirPerfilPublico('${h.replace(/'/g,"\'")}')" title="${t('view_profile')}">@${h}</button>`;
 }
+function avatarHTML(nome, handle){
+  const inicial=((nome||handle||'?').trim().charAt(0)||'?').toUpperCase();
+  return `<span class="avatar-chip" style="--av-h:${hue(handle||nome||'?')}" aria-hidden="true">${esc(inicial)}</span>`;
+}
+/* bloco "pessoa": avatar + nome legível + @handle (e ação opcional), tudo
+   clicável pro perfil. Substitui o handle solto em caps nas superfícies
+   sociais — pessoas têm nome e rosto, registros têm handle. */
+function pessoaHTML(u, acao=''){
+  const handle=esc(u?.handle||'leitor');
+  const nome=(u?.nome||'').trim();
+  const sub=[`@${handle}`, acao].filter(Boolean).join(' · ');
+  return `<button type="button" class="person-block" onclick="abrirPerfilPublico('${handle.replace(/'/g,"\'")}')" title="${t('view_profile')}">
+    ${avatarHTML(nome,u?.handle)}
+    <span class="person-copy"><b>${esc(nome||'@'+handle)}</b><span>${esc(sub)}</span></span>
+  </button>`;
+}
 function followButtonHTML(u, extraClass='') {
   if(!u?.handle || u.is_me) return '';
   // perfis de exemplo não são pessoas reais pra seguir — sem botão pra quem ainda
@@ -907,14 +923,19 @@ function renderFeed(){
     return `<article class="feed-card">
       <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
       <div class="feed-copy">
-        <div class="feed-card-top"><span>${handleLinkHTML(u.handle)}<span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></span>${followButtonHTML(u)}</div>
+        <div class="feed-card-top">${pessoaHTML(u,feedAction(it.tipo,l.status))}${followButtonHTML(u)}</div>
         <div class="feed-title-row"><button class="feed-title work-title-link" type="button" onclick="abrirPaginaObraDoFeed(${i})">${esc(livro.titulo)}</button>${l.nota?`<span class="feed-stars">${estrelasStr(l.nota)}</span>`:''}</div>
         <div class="feed-meta">${esc(meta)}</div>
         ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:(l.relato?`<div class="feed-quote">“${esc(l.relato)}”</div>`:'')}
         ${l.relato?reviewActionsHTML(l):''}
       </div></article>`;
   }).join('');
-  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}${(r.is_demo||/^demo-/i.test(r.handle||''))?`<span class="demo-badge">${t('sample_profile')}</span>`:''}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
+  const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>{
+    const bio=(r.bio||'').trim();
+    const contagem=[bio?`“${bio}”`:'',plural(r.reviews_count||0,'review_one','review_many')].filter(Boolean).join(' · ');
+    const badge=(r.is_demo||/^demo-/i.test(r.handle||''))?`<span class="demo-badge">${t('sample_profile')}</span>`:'';
+    return `<article><div class="discover-main">${pessoaHTML(r)}<small class="discover-sub">${esc(contagem)}${badge}</small></div>${followButtonHTML(r)}</article>`;
+  }).join('')}</section>`:'';
   const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
   box.innerHTML=tabs+intro+readers+title+reviewCards;
 }
@@ -1268,12 +1289,33 @@ function reviewActionsHTML(c){
   if(!c||!c.leitura_id) return '';
   const liked=!!c.liked_by_me, saved=!!c.saved_by_me;
   const likes=Number(c.likes_count||0);
+  // curtir/guardar são ações leves e frequentes; denunciar é rara e negativa —
+  // vai atrás do ⋯ pra action row não parecer formulário
   return `<div class="review-actions">
-    <button type="button" class="${liked?'active':''}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'} ${likes}</button>
-    <button type="button" class="${saved?'active':''}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
-    <button type="button" onclick="acaoReview(${c.leitura_id},'report')">${c.reported_by_me?t('reported_review'):t('report')}</button>
+    <button type="button" class="ra-like ${liked?'active':''}" aria-pressed="${liked}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'}${likes?` ${likes}`:''}</button>
+    <button type="button" class="ra-save ${saved?'active':''}" aria-pressed="${saved}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
+    <span class="ra-more-wrap"><button type="button" class="ra-more" aria-label="${t('more_options')}" aria-haspopup="true" aria-expanded="false" onclick="alternarMenuReview(this,event)">⋯</button>
+      <span class="ra-menu" hidden><button type="button" onclick="acaoReview(${c.leitura_id},'report')">${c.reported_by_me?t('reported_review'):t('report')}</button></span>
+    </span>
   </div>`;
 }
+function fecharMenusReview(exceto=null){
+  document.querySelectorAll('.ra-menu:not([hidden])').forEach(m=>{
+    if(m===exceto) return;
+    m.hidden=true;
+    m.closest('.ra-more-wrap')?.querySelector('.ra-more')?.setAttribute('aria-expanded','false');
+  });
+}
+function alternarMenuReview(btn,event){
+  event?.stopPropagation?.();
+  const menu=btn?.closest('.ra-more-wrap')?.querySelector('.ra-menu');
+  if(!menu) return;
+  const abrir=menu.hidden;
+  fecharMenusReview();
+  menu.hidden=!abrir;
+  btn.setAttribute('aria-expanded',abrir?'true':'false');
+}
+document.addEventListener('click',e=>{ if(!e.target.closest?.('.ra-more-wrap')) fecharMenusReview(); });
 
 function revelarSpoiler(btn){
   const card=btn.closest('.review-card');
@@ -1288,7 +1330,7 @@ function criticasHTML(){
   const corpo=c=>c.spoiler
     ? `<div class="spoiler-box"><strong>${t('spoiler_warning')}</strong>${trecho(c)?`<button type="button" onclick="revelarSpoiler(this)">${t('tap_to_reveal_spoiler')}</button><p>${esc(trecho(c))}</p>`:''}</div>`
     : (trecho(c)?`<p>${esc(trecho(c))}</p>`:'');
-  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top"><strong>${handleLinkHTML(c.usuario||'leitor','review-user')}</strong><span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me,is_demo:c.is_demo},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
+  const card=c=>`<article class="review-card ${c.spoiler?'has-spoiler':''}"><div class="review-top">${pessoaHTML({handle:c.usuario,nome:c.nome})}<span>${c.nota?fmtMedia(c.nota):t('no_rating')}</span></div>${corpo(c)}${followButtonHTML({handle:c.usuario,is_following:c.is_following,is_me:c.is_me,is_demo:c.is_demo},'review-follow')}<div class="review-meta">${edicaoMeta(c)}</div>${reviewActionsHTML(c)}</article>`;
   // não repete em "recentes" as críticas já mostradas em destaque
   const idsDestaque=new Set(destaques.map(c=>c.leitura_id).filter(Boolean));
   const recentesSemDestaque=recentes.filter(c=>!idsDestaque.has(c.leitura_id));

@@ -1313,3 +1313,6 @@ Object.assign(I18N['es'], {
   cold_start_title: 'despertando la estantería…',
   cold_start_hint: 'la primera visita después de un tiempo puede tardar hasta 30 segundos.'
 });
+Object.assign(I18N['pt-BR'], { more_options: 'mais opções' });
+Object.assign(I18N['en'], { more_options: 'more options' });
+Object.assign(I18N['es'], { more_options: 'más opciones' });
