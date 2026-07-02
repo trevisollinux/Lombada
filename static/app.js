@@ -1777,6 +1777,35 @@ function progressoLeitura(l){
 function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
+function progressoDetalhado(l){
+  if(!l) return null;
+  const entradas=diarioEntradas.filter(e=>e.leitura_id===l.leitura_id&&e.pagina!==null&&e.pagina!==undefined).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  if(!entradas.length) return null;
+  const total=Number(l.paginas)||0;
+  const atual=Number(entradas[0].pagina);
+  const pct=total>0?Math.max(0,Math.min(100,Math.round(atual/total*100))):null;
+  let deltaTexto='';
+  if(entradas.length>1){
+    const anterior=Number(entradas[1].pagina);
+    const diff=atual-anterior;
+    const dataAnterior=dataDiario(entradas[1]);
+    if(diff>0) deltaTexto=t('diary_delta_since',{count:diff,date:dataAnterior});
+    else if(diff===0) deltaTexto=t('diary_delta_same',{date:dataAnterior});
+    else deltaTexto=t('diary_delta_back',{count:Math.abs(diff),date:dataAnterior});
+  }
+  return {atual,total,pct,deltaTexto};
+}
+function progressoHeroFormHTML(l){
+  const det=progressoDetalhado(l);
+  if(!det) return '';
+  const of=det.total>0?`<span class="progress-hero-of">${t('pages_suffix_of',{total:det.total})}</span>`:'';
+  const pctTxt=det.pct!==null?`<span class="progress-hero-pct">${det.pct}%</span>`:'';
+  return `<div class="progress-hero">
+    <div class="progress-hero-num">${det.atual}${of}${pctTxt}</div>
+    ${det.pct!==null?`<div class="reading-progress progress-hero-track"><span style="width:${det.pct}%"></span></div>`:''}
+    ${det.deltaTexto?`<div class="progress-hero-delta">${esc(det.deltaTexto)}</div>`:''}
+  </div>`;
+}
 async function carregarCapitulosEdicao(form){
   const edicaoId=form?.dataset?.edicaoId;
   const datalist=form?.querySelector('[data-diary-chapter-list]');
@@ -1819,7 +1848,15 @@ function aplicarTotalPaginas(form){
   if(!form) return;
   const tipo=form.querySelector('[data-diary-input="tipo"]')?.value||'pagina';
   const pergunta=form.querySelector('[data-diary-total-field]');
-  if(tipo!=='pagina'){ if(pergunta) pergunta.hidden=true; return; }
+  const slider=form.querySelector('[data-diary-progress-slider]');
+  const chips=form.querySelector('[data-progress-quick-chips]');
+  if(tipo!=='pagina'){
+    if(pergunta) pergunta.hidden=true;
+    if(slider) slider.hidden=true;
+    if(chips) chips.hidden=true;
+    return;
+  }
+  if(chips) chips.hidden=false;
   const total=Number(form.dataset.paginasTotal)||0;
   const suffix=form.querySelector('[data-diary-progress-suffix]');
   const valorInput=form.querySelector('[data-diary-input="valor"]');
@@ -1827,9 +1864,15 @@ function aplicarTotalPaginas(form){
     if(suffix){ suffix.textContent=t('pages_suffix_of',{total}); suffix.hidden=false; }
     if(valorInput) valorInput.max=String(total);
     if(pergunta) pergunta.hidden=true;
-  } else if(pergunta){
-    // só pergunta depois que a busca automática falhou — uma vez por edição
-    pergunta.hidden=form.dataset.paginasLoaded!=='1';
+    if(slider){
+      slider.max=String(total);
+      slider.hidden=false;
+      const n=Number(valorInput?.value);
+      slider.value=String(Number.isFinite(n)?Math.max(0,Math.min(total,n)):0);
+    }
+  } else {
+    if(slider) slider.hidden=true;
+    if(pergunta) pergunta.hidden=form.dataset.paginasLoaded!=='1'; // só pergunta depois que a busca automática falhou — uma vez por edição
   }
 }
 function configurarInputProgressoDiario(form,tipoSeguro){
@@ -1899,7 +1942,12 @@ function formDiarioHTML(leituraId, entry=null, edicaoId=null){
   const tipoEntrada=String(entry?.progresso_tipo||'').trim().toLowerCase();
   const tipoInicial=tipoEntrada==='pagina'||tipoEntrada==='porcentagem'||tipoEntrada==='capitulo'?tipoEntrada:(entry?.pagina!==null&&entry?.pagina!==undefined?'pagina':(entry?.porcentagem!==null&&entry?.porcentagem!==undefined?'porcentagem':(entry?.capitulo?'capitulo':'pagina')));
   const tipo=tipoInicial==='pagina'||tipoInicial==='porcentagem'||tipoInicial==='capitulo'?tipoInicial:'pagina';
-  const valorInicial=tipo==='pagina'?(entry?.pagina??''):(tipo==='porcentagem'?(entry?.porcentagem??''):(entry?.capitulo||''));
+  const leituraAtual=prateleira.find(x=>x.leitura_id===leituraId);
+  // pra entrada nova em modo página, começa da última posição conhecida — os
+  // chips de atalho (+10/+25/+50) e o slider partem de onde o leitor parou,
+  // não de zero
+  const ultimaPagina=!entry&&tipo==='pagina'?progressoDetalhado(leituraAtual)?.atual:null;
+  const valorInicial=tipo==='pagina'?(entry?.pagina??(ultimaPagina??'')):(tipo==='porcentagem'?(entry?.porcentagem??''):(entry?.capitulo||''));
   const inputType=tipo==='capitulo'?'text':'number';
   const inputMode=tipo==='capitulo'?'text':'numeric';
   const minAttr=tipo==='pagina'?' min="1"':(tipo==='porcentagem'?' min="0"':'');
@@ -1907,17 +1955,62 @@ function formDiarioHTML(leituraId, entry=null, edicaoId=null){
   const placeholder=tipo==='pagina'?t('diary_page_placeholder'):(tipo==='porcentagem'?t('diary_percent_placeholder'):t('chapter_placeholder'));
   const label=tipo==='pagina'?t('diary_page_label'):(tipo==='porcentagem'?t('diary_percent_label'):t('diary_chapter_label'));
   const chip=(valor,label)=>`<button type="button" class="progress-unit ${tipo===valor?'active':''}" data-progress-chip="${valor}" aria-pressed="${tipo===valor?'true':'false'}" onclick="selecionarTipoDiario('${formKey}','${valor}',this)">${label}</button>`;
-  return `<div class="diary-form" data-diary-form="${formKey}"${edicaoId?` data-edicao-id="${edicaoId}"`:''}>
+  const quickChip=(delta)=>`<button type="button" class="progress-quick-chip" data-progress-quick-chip onclick="ajustarPaginaChip('${formKey}',${delta})">+${delta} ${t('unit_page_short')}</button>`;
+  const temNotaExistente=!!(entry&&(entry.nota||entry.publico||entry.spoiler));
+  const totalConhecido=Number(leituraAtual?.paginas)||0;
+  const sliderEscondido=!(tipo==='pagina'&&totalConhecido>0);
+  const sliderValorInicial=Math.max(0,Math.min(totalConhecido,Number(valorInicial)||0));
+  return `<div class="diary-form" data-diary-form="${formKey}"${edicaoId?` data-edicao-id="${edicaoId}"`:''}${totalConhecido?` data-paginas-total="${totalConhecido}" data-paginas-loaded="1"`:''}>
     <div class="label diary-form-title">${t('update_progress')}</div>
     <p class="form-helper diary-form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
+    ${progressoHeroFormHTML(leituraAtual)}
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
-    <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''}><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div><datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
+    <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''} oninput="sincronizarSliderProgresso('${formKey}')"><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div>
+      <input type="range" class="diary-progress-slider" data-diary-progress-slider min="0" max="${totalConhecido}" step="1" value="${sliderValorInicial}"${sliderEscondido?' hidden':''} aria-label="${label}" oninput="onSliderProgresso('${formKey}',this.value)">
+      <div class="progress-quick-chips" data-progress-quick-chips${tipo==='pagina'?'':' hidden'}>${quickChip(10)}${quickChip(25)}${quickChip(50)}</div>
+    <datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
     <div class="field diary-total-field" data-diary-total-field hidden><label class="label" for="diaryTotalInput_${formKey}">${t('edition_pages_question')}</label><input id="diaryTotalInput_${formKey}" data-diary-input="paginas_total" type="number" inputmode="numeric" min="1" step="1" placeholder="${t('diary_page_placeholder')}"><p class="form-helper">${t('edition_pages_hint')}</p></div>
     <div class="field diary-chapter-order-field" data-diary-chapter-order-field${tipo==='capitulo'?'':' hidden'}><label class="label" for="diaryChapterOrderInput_${formKey}">${t('diary_chapter_order_label')}</label><input id="diaryChapterOrderInput_${formKey}" data-diary-input="capitulo_ordem" type="number" inputmode="numeric" min="1" step="1" value="${esc(entry?.capitulo_ordem??'')}" placeholder="${t('diary_chapter_order_placeholder')}"></div>
-    <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
-    <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
+    <button type="button" class="linklike diary-extra-toggle" data-diary-extra-toggle onclick="alternarNotaDiario('${formKey}')">${t(temNotaExistente?'hide_note_toggle':'add_note_toggle')}</button>
+    <div class="diary-extra" data-diary-extra${temNotaExistente?'':' hidden'}>
+      <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
+      <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
+    </div>
     <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}',this)">${t('save_diary')}</button>
   </div>`;
+}
+function alternarNotaDiario(formKey){
+  const form=document.querySelector(`[data-diary-form="${CSS.escape(String(formKey))}"]`);
+  const extra=form?.querySelector('[data-diary-extra]');
+  const btn=form?.querySelector('[data-diary-extra-toggle]');
+  if(!extra||!btn) return;
+  const abrir=extra.hidden;
+  extra.hidden=!abrir;
+  btn.textContent=t(abrir?'hide_note_toggle':'add_note_toggle');
+  if(abrir) extra.querySelector('textarea')?.focus({preventScroll:true});
+}
+function sincronizarSliderProgresso(formKey){
+  const form=document.querySelector(`[data-diary-form="${CSS.escape(String(formKey))}"]`);
+  const valorInput=form?.querySelector('[data-diary-input="valor"]');
+  const slider=form?.querySelector('[data-diary-progress-slider]');
+  if(!valorInput||!slider||slider.hidden) return;
+  const n=Number(valorInput.value);
+  if(Number.isFinite(n)) slider.value=String(Math.max(0,Math.min(Number(slider.max)||0,n)));
+}
+function onSliderProgresso(formKey,valor){
+  const form=document.querySelector(`[data-diary-form="${CSS.escape(String(formKey))}"]`);
+  const valorInput=form?.querySelector('[data-diary-input="valor"]');
+  if(valorInput) valorInput.value=valor;
+}
+function ajustarPaginaChip(formKey,delta){
+  const form=document.querySelector(`[data-diary-form="${CSS.escape(String(formKey))}"]`);
+  const valorInput=form?.querySelector('[data-diary-input="valor"]');
+  if(!valorInput) return;
+  const total=Number(form.dataset.paginasTotal)||0;
+  const atual=Number(valorInput.value)||0;
+  const proximo=Math.max(1,total>0?Math.min(total,atual+delta):atual+delta);
+  valorInput.value=String(proximo);
+  sincronizarSliderProgresso(formKey);
 }
 function buildDiaryPayload(form){
   if(!form) return null;
