@@ -168,6 +168,8 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     n = stats["total"]
     cont = _n(n, "livro", "livros")
     nome = (u.nome or "").strip() or "Leitor Lombada"
+    bio = (getattr(u, "bio", "") or "").strip()
+    bio_html = f'<p class="profile-bio">{_esc(bio)}</p>' if bio else ""
     social = social or {"followers_count": 0, "following_count": 0, "is_following": False, "is_me": False}
     seguidores = int(social.get("followers_count") or 0)
     seguindo = int(social.get("following_count") or 0)
@@ -190,7 +192,7 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     follow_html += '</div>'
     header = (
         f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
-        f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>'
+        f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>{bio_html}'
         f'<div class="count">{cont} · {_n(stats["lidos"], "lido", "lidos")} · {stats["lendo"]} lendo · {stats["quero_ler"]} quero ler</div>'
         f'<div class="count">{social_count}</div>{follow_html}</div>'
     )
