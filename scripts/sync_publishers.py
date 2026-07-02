@@ -1310,6 +1310,23 @@ def diagnose(publisher: dict[str, str]) -> None:
         break
 
 
+def _iter_json_paths(payload: Any, key: tuple[str, ...]):
+    """Acha listas em `payload[key[0]][key[1]]...` não importa o quão fundo
+    estejam aninhadas (ex.: {"product": {"variants": [...]}} ou {"variants": [...]})."""
+    if isinstance(payload, dict):
+        if key[0] in payload:
+            found = payload[key[0]]
+            if len(key) == 1 and isinstance(found, list):
+                yield from found
+                return
+            yield from _iter_json_paths(found, key[1:] if len(key) > 1 else key)
+        for value in payload.values():
+            yield from _iter_json_paths(value, key)
+    elif isinstance(payload, list):
+        for item in payload:
+            yield from _iter_json_paths(item, key)
+
+
 def dump_url(url: str) -> None:
     """Despeja JSON-LD, metatags e trechos de uma página — para entender a extração."""
     home = urlparse(url)._replace(path="/", query="").geturl()
@@ -1322,8 +1339,21 @@ def dump_url(url: str) -> None:
     if response is None:
         print(f"  inacessível: {url}")
         return
-    soup = BeautifulSoup(response.text, "html.parser")
     print(f"  URL {url} ({len(response.text)} bytes)")
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if payload is not None:
+        # Endpoint JSON (ex.: {handle}.json do Shopify) — mostra campos que
+        # costumam guardar o ISBN (barcode/sku), que o texto[:900] recortado
+        # pode não alcançar.
+        print(f"  JSON top-level keys={sorted(payload.keys()) if isinstance(payload, dict) else type(payload)}")
+        for variant in _iter_json_paths(payload, ("variants",)):
+            print(f"    variant: barcode={variant.get('barcode')!r} sku={variant.get('sku')!r} title={variant.get('title')!r}")
+        print(f"    json[:2000]={json.dumps(payload, ensure_ascii=False)[:2000]!r}")
+        return
+    soup = BeautifulSoup(response.text, "html.parser")
     json_ld = load_json_ld(soup)
     print(f"  JSON-LD blocos={len(json_ld)}")
     for obj in list(iter_json_objects(json_ld))[:8]:
