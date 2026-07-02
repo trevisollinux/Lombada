@@ -1616,3 +1616,32 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .cold-start-spin{width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:2px solid rgba(244,239,230,.35);border-top-color:#F4EFE6;animation:cold-start-spin .8s linear infinite}
 @keyframes cold-start-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.cold-start-spin{animation:none}}
+
+/* ── lado social: pessoas com rosto e nome ── */
+.avatar-chip{width:36px;height:36px;flex:0 0 36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:hsl(var(--av-h) 30% 38%);color:#F4EFE6;font-family:"Fraunces",serif;font-weight:600;font-size:16px;line-height:1;user-select:none}
+.person-block{appearance:none;border:0;background:transparent;padding:0;display:inline-flex;align-items:center;gap:10px;cursor:pointer;text-align:left;min-width:0;color:inherit;font:inherit}
+.person-copy{display:flex;flex-direction:column;gap:1px;min-width:0}
+.person-copy b{font-family:"Spectral",serif;font-weight:600;font-size:14.5px;line-height:1.15;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person-copy span{font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:.05em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person-block:hover .person-copy b{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+
+.discover-readers article{align-items:center}
+.discover-main{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.discover-sub{font-size:12px;color:var(--muted);font-style:italic;margin-left:46px;line-height:1.35}
+.discover-sub .demo-badge{margin-left:6px;font-style:normal}
+
+/* action row leve: curtir/guardar como gesto, denunciar atrás do ⋯ */
+.review-actions{display:flex;align-items:center;gap:16px;margin-top:10px;font-family:"Space Mono",monospace;font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:none}
+.review-actions .ra-like,.review-actions .ra-save,.review-actions .ra-more{border:0;background:transparent;color:inherit;padding:6px 0;cursor:pointer;font:inherit;display:inline-flex;align-items:center;gap:5px;min-height:32px}
+.review-actions .ra-like.active{color:var(--wine)}
+.review-actions .ra-save.active{color:var(--gold)}
+.review-actions .ra-like:hover,.review-actions .ra-save:hover{color:var(--ink-2)}
+.ra-more-wrap{position:relative;margin-left:auto;display:inline-flex}
+.ra-more{font-size:16px;letter-spacing:2px;padding:2px 8px!important}
+.ra-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:4px;min-width:150px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.ra-menu[hidden]{display:none}
+.ra-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--ink-2);font:inherit;font-size:11px;padding:9px 11px;cursor:pointer;border-radius:7px}
+.ra-menu button:hover{background:color-mix(in srgb,var(--rule),transparent 50%)}
+
+.review-card .review-top{align-items:flex-start}
+@media(max-width:420px){.person-copy b{font-size:13.5px}.discover-sub{margin-left:0}}

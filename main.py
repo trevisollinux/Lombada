@@ -1068,6 +1068,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 "leitura_id": l.id, "nota": l.nota, "relato": relato, "data": l.data,
                 "status": l.status, "spoiler": bool(l.spoiler),
                 "criado_em": l.criado_em.isoformat(), "usuario": u.handle,
+                "nome": u.nome,
                 "is_following": _is_following(s, usuario_id, u.id),
                 "is_me": bool(usuario_id and usuario_id == u.id),
                 "is_demo": bool(getattr(u, "is_demo", False)),
@@ -1834,7 +1835,8 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         if atual.id and leitor.id == atual.id:
             continue
         readers.append({
-            "handle": leitor.handle, "nome": leitor.nome, "is_demo": bool(getattr(leitor, "is_demo", False)), "reviews_count": reviews_count,
+            "handle": leitor.handle, "nome": leitor.nome, "bio": getattr(leitor, "bio", ""),
+            "is_demo": bool(getattr(leitor, "is_demo", False)), "reviews_count": reviews_count,
             "followers_count": _follow_counts(s, leitor.id)["followers_count"],
             "is_following": _is_following(s, atual.id, leitor.id), "is_me": False,
         })
