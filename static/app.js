@@ -785,19 +785,16 @@ function renderFeed(){
   const reviewCards=feedItems.map((it,i)=>{
     const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
     const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
+    const meta=[livro.autor,edition,dataFeed(it.created_at)].filter(Boolean).join(' · ');
     const spoiler=l.publico&&l.spoiler;
     return `<article class="feed-card">
       <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
       <div class="feed-copy">
         <div class="feed-card-top"><span>${handleLinkHTML(u.handle)}<span class="feed-action">${esc(feedAction(it.tipo,l.status))}</span></span>${followButtonHTML(u)}</div>
-        <button class="feed-title work-title-link" type="button" onclick="abrirPaginaObraDoFeed(${i})">${esc(livro.titulo)}</button>
-        <div class="feed-author">${esc(livro.autor)}</div>
-        ${edition?`<div class="feed-edition">${esc(edition)}</div>`:''}
-        ${l.nota?`<div class="feed-stars">${estrelasStr(l.nota)}</div>`:''}
-        ${l.relato&&!spoiler?`<div class="feed-quote">“${esc(l.relato)}”</div>`:''}
-        ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:''}
+        <div class="feed-title-row"><button class="feed-title work-title-link" type="button" onclick="abrirPaginaObraDoFeed(${i})">${esc(livro.titulo)}</button>${l.nota?`<span class="feed-stars">${estrelasStr(l.nota)}</span>`:''}</div>
+        <div class="feed-meta">${esc(meta)}</div>
+        ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:(l.relato?`<div class="feed-quote">“${esc(l.relato)}”</div>`:'')}
         ${l.relato?reviewActionsHTML(l):''}
-        <div class="feed-date">${esc(dataFeed(it.created_at))}</div>
       </div></article>`;
   }).join('');
   const readers=feedTab==='discover'&&discoverReaders.length?`<section class="discover-readers"><div class="label">${t('discover_readers')}</div>${discoverReaders.map(r=>`<article><div>${handleLinkHTML(r.handle)}<small>${plural(r.reviews_count||0,'review_one','review_many')} · ${t('followers_count',{count:r.followers_count||0})}</small></div>${followButtonHTML(r)}</article>`).join('')}</section>`:'';
@@ -1643,11 +1640,30 @@ function progressoLeitura(l){
 function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
+async function carregarCapitulosEdicao(form){
+  const edicaoId=form?.dataset?.edicaoId;
+  const datalist=form?.querySelector('[data-diary-chapter-list]');
+  if(!edicaoId||!datalist||datalist.dataset.loaded) return;
+  datalist.dataset.loaded='1';
+  try{
+    const res=await fetch(`/api/edicoes/${edicaoId}/capitulos`);
+    if(!res.ok) return;
+    const capitulos=await res.json();
+    datalist.innerHTML=(capitulos||[]).map(c=>`<option value="${esc(c)}">`).join('');
+  }catch(_){ datalist.dataset.loaded=''; }
+}
 function configurarInputProgressoDiario(form,tipoSeguro){
   const valorInput=form?.querySelector('[data-diary-input="valor"]');
   const label=form?.querySelector('[data-diary-progress-label]');
   const suffix=form?.querySelector('[data-diary-progress-suffix]');
   if(!valorInput) return;
+  const datalist=form.querySelector('[data-diary-chapter-list]');
+  if(tipoSeguro==='capitulo'){
+    if(datalist) valorInput.setAttribute('list',datalist.id);
+    carregarCapitulosEdicao(form);
+  } else {
+    valorInput.removeAttribute('list');
+  }
   const config={
     pagina:{type:'number',inputmode:'numeric',min:'1',max:'',placeholder:t('diary_page_placeholder'),label:t('diary_page_label'),suffix:''},
     porcentagem:{type:'number',inputmode:'numeric',min:'0',max:'100',placeholder:t('diary_percent_placeholder'),label:t('diary_percent_label'),suffix:'%'},
@@ -1691,9 +1707,10 @@ function atualizarCamposDiario(id=''){
   const tipo=form?.querySelector('[data-diary-input="tipo"]')?.value||'pagina';
   selecionarTipoDiario(id,tipo,form);
 }
-function formDiarioHTML(leituraId, entry=null){
+function formDiarioHTML(leituraId, entry=null, edicaoId=null){
   const id=entry?.id||'';
   const formKey=entry?.id?`edit_${entry.id}`:`new_${leituraId}`;
+  const chapterListId=`diaryChapterList_${formKey}`;
   const tipoEntrada=String(entry?.progresso_tipo||'').trim().toLowerCase();
   const tipoInicial=tipoEntrada==='pagina'||tipoEntrada==='porcentagem'||tipoEntrada==='capitulo'?tipoEntrada:(entry?.pagina!==null&&entry?.pagina!==undefined?'pagina':(entry?.porcentagem!==null&&entry?.porcentagem!==undefined?'porcentagem':(entry?.capitulo?'capitulo':'pagina')));
   const tipo=tipoInicial==='pagina'||tipoInicial==='porcentagem'||tipoInicial==='capitulo'?tipoInicial:'pagina';
@@ -1705,11 +1722,11 @@ function formDiarioHTML(leituraId, entry=null){
   const placeholder=tipo==='pagina'?t('diary_page_placeholder'):(tipo==='porcentagem'?t('diary_percent_placeholder'):t('chapter_placeholder'));
   const label=tipo==='pagina'?t('diary_page_label'):(tipo==='porcentagem'?t('diary_percent_label'):t('diary_chapter_label'));
   const chip=(valor,label)=>`<button type="button" class="progress-unit ${tipo===valor?'active':''}" data-progress-chip="${valor}" aria-pressed="${tipo===valor?'true':'false'}" onclick="selecionarTipoDiario('${formKey}','${valor}',this)">${label}</button>`;
-  return `<div class="diary-form" data-diary-form="${formKey}">
+  return `<div class="diary-form" data-diary-form="${formKey}"${edicaoId?` data-edicao-id="${edicaoId}"`:''}>
     <div class="label diary-form-title">${t('update_progress')}</div>
     <p class="form-helper diary-form-helper">${t('new_diary_subtitle')} · ${t('private_by_default')}</p>
     <input type="hidden" id="diaryProgressType_${formKey}" data-diary-input="tipo" value="${tipo}">
-    <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div></div>
+    <div class="field diary-progress-field"><label class="label" for="diaryProgressInput_${formKey}" data-diary-progress-label>${label}</label><div class="diary-progress-row"><div class="suffix-field diary-progress-value"><input id="diaryProgressInput_${formKey}" data-diary-input="valor" type="${inputType}" inputmode="${inputMode}"${minAttr}${maxAttr} step="1" value="${esc(valorInicial)}" placeholder="${placeholder}"${tipo==='capitulo'?` list="${chapterListId}"`:''}><span data-diary-progress-suffix${tipo==='porcentagem'?'':' hidden'}>%</span></div><div class="progress-units" aria-label="${t('how_track_progress')}">${chip('pagina',t('unit_page_short'))}${chip('porcentagem',t('unit_percent_short'))}${chip('capitulo',t('unit_chapter_short'))}</div></div><datalist id="${chapterListId}" data-diary-chapter-list></datalist></div>
     <div class="field"><label class="label" for="diaryNoteInput_${formKey}">${t('entry_note')}</label><textarea id="diaryNoteInput_${formKey}" data-diary-input="nota" maxlength="2000" placeholder="${t('entry_note_placeholder')}">${esc(entry?.nota||'')}</textarea></div>
     <div class="visibility-box"><label class="check-line"><input type="checkbox" id="diarySpoilerInput_${formKey}" data-diary-input="spoiler" ${entry?.spoiler?'checked':''}> <span>${t('contains_spoiler')}</span></label><label class="check-line"><input type="checkbox" id="diaryPublicInput_${formKey}" data-diary-input="publico" ${entry?.publico?'checked':''}> <span>${t('show_on_public_profile')}</span></label></div>
     <button class="btn-primary" onclick="salvarDiario(${leituraId},'${id}',this)">${t('save_diary')}</button>
@@ -1822,7 +1839,7 @@ function cardEntradaDiario(e, opts={}){
     <div class="diary-progress">${progressoDiario(e)}</div>
     ${nota}
     <div class="diary-actions"><button onclick="diarioEditId=${e.id}; ${opts.inDetail?'renderDetalheLivro(cardAtual)':'renderDiario()'}">${t('edit_diary_entry')}</button><button onclick="prepararCardDiario(${e.id})">${t('diary_card')}</button><button onclick="excluirDiario(${e.id},this)">${t('delete_diary_entry')}</button></div>
-    ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e):''}
+    ${diarioEditId===e.id?formDiarioHTML(e.leitura_id,e,prateleira.find(l=>l.leitura_id===e.leitura_id)?.edicao_id):''}
   </article>`;
 }
 function agruparEntradasDiario(){
@@ -2181,7 +2198,7 @@ function renderDetalheLivro(l){
     <section class="detail-section" id="readingDiarySection">
       <div class="label">${t('reading_diary')}</div>
       <p class="detail-empty">${t('diary_hint')}</p>
-      <div id="diaryNewForm">${formDiarioHTML(l.leitura_id)}</div>
+      <div id="diaryNewForm">${formDiarioHTML(l.leitura_id,null,l.edicao_id)}</div>
       <div class="diary detail-diary">${diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).map(e=>cardEntradaDiario(e,{inDetail:true})).join('') || `<p class="detail-empty">${t('no_diary_entries')}</p>`}</div>
     </section>
     <section class="detail-section">
