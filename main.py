@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, get_session, migrar
 from auth import usuario_sessao, router as auth_router
-from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, TIMEOUT, _UA
+from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
@@ -1096,6 +1096,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
                 "editora": ed.editora, "ano": ed.ano,
                 "tradutor": ed.tradutor, "isbn": ed.isbn,
                 "idioma": ed.idioma, "capa_url": ed.capa_url,
+                "paginas": ed.paginas,
             },
         })
     destaques_edicao = {
@@ -1270,6 +1271,22 @@ class DiarioPayload(BaseModel):
     nota: str = ""
     publico: bool = False
     spoiler: bool = False
+    # total de páginas da edição, respondido uma única vez quando o catálogo
+    # não tem o dado — vai pra Edicao, não pra entrada do diário
+    paginas_total: Optional[int] = None
+
+
+def _backfill_paginas_edicao(edicao_id: int, paginas_total: Optional[int], s: Session) -> None:
+    if not paginas_total or paginas_total <= 0 or paginas_total > 20000:
+        return
+    edicao = s.get(Edicao, edicao_id)
+    if not edicao or edicao.paginas:
+        return
+    try:
+        edicao.paginas = int(paginas_total)
+        s.add(edicao); s.commit()
+    except SQLAlchemyError:
+        s.rollback()
 
 
 def _leitura_do_usuario(leitura_id: int, usuario_id: int, s: Session) -> Leitura:
@@ -1351,6 +1368,31 @@ def listar_diario_leitura(leitura_id: int, request: Request, s: Session = Depend
     return [_diario_payload(e) for e in entries]
 
 
+@app.get("/api/edicoes/{edicao_id}/paginas")
+def paginas_edicao(edicao_id: int, s: Session = Depends(get_session)):
+    """Total de páginas da edição pro progresso 'p. X de Y'.
+
+    Se a edição ainda não tem o dado, tenta descobrir pelo ISBN (Open
+    Library → Google Books) e grava — a partir daí ninguém mais espera
+    essa busca. Sem ISBN ou sem resultado, devolve null e o front faz a
+    pergunta única pro leitor (que também alimenta a edição)."""
+    edicao = s.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "edição não encontrada")
+    if edicao.paginas:
+        return {"paginas": edicao.paginas, "fonte": "edicao"}
+    if edicao.isbn:
+        n = paginas_por_isbn(edicao.isbn)
+        if n:
+            try:
+                edicao.paginas = n
+                s.add(edicao); s.commit()
+            except SQLAlchemyError:
+                s.rollback()
+            return {"paginas": n, "fonte": "catalogo"}
+    return {"paginas": None, "fonte": None}
+
+
 @app.get("/api/edicoes/{edicao_id}/capitulos")
 def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
     """Sumário da edição pro autocomplete/seletor de capítulo no diário.
@@ -1416,6 +1458,7 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
         logger.exception("diary_create_failed", extra={"leitura_id": leitura_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
     _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s)
+    _backfill_paginas_edicao(leitura.edicao_id, payload.paginas_total, s)
     return _diario_payload(entry)
 
 
@@ -1464,6 +1507,7 @@ class EntradaPrateleira(BaseModel):
     idioma:          str           = ""
     ano_edicao:      Optional[int] = None
     capa_url:        str           = ""
+    paginas:         Optional[int] = None
     status:          str           = "Lido"
     nota:            Optional[float] = None
     relato:          str           = ""
@@ -1571,12 +1615,17 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
                     titulo=e.titulo.strip(), autor=e.autor.strip(),
                     idioma_original=e.idioma_original.strip(), ano=e.ano_obra)
         s.add(obra); s.commit(); s.refresh(obra)
+    paginas = e.paginas if e.paginas and e.paginas > 0 else None
     edicao = _buscar_edicao_existente(e, obra, s)
     if not edicao:
         edicao = Edicao(obra_id=obra.id, ol_edition_key=e.ol_edition_key,
                         editora=e.editora.strip(), tradutor=e.tradutor.strip(), isbn=_isbn_norm(e.isbn),
-                        idioma=e.idioma.strip(), ano=e.ano_edicao, capa_url=e.capa_url.strip())
+                        idioma=e.idioma.strip(), ano=e.ano_edicao, capa_url=e.capa_url.strip(),
+                        paginas=paginas)
         s.add(edicao); s.commit(); s.refresh(edicao)
+    elif paginas and not edicao.paginas:
+        edicao.paginas = paginas
+        s.add(edicao); s.commit()
     leitura_existente, edicao_existente = _buscar_leitura_duplicada(usuario_id, e, obra, edicao, s)
     if leitura_existente:
         raise HTTPException(409, {"duplicado": True, "leitura_id": leitura_existente.id, "edicao_id": edicao_existente.id})
@@ -1650,7 +1699,7 @@ def listar(request: Request, s: Session = Depends(get_session)):
         "titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key,
         "edicao_id": ed.id, "ol_edition_key": ed.ol_edition_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
-        "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,
+        "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url, "paginas": ed.paginas,
         "tenho_edicao": rel_map.get(ed.id, {}).get("tenho", False),
         "quero_edicao": rel_map.get(ed.id, {}).get("quero", False),
         "li_edicao": True,
@@ -2141,9 +2190,11 @@ def _aprovar_sugestao(sug: CatalogSuggestion, admin: Usuario, s: Session):
             obra = Obra(ol_work_key=payload.get("work_key") or f"manual:{uuid4().hex}", titulo=titulo, autor=autor,
                         idioma_original=_clean_text(payload.get("idioma_original"), 80), ano=payload.get("ano_obra"))
             s.add(obra); s.commit(); s.refresh(obra)
+        paginas_sug = payload.get("paginas")
         edicao = Edicao(obra_id=obra.id, ol_edition_key=payload.get("ol_edition_key"), editora=_clean_text(payload.get("editora"), 160),
                         tradutor=_clean_text(payload.get("tradutor"), 160), isbn=_clean_text(payload.get("isbn"), 32),
-                        idioma=_clean_text(payload.get("idioma"), 80), ano=payload.get("ano_edicao"), capa_url=_clean_url(payload.get("capa_url"), 500) if payload.get("capa_url") else "")
+                        idioma=_clean_text(payload.get("idioma"), 80), ano=payload.get("ano_edicao"), capa_url=_clean_url(payload.get("capa_url"), 500) if payload.get("capa_url") else "",
+                        paginas=paginas_sug if isinstance(paginas_sug, int) and 0 < paginas_sug <= 20000 else None)
         s.add(edicao); s.commit()
     sug.status = "approved"; sug.reviewed_at = datetime.utcnow(); sug.reviewed_by = admin.email or admin.handle
     s.add(sug); s.commit()

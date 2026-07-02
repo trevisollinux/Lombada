@@ -1209,11 +1209,20 @@ Object.assign(I18N['es'], {
   pwa_app_label: 'App', pwa_install_message: 'Instala Lombada para usarla como app en el celular.', pwa_install_action: 'Instalar Lombada', pwa_install_dismiss: 'Ahora no', pwa_installed: 'Lombada instalada.', pwa_update_available: 'Hay una nueva versión de Lombada.', pwa_update_action: 'Actualizar', pwa_update_installed: 'Actualización instalada.', confirm_removal: 'confirmar eliminación'
 });
 Object.assign(I18N['pt-BR'], {
-  reading_on_lombada_one: 'leitura na Lombada', person_wants_to_read: 'quer ler', sample_profile: 'perfil de exemplo'
+  reading_on_lombada_one: 'leitura na Lombada', person_wants_to_read: 'quer ler', sample_profile: 'perfil de exemplo',
+  page_of_total: 'p. {count} de {total}', pages_suffix_of: 'de {total}', edition_pages_label: 'Páginas',
+  edition_pages_question: 'Quantas páginas tem a sua edição?',
+  edition_pages_hint: 'perguntamos só uma vez — fica salvo pra todo mundo com essa edição.'
 });
 Object.assign(I18N['en'], {
-  reading_on_lombada_one: 'reading on Lombada', person_wants_to_read: 'wants to read', sample_profile: 'sample profile'
+  reading_on_lombada_one: 'reading on Lombada', person_wants_to_read: 'wants to read', sample_profile: 'sample profile',
+  page_of_total: 'p. {count} of {total}', pages_suffix_of: 'of {total}', edition_pages_label: 'Pages',
+  edition_pages_question: 'How many pages does your edition have?',
+  edition_pages_hint: 'we only ask once — it is saved for everyone with this edition.'
 });
 Object.assign(I18N['es'], {
-  reading_on_lombada_one: 'lectura en Lombada', person_wants_to_read: 'quiere leer', sample_profile: 'perfil de ejemplo'
+  reading_on_lombada_one: 'lectura en Lombada', person_wants_to_read: 'quiere leer', sample_profile: 'perfil de ejemplo',
+  page_of_total: 'p. {count} de {total}', pages_suffix_of: 'de {total}', edition_pages_label: 'Páginas',
+  edition_pages_question: '¿Cuántas páginas tiene tu edición?',
+  edition_pages_hint: 'preguntamos solo una vez — queda guardado para todos con esta edición.'
 });
