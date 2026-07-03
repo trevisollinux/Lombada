@@ -2454,7 +2454,9 @@ function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPrevie
 
 function diaryCardActive(){ return cardContext.type==='diario' && cardContext.source; }
 function reviewCardActive(){ return cardContext.type==='critica' && (cardAtual?.relato||'').trim(); }
-function shareCardSize(){ return (diaryCardActive()||reviewCardActive())?{w:1080,h:1350}:{w:1080,h:1920}; }
+function shareCardSize(){
+  return {w:1080,h:1920};
+}
 function configurarCanvasCard(cv){
   if(!cv)return;
   const size=shareCardSize();
@@ -2772,7 +2774,7 @@ function drawShareCardText(ctx,l,W,H,cy,ch){
   let y=drawBookInfo(ctx,l,W,H,cy,ch)+86;
   if(payload.progress){ctx.fillStyle=p.muted;ctx.font="400 36px 'Space Mono', monospace";wrapLeft(ctx,payload.progress,110,y,W-220,46,1);y+=62;}
   else {drawShareStars(ctx,l,y);y+=110;}
-  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,3);}
+  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,(reviewCardActive()||diaryCardActive())?2:3);}
   else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 42px Spectral, serif";wrapLeft(ctx,payload.spoilerLabel,110,y,W-220,54,2);}
   drawFooter(ctx,l,W,H);
 }
