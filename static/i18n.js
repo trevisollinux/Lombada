@@ -1391,3 +1391,39 @@ Object.assign(I18N['es'], {
   login_to_comment: 'entra con Google para comentar.', no_comments_yet: 'aún no hay comentarios.',
   delete_comment: 'eliminar comentario'
 });
+Object.assign(I18N['pt-BR'], {
+  diary_chapter_page_label: 'Em que página começa esse capítulo? (opcional)',
+  diary_chapter_page_hint: 'ajuda a sincronizar % de progresso com quem registra por capítulo.',
+  diary_chapter_page_placeholder: 'ex: 120',
+  paste_summary_toggle: 'colar sumário',
+  paste_summary_hint: 'cole o índice do livro, um capítulo por linha — a gente tenta reconhecer título e página.',
+  paste_summary_placeholder: 'Capítulo 1 — A Chegada .... 15\nCapítulo 2 — O Encontro .... 34',
+  paste_summary_save: 'salvar sumário',
+  paste_summary_saved: 'sumário salvo.',
+  paste_summary_error: 'não foi possível salvar o sumário agora.',
+  reading_pace_eta: 'no seu ritmo, você termina por volta de {date}'
+});
+Object.assign(I18N['en'], {
+  diary_chapter_page_label: 'What page does this chapter start on? (optional)',
+  diary_chapter_page_hint: 'helps sync % progress with chapter-based entries.',
+  diary_chapter_page_placeholder: 'e.g. 120',
+  paste_summary_toggle: 'paste table of contents',
+  paste_summary_hint: "paste the book's table of contents, one chapter per line — we try to detect title and page.",
+  paste_summary_placeholder: 'Chapter 1 — The Arrival .... 15\nChapter 2 — The Encounter .... 34',
+  paste_summary_save: 'save summary',
+  paste_summary_saved: 'summary saved.',
+  paste_summary_error: 'could not save the summary right now.',
+  reading_pace_eta: 'at your pace, you’ll finish around {date}'
+});
+Object.assign(I18N['es'], {
+  diary_chapter_page_label: '¿En qué página empieza este capítulo? (opcional)',
+  diary_chapter_page_hint: 'ayuda a sincronizar el % de progreso con quien registra por capítulo.',
+  diary_chapter_page_placeholder: 'ej.: 120',
+  paste_summary_toggle: 'pegar índice',
+  paste_summary_hint: 'pega el índice del libro, un capítulo por línea — intentamos reconocer título y página.',
+  paste_summary_placeholder: 'Capítulo 1 — La Llegada .... 15\nCapítulo 2 — El Encuentro .... 34',
+  paste_summary_save: 'guardar índice',
+  paste_summary_saved: 'índice guardado.',
+  paste_summary_error: 'no se pudo guardar el índice ahora.',
+  reading_pace_eta: 'a tu ritmo, terminarás alrededor del {date}'
+});

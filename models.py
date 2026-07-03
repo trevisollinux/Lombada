@@ -101,6 +101,7 @@ class EdicaoCapitulo(SQLModel, table=True):
     ordem: int
     titulo: str
     fonte: str = Field(default="comunidade")
+    pagina_inicio: Optional[int] = None
     criado_em: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -262,6 +263,7 @@ def migrar():
     _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
     _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
+    _add_column_if_missing("edicaocapitulo", "pagina_inicio", "ALTER TABLE edicaocapitulo ADD COLUMN pagina_inicio INTEGER")
 
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")

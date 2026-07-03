@@ -151,6 +151,102 @@ class SmokeTest(unittest.TestCase):
         r = self.client.get("/api/eu")
         self.assertEqual(r.status_code, 200)
 
+    def test_parsear_sumario_colado_extrai_titulo_e_pagina(self):
+        texto = "Capítulo 1 — A Chegada .... 15\n\n2. O Encontro    34\nsem numeração nem página"
+        itens = main._parsear_sumario_colado(texto)
+        self.assertEqual(len(itens), 3)
+        self.assertEqual(itens[0], {"ordem": 1, "titulo": "A Chegada", "pagina": 15})
+        self.assertEqual(itens[1], {"ordem": 2, "titulo": "O Encontro", "pagina": 34})
+        self.assertEqual(itens[2], {"ordem": 3, "titulo": "sem numeração nem página", "pagina": None})
+
+    def test_interpolar_pagina_so_interpola_dentro_do_intervalo_conhecido(self):
+        mapa = {1: 10, 3: 50}
+        self.assertEqual(main._interpolar_pagina(mapa, 1), 10)
+        self.assertEqual(main._interpolar_pagina(mapa, 2), 30)
+        self.assertIsNone(main._interpolar_pagina(mapa, 5))  # fora do intervalo: sem extrapolação
+        self.assertIsNone(main._interpolar_pagina({1: 10}, 2))  # só um ponto conhecido: sem interpolação
+
+    def _criar_leitura_para_diario(self, sufixo: str):
+        with main.Session(main.engine) as s:
+            obra = main.Obra(ol_work_key=f"fase3-work-{sufixo}", titulo="Livro Fase 3", autor="Autora")
+            s.add(obra); s.commit(); s.refresh(obra)
+            edicao = main.Edicao(obra_id=obra.id, ol_edition_key=f"fase3-edicao-{sufixo}")
+            s.add(edicao); s.commit(); s.refresh(edicao)
+        r = self.client.get("/api/eu")
+        handle = r.json()["handle"]
+        with main.Session(main.engine) as s:
+            usuario_id = s.exec(main.select(main.Usuario).where(main.Usuario.handle == handle)).first().id
+        with main.Session(main.engine) as s:
+            leitura = main.Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status="Lendo")
+            s.add(leitura); s.commit(); s.refresh(leitura)
+        return edicao.id, leitura.id
+
+    def test_colar_sumario_endpoint_cria_e_atualiza_capitulos(self):
+        edicao_id, _ = self._criar_leitura_para_diario("colar")
+        texto = "1. Início .... 10\n2. Meio .... 40"
+        r = self.client.post(f"/api/edicoes/{edicao_id}/capitulos/colar", json={"texto": texto})
+        self.assertEqual(r.status_code, 200)
+        capitulos = r.json()
+        self.assertEqual(len(capitulos), 2)
+        self.assertEqual(capitulos[0]["titulo"], "Início")
+        self.assertEqual(capitulos[0]["fonte"], "comunidade")
+
+        r = self.client.get(f"/api/edicoes/{edicao_id}/capitulos")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([c["titulo"] for c in r.json()], ["Início", "Meio"])
+
+        # colar de novo corrige o título mas não sobrescreve página já conhecida
+        r = self.client.post(f"/api/edicoes/{edicao_id}/capitulos/colar", json={"texto": "1. Início (revisado) .... 999"})
+        self.assertEqual(r.status_code, 200)
+        with main.Session(main.engine) as s:
+            cap = s.exec(
+                main.select(main.EdicaoCapitulo).where(main.EdicaoCapitulo.edicao_id == edicao_id, main.EdicaoCapitulo.ordem == 1)
+            ).first()
+            self.assertEqual(cap.titulo, "Início (revisado)")
+            self.assertEqual(cap.pagina_inicio, 10)
+
+    def test_colar_sumario_endpoint_rejeita_texto_sem_capitulos_reconheciveis(self):
+        edicao_id, _ = self._criar_leitura_para_diario("colar-vazio")
+        r = self.client.post(f"/api/edicoes/{edicao_id}/capitulos/colar", json={"texto": "   \n   "})
+        self.assertEqual(r.status_code, 422)
+
+    def test_diario_capitulo_com_pagina_alimenta_mapa_e_estima_capitulo_sem_pagina(self):
+        edicao_id, leitura_id = self._criar_leitura_para_diario("mapa")
+
+        r = self.client.post(
+            f"/api/leitura/{leitura_id}/diario",
+            json={"progresso_tipo": "capitulo", "capitulo": "Um", "capitulo_ordem": 1, "pagina": 10},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["pagina"], 10)
+
+        r = self.client.post(
+            f"/api/leitura/{leitura_id}/diario",
+            json={"progresso_tipo": "capitulo", "capitulo": "Três", "capitulo_ordem": 3, "pagina": 50},
+        )
+        self.assertEqual(r.status_code, 200)
+
+        r = self.client.post(
+            f"/api/leitura/{leitura_id}/diario",
+            json={"progresso_tipo": "capitulo", "capitulo": "Dois", "capitulo_ordem": 2},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.json()["pagina"])
+
+        r = self.client.get(f"/api/leitura/{leitura_id}/diario")
+        self.assertEqual(r.status_code, 200)
+        entradas = {e["capitulo_ordem"]: e for e in r.json()}
+        self.assertEqual(entradas[2]["pagina_estimada"], 30)
+        self.assertIsNone(entradas[1]["pagina_estimada"])  # já tem página real, não precisa estimar
+
+        with main.Session(main.engine) as s:
+            capitulos = s.exec(
+                main.select(main.EdicaoCapitulo).where(main.EdicaoCapitulo.edicao_id == edicao_id)
+            ).all()
+            mapa = {c.ordem: c.pagina_inicio for c in capitulos}
+            self.assertEqual(mapa.get(1), 10)
+            self.assertEqual(mapa.get(3), 50)
+
 
 if __name__ == "__main__":
     unittest.main()
