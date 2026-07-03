@@ -99,6 +99,7 @@ function setupGlobalKeyboard(){
   if(document.__lombadaKeyboard) return;
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
+    if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
     if(event.key==='Escape' && modalAberto()){ event.preventDefault(); fecharModal(); return; }
     if(event.key==='Enter' || event.key===' '){
@@ -588,6 +589,7 @@ function mostrarBusca(tela,opcoes={}){
 function aplicarHistorico(estado){
   const proximo=estado && estado.lombada ? estado : (lerEstadoNavSalvo() || estadoNav('buscar','home'));
   const deveReabrirModal=!!proximo.modal;
+  if(atividadeModalAberta() && !proximo.activityOpen) fecharAtividadeDireto();
   if(leitorModalAberto() && !proximo.readerHandle) fecharLeitorDireto();
   if(modalAberto() && !deveReabrirModal) fecharModalDireto();
   restaurandoHistorico=true;
@@ -1048,6 +1050,61 @@ function renderLeitor(){
     ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo)}</div>`:''}
     ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas)}</div>`:''}
     ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}`;
+}
+
+/* ── atividade: "fulano te seguiu/curtiu/comentou" ── */
+async function atualizarBadgeAtividade(){
+  const dot=$('#activityDot'); if(!dot) return;
+  try{
+    const data=await (await fetch('/api/notificacoes/nao-lidas')).json();
+    dot.hidden=!(data?.count>0);
+  }catch(e){}
+}
+function atividadeModalAberta(){ return $('#activityModal')?.classList.contains('open'); }
+async function abrirAtividade(opcoes={}){
+  const registrar=opcoes.registrar ?? true;
+  $('#activityDetail').innerHTML=`<div class="empty">${t('reader_loading')}</div>`;
+  $('#activityModal').classList.add('open');
+  requestAnimationFrame(()=>$('#activityModal .modal-x')?.focus());
+  if(registrar && !restaurandoHistorico){
+    const estado={...estadoNav(navAtual.aba,navAtual.busca,false),activityOpen:true};
+    if(history.state && history.state.lombada && history.state.activityOpen) history.replaceState(estado,'');
+    else history.pushState(estado,'');
+  }
+  let lista=[];
+  try{
+    const res=await fetch('/api/notificacoes');
+    if(res.status===401){ $('#activityDetail').innerHTML=`<div class="empty">${t('activity_login_required')}</div>`; return; }
+    lista=await res.json();
+  }catch(e){
+    $('#activityDetail').innerHTML=`<div class="empty">${t('reader_load_error')}</div>`;
+    return;
+  }
+  $('#activityDot').hidden=true;
+  renderAtividade(lista);
+}
+function fecharAtividadeDireto(){ $('#activityModal')?.classList.remove('open'); }
+function fecharAtividade(){
+  if(history.state && history.state.lombada && history.state.activityOpen){ history.back(); return; }
+  fecharAtividadeDireto();
+}
+function itemAtividadeTexto(n){
+  const quem=(n.ator?.nome||'').trim()||('@'+(n.ator?.handle||''));
+  const titulo=n.obra?.titulo||'';
+  if(n.tipo==='follow') return t('activity_follow',{nome:quem});
+  if(n.tipo==='like') return titulo?t('activity_like_book',{nome:quem,titulo}):t('activity_like',{nome:quem});
+  if(n.tipo==='comment') return titulo?t('activity_comment_book',{nome:quem,titulo}):t('activity_comment',{nome:quem});
+  return quem;
+}
+function renderAtividade(lista){
+  const box=$('#activityDetail'); if(!box) return;
+  if(!lista.length){ box.innerHTML=`<div class="empty-rich activity-empty"><div class="ei">🔔</div><p>${t('activity_empty')}</p></div>`; return; }
+  box.innerHTML=`<div class="activity-list">${lista.map(n=>`<div class="activity-item ${n.lida?'':'unread'}">
+    <button type="button" class="activity-item-main" onclick="abrirPerfilPublico('${esc(n.ator?.handle||'').replace(/'/g,"\'")}')">
+      ${avatarHTML(n.ator?.nome,n.ator?.handle)}
+      <span class="activity-item-copy"><span>${esc(itemAtividadeTexto(n))}</span><small>${esc(dataFeed(n.criado_em))}</small></span>
+    </button>
+  </div>`).join('')}</div>`;
 }
 
 
@@ -3040,6 +3097,7 @@ async function init(){
     meuHandle=me.handle||'';
     $('#meuhandle').textContent='@'+meuHandle;
     $('#crumb').classList.add('visible');
+    if(minhaConta.logado){ $('#activityBell').hidden=false; atualizarBadgeAtividade(); }
   }catch(e){}
   await carregarPrateleira();
   clearTimeout(coldStartTimer);

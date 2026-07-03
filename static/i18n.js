@@ -1346,3 +1346,33 @@ Object.assign(I18N['es'], {
   friends_read_two: '{a} y {b}, a quienes sigues, leyeron este libro',
   friends_read_many: '{nome} y {count} personas más que sigues leyeron este libro'
 });
+Object.assign(I18N['pt-BR'], {
+  activity_title: 'Atividade', close_activity: 'fechar atividade',
+  activity_empty: 'nenhuma atividade ainda. quando alguém seguir você ou curtir uma crítica, aparece aqui.',
+  activity_login_required: 'entre com Google pra ver sua atividade.',
+  activity_follow: '{nome} começou a seguir você',
+  activity_like: '{nome} curtiu sua crítica',
+  activity_like_book: '{nome} curtiu sua crítica sobre {titulo}',
+  activity_comment: '{nome} comentou na sua crítica',
+  activity_comment_book: '{nome} comentou na sua crítica sobre {titulo}'
+});
+Object.assign(I18N['en'], {
+  activity_title: 'Activity', close_activity: 'close activity',
+  activity_empty: 'no activity yet. when someone follows you or likes a review, it shows up here.',
+  activity_login_required: 'sign in with Google to see your activity.',
+  activity_follow: '{nome} started following you',
+  activity_like: '{nome} liked your review',
+  activity_like_book: '{nome} liked your review of {titulo}',
+  activity_comment: '{nome} commented on your review',
+  activity_comment_book: '{nome} commented on your review of {titulo}'
+});
+Object.assign(I18N['es'], {
+  activity_title: 'Actividad', close_activity: 'cerrar actividad',
+  activity_empty: 'aún no hay actividad. cuando alguien te siga o le guste una crítica, aparece aquí.',
+  activity_login_required: 'entra con Google para ver tu actividad.',
+  activity_follow: '{nome} empezó a seguirte',
+  activity_like: '{nome} le gustó tu crítica',
+  activity_like_book: '{nome} le gustó tu crítica sobre {titulo}',
+  activity_comment: '{nome} comentó tu crítica',
+  activity_comment_book: '{nome} comentó tu crítica sobre {titulo}'
+});

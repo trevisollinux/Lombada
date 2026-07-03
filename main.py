@@ -27,7 +27,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
@@ -608,6 +608,16 @@ def _is_following(s: Session, follower_id: int | None, following_id: int) -> boo
     if not follower_id or follower_id == following_id:
         return False
     return bool(s.exec(select(Follow).where(Follow.follower_id == follower_id, Follow.following_id == following_id)).first())
+
+
+def _criar_notificacao(s: Session, usuario_id: int, ator_id: int, tipo: str, leitura_id: int | None = None) -> None:
+    if usuario_id == ator_id:
+        return
+    alvo = s.get(Usuario, usuario_id)
+    if not alvo or getattr(alvo, "is_demo", False):
+        return
+    s.add(Notificacao(usuario_id=usuario_id, ator_id=ator_id, tipo=tipo, leitura_id=leitura_id))
+    s.commit()
 
 
 def _profile_social_payload(s: Session, perfil: Usuario, atual: Usuario | None = None) -> dict:
@@ -1219,6 +1229,7 @@ def like_review(leitura_id: int, request: Request, s: Session = Depends(get_sess
     like = s.exec(select(ReviewLike).where(ReviewLike.leitura_id == leitura_id, ReviewLike.usuario_id == u.id)).first()
     if not like:
         s.add(ReviewLike(leitura_id=leitura_id, usuario_id=u.id)); s.commit()
+        _criar_notificacao(s, l.usuario_id, u.id, "like", leitura_id)
     return {"liked": True, "likes_count": _likes_count(s, leitura_id)}
 
 
@@ -1880,6 +1891,7 @@ def seguir_usuario(handle: str, request: Request, s: Session = Depends(get_sessi
     follow = s.exec(select(Follow).where(Follow.follower_id == atual.id, Follow.following_id == alvo.id)).first()
     if not follow:
         s.add(Follow(follower_id=atual.id, following_id=alvo.id)); s.commit()
+        _criar_notificacao(s, alvo.id, atual.id, "follow")
     return {"following": True, **_follow_counts(s, alvo.id)}
 
 
@@ -1912,6 +1924,53 @@ def listar_seguidores(handle: str, request: Request, s: Session = Depends(get_se
 @app.get("/api/u/{handle}/following")
 def listar_seguindo(handle: str, request: Request, s: Session = Depends(get_session)):
     return _lista_follows(handle, "following", request, s)
+
+
+@app.get("/api/notificacoes/nao-lidas")
+def contar_notificacoes_nao_lidas(request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    if not u.google_sub:
+        return {"count": 0}
+    count = s.exec(
+        select(func.count()).select_from(Notificacao).where(Notificacao.usuario_id == u.id, Notificacao.lida == False)
+    ).one()
+    return {"count": count}
+
+
+@app.get("/api/notificacoes")
+def listar_notificacoes(request: Request, s: Session = Depends(get_session), limit: int = Query(30, ge=1, le=50)):
+    u = _require_google_user(request, s, "Entre com Google para ver sua atividade.", 401)
+    rows = s.exec(
+        select(Notificacao, Usuario)
+        .join(Usuario, Notificacao.ator_id == Usuario.id)
+        .where(Notificacao.usuario_id == u.id)
+        .order_by(Notificacao.criado_em.desc())
+        .limit(limit)
+    ).all()
+    leitura_ids = [n.leitura_id for n, _ in rows if n.leitura_id]
+    obras_por_leitura: dict[int, dict] = {}
+    if leitura_ids:
+        obra_rows = s.exec(
+            select(Leitura.id, Obra.titulo, Obra.autor)
+            .join(Edicao, Leitura.edicao_id == Edicao.id)
+            .join(Obra, Edicao.obra_id == Obra.id)
+            .where(Leitura.id.in_(leitura_ids))
+        ).all()
+        obras_por_leitura = {lid: {"titulo": titulo, "autor": autor} for lid, titulo, autor in obra_rows}
+    payload = [{
+        "id": n.id, "tipo": n.tipo, "lida": bool(n.lida), "criado_em": n.criado_em.isoformat(),
+        "ator": {"handle": ator.handle, "nome": ator.nome, "is_demo": bool(getattr(ator, "is_demo", False))},
+        "leitura_id": n.leitura_id,
+        "obra": obras_por_leitura.get(n.leitura_id) if n.leitura_id else None,
+    } for n, ator in rows]
+    # abrir o painel já marca como lida -- é o gesto que zera a bolinha
+    nao_lidas = [n for n, _ in rows if not n.lida]
+    if nao_lidas:
+        for n in nao_lidas:
+            n.lida = True
+            s.add(n)
+        s.commit()
+    return payload
 
 
 @app.delete("/api/u/{handle}/follow")

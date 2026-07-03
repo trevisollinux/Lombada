@@ -31,8 +31,14 @@
         <button type="button" data-locale="en" aria-pressed="false" onclick="mudarIdioma('en')">EN</button>
         <button type="button" data-locale="es" aria-pressed="false" onclick="mudarIdioma('es')">ES</button>
       </div>
+      <button type="button" id="activityBell" class="activity-bell" hidden onclick="abrirAtividade()" aria-label="atividade" data-i18n-aria-label="activity_title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+        <span class="activity-dot" id="activityDot" hidden></span>
+      </button>
     </div>
-    <div class="top-actions"><div class="crumb" id="crumb"><span data-i18n="crumb_reading_diary">diário de leitura</span><b id="meuhandle"></b></div></div>
+    <div class="top-actions">
+      <div class="crumb" id="crumb"><span data-i18n="crumb_reading_diary">diário de leitura</span><b id="meuhandle"></b></div>
+    </div>
   </header>
 
   <!-- ABA BUSCAR -->
@@ -116,6 +122,15 @@
       <span data-i18n="nav_profile">perfil</span></button>
   </div>
 </nav>
+
+<!-- MODAL ATIVIDADE -->
+<div class="modal" id="activityModal" onclick="if(event.target===this)fecharAtividade()">
+  <div class="modal-card reader-card" role="dialog" aria-modal="true" aria-label="atividade" data-i18n-aria-label="activity_title">
+    <button class="modal-x" type="button" onclick="fecharAtividade()" aria-label="fechar atividade" data-i18n-aria-label="close_activity">×</button>
+    <div class="label reader-list-title" data-i18n="activity_title">Atividade</div>
+    <div id="activityDetail"></div>
+  </div>
+</div>
 
 <!-- MODAL PERFIL DE LEITOR -->
 <div class="modal" id="readerModal" onclick="if(event.target===this)fecharLeitor()">
