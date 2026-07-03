@@ -1055,6 +1055,10 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
     por_edicao: dict[int, dict] = {}
     criticas = []
     minha = None
+    # quem eu sigo que leu/está lendo esta obra — um set só, pra não virar
+    # uma query de follow por leitura
+    following_ids = set(s.exec(select(Follow.following_id).where(Follow.follower_id == usuario_id)).all()) if usuario_id else set()
+    seguidos_leram: dict[int, dict] = {}
     for l, ed, _o, u in rows:
         bucket = por_edicao.setdefault(ed.id, {"leituras": 0, "notas": [], "editora": ed.editora, "tradutor": ed.tradutor})
         bucket["leituras"] += 1
@@ -1062,6 +1066,8 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
             bucket["notas"].append(l.nota)
         if usuario_id and l.usuario_id == usuario_id and minha is None:
             minha = {"leitura_id": l.id, "edicao_id": ed.id, "status": l.status}
+        if u.id in following_ids and u.id not in seguidos_leram and (l.status or "") in {"Lido", "Lendo"}:
+            seguidos_leram[u.id] = {"handle": u.handle, "nome": u.nome, "status": l.status}
         relato = (l.relato or "").strip()
         if l.publico and relato:
             criticas.append({
@@ -1130,6 +1136,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
         "destaques": sorted(criticas, key=lambda c: ((c.get("nota") or 0), len(c.get("relato") or "")), reverse=True)[:3],
         "destaques_edicao": destaques_edicao,
         "minha_leitura": minha,
+        "seguidos_leram": list(seguidos_leram.values())[:8],
     }
 
 
@@ -1857,7 +1864,7 @@ def estante_json(handle: str, request: Request, s: Session = Depends(get_session
         if l.get("publico") and (l.get("relato") or "").strip():
             l.update(_review_state(s, l.get("leitura_id"), atual.id))
     perfil = resumo_perfil_publico(leituras)
-    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
+    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "is_demo": bool(getattr(u, "is_demo", False)), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
 
 
 @app.post("/api/u/{handle}/follow")
@@ -1874,6 +1881,37 @@ def seguir_usuario(handle: str, request: Request, s: Session = Depends(get_sessi
     if not follow:
         s.add(Follow(follower_id=atual.id, following_id=alvo.id)); s.commit()
     return {"following": True, **_follow_counts(s, alvo.id)}
+
+
+def _lista_follows(handle: str, direcao: str, request: Request, s: Session) -> list[dict]:
+    alvo = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    if not alvo:
+        raise HTTPException(404, "perfil não encontrado")
+    atual = usuario_sessao(request, s)
+    if direcao == "followers":
+        ids = s.exec(select(Follow.follower_id).where(Follow.following_id == alvo.id)).all()
+    else:
+        ids = s.exec(select(Follow.following_id).where(Follow.follower_id == alvo.id)).all()
+    if not ids:
+        return []
+    meus_follows = set(s.exec(select(Follow.following_id).where(Follow.follower_id == atual.id)).all()) if atual.id else set()
+    usuarios = s.exec(select(Usuario).where(Usuario.id.in_(ids[:200])).order_by(Usuario.nome, Usuario.handle)).all()
+    return [{
+        "handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""),
+        "is_demo": bool(getattr(u, "is_demo", False)),
+        "is_following": u.id in meus_follows,
+        "is_me": bool(atual.id and atual.id == u.id),
+    } for u in usuarios]
+
+
+@app.get("/api/u/{handle}/followers")
+def listar_seguidores(handle: str, request: Request, s: Session = Depends(get_session)):
+    return _lista_follows(handle, "followers", request, s)
+
+
+@app.get("/api/u/{handle}/following")
+def listar_seguindo(handle: str, request: Request, s: Session = Depends(get_session)):
+    return _lista_follows(handle, "following", request, s)
 
 
 @app.delete("/api/u/{handle}/follow")

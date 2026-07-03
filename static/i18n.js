@@ -1316,3 +1316,33 @@ Object.assign(I18N['es'], {
 Object.assign(I18N['pt-BR'], { more_options: 'mais opções' });
 Object.assign(I18N['en'], { more_options: 'more options' });
 Object.assign(I18N['es'], { more_options: 'más opciones' });
+Object.assign(I18N['pt-BR'], {
+  reader_profile: 'perfil do leitor', close_profile: 'fechar perfil',
+  reader_loading: 'carregando perfil…', reader_load_error: 'não deu pra carregar este perfil agora.',
+  back_to_profile: '‹ perfil', no_followers_yet: 'ainda sem seguidores.', no_following_yet: 'não segue ninguém ainda.',
+  open_public_page: 'abrir página pública ↗',
+  reader_last_readings: 'Últimas leituras', reader_public_reviews: 'Críticas públicas',
+  friends_read_one: '{nome}, que você segue, leu este livro',
+  friends_read_two: '{a} e {b}, que você segue, leram este livro',
+  friends_read_many: '{nome} e mais {count} pessoas que você segue leram este livro'
+});
+Object.assign(I18N['en'], {
+  reader_profile: 'reader profile', close_profile: 'close profile',
+  reader_loading: 'loading profile…', reader_load_error: 'could not load this profile right now.',
+  back_to_profile: '‹ profile', no_followers_yet: 'no followers yet.', no_following_yet: 'not following anyone yet.',
+  open_public_page: 'open public page ↗',
+  reader_last_readings: 'Latest readings', reader_public_reviews: 'Public reviews',
+  friends_read_one: '{nome}, who you follow, read this book',
+  friends_read_two: '{a} and {b}, who you follow, read this book',
+  friends_read_many: '{nome} and {count} more people you follow read this book'
+});
+Object.assign(I18N['es'], {
+  reader_profile: 'perfil del lector', close_profile: 'cerrar perfil',
+  reader_loading: 'cargando perfil…', reader_load_error: 'no se pudo cargar este perfil ahora.',
+  back_to_profile: '‹ perfil', no_followers_yet: 'aún sin seguidores.', no_following_yet: 'todavía no sigue a nadie.',
+  open_public_page: 'abrir página pública ↗',
+  reader_last_readings: 'Últimas lecturas', reader_public_reviews: 'Críticas públicas',
+  friends_read_one: '{nome}, a quien sigues, leyó este libro',
+  friends_read_two: '{a} y {b}, a quienes sigues, leyeron este libro',
+  friends_read_many: '{nome} y {count} personas más que sigues leyeron este libro'
+});

@@ -1645,3 +1645,43 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 
 .review-card .review-top{align-items:flex-start}
 @media(max-width:420px){.person-copy b{font-size:13.5px}.discover-sub{margin-left:0}}
+
+/* ── perfil de leitor dentro do app ── */
+.reader-card{max-width:440px}
+.avatar-chip.avatar-lg{width:64px;height:64px;flex:0 0 64px;font-size:28px}
+.reader-head{display:flex;gap:16px;align-items:center;margin:6px 0 14px}
+.reader-who h2{font-family:"Fraunces",serif;font-weight:600;font-size:24px;line-height:1.1;letter-spacing:-.02em}
+.reader-handle{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;color:var(--muted);margin-top:3px}
+.reader-bio{font-style:italic;color:var(--ink-2);font-size:14px;margin-top:6px;line-height:1.45}
+.reader-actions-row{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.reader-follow-main{font-size:11px;padding:9px 16px}
+.reader-external{font-size:10px}
+.reader-counts{display:flex;align-items:center;gap:8px;font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:.04em;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:11px 0;margin-bottom:14px;flex-wrap:wrap}
+.reader-counts button{border:0;background:transparent;color:var(--ink-2);font:inherit;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+.reader-counts button:hover{color:var(--ink)}
+.reader-sec{margin:14px 0 8px}
+.reader-shelf{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.reader-shelf-item{flex:0 0 64px}
+.reader-shelf-item .cover{width:64px;box-shadow:var(--shadow-sm)}
+.reader-shelf-item .cover-art{padding:7px 6px}
+.reader-shelf-item .cover-art-author,.reader-shelf-item .cover-art-meta{display:none}
+.reader-shelf-item .cover-art-title{font-size:10px;line-height:1.05}
+.reader-review{border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.reader-review b{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:15px}
+.reader-review p{font-style:italic;color:var(--ink-2);font-size:13px;margin-top:5px;line-height:1.45}
+.reader-list-title{margin:14px 0 10px}
+.reader-follow-list{display:grid}
+.reader-follow-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule)}
+.reader-follow-row:first-child{border-top:0}
+
+/* "pessoas que você segue leram" na página da obra */
+.friends-read{display:flex;align-items:center;gap:12px;padding:12px 16px!important}
+.friends-read-avs{display:inline-flex;flex:0 0 auto}
+.friends-read-av{appearance:none;border:0;background:transparent;padding:0;cursor:pointer;margin-left:-8px}
+.friends-read-av:first-child{margin-left:0}
+.friends-read-av .avatar-chip{width:28px;height:28px;flex-basis:28px;font-size:12px;box-shadow:0 0 0 2px var(--paper-2)}
+.friends-read-text{font-size:13px;color:var(--ink-2);font-style:italic;line-height:1.4}
+
+/* contadores clicáveis no perfil próprio */
+.pcount-link{appearance:none;border:0;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+.pcount-link:hover{color:var(--ink)}

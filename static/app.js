@@ -99,6 +99,7 @@ function setupGlobalKeyboard(){
   if(document.__lombadaKeyboard) return;
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
+    if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
     if(event.key==='Escape' && modalAberto()){ event.preventDefault(); fecharModal(); return; }
     if(event.key==='Enter' || event.key===' '){
       const el=event.target;
@@ -587,6 +588,7 @@ function mostrarBusca(tela,opcoes={}){
 function aplicarHistorico(estado){
   const proximo=estado && estado.lombada ? estado : (lerEstadoNavSalvo() || estadoNav('buscar','home'));
   const deveReabrirModal=!!proximo.modal;
+  if(leitorModalAberto() && !proximo.readerHandle) fecharLeitorDireto();
   if(modalAberto() && !deveReabrirModal) fecharModalDireto();
   restaurandoHistorico=true;
   irPara(proximo.aba,{registrar:false,resetBusca:false,subaba:proximo.estanteSub||'shelf'});
@@ -870,11 +872,13 @@ function atualizarFollowLocal(handle, following, counts={}){
   const apply=u=>{ if(u?.handle===handle){ u.is_following=following; if('followers_count' in counts) u.followers_count=counts.followers_count; } };
   feedItems.forEach(it=>apply(it.usuario));
   discoverReaders.forEach(apply);
+  (leitorLista||[]).forEach(apply);
+  if(leitorAtual?.handle===handle){ leitorAtual.is_following=following; if('followers_count' in counts) leitorAtual.followers_count=counts.followers_count; }
   [obraSocial?.criticas, obraSocial?.destaques].filter(Boolean).forEach(list=>list.forEach(c=>{ if(c?.usuario===handle){ c.is_following=following; if('followers_count' in counts) c.followers_count=counts.followers_count; } }));
 }
 async function toggleFollowHandle(handle){
   if(!handle) return;
-  const current=[...feedItems.map(it=>it.usuario), ...discoverReaders, ...(obraSocial?.criticas||[]).map(c=>({handle:c.usuario,is_following:c.is_following}))].find(u=>u?.handle===handle);
+  const current=[...feedItems.map(it=>it.usuario), ...discoverReaders, ...(leitorLista||[]), ...(leitorAtual?[leitorAtual]:[]), ...(obraSocial?.criticas||[]).map(c=>({handle:c.usuario,is_following:c.is_following}))].find(u=>u?.handle===handle);
   const following=!!current?.is_following;
   try{
     const res=await fetch('/api/u/'+encodeURIComponent(handle)+'/follow',{method:following?'DELETE':'POST'});
@@ -883,6 +887,7 @@ async function toggleFollowHandle(handle){
     const data=await res.json();
     atualizarFollowLocal(handle, !!data.following, data);
     renderFeed();
+    if(leitorModalAberto()) renderLeitor();
     if(obraSocial?.criticas?.some(c=>c.usuario===handle)) renderEdicoes();
   }catch(e){ toast(t('interaction_error')); }
 }
@@ -953,7 +958,97 @@ async function carregarFeed(){
   catch(e){ feedFollowingCount=1; feedItems=[]; discoverReaders=[]; }
   renderFeed();
 }
-function abrirPerfilPublico(handle){ if(handle) location.href='/u/'+encodeURIComponent(handle); }
+/* ── perfil de leitor dentro do app ──
+   clicar numa pessoa abre uma tela sobre o app, sem navegação completa;
+   a página pública server-rendered (/u/handle) segue existindo pra links
+   externos e compartilhamento. */
+let leitorAtual=null, leitorListaTipo=null, leitorLista=[];
+function leitorModalAberto(){ return $('#readerModal')?.classList.contains('open'); }
+function abrirPerfilPublico(handle){
+  if(!handle) return;
+  if(meuHandle && handle===meuHandle){ fecharLeitorDireto(); irPara('perfil'); return; }
+  abrirLeitor(handle);
+}
+async function abrirLeitor(handle,opcoes={}){
+  const registrar=opcoes.registrar ?? true;
+  leitorListaTipo=null; leitorLista=[];
+  $('#readerDetail').innerHTML=`<div class="empty">${t('reader_loading')}</div>`;
+  $('#readerModal').classList.add('open');
+  requestAnimationFrame(()=>$('#readerModal .modal-x')?.focus());
+  if(registrar && !restaurandoHistorico){
+    const estado={...estadoNav(navAtual.aba,navAtual.busca,false),readerHandle:handle};
+    if(history.state && history.state.lombada && history.state.readerHandle) history.replaceState(estado,'');
+    else history.pushState(estado,'');
+  }
+  try{
+    const res=await fetch('/api/u/'+encodeURIComponent(handle));
+    if(!res.ok) throw new Error(`reader http ${res.status}`);
+    leitorAtual=await res.json();
+  }catch(e){
+    $('#readerDetail').innerHTML=`<div class="empty">${t('reader_load_error')}</div>`;
+    return;
+  }
+  renderLeitor();
+}
+function fecharLeitorDireto(){
+  $('#readerModal')?.classList.remove('open');
+  leitorAtual=null; leitorListaTipo=null; leitorLista=[];
+}
+function fecharLeitor(){
+  if(history.state && history.state.lombada && history.state.readerHandle){ history.back(); return; }
+  fecharLeitorDireto();
+}
+async function abrirListaLeitor(tipo){
+  if(!leitorAtual?.handle) return;
+  leitorListaTipo=tipo==='following'?'following':'followers';
+  leitorLista=[];
+  renderLeitor();
+  try{
+    const res=await fetch(`/api/u/${encodeURIComponent(leitorAtual.handle)}/${leitorListaTipo}`);
+    if(res.ok) leitorLista=await res.json();
+  }catch(e){}
+  renderLeitor();
+}
+function voltarPerfilLeitor(){ leitorListaTipo=null; leitorLista=[]; renderLeitor(); }
+async function abrirMinhasConexoes(tipo){ if(!meuHandle) return; await abrirLeitor(meuHandle); abrirListaLeitor(tipo); }
+function renderLeitor(){
+  const box=$('#readerDetail'); if(!box||!leitorAtual) return;
+  const d=leitorAtual;
+  if(leitorListaTipo){
+    const vazio=leitorListaTipo==='followers'?t('no_followers_yet'):t('no_following_yet');
+    const titulo=leitorListaTipo==='followers'?t('followers_count',{count:d.followers_count||0}):t('following_count',{count:d.following_count||0});
+    box.innerHTML=`<button class="busca-back" type="button" onclick="voltarPerfilLeitor()">${t('back_to_profile')}</button>
+      <div class="label reader-list-title">${esc(titulo)}</div>
+      ${leitorLista.length?`<div class="reader-follow-list">${leitorLista.map(u=>`<div class="reader-follow-row">${pessoaHTML(u)}${followButtonHTML(u,'reader-list-follow')}</div>`).join('')}</div>`:`<div class="empty">${vazio}</div>`}`;
+    return;
+  }
+  const stats=d.stats||{};
+  const bio=(d.bio||'').trim();
+  const lendo=(d.lendo_agora||[]).slice(0,3);
+  const ultimas=(d.ultimas_leituras||[]).slice(0,6);
+  const criticas=(d.criticas_publicas||[]).slice(0,2);
+  const covers=lst=>lst.map(l=>`<div class="reader-shelf-item">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>`).join('');
+  box.innerHTML=`
+    <div class="reader-head">
+      ${avatarHTML(d.nome,d.handle).replace('avatar-chip','avatar-chip avatar-lg')}
+      <div class="reader-who">
+        <h2>${esc((d.nome||'').trim()||'@'+esc(d.handle))}</h2>
+        <div class="reader-handle">@${esc(d.handle)}${d.is_demo?` · <span class="demo-badge">${t('sample_profile')}</span>`:''}</div>
+        ${bio?`<p class="reader-bio">${esc(bio)}</p>`:''}
+      </div>
+    </div>
+    <div class="reader-actions-row">${followButtonHTML({handle:d.handle,is_following:d.is_following,is_me:d.is_me,is_demo:d.is_demo},'reader-follow-main')}<a class="linklike reader-external" href="/u/${encodeURIComponent(d.handle)}" target="_blank" rel="noopener">${t('open_public_page')}</a></div>
+    <div class="reader-counts">
+      <button type="button" onclick="abrirListaLeitor('followers')">${t('followers_count',{count:d.followers_count||0})}</button>
+      <span>·</span>
+      <button type="button" onclick="abrirListaLeitor('following')">${t('following_count',{count:d.following_count||0})}</button>
+      <span>·</span>
+      <span class="reader-books">${plural(stats.total||0,'book_count_one','book_count_many')}</span>
+    </div>
+    ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo)}</div>`:''}
+    ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas)}</div>`:''}
+    ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}`;
+}
 
 
 function normBusca(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
@@ -1381,6 +1476,17 @@ function verMinhaLeitura(){
 function renderPaginaObra(){
   return renderEdicoes();
 }
+function seguidosLeramHTML(){
+  const lista=obraSocial?.seguidos_leram||[];
+  if(!lista.length) return '';
+  const nome=u=>(u.nome||'').trim()||('@'+u.handle);
+  let texto;
+  if(lista.length===1) texto=t('friends_read_one',{nome:nome(lista[0])});
+  else if(lista.length===2) texto=t('friends_read_two',{a:nome(lista[0]),b:nome(lista[1])});
+  else texto=t('friends_read_many',{nome:nome(lista[0]),count:lista.length-1});
+  const avatares=lista.slice(0,4).map(u=>`<button type="button" class="friends-read-av" onclick="abrirPerfilPublico('${esc(u.handle).replace(/'/g,"\'")}')" title="@${esc(u.handle)}">${avatarHTML(u.nome,u.handle)}</button>`).join('');
+  return `<section class="friends-read work-section"><span class="friends-read-avs">${avatares}</span><span class="friends-read-text">${esc(texto)}</span></section>`;
+}
 function toggleAboutWork(btn){
   const sec=btn.closest('.about-work'); if(!sec) return;
   const clamped=sec.classList.toggle('clamp');   // true = recolhido, false = expandido
@@ -1439,7 +1545,7 @@ function renderEdicoes(){
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
       <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
+  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
 
 /* registrar */
@@ -2341,7 +2447,7 @@ function renderPerfil(){
     <div class="pcard">
       <div class="profile-avatar">${esc(inicial)}</div>
       <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
-      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · ${t('followers_count',{count:minhaConta.followers_count||0})} · ${t('following_count',{count:minhaConta.following_count||0})}</div>
+      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · <button type="button" class="pcount-link" onclick="abrirMinhasConexoes('followers')">${t('followers_count',{count:minhaConta.followers_count||0})}</button> · <button type="button" class="pcount-link" onclick="abrirMinhasConexoes('following')">${t('following_count',{count:minhaConta.following_count||0})}</button></div>
       ${bio?`<p class="profile-bio">${esc(bio)}</p>`:''}
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
       ${editarPerfilHTML}
