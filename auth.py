@@ -29,6 +29,7 @@ from models import (
     CatalogSuggestion,
     Follow,
     Leitura,
+    ReadingJournalEntry,
     ReviewLike,
     ReviewReport,
     SavedReview,
@@ -181,6 +182,27 @@ def _copiar_leitura(origem: Leitura, destino: Leitura) -> None:
         setattr(destino, campo, getattr(origem, campo))
 
 
+def _migrar_diario_leitura(s: Session, leitura_de: int, leitura_para: int, usuario_para: int) -> None:
+    rows = s.exec(
+        select(ReadingJournalEntry).where(ReadingJournalEntry.leitura_id == leitura_de)
+    ).all()
+    for row in rows:
+        row.leitura_id = leitura_para
+        row.usuario_id = usuario_para
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+
+
+def _mover_diario_usuario(s: Session, de: int, para: int) -> None:
+    rows = s.exec(
+        select(ReadingJournalEntry).where(ReadingJournalEntry.usuario_id == de)
+    ).all()
+    for row in rows:
+        row.usuario_id = para
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+
+
 def _migrar_interacoes_leitura(s: Session, leitura_de: int, leitura_para: int) -> None:
     if leitura_de == leitura_para:
         return
@@ -217,10 +239,12 @@ def _mover_leituras(s: Session, de: int, para: int) -> int:
                 _copiar_leitura(l, existente)
                 s.add(existente)
             _migrar_interacoes_leitura(s, l.id, existente.id)
+            _migrar_diario_leitura(s, l.id, existente.id, para)
             s.delete(l)
         else:
             l.usuario_id = para
             s.add(l)
+            _migrar_diario_leitura(s, l.id, l.id, para)
             movidas += 1
     return movidas
 
@@ -317,6 +341,7 @@ def _merge_usuario_orfao(s: Session, de_id: int, para_id: int) -> None:
         raise ValueError(f"usuário destino inexistente no merge: {para_id}")
 
     _mover_leituras(s, de_id, para_id)
+    _mover_diario_usuario(s, de_id, para_id)
     _mover_user_editions(s, de_id, para_id)
     _mover_catalog_suggestions(s, de_id, para_id, destino.email or "")
     for modelo in (ReviewLike, SavedReview, ReviewReport):
