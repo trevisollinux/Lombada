@@ -1393,9 +1393,14 @@ def _validar_diario(payload: DiarioPayload) -> dict:
     if not (pagina_valida or porcentagem_valida or capitulo_valido or nota):
         raise HTTPException(422, "informe um progresso ou uma anotação")
 
+    # numa entrada tipo "capitulo", a página é opcional — quando o leitor sabe
+    # a página em que aquele capítulo começou, ela alimenta o mapa
+    # capítulo→página da edição (ver _registrar_capitulo_sumario) sem virar a
+    # "posição oficial" da entrada, que continua sendo o capítulo.
+    pagina_permitida = tipo == "pagina" or (tipo == "capitulo" and capitulo_valido)
     return {
         "progresso_tipo": tipo,
-        "pagina": pagina if tipo == "pagina" and pagina_valida else None,
+        "pagina": pagina if pagina_permitida and pagina_valida else None,
         "porcentagem": porcentagem if tipo == "porcentagem" and porcentagem_valida else None,
         "capitulo": capitulo if tipo in {"capitulo", "livre"} and capitulo_valido else "",
         "capitulo_ordem": capitulo_ordem if tipo == "capitulo" and capitulo_valido and capitulo_ordem_valida else None,
@@ -1404,42 +1409,88 @@ def _validar_diario(payload: DiarioPayload) -> dict:
         "spoiler": bool(data.get("spoiler", False))
     }
 
-def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Edicao | None = None, o: Obra | None = None) -> dict:
+def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Edicao | None = None, o: Obra | None = None, pagina_estimada: int | None = None) -> dict:
     return {
         "id": entry.id, "leitura_id": entry.leitura_id, "progresso_tipo": entry.progresso_tipo,
         "pagina": entry.pagina, "porcentagem": entry.porcentagem, "capitulo": entry.capitulo,
-        "capitulo_ordem": entry.capitulo_ordem,
+        "capitulo_ordem": entry.capitulo_ordem, "pagina_estimada": pagina_estimada,
         "nota": entry.nota, "publico": bool(entry.publico), "spoiler": bool(entry.spoiler),
         "created_at": entry.created_at.isoformat(), "updated_at": entry.updated_at.isoformat(),
         **({"status": l.status, "titulo": o.titulo, "autor": o.autor, "capa_url": ed.capa_url} if l and ed and o else {}),
     }
 
 
-def _registrar_capitulo_sumario(edicao_id: int, ordem: int | None, titulo: str, s: Session, fonte: str = "comunidade") -> None:
+def _registrar_capitulo_sumario(edicao_id: int, ordem: int | None, titulo: str, s: Session, fonte: str = "comunidade", pagina: int | None = None) -> None:
     """Registra uma posição no sumário da edição (primeira vez escreve, não sobrescreve
     contribuição já existente na mesma posição — sem moderação ainda, então evita
     disputa de edição; a leitura de /capitulos já cai pro fallback por popularidade
-    onde o sumário estruturado estiver incompleto)."""
+    onde o sumário estruturado estiver incompleto).
+
+    Quando o leitor também informou a página em que o capítulo começa, essa
+    posição alimenta o mapa capítulo→página (`pagina_inicio`) usado pra
+    sincronizar os modos de progresso — completa o dado se estiver faltando,
+    mas não sobrescreve uma posição já conhecida."""
     if not ordem or not titulo:
         return
     ja_existe = s.exec(
         select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id, EdicaoCapitulo.ordem == ordem)
     ).first()
     if ja_existe:
+        if pagina and not ja_existe.pagina_inicio:
+            try:
+                ja_existe.pagina_inicio = pagina
+                s.add(ja_existe); s.commit()
+            except SQLAlchemyError:
+                s.rollback()
         return
     try:
-        s.add(EdicaoCapitulo(edicao_id=edicao_id, ordem=ordem, titulo=titulo, fonte=fonte))
+        s.add(EdicaoCapitulo(edicao_id=edicao_id, ordem=ordem, titulo=titulo, fonte=fonte, pagina_inicio=pagina))
         s.commit()
     except SQLAlchemyError:
         s.rollback()
 
 
+def _mapa_pagina_capitulos(edicao_id: int, s: Session) -> dict[int, int]:
+    linhas = s.exec(
+        select(EdicaoCapitulo.ordem, EdicaoCapitulo.pagina_inicio)
+        .where(EdicaoCapitulo.edicao_id == edicao_id, EdicaoCapitulo.pagina_inicio.is_not(None))
+    ).all()
+    return {ordem: pagina for ordem, pagina in linhas}
+
+
+def _interpolar_pagina(mapa: dict[int, int], ordem: int) -> int | None:
+    """Estima a página de um capítulo a partir de pontos conhecidos (comunidade).
+
+    Só interpola dentro do intervalo já observado (entre o ponto conhecido
+    anterior e o seguinte) — fora dele seria extrapolação, que erra fácil
+    com poucos dados, então prefere não sugerir nada a sugerir errado."""
+    if ordem in mapa:
+        return mapa[ordem]
+    pontos = sorted(mapa.items())
+    antes = [p for p in pontos if p[0] < ordem]
+    depois = [p for p in pontos if p[0] > ordem]
+    if not antes or not depois:
+        return None
+    o1, p1 = antes[-1]
+    o2, p2 = depois[0]
+    if o2 == o1:
+        return None
+    return round(p1 + (p2 - p1) * (ordem - o1) / (o2 - o1))
+
+
+def _pagina_estimada_da_entrada(entry: ReadingJournalEntry, mapa: dict[int, int]) -> int | None:
+    if entry.progresso_tipo != "capitulo" or entry.pagina is not None or not entry.capitulo_ordem:
+        return None
+    return _interpolar_pagina(mapa, entry.capitulo_ordem)
+
+
 @app.get("/api/leitura/{leitura_id}/diario")
 def listar_diario_leitura(leitura_id: int, request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    _leitura_do_usuario(leitura_id, u.id, s)
+    leitura = _leitura_do_usuario(leitura_id, u.id, s)
     entries = s.exec(select(ReadingJournalEntry).where(ReadingJournalEntry.leitura_id == leitura_id, ReadingJournalEntry.usuario_id == u.id).order_by(ReadingJournalEntry.created_at.desc())).all()
-    return [_diario_payload(e) for e in entries]
+    mapa = _mapa_pagina_capitulos(leitura.edicao_id, s)
+    return [_diario_payload(e, pagina_estimada=_pagina_estimada_da_entrada(e, mapa)) for e in entries]
 
 
 @app.get("/api/edicoes/{edicao_id}/paginas")
@@ -1505,6 +1556,73 @@ def listar_capitulos_edicao(edicao_id: int, s: Session = Depends(get_session)):
     return [{"titulo": capitulo, "ordem": None, "fonte": "comunidade"} for capitulo, _contagem in rows]
 
 
+class ColarSumarioPayload(BaseModel):
+    texto: str
+
+
+_RE_NUMERACAO_SUMARIO = re.compile(r"^\s*(?:cap[íi]tulo\s+)?(?:[ivxlcdm]+|\d+)[\s.:\)\-–—]*", re.IGNORECASE)
+_RE_PAGINA_FINAL_SUMARIO = re.compile(r"[\s.…\-–—]{1,}(\d{1,5})\s*$")
+
+
+def _parsear_sumario_colado(texto: str) -> list[dict]:
+    """Um capítulo por linha. Tenta reconhecer um número de página no fim da
+    linha (comum em sumários digitados com pontilhado, ex. "Capítulo 3 .... 45")
+    e remove numeração de abertura (ex. "3.", "III -") do título. A ordem final
+    é sempre a posição da linha no texto colado, não o número que a linha
+    eventualmente cita — evita furos se o leitor pular ou repetir um número."""
+    resultado = []
+    ordem = 0
+    for linha in texto.splitlines():
+        linha = linha.strip()
+        if not linha:
+            continue
+        pagina = None
+        m = _RE_PAGINA_FINAL_SUMARIO.search(linha)
+        resto = linha
+        if m:
+            candidato = resto[: m.start()].strip()
+            if candidato:
+                pagina = int(m.group(1))
+                resto = candidato
+        titulo = _RE_NUMERACAO_SUMARIO.sub("", resto).strip() or resto
+        titulo = _clean_text(titulo, 120)
+        if not titulo:
+            continue
+        ordem += 1
+        resultado.append({"ordem": ordem, "titulo": titulo, "pagina": pagina})
+    return resultado
+
+
+@app.post("/api/edicoes/{edicao_id}/capitulos/colar")
+def colar_sumario_edicao(edicao_id: int, payload: ColarSumarioPayload, request: Request, s: Session = Depends(get_session)):
+    usuario_sessao(request, s)
+    edicao = s.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "edição não encontrada")
+    itens = _parsear_sumario_colado((payload.texto or "")[:20000])[:300]
+    if not itens:
+        raise HTTPException(422, "não consegui reconhecer capítulos nesse texto")
+    for item in itens:
+        existente = s.exec(
+            select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id, EdicaoCapitulo.ordem == item["ordem"])
+        ).first()
+        try:
+            if existente:
+                existente.titulo = item["titulo"]
+                if item["pagina"] and not existente.pagina_inicio:
+                    existente.pagina_inicio = item["pagina"]
+                s.add(existente)
+            else:
+                s.add(EdicaoCapitulo(edicao_id=edicao_id, ordem=item["ordem"], titulo=item["titulo"], fonte="comunidade", pagina_inicio=item["pagina"]))
+            s.commit()
+        except SQLAlchemyError:
+            s.rollback()
+    estruturado = s.exec(
+        select(EdicaoCapitulo).where(EdicaoCapitulo.edicao_id == edicao_id).order_by(EdicaoCapitulo.ordem)
+    ).all()
+    return [{"titulo": c.titulo, "ordem": c.ordem, "fonte": c.fonte} for c in estruturado]
+
+
 @app.get("/api/diario")
 def listar_diario_usuario(request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
@@ -1516,7 +1634,17 @@ def listar_diario_usuario(request: Request, s: Session = Depends(get_session)):
         .where(ReadingJournalEntry.usuario_id == u.id, Leitura.usuario_id == u.id)
         .order_by(ReadingJournalEntry.created_at.desc())
     ).all()
-    return [_diario_payload(e, l, ed, o) for e, l, ed, o in rows]
+    mapas_por_edicao: dict[int, dict[int, int]] = {}
+    resultado = []
+    for e, l, ed, o in rows:
+        if e.progresso_tipo == "capitulo" and e.pagina is None and e.capitulo_ordem:
+            if ed.id not in mapas_por_edicao:
+                mapas_por_edicao[ed.id] = _mapa_pagina_capitulos(ed.id, s)
+            estimada = _interpolar_pagina(mapas_por_edicao[ed.id], e.capitulo_ordem)
+        else:
+            estimada = None
+        resultado.append(_diario_payload(e, l, ed, o, pagina_estimada=estimada))
+    return resultado
 
 
 @app.post("/api/leitura/{leitura_id}/diario")
@@ -1531,7 +1659,7 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
         s.rollback()
         logger.exception("diary_create_failed", extra={"leitura_id": leitura_id, "usuario_id": u.id})
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
-    _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s)
+    _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s, pagina=data.get("pagina"))
     _backfill_paginas_edicao(leitura.edicao_id, payload.paginas_total, s)
     return _diario_payload(entry)
 
@@ -1554,7 +1682,7 @@ def editar_diario(entrada_id: int, payload: DiarioPayload, request: Request, s: 
         raise HTTPException(500, "não foi possível salvar a entrada do diário")
     leitura = s.get(Leitura, entry.leitura_id)
     if leitura:
-        _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s)
+        _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s, pagina=data.get("pagina"))
     return _diario_payload(entry)
 
 

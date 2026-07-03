@@ -873,6 +873,12 @@ body.theme-dark select:-webkit-autofill{
 }
 .diary-progress-field[hidden]{display:none!important}
 .diary-chapter-order-field[hidden]{display:none!important}
+.diary-chapter-page-field[hidden]{display:none!important}
+.diary-chapter-paste[hidden]{display:none!important}
+.diary-chapter-paste{margin:0 0 14px}
+.diary-paste-summary-box[hidden]{display:none}
+.diary-paste-summary-box{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.diary-paste-summary-box textarea{width:100%;min-height:120px;resize:vertical}
 
 /* diário — campo único de progresso */
 .diary-progress-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:stretch}
@@ -1590,6 +1596,8 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .progress-hero-pct{font-family:"Space Mono",monospace;font-size:14px;color:var(--wine);letter-spacing:.04em}
 .progress-hero-track{margin-top:10px}
 .progress-hero-delta{font-family:"Space Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:8px}
+.progress-hero-eta{font-family:"Space Mono",monospace;font-size:11px;color:var(--wine);letter-spacing:.04em;margin-top:4px}
+.reading-eta{font-family:"Space Mono",monospace;font-size:10.5px;color:var(--muted);letter-spacing:.04em;margin-top:4px}
 
 /* slider de página: chrome mínimo, no mesmo tom do resto do form */
 .diary-progress-slider{width:100%;appearance:none;-webkit-appearance:none;height:28px;background:transparent;cursor:pointer;margin:10px 0 4px;padding:0}
