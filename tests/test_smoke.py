@@ -17,6 +17,7 @@ os.environ.setdefault("SECRET_KEY", "smoke-test-secret")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+import auth  # noqa: E402
 import main  # noqa: E402
 
 
@@ -102,6 +103,45 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("Leio A &amp; B &lt;3", r.text)
         self.assertNotIn("&amp;amp;", r.text)
+
+    def test_merge_usuario_orfao_moves_reading_journal_entries(self):
+        with main.Session(main.engine) as s:
+            anon = main.Usuario(handle="merge-anon", nome="Anon")
+            google = main.Usuario(handle="merge-google", nome="Google", google_sub="google-merge-sub")
+            s.add(anon)
+            s.add(google)
+            s.commit()
+            s.refresh(anon)
+            s.refresh(google)
+
+            obra = main.Obra(ol_work_key="merge-journal-work", titulo="Livro Merge", autor="Autora Merge")
+            s.add(obra)
+            s.commit()
+            s.refresh(obra)
+            edicao = main.Edicao(obra_id=obra.id, ol_edition_key="merge-journal-edition")
+            s.add(edicao)
+            s.commit()
+            s.refresh(edicao)
+            leitura = main.Leitura(edicao_id=edicao.id, usuario_id=anon.id, relato="Diário")
+            s.add(leitura)
+            s.commit()
+            s.refresh(leitura)
+            entry = main.ReadingJournalEntry(leitura_id=leitura.id, usuario_id=anon.id, nota="entrada")
+            s.add(entry)
+            s.commit()
+            s.refresh(entry)
+
+            auth._merge_usuario_orfao(s, anon.id, google.id)
+            orphan_entries = s.exec(
+                main.select(main.ReadingJournalEntry).where(main.ReadingJournalEntry.usuario_id == anon.id)
+            ).all()
+            moved_entry = s.get(main.ReadingJournalEntry, entry.id)
+            moved_leitura = s.get(main.Leitura, leitura.id)
+
+            self.assertEqual(orphan_entries, [])
+            self.assertEqual(moved_entry.usuario_id, google.id)
+            self.assertEqual(moved_entry.leitura_id, moved_leitura.id)
+            self.assertEqual(moved_leitura.usuario_id, google.id)
 
     def test_version_endpoint(self):
         r = self.client.get("/api/version")
