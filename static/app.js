@@ -2560,7 +2560,9 @@ function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPrevie
 
 function diaryCardActive(){ return cardContext.type==='diario' && cardContext.source; }
 function reviewCardActive(){ return cardContext.type==='critica' && (cardAtual?.relato||'').trim(); }
-function shareCardSize(){ return (diaryCardActive()||reviewCardActive())?{w:1080,h:1350}:{w:1080,h:1920}; }
+function shareCardSize(){
+  return {w:1080,h:1920};
+}
 function configurarCanvasCard(cv){
   if(!cv)return;
   const size=shareCardSize();
@@ -2787,17 +2789,28 @@ function drawGeneratedLombadaCover(ctx,l,x,y,w,h,style=0){
   ctx.fillText('Lombada',x+w/2,y+h-82);
   ctx.restore();ctx.strokeStyle='rgba(26,23,20,.28)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
 }
+function fitContainRect(iw,ih,x,y,w,h,inset=0){
+  const safeX=x+inset,safeY=y+inset;
+  const safeW=Math.max(1,w-inset*2),safeH=Math.max(1,h-inset*2);
+  const ir=iw/ih,wr=safeW/safeH;
+  let dw,dh;
+  if(ir>wr){dw=safeW;dh=safeW/ir;}
+  else{dh=safeH;dw=safeH*ir;}
+  return {x:safeX+(safeW-dw)/2,y:safeY+(safeH-dh)/2,w:dw,h:dh};
+}
 function drawOriginalShareCover(ctx,im,x,y,w,h){
-  ctx.fillStyle='rgba(26,23,20,.20)';ctx.fillRect(x+16,y+20,w,h);
-  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
-  const p=cardPalette();
-  ctx.fillStyle=p.bg2||'#EFE6D6';ctx.fillRect(x,y,w,h);
-  drawPaperTexture(ctx,x,y,w,h,p.texture||'rgba(58,50,42,.025)',30);
-  const ir=im.width/im.height,wr=w/h;let dw,dh,dx,dy;
-  if(ir>wr){dw=w;dh=w/ir;dx=x;dy=y+(h-dh)/2;}
-  else{dh=h;dw=h*ir;dx=x+(w-dw)/2;dy=y;}
-  ctx.drawImage(im,dx,dy,dw,dh);
-  ctx.restore();ctx.strokeStyle='rgba(26,23,20,.25)';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
+  const inset=Math.max(0,Math.min(14,Math.min(w,h)*0.018));
+  const r=fitContainRect(im.width,im.height,x,y,w,h,inset);
+  ctx.save();
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
+  ctx.fillStyle='rgba(26,23,20,.18)';
+  ctx.fillRect(r.x+14,r.y+18,r.w,r.h);
+  ctx.drawImage(im,r.x,r.y,r.w,r.h);
+  ctx.strokeStyle=effectiveCardTheme()==='dark'?'rgba(243,235,221,.22)':'rgba(26,23,20,.22)';
+  ctx.lineWidth=2;
+  ctx.strokeRect(r.x,r.y,r.w,r.h);
+  ctx.restore();
 }
 function drawShareCover(ctx,l,x,y,w,h,selected){
   return (async()=>{
@@ -2867,7 +2880,7 @@ function drawShareCardText(ctx,l,W,H,cy,ch){
   let y=drawBookInfo(ctx,l,W,H,cy,ch)+86;
   if(payload.progress){ctx.fillStyle=p.muted;ctx.font="400 36px 'Space Mono', monospace";wrapLeft(ctx,payload.progress,110,y,W-220,46,1);y+=62;}
   else {drawShareStars(ctx,l,y);y+=110;}
-  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,3);}
+  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,(reviewCardActive()||diaryCardActive())?2:3);}
   else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 42px Spectral, serif";wrapLeft(ctx,payload.spoilerLabel,110,y,W-220,54,2);}
   drawFooter(ctx,l,W,H);
 }
@@ -2898,19 +2911,10 @@ async function renderShareCardCanvas(l,options={}){
   const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
   const selected=options.selectedCover || getSelectedShareCover(l);
   drawShareCardBackground(ctx,l,W,H);
-  if(diaryCardActive()){
-    const cw=250,ch=380,cx=W-cw-96,cy=120;
-    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
-    drawDiaryShareCardText(ctx,l,W,H,cy,ch);
-  }else if(reviewCardActive()){
-    const cw=280,ch=420,cx=W-cw-96,cy=120;
-    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
-    drawReviewShareCardText(ctx,l,W,H,cy,ch);
-  }else{
-    const cx=110,cy=120,cw=W-220,ch=1120;
-    await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
-    drawShareCardText(ctx,l,W,H,cy,ch);
-  }
+  const cx=110,cy=120,cw=W-220;
+  const ch=(reviewCardActive()||diaryCardActive())?860:1120;
+  await drawShareCover(ctx,l,cx,cy,cw,ch,selected);
+  drawShareCardText(ctx,l,W,H,cy,ch);
   return cv;
 }
 async function updateShareCardPreview(l){

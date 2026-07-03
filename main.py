@@ -694,7 +694,7 @@ def _validar_bio_curta(bio: str | None) -> str:
     bio = " ".join(str(bio or "").replace("\x00", "").split())
     if len(bio) > 160:
         raise HTTPException(422, "Bio curta deve ter no máximo 160 caracteres.")
-    return html.escape(bio, quote=False)
+    return bio
 
 
 def _validar_handle_publico(handle: str) -> str:
