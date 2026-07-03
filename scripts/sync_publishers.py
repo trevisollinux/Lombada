@@ -404,6 +404,16 @@ def meta_content(soup: BeautifulSoup, property_name: str) -> str:
     return str(tag.get("content") or "").strip() if tag else ""
 
 
+_AUTOR_LABEL_RE = re.compile(r"Autor(?:\(a\)|es)?\s*[:\-]\s*([A-ZÀ-Ý][^\n|·•]{2,60})")
+
+
+def extract_author_from_text(text: str) -> str:
+    """Padrão comum em e-commerce de livro: "Autor: Fulano" solto no texto
+    (descrição do produto, corpo da página etc.)."""
+    match = _AUTOR_LABEL_RE.search(text or "")
+    return match.group(1).strip() if match else ""
+
+
 def extract_author_from_soup(soup: BeautifulSoup, bookish: dict[str, Any]) -> str:
     author = first_text(bookish.get("author") or bookish.get("creator"))
     if author:
@@ -412,10 +422,7 @@ def extract_author_from_soup(soup: BeautifulSoup, bookish: dict[str, Any]) -> st
         value = meta_content(soup, prop)
         if value and not value.lower().startswith("http"):
             return value
-    # padrão comum em e-commerce de livro: "Autor: Fulano"
-    text = soup.get_text(" ", strip=True)
-    match = re.search(r"Autor(?:\(a\)|es)?\s*[:\-]\s*([A-ZÀ-Ý][^\n|·•]{2,60})", text)
-    return match.group(1).strip() if match else ""
+    return extract_author_from_text(soup.get_text(" ", strip=True))
 
 
 # Marcadores que, no bloco do título da Editora 34, vêm DEPOIS do nome do autor
@@ -726,7 +733,8 @@ def collect_via_shopify(
             if offset is None and stable_external_id(url) in seen:
                 continue  # incremental: já ingerido em run anterior
             variants = product.get("variants") or []
-            description = BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)[:600]
+            description_full = BeautifulSoup(product.get("body_html") or "", "html.parser").get_text(" ", strip=True)
+            description = description_full[:600]
             # barcode é o campo "certo", mas muita loja de livro (ex.: record.com.br)
             # deixa barcode vazio e põe o ISBN no sku da variante — cai pra descrição,
             # depois pro endpoint de produto único (mais lento, só quando precisa) e
@@ -740,11 +748,15 @@ def collect_via_shopify(
             images = product.get("images") or []
             thumbnail = (images[0].get("src") if images else "") or ""
             year = extract_year(str(product.get("published_at") or ""))
+            # "vendor" no Shopify costuma ser o selo/editora (ex.: "Record",
+            # "Bertrand Brasil"), não o autor do livro — só serve de último
+            # recurso. Preferimos um "Autor: Fulano" explícito na descrição.
+            author = extract_author_from_text(description_full) or (product.get("vendor") or "").strip()
             record = build_record(
                 publisher,
                 url,
                 title=product.get("title") or "",
-                author=(product.get("vendor") or "").strip(),
+                author=author,
                 isbn=isbn,
                 year=year,
                 thumbnail=thumbnail,
