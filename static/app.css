@@ -1685,3 +1685,21 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 /* contadores clicáveis no perfil próprio */
 .pcount-link{appearance:none;border:0;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
 .pcount-link:hover{color:var(--ink)}
+
+/* ── sino de atividade — fica em .brand (nunca fica display:none),
+   ao contrário de .top-actions, que some em viewports estreitas ── */
+.activity-bell{appearance:none;border:0;background:transparent;padding:8px;margin-left:auto;color:var(--muted);cursor:pointer;position:relative;flex:0 0 auto;line-height:0}
+.activity-bell svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.activity-bell:hover{color:var(--ink)}
+.activity-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--wine);box-shadow:0 0 0 2px var(--paper)}
+.activity-dot[hidden]{display:none}
+
+.activity-empty{padding:34px 16px}
+.activity-list{display:grid}
+.activity-item{border-top:1px solid var(--rule)}
+.activity-item:first-child{border-top:0}
+.activity-item.unread{background:color-mix(in srgb,var(--wine),transparent 92%)}
+.activity-item-main{appearance:none;border:0;background:transparent;width:100%;display:flex;align-items:center;gap:12px;padding:12px 4px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.activity-item-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.activity-item-copy span{font-size:13.5px;line-height:1.4;color:var(--ink-2)}
+.activity-item-copy small{font-family:"Space Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:.04em}

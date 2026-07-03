@@ -175,6 +175,20 @@ class ReviewReport(SQLModel, table=True):
     reviewed_by: Optional[str] = None
 
 
+class Notificacao(SQLModel, table=True):
+    """Atividade recebida por um usuário: alguém te seguiu, curtiu ou
+    comentou sua crítica. usuario_id é quem recebe; ator_id é quem fez a
+    ação. Nunca criada pra alvo/ator com is_demo=True (perfil de exemplo
+    não recebe nem gera notificação -- ninguém vai ler)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    ator_id: int = Field(foreign_key="usuario.id", index=True)
+    tipo: str = Field(index=True)  # "follow" | "like" | "comment"
+    leitura_id: Optional[int] = Field(default=None, foreign_key="leitura.id", index=True)
+    lida: bool = Field(default=False, index=True)
+    criado_em: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
 class BuscaCache(SQLModel, table=True):
     id:               Optional[int] = Field(default=None, primary_key=True)
     query:            str           = Field(index=True)
