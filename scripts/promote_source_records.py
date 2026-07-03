@@ -96,6 +96,47 @@ def _tem_coluna(cur, tabela: str, coluna: str) -> bool:
     return cur.fetchone() is not None
 
 
+_AUTOR_LABEL_RE = re.compile(r"Autor(?:\(a\)|es)?\s*[:\-]\s*([A-ZÀ-Ý][^\n|·•]{2,60})")
+
+
+def extract_author_from_text(text: str) -> str:
+    """Mesma heurística de scripts/sync_publishers.py (duplicada aqui de
+    propósito pra este script não depender de bs4/requests): reconhece um
+    "Autor: Fulano" solto no texto da descrição."""
+    match = _AUTOR_LABEL_RE.search(text or "")
+    return match.group(1).strip() if match else ""
+
+
+def backfill_source_record_authors(conn, dry_run: bool) -> int:
+    """Re-deriva o autor de source_records de editora que ficaram sem autor
+    porque o coletor usava um campo fraco (ex.: 'vendor' do Shopify, que é o
+    selo/editora, não o autor — ver scripts/sync_publishers.py). Não bate
+    rede: usa só a descrição já salva em raw_json na coleta original.
+
+    Roda antes da promoção normal, então o autor re-derivado já entra no lote
+    que o promote() abaixo processa — inclusive pra obras JÁ promovidas
+    (branch 'ja_existiam' de promote(), que faz UPDATE obra SET autor=...)."""
+    preenchidos = 0
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, raw_json->>'description' FROM source_records "
+            "WHERE source LIKE %s AND btrim(coalesce(author, '')) = '' "
+            "AND coalesce(raw_json->>'description', '') <> ''",
+            ("publisher:%",),
+        )
+        rows = cur.fetchall()
+        for sr_id, descricao in rows:
+            autor = extract_author_from_text(descricao)
+            if not autor:
+                continue
+            preenchidos += 1
+            if not dry_run:
+                cur.execute("UPDATE source_records SET author=%s, updated_at=NOW() WHERE id=%s", (autor, sr_id))
+    if not dry_run:
+        conn.commit()
+    return preenchidos
+
+
 def _preencher_descricao(cur, obra_id: int, descricao: str) -> bool:
     """Grava a descrição na obra só quando está vazia — nunca sobrescreve. Corta em
     2000 chars pra não guardar página inteira."""
@@ -184,6 +225,8 @@ def main() -> int:
 
     conn = connect()
     try:
+        autores_rederivados = backfill_source_record_authors(conn, dry_run)
+        print(f"autores re-derivados da descrição (sem rede): {autores_rederivados}")
         with conn.cursor() as cur:
             cur.execute(
                 """
