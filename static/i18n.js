@@ -1376,3 +1376,18 @@ Object.assign(I18N['es'], {
   activity_comment: '{nome} comentó tu crítica',
   activity_comment_book: '{nome} comentó tu crítica sobre {titulo}'
 });
+Object.assign(I18N['pt-BR'], {
+  write_a_comment: 'escreva um comentário…', send: 'enviar', sending: 'enviando…',
+  login_to_comment: 'entre com Google pra comentar.', no_comments_yet: 'nenhum comentário ainda.',
+  delete_comment: 'apagar comentário'
+});
+Object.assign(I18N['en'], {
+  write_a_comment: 'write a comment…', send: 'send', sending: 'sending…',
+  login_to_comment: 'sign in with Google to comment.', no_comments_yet: 'no comments yet.',
+  delete_comment: 'delete comment'
+});
+Object.assign(I18N['es'], {
+  write_a_comment: 'escribe un comentario…', send: 'enviar', sending: 'enviando…',
+  login_to_comment: 'entra con Google para comentar.', no_comments_yet: 'aún no hay comentarios.',
+  delete_comment: 'eliminar comentario'
+});

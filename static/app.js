@@ -1441,15 +1441,84 @@ function reviewActionsHTML(c){
   if(!c||!c.leitura_id) return '';
   const liked=!!c.liked_by_me, saved=!!c.saved_by_me;
   const likes=Number(c.likes_count||0);
+  const comentarios=Number(c.comments_count||0);
   // curtir/guardar são ações leves e frequentes; denunciar é rara e negativa —
   // vai atrás do ⋯ pra action row não parecer formulário
   return `<div class="review-actions">
     <button type="button" class="ra-like ${liked?'active':''}" aria-pressed="${liked}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'}${likes?` ${likes}`:''}</button>
+    <button type="button" class="ra-comment ${comentariosAbertos[c.leitura_id]?'active':''}" aria-expanded="${!!comentariosAbertos[c.leitura_id]}" onclick="alternarComentarios(${c.leitura_id})">💬${comentarios?` ${comentarios}`:''}</button>
     <button type="button" class="ra-save ${saved?'active':''}" aria-pressed="${saved}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
     <span class="ra-more-wrap"><button type="button" class="ra-more" aria-label="${t('more_options')}" aria-haspopup="true" aria-expanded="false" onclick="alternarMenuReview(this,event)">⋯</button>
       <span class="ra-menu" hidden><button type="button" onclick="acaoReview(${c.leitura_id},'report')">${c.reported_by_me?t('reported_review'):t('report')}</button></span>
     </span>
-  </div>`;
+  </div>${comentariosPainelHTML(c.leitura_id)}`;
+}
+
+/* ── comentários em críticas ── */
+let comentariosAbertos={}; // leituraId -> {carregando, lista}
+function rerenderCardsComReview(){
+  renderFeed();
+  if(obraSocial?.criticas?.length || obraSocial?.destaques?.length) renderEdicoes();
+}
+async function alternarComentarios(leituraId){
+  if(!leituraId) return;
+  if(comentariosAbertos[leituraId]){ delete comentariosAbertos[leituraId]; rerenderCardsComReview(); return; }
+  comentariosAbertos[leituraId]={carregando:true,lista:[]};
+  rerenderCardsComReview();
+  try{
+    const res=await fetch(`/api/reviews/${leituraId}/comments`);
+    const lista=res.ok?await res.json():[];
+    comentariosAbertos[leituraId]={carregando:false,lista};
+  }catch(e){
+    comentariosAbertos[leituraId]={carregando:false,lista:[]};
+  }
+  rerenderCardsComReview();
+}
+async function enviarComentario(event,leituraId){
+  event.preventDefault();
+  const form=event.target;
+  const input=form.querySelector('input');
+  const texto=(input?.value||'').trim();
+  if(!texto) return false;
+  const btn=form.querySelector('button[type=submit]');
+  setButtonBusy(btn,t('sending'));
+  try{
+    const res=await fetch(`/api/reviews/${leituraId}/comments`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto})});
+    if(res.status===401){ toast(t('login_to_interact')); return false; }
+    if(!res.ok) throw new Error(await res.text());
+    const novo=await res.json();
+    const st=comentariosAbertos[leituraId]||{carregando:false,lista:[]};
+    st.lista=[...(st.lista||[]),novo];
+    comentariosAbertos[leituraId]=st;
+    atualizarReviewLocal(leituraId,{comments_count:st.lista.length});
+    rerenderCardsComReview();
+  }catch(e){ toast(t('interaction_error')||'não foi possível atualizar agora.'); }
+  finally{ clearButtonBusy(btn); }
+  return false;
+}
+async function removerComentario(leituraId,commentId){
+  try{
+    const res=await fetch(`/api/comments/${commentId}`,{method:'DELETE'});
+    if(!res.ok) throw new Error(await res.text());
+    const st=comentariosAbertos[leituraId];
+    if(st){ st.lista=(st.lista||[]).filter(cm=>cm.id!==commentId); atualizarReviewLocal(leituraId,{comments_count:st.lista.length}); }
+    rerenderCardsComReview();
+  }catch(e){ toast(t('interaction_error')||'não foi possível atualizar agora.'); }
+}
+function comentariosPainelHTML(leituraId){
+  const st=comentariosAbertos[leituraId];
+  if(!st) return '';
+  if(st.carregando) return `<div class="review-comments"><div class="empty">${t('reader_loading')}</div></div>`;
+  const lista=st.lista||[];
+  const itens=lista.length?lista.map(cm=>`<div class="comment-item">
+      ${avatarHTML(cm.usuario?.nome,cm.usuario?.handle)}
+      <div class="comment-copy"><div class="comment-head"><b>${esc(cm.usuario?.nome||('@'+(cm.usuario?.handle||'')))}</b><small>${esc(dataFeed(cm.criado_em))}</small></div><p>${esc(cm.texto)}</p></div>
+      ${cm.is_me?`<button type="button" class="comment-del" aria-label="${t('delete_comment')}" onclick="removerComentario(${leituraId},${cm.id})">×</button>`:''}
+    </div>`).join(''):`<p class="comment-empty">${t('no_comments_yet')}</p>`;
+  const composer=minhaConta?.logado
+    ?`<form class="comment-form" onsubmit="return enviarComentario(event,${leituraId})"><input type="text" maxlength="500" placeholder="${t('write_a_comment')}" /><button type="submit">${t('send')}</button></form>`
+    :`<p class="comment-login-hint">${t('login_to_comment')}</p>`;
+  return `<div class="review-comments">${itens}${composer}</div>`;
 }
 function fecharMenusReview(exceto=null){
   document.querySelectorAll('.ra-menu:not([hidden])').forEach(m=>{

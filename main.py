@@ -27,7 +27,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
@@ -652,13 +652,20 @@ def _likes_count(s: Session, leitura_id: int) -> int:
     return s.exec(select(func.count()).select_from(ReviewLike).where(ReviewLike.leitura_id == leitura_id)).one()
 
 
+def _comments_count(s: Session, leitura_id: int) -> int:
+    return s.exec(select(func.count()).select_from(ReviewComment).where(ReviewComment.leitura_id == leitura_id)).one()
+
+
 def _review_state(s: Session, leitura_id: int, usuario_id: int | None = None) -> dict:
     liked = saved = reported = False
     if usuario_id:
         liked = bool(s.exec(select(ReviewLike).where(ReviewLike.leitura_id == leitura_id, ReviewLike.usuario_id == usuario_id)).first())
         saved = bool(s.exec(select(SavedReview).where(SavedReview.leitura_id == leitura_id, SavedReview.usuario_id == usuario_id)).first())
         reported = bool(s.exec(select(ReviewReport).where(ReviewReport.leitura_id == leitura_id, ReviewReport.usuario_id == usuario_id)).first())
-    return {"likes_count": _likes_count(s, leitura_id), "liked_by_me": liked, "saved_by_me": saved, "reported_by_me": reported}
+    return {
+        "likes_count": _likes_count(s, leitura_id), "liked_by_me": liked, "saved_by_me": saved, "reported_by_me": reported,
+        "comments_count": _comments_count(s, leitura_id),
+    }
 
 
 def _assert_not_own_review(l: Leitura, u: Usuario, action: str = "interagir"):
@@ -1278,6 +1285,53 @@ def report_review(leitura_id: int, payload: ReviewReportPayload, request: Reques
     return {"reported": True}
 
 
+class ReviewCommentPayload(BaseModel):
+    texto: str
+
+
+def _comment_payload(c: ReviewComment, autor: Usuario, atual: Usuario | None) -> dict:
+    return {
+        "id": c.id, "texto": c.texto, "criado_em": c.criado_em.isoformat(),
+        "usuario": {"handle": autor.handle, "nome": autor.nome, "is_demo": bool(getattr(autor, "is_demo", False))},
+        "is_me": bool(atual and atual.id == c.usuario_id),
+    }
+
+
+@app.get("/api/reviews/{leitura_id}/comments")
+def listar_comentarios(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    _review_or_404(leitura_id, s)
+    atual = usuario_sessao(request, s)
+    rows = s.exec(
+        select(ReviewComment, Usuario)
+        .join(Usuario, ReviewComment.usuario_id == Usuario.id)
+        .where(ReviewComment.leitura_id == leitura_id)
+        .order_by(ReviewComment.criado_em.asc())
+    ).all()
+    return [_comment_payload(c, autor, atual) for c, autor in rows]
+
+
+@app.post("/api/reviews/{leitura_id}/comments")
+def criar_comentario(leitura_id: int, payload: ReviewCommentPayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para comentar.", 401)
+    l = _review_or_404(leitura_id, s)
+    texto = _clean_text(payload.texto, 500)
+    if not texto:
+        raise HTTPException(422, "escreva um comentário.")
+    c = ReviewComment(leitura_id=leitura_id, usuario_id=u.id, texto=texto)
+    s.add(c); s.commit(); s.refresh(c)
+    _criar_notificacao(s, l.usuario_id, u.id, "comment", leitura_id)
+    return _comment_payload(c, u, u)
+
+
+@app.delete("/api/comments/{comment_id}")
+def remover_comentario(comment_id: int, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para comentar.", 401)
+    c = s.get(ReviewComment, comment_id)
+    if not c or c.usuario_id != u.id:
+        raise HTTPException(404, "comentário não encontrado")
+    s.delete(c); s.commit()
+    return {"ok": True}
+
 
 PROGRESSO_TIPOS = {"pagina", "porcentagem", "capitulo", "livre"}
 
@@ -1794,7 +1848,7 @@ def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuari
         "leitura": {
             "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
             "is_demo": bool(getattr(l, "is_demo", False)), "spoiler": bool(l.spoiler), "relato": (relato[:220] if trecho else relato),
-            **(_review_state(s, l.id, atual_id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False}),
+            **(_review_state(s, l.id, atual_id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False, "comments_count": 0}),
         },
         "created_at": l.criado_em.isoformat(),
     }

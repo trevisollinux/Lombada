@@ -189,6 +189,14 @@ class Notificacao(SQLModel, table=True):
     criado_em: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
+class ReviewComment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    leitura_id: int = Field(foreign_key="leitura.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    texto: str
+    criado_em: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
 class BuscaCache(SQLModel, table=True):
     id:               Optional[int] = Field(default=None, primary_key=True)
     query:            str           = Field(index=True)
