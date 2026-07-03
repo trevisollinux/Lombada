@@ -117,6 +117,14 @@
   </div>
 </nav>
 
+<!-- MODAL PERFIL DE LEITOR -->
+<div class="modal" id="readerModal" onclick="if(event.target===this)fecharLeitor()">
+  <div class="modal-card reader-card" role="dialog" aria-modal="true" aria-label="perfil do leitor" data-i18n-aria-label="reader_profile">
+    <button class="modal-x" type="button" onclick="fecharLeitor()" aria-label="fechar perfil" data-i18n-aria-label="close_profile">×</button>
+    <div id="readerDetail"></div>
+  </div>
+</div>
+
 <!-- MODAL CARD -->
 <div class="modal" id="modal" onclick="if(event.target===this)fecharModal()">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bookDetailTitle">
