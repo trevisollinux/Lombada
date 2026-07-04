@@ -428,6 +428,18 @@ function tratarMensagemConta(){
   }
 }
 
+function extrairAbaDeepLink(){
+  // páginas server-rendered (/u/{handle}, /editoras…) linkam pro app com
+  // ?aba=feed|estante|perfil pra abrir direto na aba certa
+  const params=new URLSearchParams(location.search);
+  const aba=params.get('aba');
+  if(!aba) return '';
+  params.delete('aba');
+  const qs=params.toString();
+  history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
+  return ['buscar','feed','estante','perfil'].includes(aba)?aba:'';
+}
+
 function extrairBuscaDeepLink(){
   const params=new URLSearchParams(location.search);
   const q=params.get('q');
@@ -3232,7 +3244,8 @@ async function init(){
   // requisição pode levar até ~30s pra "acordar". Sem isso, a tela fica em
   // branco tempo suficiente pra parecer que o app quebrou.
   const coldStartTimer=setTimeout(()=>{ $('#coldStartNotice')?.removeAttribute('hidden'); },2500);
-  const estadoInicial=lerEstadoNavSalvo() || estadoNav('buscar','home');
+  const abaDeepLink=extrairAbaDeepLink();
+  const estadoInicial=abaDeepLink?estadoNav(abaDeepLink,'home'):(lerEstadoNavSalvo() || estadoNav('buscar','home'));
   history.replaceState(estadoInicial,'');
   tratarMensagemConta();
   const buscaDeepLink=extrairBuscaDeepLink();
