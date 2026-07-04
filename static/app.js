@@ -910,6 +910,15 @@ async function toggleFollowHandle(handle){
   }catch(e){ toast(t('interaction_error')); }
 }
 let feedLendo=[];
+async function denunciarPerfil(handle){
+  if(!confirm(t('report_profile_confirm'))) return;
+  try{
+    const r=await fetch('/api/u/'+encodeURIComponent(handle)+'/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({motivo:'profile'})});
+    if(r.status===401||r.status===403){ toast(t('follow_login_required')); return; }
+    if(!r.ok) throw new Error(await r.text());
+    toast(t('report_sent'));
+  }catch(e){ toast(t('interaction_error')); }
+}
 function mudarFeedTab(tab){ feedTab=tab==='following'?'following':'discover'; localStorage.setItem('lombada_feed_tab',feedTab); carregarFeed(); }
 
 function feedAction(tipo,status){
@@ -1087,7 +1096,8 @@ function renderLeitor(){
     </div>
     ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo)}</div>`:''}
     ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas)}</div>`:''}
-    ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}`;
+    ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}
+    ${d.is_me?'':`<button type="button" class="report-profile-link" onclick="denunciarPerfil('${esc(d.handle).replace(/'/g,"\\'")}')">${t('report_profile')}</button>`}`;
 }
 
 /* ── atividade: "fulano te seguiu/curtiu/comentou" ── */
@@ -2768,29 +2778,95 @@ async function enviarFotoPerfil(input){
   const file=input.files?.[0];
   input.value='';
   if(!file) return;
-  let bmp=null;
-  try{ bmp=await createImageBitmap(file,{imageOrientation:'from-image'}); }
-  catch(e){ try{ bmp=await createImageBitmap(file); }catch(_){ } }
-  if(!bmp){ toast(t('photo_error')); return; }
-  const size=256, c=document.createElement('canvas');
-  c.width=c.height=size;
-  const cx=c.getContext('2d');
-  const s=Math.min(bmp.width,bmp.height);
-  cx.drawImage(bmp,(bmp.width-s)/2,(bmp.height-s)/2,s,s,0,0,size,size);
-  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));
-  if(!blob){ toast(t('photo_error')); return; }
-  const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=rej;fr.readAsDataURL(blob);}).catch(()=>'');
-  if(!b64){ toast(t('photo_error')); return; }
+  const objUrl=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>abrirRecorteAvatar(img,objUrl);
+  img.onerror=()=>{ URL.revokeObjectURL(objUrl); toast(t('photo_error')); };
+  img.src=objUrl;
+}
+
+/* editor de recorte: arrastar pra posicionar + controle de zoom; exporta
+   512px JPEG e envia em base64 (o servidor guarda no banco) */
+let cropCtx=null;
+function abrirRecorteAvatar(img,objUrl){
+  let modal=$('#cropModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='cropModal';
+    modal.className='modal crop-modal';
+    modal.onclick=e=>{ if(e.target===modal) fecharRecorteAvatar(); };
+    modal.innerHTML=`<div class="modal-card crop-card" role="dialog" aria-modal="true" aria-label="${t('adjust_photo')}">
+      <div class="label">${t('adjust_photo')}</div>
+      <p class="crop-hint">${t('crop_hint')}</p>
+      <div class="crop-viewport" id="cropViewport"></div>
+      <input type="range" id="cropZoom" min="100" max="300" value="100" aria-label="zoom">
+      <div class="modal-actions">
+        <button type="button" class="btn-share-card" onclick="confirmarRecorteAvatar(this)">${t('use_photo')}</button>
+        <button type="button" class="btn-secondary" onclick="fecharRecorteAvatar()">${t('cancel_action')}</button>
+      </div></div>`;
+    document.body.appendChild(modal);
+  }
+  const vp=modal.querySelector('#cropViewport');
+  vp.innerHTML='';
+  vp.appendChild(img);
+  modal.classList.add('open');
+  const V=vp.clientWidth||280;
+  const s0=V/Math.min(img.naturalWidth,img.naturalHeight);
+  cropCtx={img,objUrl,V,s0,z:1,ox:(V-img.naturalWidth*s0)/2,oy:(V-img.naturalHeight*s0)/2,drag:null};
+  const zoom=modal.querySelector('#cropZoom');
+  zoom.value=100;
+  zoom.oninput=()=>ajustarZoomRecorte(Number(zoom.value)/100);
+  vp.onpointerdown=e=>{ e.preventDefault(); vp.setPointerCapture(e.pointerId); cropCtx.drag={x:e.clientX,y:e.clientY,ox:cropCtx.ox,oy:cropCtx.oy}; };
+  vp.onpointermove=e=>{ if(!cropCtx?.drag) return; cropCtx.ox=cropCtx.drag.ox+(e.clientX-cropCtx.drag.x); cropCtx.oy=cropCtx.drag.oy+(e.clientY-cropCtx.drag.y); aplicarTransfRecorte(); };
+  vp.onpointerup=vp.onpointercancel=()=>{ if(cropCtx) cropCtx.drag=null; };
+  aplicarTransfRecorte();
+}
+function aplicarTransfRecorte(){
+  const c=cropCtx; if(!c) return;
+  const s=c.s0*c.z, w=c.img.naturalWidth*s, h=c.img.naturalHeight*s;
+  c.ox=Math.min(0,Math.max(c.V-w,c.ox));
+  c.oy=Math.min(0,Math.max(c.V-h,c.oy));
+  Object.assign(c.img.style,{width:w+'px',height:h+'px',transform:`translate(${c.ox}px,${c.oy}px)`,maxWidth:'none',maxHeight:'none'});
+}
+function ajustarZoomRecorte(z){
+  const c=cropCtx; if(!c) return;
+  const sOld=c.s0*c.z, sNew=c.s0*z;
+  const cx=(c.V/2-c.ox)/sOld, cy=(c.V/2-c.oy)/sOld;
+  c.z=z;
+  c.ox=c.V/2-cx*sNew;
+  c.oy=c.V/2-cy*sNew;
+  aplicarTransfRecorte();
+}
+function fecharRecorteAvatar(){
+  $('#cropModal')?.classList.remove('open');
+  if(cropCtx?.objUrl){ try{ URL.revokeObjectURL(cropCtx.objUrl); }catch(e){} }
+  cropCtx=null;
+}
+async function confirmarRecorteAvatar(btn){
+  const c=cropCtx; if(!c) return;
+  btn.disabled=true;
   try{
+    const s=c.s0*c.z, out=512;
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=out;
+    const cx=canvas.getContext('2d');
+    cx.imageSmoothingQuality='high';
+    cx.drawImage(c.img,-c.ox/s,-c.oy/s,c.V/s,c.V/s,0,0,out,out);
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.85));
+    if(!blob) throw new Error('canvas');
+    const b64=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(String(fr.result).split(',')[1]||''); fr.onerror=rej; fr.readAsDataURL(blob); });
+    if(!b64) throw new Error('b64');
     const r=await fetch('/api/eu/avatar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:b64})});
     if(!r.ok) throw new Error(await r.text());
     const body=await r.json();
     minhaConta={...minhaConta,avatar_url:body.avatar_url,avatar_custom:true};
+    fecharRecorteAvatar();
     toast(t('photo_updated'));
     renderPerfil();
     const wrap=$('#profileEditWrap'); if(wrap) wrap.hidden=false;
-  }catch(e){ toast(t('photo_error')); }
+  }catch(e){ toast(t('photo_error')); btn.disabled=false; }
 }
+
 async function removerFotoPerfil(btn){
   if(btn) btn.disabled=true;
   try{

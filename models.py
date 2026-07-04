@@ -167,6 +167,21 @@ class SavedReview(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ProfileReport(SQLModel, table=True):
+    """Denúncia de perfil (foto/nome/bio impróprios). Dedupe de pendentes é
+    feito no endpoint — sem unique constraint pra permitir re-denúncia após
+    uma dispensada."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    target_id: int = Field(foreign_key="usuario.id", index=True)
+    reporter_id: int = Field(foreign_key="usuario.id", index=True)
+    motivo: str = Field(default="other", index=True)
+    detalhe: str = ""
+    status: str = Field(default="pending", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+
+
 class ReviewReport(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("leitura_id", "usuario_id", name="uq_reviewreport_pair"),)
 
