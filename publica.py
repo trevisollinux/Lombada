@@ -1,6 +1,8 @@
 """
 Lombada — estante pública: HTML server-rendered + Open Graph para /u/{handle}.
 """
+from urllib.parse import urlencode
+
 from sqlmodel import select, Session
 
 from models import Leitura, Edicao, Obra, Usuario
@@ -29,7 +31,7 @@ def _leituras_de(s: Session, usuario_id: int) -> list:
         "leitura_id": l.id, "status": l.status, "nota": l.nota,
         "relato": l.relato if l.publico else "",
         "publico": bool(l.publico), "spoiler": bool(l.spoiler), "data": l.data,
-        "titulo": o.titulo, "autor": o.autor,
+        "titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
         "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url,
     } for (l, ed, o) in rows]
@@ -162,25 +164,41 @@ def _section(titulo: str, html: str) -> str:
     return f'<section class="section"><h2>{titulo}</h2>{html}</section>'
 
 
-def _card_publico(l: dict) -> str:
-    cap   = l.get("capa_url") or ""
-    t     = _esc(l.get("titulo"))
-    a     = _esc(l.get("autor"))
+def _link_obra(l: dict) -> str:
+    params = {}
+    if l.get("work_key"):
+        params["obra"] = l.get("work_key")
+    if l.get("titulo"):
+        params["t"] = l.get("titulo")
+    if l.get("autor"):
+        params["a"] = l.get("autor")
+    return "/?" + urlencode(params) if params else "/"
+
+
+def _cover_publico(l: dict) -> str:
+    cap = l.get("capa_url") or ""
+    t = _esc(l.get("titulo"))
     stars = f'<div class="stars">{_estrelas(l.get("nota"))}</div>' if l.get("nota") else ""
     if cap:
-        cover = (
+        return (
             f'<div class="cover"><img src="{_esc(cap)}" alt="" loading="lazy" '
             "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\">"
             f'<div class="fb" style="display:none">{t}</div>{stars}</div>'
         )
-    else:
-        cover = f'<div class="cover"><div class="fb">{t}</div>{stars}</div>'
-    return f'<div class="book">{cover}<div class="t">{t}</div><div class="a">{a}</div></div>'
+    return f'<div class="cover"><div class="fb">{t}</div>{stars}</div>'
+
+
+def _card_publico(l: dict) -> str:
+    t = _esc(l.get("titulo"))
+    a = _esc(l.get("autor"))
+    label = _esc(f"Abrir obra {l.get('titulo') or ''}".strip())
+    return f'<a class="book" href="{_esc(_link_obra(l))}" aria-label="{label}">{_cover_publico(l)}<div class="t">{t}</div><div class="a">{a}</div></a>'
 
 
 def _row_livro(l: dict) -> str:
     badge_critica = ' <span class="badge">tem crítica</span>' if l.get("publico") and l.get("relato") else ""
-    return f'<div class="row">{_card_publico(l).replace("book", "book mini", 1)}<div><div class="t">{_esc(l.get("titulo"))}</div><div class="a">{_esc(l.get("autor"))}</div><div class="meta">{_esc(l.get("status"))}{" · " + _estrelas(l.get("nota")) if l.get("nota") else ""}{" · " + _esc(l.get("data")) if l.get("data") else ""}{" · " + _meta_edicao(l) if _meta_edicao(l) else ""}{badge_critica}</div></div></div>'
+    label = _esc(f"Abrir obra {l.get('titulo') or ''}".strip())
+    return f'<a class="row" href="{_esc(_link_obra(l))}" aria-label="{label}"><div class="book mini">{_cover_publico(l)}</div><div><div class="t">{_esc(l.get("titulo"))}</div><div class="a">{_esc(l.get("autor"))}</div><div class="meta">{_esc(l.get("status"))}{" · " + _estrelas(l.get("nota")) if l.get("nota") else ""}{" · " + _esc(l.get("data")) if l.get("data") else ""}{" · " + _meta_edicao(l) if _meta_edicao(l) else ""}{badge_critica}</div></div></a>'
 
 
 def _n(count: int, singular: str, plural: str) -> str:
