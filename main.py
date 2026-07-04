@@ -29,7 +29,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ProfileReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
@@ -2214,6 +2214,30 @@ def _lista_follows(handle: str, direcao: str, request: Request, s: Session) -> l
     } for u in usuarios]
 
 
+class ProfileReportPayload(BaseModel):
+    motivo: Optional[str] = None
+    detalhe: Optional[str] = None
+
+
+@app.post("/api/u/{handle}/report")
+def report_profile(handle: str, payload: ProfileReportPayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para denunciar perfis.", 401)
+    alvo = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    if not alvo:
+        raise HTTPException(404, "perfil não encontrado")
+    if alvo.id == u.id:
+        raise HTTPException(400, "você não pode denunciar o próprio perfil")
+    pendente = s.exec(select(ProfileReport).where(
+        ProfileReport.target_id == alvo.id, ProfileReport.reporter_id == u.id,
+        ProfileReport.status == "pending")).first()
+    if not pendente:
+        s.add(ProfileReport(target_id=alvo.id, reporter_id=u.id,
+                            motivo=_clean_text(payload.motivo, 80) or "other",
+                            detalhe=_clean_text(payload.detalhe, 500)))
+        s.commit()
+    return {"reported": True}
+
+
 @app.get("/api/u/{handle}/followers")
 def listar_seguidores(handle: str, request: Request, s: Session = Depends(get_session)):
     return _lista_follows(handle, "followers", request, s)
@@ -2355,7 +2379,27 @@ def admin_page(request: Request, s: Session = Depends(get_session)):
             f'<form method="post" action="/admin/suggestions/{sug.id}/duplicate" style="display:inline"><button>Marcar duplicado</button></form>'
             f'</article>'
         )
-    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><p><a href="/admin/source-records">Revisar source_records de editoras</a></p><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
+    profile_reports = s.exec(
+        select(ProfileReport, Usuario)
+        .join(Usuario, ProfileReport.target_id == Usuario.id)
+        .where(ProfileReport.status == "pending")
+        .order_by(ProfileReport.created_at.desc())
+    ).all()
+    profile_report_items = []
+    for prep, alvo in profile_reports:
+        avatar = getattr(alvo, "avatar_url", "") or ""
+        avatar_html = f'<img src="{_esc(avatar)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px">' if avatar else ""
+        profile_report_items.append(
+            f'<article class="card-form" style="margin:16px 0">'
+            f'<div class="meta">#{prep.id} · perfil · {_esc(prep.motivo)} · {prep.created_at.isoformat()}</div>'
+            f'<p>{avatar_html}<a href="/u/{_esc(alvo.handle)}" target="_blank" rel="noopener"><strong>@{_esc(alvo.handle)}</strong></a> · {_esc(alvo.nome)}</p>'
+            f'<p>{_esc((getattr(alvo, "bio", "") or "")[:300])}</p>'
+            f'<p>{_esc(prep.detalhe)}</p>'
+            f'<form method="post" action="/admin/profile-reports/{prep.id}/reviewed" style="display:inline"><button>Marcar revisada</button></form> '
+            f'<form method="post" action="/admin/profile-reports/{prep.id}/dismissed" style="display:inline"><button>Dispensar</button></form>'
+            f'</article>'
+        )
+    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><p><a href="/admin/source-records">Revisar source_records de editoras</a></p><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Denúncias de perfil</h2>' + (''.join(profile_report_items) or '<p>Nenhuma denúncia de perfil pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
     return HTMLResponse(_pagina("Admin · Lombada", corpo))
 
 
@@ -2560,6 +2604,21 @@ def admin_source_record_action(source_record_id: int, action: str, request: Requ
         raise HTTPException(404, "ação inválida")
     return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin/source-records">')
 
+
+
+@app.post("/admin/profile-reports/{report_id}/{action}")
+def admin_profile_report_review(report_id: int, action: str, request: Request, s: Session = Depends(get_session)):
+    admin = _require_admin(request, s)
+    rep = s.get(ProfileReport, report_id)
+    if not rep:
+        raise HTTPException(404, "denúncia não encontrada")
+    if action not in {"reviewed", "dismissed"}:
+        raise HTTPException(404, "ação inválida")
+    rep.status = action
+    rep.reviewed_at = datetime.utcnow()
+    rep.reviewed_by = admin.email or admin.handle
+    s.add(rep); s.commit()
+    return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
 
 
 @app.post("/admin/reports/{report_id}/{action}")

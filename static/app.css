@@ -1881,3 +1881,28 @@ body.theme-dark .cover,body.theme-dark .shelf-cover{box-shadow:0 1px 2px rgba(0,
 .profile-photo-field .avatar-chip.avatar-lg{flex:0 0 64px}
 .photo-actions{display:flex;flex-wrap:wrap;gap:8px}
 .photo-actions .pbtn{min-height:36px;padding:8px 14px}
+
+/* ── editor de recorte do avatar ── */
+.crop-card{max-width:360px;display:grid;gap:14px;justify-items:center;padding:20px}
+.crop-hint{font-size:13px;color:var(--text-secondary);text-align:center;margin:-6px 0 0}
+.crop-viewport{position:relative;width:min(280px,72vw);aspect-ratio:1/1;border-radius:50%;overflow:hidden;background:var(--paper-3);touch-action:none;cursor:grab;box-shadow:0 0 0 1px var(--rule),0 0 0 999px color-mix(in srgb,var(--surface),transparent 20%)}
+.crop-viewport:active{cursor:grabbing}
+.crop-viewport img{position:absolute;left:0;top:0;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#cropZoom{width:min(280px,72vw);accent-color:var(--accent)}
+.crop-card .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin:0}
+
+/* ── denunciar perfil (discreto, no rodapé do modal de leitor) ── */
+.report-profile-link{display:block;margin:22px auto 4px;background:none;border:0;cursor:pointer;font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule)}
+.report-profile-link:hover{color:var(--danger)}
+
+/* ── perfil distribuído em telas largas: cabeçalho à esquerda, vitrine à direita ── */
+@media(min-width:900px){
+  /* anula o grid antigo do desktop que espremia o pcard numa coluna de 360px */
+  .profile{display:block}
+  .profile .pcard{position:relative;top:auto;display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);column-gap:48px;align-items:start}
+  .profile-top,.profile-id,.profile-cta-row,.profile-metrics,#profileEditWrap{grid-column:1}
+  .profile-shelf,.pcard>.profile-stats-box{grid-column:2;grid-row:1/span 6;margin-top:0}
+  #profileSettings{grid-column:1/-1}
+  .wall.profile-wall{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 14px}
+  .profile-settings .account-box{max-width:640px}
+}

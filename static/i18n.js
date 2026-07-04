@@ -1460,3 +1460,19 @@ Object.assign(I18N['es'], {
   profile_photo: 'Foto de perfil', change_photo: 'Cambiar foto', remove_photo: 'Quitar foto',
   photo_updated: 'Foto actualizada.', photo_removed: 'Foto eliminada.', photo_error: 'No fue posible usar esa imagen.'
 });
+
+Object.assign(I18N['pt-BR'], {
+  adjust_photo: 'Ajustar foto', crop_hint: 'arraste para posicionar e use o controle para aproximar',
+  use_photo: 'Usar foto', cancel_action: 'Cancelar',
+  report_profile: 'denunciar perfil', report_profile_confirm: 'Denunciar este perfil para revisão? Use para foto, nome ou bio impróprios.'
+});
+Object.assign(I18N['en'], {
+  adjust_photo: 'Adjust photo', crop_hint: 'drag to position and use the slider to zoom',
+  use_photo: 'Use photo', cancel_action: 'Cancel',
+  report_profile: 'report profile', report_profile_confirm: 'Report this profile for review? Use it for an inappropriate photo, name or bio.'
+});
+Object.assign(I18N['es'], {
+  adjust_photo: 'Ajustar foto', crop_hint: 'arrastra para posicionar y usa el control para acercar',
+  use_photo: 'Usar foto', cancel_action: 'Cancelar',
+  report_profile: 'denunciar perfil', report_profile_confirm: '¿Denunciar este perfil para revisión? Úsalo para foto, nombre o bio inapropiados.'
+});
