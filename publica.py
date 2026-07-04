@@ -78,7 +78,7 @@ html[data-theme="dark"] .cover .stars{background:rgba(243,235,221,.85);color:#1A
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font-family:"Spectral",Georgia,serif;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.wrap{max-width:560px;margin:0 auto;padding:26px 16px 60px}
+.wrap{max-width:560px;margin:0 auto;padding:26px 16px calc(100px + env(safe-area-inset-bottom))}
 .wordmark{font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:22px}
 .wordmark .dot{color:var(--gold)}
 .head{border-bottom:1px solid var(--rule);padding-bottom:18px;margin-bottom:22px}
@@ -98,8 +98,32 @@ h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:30px
 .profile-name{font-family:"Fraunces",serif;font-size:18px;font-style:italic;color:var(--ink-2);margin-top:14px}
 .metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{border:1px solid var(--rule);padding:8px 10px;background:rgba(255,255,255,.16);font-family:"Space Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 .section{margin-top:30px}.section h2{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:24px;margin-bottom:14px}.shelf-strip{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 14px}@media(min-width:420px){.shelf-strip{grid-template-columns:repeat(4,1fr)}.shelf-strip.favs{grid-template-columns:repeat(5,1fr)}}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--paper);border-top:1px solid var(--rule)}
+.tabs-inner{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);padding:9px 0 calc(9px + env(safe-area-inset-bottom))}
+.tab{display:flex;flex-direction:column;align-items:center;gap:5px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:4px 0}
+.tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5}
 .list{display:grid;gap:12px}.row{display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:start;border-top:1px solid var(--rule);padding-top:12px}.row .cover{width:62px}.meta{font-family:"Space Mono",monospace;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:5px}.badge{display:inline-block;border:1px solid var(--rule);padding:2px 6px;margin-left:4px}.review{border:1px solid var(--rule);background:rgba(255,255,255,.14);padding:16px;margin-bottom:12px}.review-title{font-family:"Fraunces",serif;font-style:italic;font-size:20px}.review-text{margin-top:10px;line-height:1.45}.spoiler{cursor:pointer;color:var(--dim);font-style:italic}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{border:1px solid var(--rule);padding:14px;background:rgba(255,255,255,.12)}.stat strong{display:block;font-family:"Fraunces",serif;font-size:28px}.stat span{font-family:"Space Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
 """
+
+
+# menu inferior igual ao do app: leva pro SPA já na aba certa (?aba= é
+# tratado no init do static/app.js)
+_TABS = (
+    '<nav class="tabs"><div class="tabs-inner">'
+    '<a class="tab" href="/?aba=buscar">'
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    '<span>buscar</span></a>'
+    '<a class="tab" href="/?aba=feed">'
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h10"/></svg>'
+    '<span>feed</span></a>'
+    '<a class="tab" href="/?aba=estante">'
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h2v18H6a2 2 0 0 1-2-2z"/><path d="M10 3h2v18h-2z"/><path d="m15 4 4 1-3 15-4-1z"/></svg>'
+    '<span>estante</span></a>'
+    '<a class="tab" href="/?aba=perfil">'
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>'
+    '<span>perfil</span></a>'
+    '</div></nav>'
+)
 
 
 def _pagina(titulo: str, corpo: str, og: dict | None = None, scripts: str = "") -> str:
@@ -119,7 +143,7 @@ def _pagina(titulo: str, corpo: str, og: dict | None = None, scripts: str = "") 
         'var m=document.createElement("meta");m.name="theme-color";m.content=t==="dark"?"#0E0D0B":"#ECE4D4";document.head.appendChild(m);'
         '}catch(e){}})()</script>'
         f'<title>{_esc(titulo)}</title>{og_tags}{_FONTES}'
-        f'<style>{_CSS}</style></head><body><div class="wrap">{corpo}</div>{scripts}</body></html>'
+        f'<style>{_CSS}</style></head><body><div class="wrap">{corpo}</div>{_TABS}{scripts}</body></html>'
     )
 
 
