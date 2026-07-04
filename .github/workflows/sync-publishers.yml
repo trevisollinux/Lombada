@@ -42,6 +42,11 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
+      debug_categoria_paginacao:
+        description: 'true = investiga se rolar/paginar 1 página de categoria (Cia das Letras) traz mais livros, e sai'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
   schedule:
     # De hora em hora, no minuto 13, em lotes moderados, evitando o pico do minuto zero do GitHub Actions.
     # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
@@ -94,6 +99,7 @@ jobs:
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
+          PUBLISHER_DEBUG_CATEGORIA_PAGINACAO: ${{ inputs.debug_categoria_paginacao || 'false' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
@@ -103,7 +109,7 @@ jobs:
         # Só promove em ingestão real (não em dry-run nem diagnose/dump). `always()`
         # garante que promovemos o que JÁ foi coletado mesmo se uma editora falhou e
         # o passo anterior saiu vermelho — o trabalho salvo não fica esperando.
-        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' && (inputs.debug_categoria_paginacao || 'false') != 'true' }}
         run: |
           set -o pipefail
           status=0
