@@ -1447,3 +1447,16 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   profile_settings: 'Configuración', profile_recent_readings: 'Últimas lecturas'
 });
+
+Object.assign(I18N['pt-BR'], {
+  profile_photo: 'Foto de perfil', change_photo: 'Trocar foto', remove_photo: 'Remover foto',
+  photo_updated: 'Foto atualizada.', photo_removed: 'Foto removida.', photo_error: 'Não foi possível usar essa imagem.'
+});
+Object.assign(I18N['en'], {
+  profile_photo: 'Profile photo', change_photo: 'Change photo', remove_photo: 'Remove photo',
+  photo_updated: 'Photo updated.', photo_removed: 'Photo removed.', photo_error: 'Could not use that image.'
+});
+Object.assign(I18N['es'], {
+  profile_photo: 'Foto de perfil', change_photo: 'Cambiar foto', remove_photo: 'Quitar foto',
+  photo_updated: 'Foto actualizada.', photo_removed: 'Foto eliminada.', photo_error: 'No fue posible usar esa imagen.'
+});

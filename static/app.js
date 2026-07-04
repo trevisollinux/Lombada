@@ -863,7 +863,7 @@ function handleLinkHTML(handle, cls='feed-user') {
 function avatarHTML(nome, handle, avatarUrl=''){
   const inicial=((nome||handle||'?').trim().charAt(0)||'?').toUpperCase();
   const url=(avatarUrl||'').trim();
-  const foto=/^https:\/\//i.test(url)?`<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+  const foto=/^(https:\/\/|\/api\/avatar\/)/i.test(url)?`<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
   return `<span class="avatar-chip${foto?' has-photo':''}" style="--av-h:${hue(handle||nome||'?')}" aria-hidden="true">${esc(inicial)}${foto}</span>`;
 }
 /* bloco "pessoa": avatar + nome legível + @handle (e ação opcional), tudo
@@ -2669,6 +2669,17 @@ function renderPerfil(){
   const editarPerfilHTML=logado?`
       <form id="profileEditForm" class="account-box profile-edit-form" onsubmit="event.preventDefault();salvarPerfil(this.querySelector('button[type=submit]'))">
         <div class="label">${t('edit_profile')}</div>
+        <div class="profile-edit-field profile-photo-field">
+          <label>${t('profile_photo')}</label>
+          <div class="photo-row">
+            ${avatarHTML(nome,meuHandle,minhaConta.avatar_url).replace('avatar-chip','avatar-chip avatar-lg')}
+            <div class="photo-actions">
+              <button type="button" class="pbtn" onclick="$('#avatarFileInput').click()">${t('change_photo')}</button>
+              ${minhaConta.avatar_custom?`<button type="button" class="pbtn" onclick="removerFotoPerfil(this)">${t('remove_photo')}</button>`:''}
+            </div>
+            <input id="avatarFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/*" hidden onchange="enviarFotoPerfil(this)">
+          </div>
+        </div>
         <div class="profile-edit-field">
           <label for="profileNameInput">${t('profile_display_name')}</label>
           <input id="profileNameInput" type="text" minlength="2" maxlength="40" autocomplete="name" value="${esc(nome)}" placeholder="${t('profile_display_name')}">
@@ -2749,6 +2760,48 @@ function grelhaPerfilHTML(){
     <div class="section-head"><div class="label">${t('profile_recent_readings')}</div><span class="more" onclick="abrirMinhaEstantePerfil()">${t('view_my_shelf')}</span></div>
     <div class="wall profile-wall">${itens.map((l,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirCard(${i})" aria-label="${esc(l.titulo)}">${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span></span>`:'')}</div>`).join('')}</div>
   </section>`;
+}
+
+/* foto de perfil: recorte quadrado no cliente (256px JPEG) e envio em base64;
+   o servidor guarda no banco (disco do Render free é efêmero) */
+async function enviarFotoPerfil(input){
+  const file=input.files?.[0];
+  input.value='';
+  if(!file) return;
+  let bmp=null;
+  try{ bmp=await createImageBitmap(file,{imageOrientation:'from-image'}); }
+  catch(e){ try{ bmp=await createImageBitmap(file); }catch(_){ } }
+  if(!bmp){ toast(t('photo_error')); return; }
+  const size=256, c=document.createElement('canvas');
+  c.width=c.height=size;
+  const cx=c.getContext('2d');
+  const s=Math.min(bmp.width,bmp.height);
+  cx.drawImage(bmp,(bmp.width-s)/2,(bmp.height-s)/2,s,s,0,0,size,size);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));
+  if(!blob){ toast(t('photo_error')); return; }
+  const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=rej;fr.readAsDataURL(blob);}).catch(()=>'');
+  if(!b64){ toast(t('photo_error')); return; }
+  try{
+    const r=await fetch('/api/eu/avatar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:b64})});
+    if(!r.ok) throw new Error(await r.text());
+    const body=await r.json();
+    minhaConta={...minhaConta,avatar_url:body.avatar_url,avatar_custom:true};
+    toast(t('photo_updated'));
+    renderPerfil();
+    const wrap=$('#profileEditWrap'); if(wrap) wrap.hidden=false;
+  }catch(e){ toast(t('photo_error')); }
+}
+async function removerFotoPerfil(btn){
+  if(btn) btn.disabled=true;
+  try{
+    const r=await fetch('/api/eu/avatar',{method:'DELETE'});
+    if(!r.ok) throw new Error(await r.text());
+    const body=await r.json();
+    minhaConta={...minhaConta,avatar_url:body.avatar_url||'',avatar_custom:false};
+    toast(t('photo_removed'));
+    renderPerfil();
+    const wrap=$('#profileEditWrap'); if(wrap) wrap.hidden=false;
+  }catch(e){ toast(t('photo_error')); if(btn) btn.disabled=false; }
 }
 
 function alternarConfigPerfil(){

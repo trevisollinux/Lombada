@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import inspect, text
+from sqlalchemy import Column, LargeBinary, inspect, text
 from sqlmodel import SQLModel, Field, UniqueConstraint, CheckConstraint, create_engine, Session
 
 # ─── config ───────────────────────────────────────────────
@@ -34,7 +34,11 @@ class Usuario(SQLModel, table=True):
     senha_hash: Optional[str] = None
     nome:       str           = ""
     bio:        str           = ""
-    avatar_url: str           = ""
+    avatar_url: str           = ""          # URL efetiva (Google ou /api/avatar/{id})
+    avatar_google: str        = ""          # última foto vinda do login Google
+    avatar_custom: bool       = False       # True = foto enviada pelo usuário (não sobrescrever no login)
+    avatar_blob: Optional[bytes] = Field(default=None, sa_column=Column(LargeBinary))
+    avatar_mime: str          = ""
     is_demo:    bool          = Field(default=False, index=True)
     criado_em:  datetime      = Field(default_factory=datetime.utcnow)
 
@@ -271,6 +275,14 @@ def migrar():
     _add_column_if_missing("usuario", "nome", "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''")
     _add_column_if_missing("usuario", "bio", "ALTER TABLE usuario ADD COLUMN bio VARCHAR DEFAULT ''")
     _add_column_if_missing("usuario", "avatar_url", "ALTER TABLE usuario ADD COLUMN avatar_url VARCHAR DEFAULT ''")
+    _add_column_if_missing("usuario", "avatar_google", "ALTER TABLE usuario ADD COLUMN avatar_google VARCHAR DEFAULT ''")
+    _add_column_if_missing("usuario", "avatar_mime", "ALTER TABLE usuario ADD COLUMN avatar_mime VARCHAR DEFAULT ''")
+    if postgres:
+        _add_column_if_missing("usuario", "avatar_custom", "ALTER TABLE usuario ADD COLUMN IF NOT EXISTS avatar_custom BOOLEAN NOT NULL DEFAULT false")
+        _add_column_if_missing("usuario", "avatar_blob", "ALTER TABLE usuario ADD COLUMN IF NOT EXISTS avatar_blob BYTEA")
+    else:
+        _add_column_if_missing("usuario", "avatar_custom", "ALTER TABLE usuario ADD COLUMN avatar_custom BOOLEAN NOT NULL DEFAULT 0")
+        _add_column_if_missing("usuario", "avatar_blob", "ALTER TABLE usuario ADD COLUMN avatar_blob BLOB")
     if postgres:
         _add_column_if_missing("usuario", "is_demo", "ALTER TABLE usuario ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
         _add_column_if_missing("leitura", "is_demo", "ALTER TABLE leitura ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
