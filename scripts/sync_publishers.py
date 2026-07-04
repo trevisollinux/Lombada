@@ -1267,6 +1267,11 @@ def diagnosticar_paginacao_categoria(url: str) -> None:
         print(f"  [diag] chamadas xhr/fetch capturadas: {len(chamadas)}")
         for resp in chamadas[:15]:
             print(f"    - {resp.request.method} {resp.url} -> status={resp.status}")
+            if resp.request.method == "POST":
+                try:
+                    print(f"      post_data={resp.request.post_data!r}")
+                except Exception:  # noqa: BLE001
+                    pass
             try:
                 corpo = resp.json()
                 amostra = json.dumps(corpo, ensure_ascii=False)[:600]
