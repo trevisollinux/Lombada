@@ -1172,6 +1172,85 @@ def collect_via_html_crawl(
     return _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
 
 
+def _categoria_urls_da_home(publisher: dict[str, str]) -> list[str]:
+    """Páginas /Busca?categoria=... linkadas no menu da home (HTML estático,
+    não precisa de browser pra achar os links em si — só o GRID de cada
+    página de categoria é que precisa de Playwright)."""
+    base_url = publisher["base_url"].rstrip("/")
+    home = fetch_url(base_url + "/")
+    if home is None:
+        return []
+    host = urlparse(base_url).netloc.replace("www.", "")
+    soup = BeautifulSoup(home.text, "html.parser")
+    categoria_urls: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        full = urljoin(base_url, anchor["href"]).split("#", 1)[0]
+        parsed = urlparse(full)
+        if parsed.netloc.replace("www.", "") != host:
+            continue
+        query = parsed.query.lower()
+        if "/busca" in parsed.path.lower() and "categoria=" in query and full not in categoria_urls:
+            categoria_urls.append(full)
+    return categoria_urls
+
+
+def diagnosticar_paginacao_categoria(url: str) -> None:
+    """Investiga por que collect_via_categoria_playwright só achava ~6
+    livros/categoria em média (1374 no total, pra Cia das Letras): visita UMA
+    página de categoria de verdade, mede quantos links /livro/ aparecem no
+    primeiro render, e testa se rolar a página carrega mais (infinite
+    scroll) e se existem controles de paginação (?pagina=N, botão "carregar
+    mais"/"próxima") que o crawl atual ignora por só olhar o primeiro render."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(user_agent=HEADERS["User-Agent"])
+        page.goto(url, timeout=20000, wait_until="domcontentloaded")
+        try:
+            page.wait_for_selector("a[href*='/livro/']", timeout=8000)
+        except Exception as exc:  # noqa: BLE001 — segue mesmo sem o seletor, pra medir 0 livros
+            print(f"  [diag] seletor de livro não apareceu: {exc!r}")
+
+        def contar_livros() -> int:
+            return len(set(re.findall(r'href="([^"]*?/livro/[^"]*?)"', page.content())))
+
+        print(f"  [diag] url={url}")
+        contagem = contar_livros()
+        print(f"  [diag] livros após 1o carregamento: {contagem}")
+
+        for i in range(6):
+            page.mouse.wheel(0, 20000)
+            page.wait_for_timeout(1500)
+            nova = contar_livros()
+            delta = nova - contagem
+            print(f"  [diag] após scroll #{i + 1}: {nova} livros ({'+' if delta >= 0 else ''}{delta})")
+            contagem = nova
+
+        html = page.content()
+        paginas = sorted({int(n) for n in re.findall(r"[?&](?:pagina|page)=(\d+)", html, re.I)})
+        print(f"  [diag] números de página em hrefs: {paginas[:20]}")
+
+        botoes = page.locator("button, a").filter(has_text=re.compile("pr[oó]xim|carregar mais|ver mais|mais resultados", re.I))
+        try:
+            n_botoes = botoes.count()
+        except Exception as exc:  # noqa: BLE001
+            n_botoes = 0
+            print(f"  [diag] erro procurando botões de paginação: {exc!r}")
+        print(f"  [diag] botões/links tipo 'próxima página'/'carregar mais': {n_botoes}")
+        for i in range(min(n_botoes, 5)):
+            try:
+                print(f"    - {botoes.nth(i).text_content()!r}")
+            except Exception:  # noqa: BLE001
+                pass
+
+        texto = BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
+        m = re.search(r"(\d{1,5})\s*(resultados?|livros?|itens?)\b", texto, re.I)
+        if m:
+            print(f"  [diag] texto de contagem total na página: {m.group(0)!r}")
+        browser.close()
+
+
 def collect_via_categoria_playwright(
     publisher: dict[str, str],
     max_urls: int,
@@ -1197,26 +1276,9 @@ def collect_via_categoria_playwright(
         return []
 
     base_url = publisher["base_url"].rstrip("/")
-    home = fetch_url(base_url + "/")
-    if home is None:
-        print(f"  [categoria-js] home inacessível para {publisher['slug']}.")
-        return []
-    # Extração direta (não usa harvest_links: aquela função descarta /busca de
-    # propósito pro crawl HTML genérico — aqui é exatamente esse link que
-    # queremos, só que renderizado por browser em vez de requests).
-    host = urlparse(base_url).netloc.replace("www.", "")
-    soup = BeautifulSoup(home.text, "html.parser")
-    categoria_urls: list[str] = []
-    for anchor in soup.find_all("a", href=True):
-        full = urljoin(base_url, anchor["href"]).split("#", 1)[0]
-        parsed = urlparse(full)
-        if parsed.netloc.replace("www.", "") != host:
-            continue
-        query = parsed.query.lower()
-        if "/busca" in parsed.path.lower() and "categoria=" in query and full not in categoria_urls:
-            categoria_urls.append(full)
+    categoria_urls = _categoria_urls_da_home(publisher)
     if not categoria_urls:
-        print("  [categoria-js] nenhuma página de categoria encontrada na home.")
+        print(f"  [categoria-js] nenhuma página de categoria encontrada na home de {publisher['slug']}.")
         return []
     print(f"  [categoria-js] {len(categoria_urls)} páginas de categoria na home")
 
@@ -1540,6 +1602,24 @@ def main() -> int:
             print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
             diagnose(publisher)
             print()
+        return 0
+
+    if getenv_bool("PUBLISHER_DEBUG_CATEGORIA_PAGINACAO", False):
+        sources = select_sources()
+        alvo = next((p for p in sources if p["slug"] == "cia_das_letras"), sources[0] if sources else None)
+        if not alvo:
+            print("nenhuma editora selecionada para diagnosticar.")
+            return 0
+        urls = _categoria_urls_da_home(alvo)
+        print(f"{len(urls)} páginas de categoria encontradas na home de {alvo['slug']}.")
+        if not urls:
+            return 0
+        try:
+            import playwright.sync_api  # noqa: F401  (só valida cedo que está instalado)
+        except ImportError:
+            print("playwright não instalado.", file=sys.stderr)
+            return 1
+        diagnosticar_paginacao_categoria(urls[0])
         return 0
 
     max_urls = getenv_int("PUBLISHER_MAX_URLS", 20, minimum=1, maximum=2000)
