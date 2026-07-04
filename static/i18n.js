@@ -1427,3 +1427,13 @@ Object.assign(I18N['es'], {
   paste_summary_error: 'no se pudo guardar el índice ahora.',
   reading_pace_eta: 'a tu ritmo, terminarás alrededor del {date}'
 });
+
+Object.assign(I18N['pt-BR'], {
+  stat_books: 'livros', stat_followers: 'seguidores', stat_following: 'seguindo'
+});
+Object.assign(I18N['en'], {
+  stat_books: 'books', stat_followers: 'followers', stat_following: 'following'
+});
+Object.assign(I18N['es'], {
+  stat_books: 'libros', stat_followers: 'seguidores', stat_following: 'siguiendo'
+});

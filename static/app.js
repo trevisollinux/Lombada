@@ -2663,12 +2663,25 @@ function renderPerfil(){
       </form>`:'';
   $('#perfil').innerHTML=`
     <div class="pcard">
-      <div class="profile-avatar">${esc(inicial)}</div>
-      <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
-      <div class="pcount">@${esc(meuHandle)} · ${plural(n,'book_count_one','book_count_many')} · <button type="button" class="pcount-link" onclick="abrirMinhasConexoes('followers')">${t('followers_count',{count:minhaConta.followers_count||0})}</button> · <button type="button" class="pcount-link" onclick="abrirMinhasConexoes('following')">${t('following_count',{count:minhaConta.following_count||0})}</button></div>
-      ${bio?`<p class="profile-bio">${esc(bio)}</p>`:''}
+      <div class="profile-top">
+        <div class="profile-avatar">${esc(inicial)}</div>
+        <div class="profile-stats-row">
+          <button type="button" class="profile-stat" onclick="abrirMinhaEstantePerfil()"><strong>${n}</strong><span>${t('stat_books')}</span></button>
+          <button type="button" class="profile-stat" onclick="abrirMinhasConexoes('followers')"><strong>${minhaConta.followers_count||0}</strong><span>${t('stat_followers')}</span></button>
+          <button type="button" class="profile-stat" onclick="abrirMinhasConexoes('following')"><strong>${minhaConta.following_count||0}</strong><span>${t('stat_following')}</span></button>
+        </div>
+      </div>
+      <div class="profile-id">
+        <div class="phandle">${nome?esc(nome):t('lombada_reader')}</div>
+        <div class="pcount">@${esc(meuHandle)}</div>
+        ${bio?`<p class="profile-bio">${esc(bio)}</p>`:''}
+      </div>
+      <div class="profile-cta-row">
+        ${logado?`<button class="pbtn" type="button" onclick="alternarEditarPerfil()">${t('edit_profile')}</button>`:''}
+        <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
+      </div>
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
-      ${editarPerfilHTML}
+      ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
       <div class="account-box theme-box">
         <div class="label">${t('appearance')}</div>
         <p>${t('appearance_hint')}</p>
@@ -2695,6 +2708,12 @@ function renderPerfil(){
       ${installCtaHTML()}
       ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
     </div>`;
+}
+
+function alternarEditarPerfil(){
+  const wrap=$('#profileEditWrap'); if(!wrap) return;
+  wrap.hidden=!wrap.hidden;
+  if(!wrap.hidden){ wrap.scrollIntoView({behavior:'smooth',block:'nearest'}); $('#profileNameInput')?.focus(); }
 }
 
 function urlPerfilPublico(){

@@ -1730,3 +1730,102 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .comment-form button{border:0;background:var(--ink);color:var(--paper);border-radius:8px;padding:8px 14px;font:inherit;font-size:12px;cursor:pointer;flex:0 0 auto}
 .comment-form button:disabled{opacity:.6;cursor:default}
 .comment-login-hint{font-size:12.5px;color:var(--muted);font-style:italic}
+
+/* ══ Repaginada social: chrome de app (IG/Letterboxd), mantendo a identidade editorial ══
+   Camada final — vence as anteriores. Topo compacto e fixo, títulos menores,
+   controles segmentados, cards de feed como superfícies, perfil com avatar +
+   estatísticas em linha, capas arredondadas com sombra suave. */
+
+/* topo: barra compacta e fixa, só marca + sino */
+.topbar{position:sticky;top:0;z-index:9;margin:-16px -16px 12px;padding:10px 16px;background:color-mix(in srgb,var(--bg),transparent 6%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--rule)}
+.topbar .brand{flex:1;gap:9px}
+.topbar .seal{width:30px;height:30px;font-size:17px;box-shadow:none;border-width:1px;border-radius:8px}
+.topbar .wordmark{font-size:21px}
+.topbar .lang-switch{display:none} /* idioma já vive nas configurações do perfil */
+.topbar .top-actions{display:none}
+.activity-bell{margin-left:auto}
+@media(max-width:420px){
+  .app{padding:0 20px calc(164px + env(safe-area-inset-bottom))}
+  .topbar{margin:0 -20px 12px;padding:10px 20px}
+  .topbar .wordmark{font-size:21px}
+}
+
+/* títulos de tela: âncora, não manchete */
+.screen-head{border-bottom:0;padding-bottom:0;margin:6px 0 14px}
+.screen-head .h-section,.h-section{font-size:24px}
+.screen-subtitle,.shelf-summary{font-size:13px;margin-top:4px}
+.label{letter-spacing:.18em}
+
+/* busca: pílula estilo app */
+.search{border-radius:999px;margin:4px 0 20px;padding:4px}
+.search input{padding:11px 8px}
+.search button{border-radius:999px;min-height:42px}
+
+/* controles segmentados (feed e estante) */
+.feed-tabs{border-bottom:0;padding:3px;gap:4px;background:var(--secondary-bg);border:1px solid var(--rule);border-radius:999px;margin:0 0 12px}
+.feed-tabs button{flex:1;border:0;border-radius:999px;min-height:38px;background:transparent;color:var(--muted)}
+.feed-tabs button.active{background:var(--active-bg);color:var(--active-text)}
+.feed-intro{border:0;background:transparent;padding:0;margin:0 0 14px}
+.feed-intro .screen-helper{font-size:13.5px;color:var(--muted)}
+
+/* feed: cards de superfície, capa maior, mais respiro visual */
+#feed .feed-card{grid-template-columns:56px 1fr;gap:12px;padding:14px;margin-bottom:10px;border:1px solid var(--rule);border-radius:18px;background:var(--surface)}
+#feed .feed-cover .cover{width:56px;min-height:82px}
+.feed-title{font-size:17px}
+.feed-quote{font-size:14px;-webkit-line-clamp:3}
+.follow-inline{border-radius:999px;min-height:32px;padding:6px 14px}
+.discover-readers{border:1px solid var(--rule);border-radius:18px;background:var(--surface);padding:14px;margin-bottom:14px}
+.community-label{margin-bottom:10px}
+
+/* perfil: cabeçalho de rede social — avatar à esquerda, números em linha */
+.profile .pcard{background:transparent;border:0;border-radius:0;box-shadow:none;padding:4px 0;text-align:left}
+.profile-top{display:flex;align-items:center;gap:20px;margin:8px 0 0}
+.profile .profile-avatar{width:84px;height:84px;flex:0 0 84px;font-size:38px;margin:0}
+.profile-stats-row{display:grid;grid-template-columns:repeat(3,1fr);flex:1;gap:2px;min-width:0}
+.profile-stat{background:transparent;border:0;padding:4px 0;text-align:center;cursor:pointer;font:inherit;color:inherit}
+.profile-stat strong{display:block;font-family:"Fraunces",serif;font-weight:600;font-size:24px;line-height:1.05;color:var(--text)}
+.profile-stat span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+.profile-id{margin-top:14px}
+.profile .profile-id .phandle{font-family:"Spectral",serif;font-style:normal;font-weight:600;font-size:19px;line-height:1.2;margin:0}
+.profile .profile-id .pcount{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.05em;color:var(--muted);margin-top:2px}
+.profile .profile-bio{margin:8px 0 0;font-size:14.5px;line-height:1.45;color:var(--text-secondary)}
+.profile-cta-row{display:flex;gap:8px;margin:16px 0 4px}
+.profile-cta-row .pbtn{flex:1;width:auto;min-height:40px}
+#profileEditWrap{margin-top:4px}
+.profile-metrics{grid-template-columns:repeat(3,1fr);gap:0;margin:18px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 0}
+.profile-metrics div{border:0;background:transparent;border-radius:0;padding:2px 4px;text-align:center}
+.profile-metrics strong{font-size:22px}
+.profile-metrics span{letter-spacing:.08em;font-size:9px}
+
+/* estante: cabeçalho enxuto, filtros em linha rolável, grade 3 colunas */
+.screen-head.shelf-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.screen-head .btn-share{float:none;flex:0 0 auto;min-height:36px;padding:8px 14px}
+.shelf-segment{margin-top:10px}
+.shelf-tools{border-top:0;border-bottom:0;padding:2px 0;margin:10px 0 14px;flex-direction:row;align-items:center}
+.shelf-filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.shelf-filters::-webkit-scrollbar{display:none}
+.shelf-pill{white-space:nowrap;border-radius:999px}
+.shelf-view-btn{border-radius:999px}
+@media(max-width:420px){
+  .shelf-tools{flex-direction:row}
+  .wall.shelf-wall{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 9px}
+  .shelf-wall .t{font-size:12.5px;line-height:1.2}
+  .shelf-wall .a{font-size:10.5px}
+  .shelf-wall .e{font-size:9.5px}
+}
+
+/* capas: cantos arredondados e sombra suave (menos "impresso", mais app) */
+.cover,.shelf-cover{border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(26,23,20,.16),0 6px 16px rgba(26,23,20,.12)}
+body.theme-dark .cover,body.theme-dark .shelf-cover{box-shadow:0 1px 2px rgba(0,0,0,.5),0 8px 20px rgba(0,0,0,.38)}
+.cover .stars-overlay,.cover .stars{border-radius:6px}
+.reading-now-card .cover{border-radius:8px}
+
+/* navegação inferior: ícones maiores, sem sublinhado tipográfico */
+.tab svg{width:24px;height:24px;stroke-width:1.6}
+.tab{gap:4px;font-size:8.5px;min-height:54px}
+.tab.active span{border-bottom:0;padding-bottom:0}
+.tab.active::after{width:22px;height:2.5px}
+
+/* home: hero mais contido */
+.hero-extra .h-display{font-size:30px}
+.hero-extra .label{margin-bottom:6px}
