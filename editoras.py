@@ -7,6 +7,8 @@ em /editora/{slug} e /editoras.
 import re
 import unicodedata
 
+from urllib.parse import urlencode
+
 from sqlmodel import select, Session
 
 from models import Edicao, Obra
@@ -49,7 +51,7 @@ def _agregar(s: Session) -> dict[str, dict]:
         item["com_isbn_count"] += 1 if ed.isbn else 0
         obra_atual = item["obras"].get(obra.id)
         if obra_atual is None or (not obra_atual.get("capa_url") and ed.capa_url):
-            item["obras"][obra.id] = {"titulo": obra.titulo, "autor": obra.autor, "capa_url": ed.capa_url}
+            item["obras"][obra.id] = {"titulo": obra.titulo, "autor": obra.autor, "capa_url": ed.capa_url, "work_key": obra.ol_work_key}
     return agregadas
 
 
@@ -75,11 +77,26 @@ def dados_editora(s: Session, slug: str) -> dict | None:
     return {"slug": item["slug"], "nome": item["editora"], "obras": obras}
 
 
+def _href_obra(o: dict) -> str:
+    """Deep link da página da obra no app; cai na busca por título se não
+    houver nem work_key nem título."""
+    params = {}
+    if (o.get("work_key") or "").strip():
+        params["obra"] = o["work_key"].strip()
+    if o.get("titulo"):
+        params["t"] = o["titulo"]
+    if o.get("autor"):
+        params["a"] = o["autor"]
+    if not params:
+        return "/"
+    return "/?" + urlencode(params)
+
+
 def _card_obra(o: dict) -> str:
     cap = o.get("capa_url") or ""
     t = _esc(o.get("titulo"))
     a = _esc(o.get("autor"))
-    href = f"/?q={_esc(o.get('titulo') or '')}"
+    href = _esc(_href_obra(o))
     if cap:
         cover = (
             f'<div class="cover"><img src="{_esc(cap)}" alt="" loading="lazy" '

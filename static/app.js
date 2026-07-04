@@ -447,6 +447,16 @@ function extrairAbaDeepLink(){
   return filtro?'estante':'';
 }
 
+function extrairObraDeepLink(){
+  const params=new URLSearchParams(location.search);
+  const wk=params.get('obra'), titulo=params.get('t'), autor=params.get('a');
+  if(!wk && !titulo) return null;
+  ['obra','t','a'].forEach(k=>params.delete(k));
+  const qs=params.toString();
+  history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
+  return {work_key:wk||'',titulo:titulo||'',autor:autor||''};
+}
+
 function extrairBuscaDeepLink(){
   const params=new URLSearchParams(location.search);
   const q=params.get('q');
@@ -1379,6 +1389,23 @@ async function carregarSocialObra(){
   try{ obraSocial=await (await fetch('/api/obra/social?'+params.toString())).json(); }catch(e){}
   return obraSocial;
 }
+/* link compartilhável da obra: /?obra=<work_key>&t=<título>&a=<autor>
+   (t/a servem de fallback pra obras sem work_key e alimentam o cabeçalho) */
+function linkDaObra(o=escolha){
+  if(!o) return '';
+  const p=new URLSearchParams();
+  if(o.work_key) p.set('obra',o.work_key);
+  if(o.titulo) p.set('t',o.titulo);
+  if(o.autor) p.set('a',o.autor);
+  if(!p.get('obra')&&!p.get('t')) return '';
+  return location.origin+'/?'+p.toString();
+}
+async function copiarLinkObra(){
+  const url=linkDaObra();
+  if(!url){ toast(t('link_copy_failed')); return; }
+  await copiarLink(url);
+}
+
 async function abrirPaginaObra(obra){
   if(obra) escolha=obra;
   await verEdicoes();
@@ -1437,6 +1464,14 @@ async function verEdicoes(i){
   }
   catch(err){
     console.warn('editions failed', {work_key_len:(escolha?.work_key||'').length}, err);
+    // Open Library fora do ar (ou obra só do catálogo local): se o social
+    // conhece a obra, renderiza a página com as edições locais mesmo assim
+    await carregarSocialObra();
+    if(obraSocial?.edicoes?.length){
+      edicoesAtual=ordenarEdicoesObra(mesclarEdicoesLocais([]));
+      renderEdicoes();
+      return;
+    }
     $('#edicoes').innerHTML=`<div class="busca-back" role="button" tabindex="0" onclick="mostrarBusca('resultados')">${t('back_results')}</div><div class="empty">${t('editions_load_error_now')}</div><div class="manual-cta prominent"><button class="link-manual" onclick="verEdicoes()">${t('try_again')}</button><button class="link-manual" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`;
     return;
   }
@@ -1700,7 +1735,8 @@ function renderEdicoes(){
       ${escolha.autor?`<div class="a">${esc(escolha.autor)}</div>`:''}
       ${anoIdioma?`<div class="y">${anoIdioma}</div>`:''}
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
-      <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div>${edicoesAtual.length?'':`<button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`}
+      <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div>
+      <button class="linklike work-share-link" type="button" onclick="copiarLinkObra()">${t('copy_work_link')}</button>${edicoesAtual.length?'':`<button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`}
     </div></div>`;
   const descricao=(escolha.descricao||escolha.description||obraSocial?.obra?.descricao||'').trim();
   const descLonga=descricao.length>320;
@@ -3517,6 +3553,7 @@ async function init(){
   history.replaceState(estadoInicial,'');
   tratarMensagemConta();
   const buscaDeepLink=extrairBuscaDeepLink();
+  const obraDeepLink=extrairObraDeepLink();
   renderChips();
   atualizarSeletorIdioma();
   configurarSwipeAbas();
@@ -3536,5 +3573,6 @@ async function init(){
   $('#coldStartNotice')?.setAttribute('hidden','');
   aplicarHistorico(estadoInicial);
   if(buscaDeepLink){ $('#q').value=buscaDeepLink; buscar(); }
+  if(obraDeepLink){ irPara('buscar',{resetBusca:false,registrar:false}); await abrirPaginaObra(obraDeepLink); }
 }
 init();

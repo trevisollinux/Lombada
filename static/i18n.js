@@ -1480,3 +1480,7 @@ Object.assign(I18N['es'], {
 Object.assign(I18N['pt-BR'], { nav_add: 'registrar leitura' });
 Object.assign(I18N['en'], { nav_add: 'log a reading' });
 Object.assign(I18N['es'], { nav_add: 'registrar lectura' });
+
+Object.assign(I18N['pt-BR'], { copy_work_link: 'copiar link da obra' });
+Object.assign(I18N['en'], { copy_work_link: 'copy work link' });
+Object.assign(I18N['es'], { copy_work_link: 'copiar enlace de la obra' });
