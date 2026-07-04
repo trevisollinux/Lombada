@@ -96,6 +96,7 @@ h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:30px
 .cta{display:block;text-align:center;margin:34px auto 0;max-width:360px;background:var(--ink);color:var(--paper);padding:16px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase}
 .empty{padding:28px 6px;text-align:center;color:var(--dim);font-style:italic;border:1px dashed var(--rule);background:rgba(255,255,255,.12)}
 .profile-name{font-family:"Fraunces",serif;font-size:18px;font-style:italic;color:var(--ink-2);margin-top:14px}
+.pavatar{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin-top:16px;box-shadow:var(--shadow)}
 .metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pill{border:1px solid var(--rule);padding:8px 10px;background:rgba(255,255,255,.16);font-family:"Space Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
 .section{margin-top:30px}.section h2{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:24px;margin-bottom:14px}.shelf-strip{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 14px}@media(min-width:420px){.shelf-strip{grid-template-columns:repeat(4,1fr)}.shelf-strip.favs{grid-template-columns:repeat(5,1fr)}}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--paper);border-top:1px solid var(--rule)}
@@ -214,8 +215,10 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
         follow_html += f'<button id="followBtn" class="follow-btn{active}" data-following="{str(bool(social.get("is_following"))).lower()}" onclick="toggleFollow()">{label}</button>'
     follow_html += '<button type="button" class="follow-btn copy-link-btn" onclick="copiarLinkPerfil(this)">copiar link</button>'
     follow_html += '</div>'
+    avatar = (getattr(u, "avatar_url", "") or "").strip()
+    avatar_html = f'<img class="pavatar" src="{_esc(avatar)}" alt="" onerror="this.remove()">' if avatar.startswith("https://") else ""
     header = (
-        f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+        f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>{avatar_html}'
         f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>{bio_html}'
         f'<div class="count">{cont} · {_n(stats["lidos"], "lido", "lidos")} · {stats["lendo"]} lendo · {stats["quero_ler"]} quero ler</div>'
         f'<div class="count">{social_count}</div>{follow_html}</div>'

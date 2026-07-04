@@ -1829,3 +1829,49 @@ body.theme-dark .cover,body.theme-dark .shelf-cover{box-shadow:0 1px 2px rgba(0,
 /* home: hero mais contido */
 .hero-extra .h-display{font-size:30px}
 .hero-extra .label{margin-bottom:6px}
+
+/* ══ Perfil vitrine + stories + avatares com foto ══
+   Camada final: engrenagem esconde configurações, grade de capas no perfil,
+   carrossel "lendo agora" no feed, fotos de avatar, leitura atual compacta. */
+
+/* avatares com foto do Google (inicial fica por baixo como fallback) */
+.avatar-chip{position:relative;overflow:hidden}
+.avatar-chip img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.profile-avatar{position:relative;overflow:hidden}
+.profile-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
+
+/* engrenagem: configurações saem do fluxo e viram painel recolhido */
+.profile .pcard{position:relative}
+.profile-gear{position:absolute;top:4px;right:0;width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:999px;background:var(--secondary-bg);color:var(--text-secondary);cursor:pointer;z-index:2;padding:0}
+.profile-gear svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7}
+.profile-top{padding-right:48px}
+.profile-settings .settings-title{margin:18px 0 0;letter-spacing:.18em}
+
+/* grade de capas do perfil (grid de posts) */
+.profile-shelf{margin-top:20px}
+.profile-shelf .section-head{margin:0 0 12px}
+.wall.profile-wall{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 9px}
+.profile-wall .book{cursor:pointer}
+
+/* stories "lendo agora" no topo do feed */
+.stories{margin:2px 0 16px}
+.stories-label{margin-bottom:9px}
+.stories-strip{display:flex;gap:14px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 2px 4px}
+.stories-strip::-webkit-scrollbar{display:none}
+.story{flex:0 0 auto;width:72px;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit}
+.story-ring{display:block;width:66px;height:66px;border-radius:50%;padding:3px;background:conic-gradient(from 210deg,var(--accent),var(--gold-2),var(--wine),var(--accent))}
+.story-ring img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid var(--bg);box-sizing:border-box}
+.story-fb{width:100%;height:100%;border-radius:50%;border:2px solid var(--bg);box-sizing:border-box;display:grid;place-items:center;font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:24px;line-height:1}
+.story-name{max-width:72px;font-family:"Spectral",serif;font-size:11.5px;line-height:1.1;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* feed: nome da pessoa ocupa a linha (botão seguir só no Descobrir) */
+.feed-card-top .person-block{flex:1;min-width:0}
+
+/* leitura atual compacta: capa menor, sem vazio à direita */
+.reading-now-card{grid-template-columns:92px minmax(0,1fr);gap:14px;padding:14px;min-height:0;align-items:stretch}
+.reading-now-card .reading-cover .cover{width:92px}
+.reading-copy h3{font-size:19px;margin:2px 0 3px}
+.reading-copy p{font-size:13px}
+.reading-meta{font-size:11px;margin-bottom:6px}
+.reading-spacer{min-height:10px}
+.continue-reading-actions{margin-top:10px}

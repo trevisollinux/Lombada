@@ -1437,3 +1437,13 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   stat_books: 'libros', stat_followers: 'seguidores', stat_following: 'siguiendo'
 });
+
+Object.assign(I18N['pt-BR'], {
+  profile_settings: 'Configurações', profile_recent_readings: 'Últimas leituras'
+});
+Object.assign(I18N['en'], {
+  profile_settings: 'Settings', profile_recent_readings: 'Recent readings'
+});
+Object.assign(I18N['es'], {
+  profile_settings: 'Configuración', profile_recent_readings: 'Últimas lecturas'
+});

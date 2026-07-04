@@ -884,6 +884,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
         "handle": u.handle,
         "nome": u.nome,
         "bio": getattr(u, "bio", ""),
+        "avatar_url": getattr(u, "avatar_url", "") or "",
         "email": u.email,
         "logado": logado,
         "provedor": "google" if logado else "anonimo",
@@ -1084,7 +1085,7 @@ def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
         if usuario_id and l.usuario_id == usuario_id and minha is None:
             minha = {"leitura_id": l.id, "edicao_id": ed.id, "status": l.status}
         if u.id in following_ids and u.id not in seguidos_leram and (l.status or "") in {"Lido", "Lendo"}:
-            seguidos_leram[u.id] = {"handle": u.handle, "nome": u.nome, "status": l.status}
+            seguidos_leram[u.id] = {"handle": u.handle, "nome": u.nome, "avatar_url": getattr(u, "avatar_url", "") or "", "status": l.status}
         relato = (l.relato or "").strip()
         if l.publico and relato:
             criticas.append({
@@ -1292,7 +1293,7 @@ class ReviewCommentPayload(BaseModel):
 def _comment_payload(c: ReviewComment, autor: Usuario, atual: Usuario | None) -> dict:
     return {
         "id": c.id, "texto": c.texto, "criado_em": c.criado_em.isoformat(),
-        "usuario": {"handle": autor.handle, "nome": autor.nome, "is_demo": bool(getattr(autor, "is_demo", False))},
+        "usuario": {"handle": autor.handle, "nome": autor.nome, "avatar_url": getattr(autor, "avatar_url", "") or "", "is_demo": bool(getattr(autor, "is_demo", False))},
         "is_me": bool(atual and atual.id == c.usuario_id),
     }
 
@@ -1967,7 +1968,7 @@ def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuari
     return {
         "tipo": _feed_tipo(l),
         "usuario": {
-            "handle": autor.handle, "nome": autor.nome, "is_demo": bool(getattr(autor, "is_demo", False)),
+            "handle": autor.handle, "nome": autor.nome, "avatar_url": getattr(autor, "avatar_url", "") or "", "is_demo": bool(getattr(autor, "is_demo", False)),
             "is_following": _is_following(s, atual_id, autor.id),
             "is_me": bool(atual_id and atual_id == autor.id),
         },
@@ -2036,6 +2037,7 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
             continue
         readers.append({
             "handle": leitor.handle, "nome": leitor.nome, "bio": getattr(leitor, "bio", ""),
+            "avatar_url": getattr(leitor, "avatar_url", "") or "",
             "is_demo": bool(getattr(leitor, "is_demo", False)), "reviews_count": reviews_count,
             "followers_count": _follow_counts(s, leitor.id)["followers_count"],
             "is_following": _is_following(s, atual.id, leitor.id), "is_me": False,
@@ -2043,6 +2045,49 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
         if len(readers) >= 10:
             break
     return {"reviews": reviews, "readers": readers}
+
+
+@app.get("/api/feed/lendo")
+def feed_lendo(request: Request, s: Session = Depends(get_session), scope: str = Query("following"), limit: int = Query(12, ge=1, le=20)):
+    """Carrossel "lendo agora" do topo do feed: um item por leitor, com o
+    livro em leitura mais recente. scope=following usa quem você segue;
+    scope=discover mostra leitores ativos (demo só preenche na ausência de
+    gente real, mesmo padrão do discover)."""
+    atual = usuario_sessao(request, s)
+    q = (
+        select(Leitura, Edicao, Obra, Usuario)
+        .join(Edicao, Leitura.edicao_id == Edicao.id)
+        .join(Obra, Edicao.obra_id == Obra.id)
+        .join(Usuario, Leitura.usuario_id == Usuario.id)
+        .where(Leitura.status == "Lendo")
+    )
+    if scope == "following":
+        following_ids = s.exec(select(Follow.following_id).where(Follow.follower_id == atual.id)).all()
+        if not following_ids:
+            return {"items": []}
+        q = q.where(Leitura.usuario_id.in_(following_ids)).order_by(Leitura.criado_em.desc())
+    else:
+        if atual.id:
+            q = q.where(Leitura.usuario_id != atual.id)
+        q = q.order_by(Leitura.is_demo.asc(), Leitura.criado_em.desc())
+    rows = s.exec(q.limit(80)).all()
+    vistos: set[int] = set()
+    items = []
+    for l, ed, o, u in rows:
+        if u.id in vistos:
+            continue
+        vistos.add(u.id)
+        items.append({
+            "handle": u.handle, "nome": u.nome,
+            "avatar_url": getattr(u, "avatar_url", "") or "",
+            "is_demo": bool(getattr(u, "is_demo", False)),
+            "titulo": o.titulo, "autor": o.autor, "capa_url": ed.capa_url,
+            "work_key": o.ol_work_key,
+        })
+    reais = [i for i in items if not i["is_demo"]]
+    if reais and scope != "following":
+        items = reais
+    return {"items": items[:limit]}
 
 # ─── estante pública ──────────────────────────────────────
 @app.get("/api/u/{handle}")
@@ -2057,7 +2102,7 @@ def estante_json(handle: str, request: Request, s: Session = Depends(get_session
         if l.get("publico") and (l.get("relato") or "").strip():
             l.update(_review_state(s, l.get("leitura_id"), atual.id))
     perfil = resumo_perfil_publico(leituras)
-    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "is_demo": bool(getattr(u, "is_demo", False)), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
+    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "avatar_url": getattr(u, "avatar_url", "") or "", "is_demo": bool(getattr(u, "is_demo", False)), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
 
 
 @app.post("/api/u/{handle}/follow")
@@ -2092,6 +2137,7 @@ def _lista_follows(handle: str, direcao: str, request: Request, s: Session) -> l
     usuarios = s.exec(select(Usuario).where(Usuario.id.in_(ids[:200])).order_by(Usuario.nome, Usuario.handle)).all()
     return [{
         "handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""),
+        "avatar_url": getattr(u, "avatar_url", "") or "",
         "is_demo": bool(getattr(u, "is_demo", False)),
         "is_following": u.id in meus_follows,
         "is_me": bool(atual.id and atual.id == u.id),
@@ -2141,7 +2187,7 @@ def listar_notificacoes(request: Request, s: Session = Depends(get_session), lim
         obras_por_leitura = {lid: {"titulo": titulo, "autor": autor} for lid, titulo, autor in obra_rows}
     payload = [{
         "id": n.id, "tipo": n.tipo, "lida": bool(n.lida), "criado_em": n.criado_em.isoformat(),
-        "ator": {"handle": ator.handle, "nome": ator.nome, "is_demo": bool(getattr(ator, "is_demo", False))},
+        "ator": {"handle": ator.handle, "nome": ator.nome, "avatar_url": getattr(ator, "avatar_url", "") or "", "is_demo": bool(getattr(ator, "is_demo", False))},
         "leitura_id": n.leitura_id,
         "obra": obras_por_leitura.get(n.leitura_id) if n.leitura_id else None,
     } for n, ator in rows]

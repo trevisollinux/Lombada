@@ -34,6 +34,7 @@ class Usuario(SQLModel, table=True):
     senha_hash: Optional[str] = None
     nome:       str           = ""
     bio:        str           = ""
+    avatar_url: str           = ""
     is_demo:    bool          = Field(default=False, index=True)
     criado_em:  datetime      = Field(default_factory=datetime.utcnow)
 
@@ -269,6 +270,7 @@ def migrar():
     _add_column_if_missing("usuario", "google_sub", "ALTER TABLE usuario ADD COLUMN google_sub VARCHAR")
     _add_column_if_missing("usuario", "nome", "ALTER TABLE usuario ADD COLUMN nome VARCHAR DEFAULT ''")
     _add_column_if_missing("usuario", "bio", "ALTER TABLE usuario ADD COLUMN bio VARCHAR DEFAULT ''")
+    _add_column_if_missing("usuario", "avatar_url", "ALTER TABLE usuario ADD COLUMN avatar_url VARCHAR DEFAULT ''")
     if postgres:
         _add_column_if_missing("usuario", "is_demo", "ALTER TABLE usuario ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
         _add_column_if_missing("leitura", "is_demo", "ALTER TABLE leitura ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false")
