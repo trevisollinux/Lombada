@@ -513,11 +513,19 @@ def google_callback(request: Request, code: str = "", state: str = "",
                 destino = canonico
 
         # foto de perfil do Google: atualiza sempre que mudar (URLs do
-        # googleusercontent expiram/rotacionam entre logins)
+        # googleusercontent expiram/rotacionam entre logins). Foto enviada
+        # pelo usuário (avatar_custom) tem prioridade e não é sobrescrita.
         picture = (info.get("picture") or "").strip()[:500]
-        if picture.startswith("https://") and getattr(destino, "avatar_url", "") != picture:
-            destino.avatar_url = picture
-            s.add(destino); s.commit()
+        if picture.startswith("https://"):
+            mudou = False
+            if getattr(destino, "avatar_google", "") != picture:
+                destino.avatar_google = picture
+                mudou = True
+            if not getattr(destino, "avatar_custom", False) and destino.avatar_url != picture:
+                destino.avatar_url = picture
+                mudou = True
+            if mudou:
+                s.add(destino); s.commit()
 
         request.session["uid"] = destino.id
         return RedirectResponse("/?conta=ok", status_code=303)

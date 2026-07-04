@@ -2,7 +2,9 @@
 Lombada — app FastAPI e rotas.
 """
 import html
+import base64
 import hashlib
+import time
 import ipaddress
 import json
 import logging
@@ -741,6 +743,73 @@ def atualizar_perfil(payload: PerfilPayload, request: Request, s: Session = Depe
     return {"handle": u.handle, "nome": u.nome, "bio": u.bio, "message": "Perfil atualizado."}
 
 
+# ─── foto de perfil enviada pelo usuário ──────────────────
+# O disco do Render free é efêmero, então a foto (pequena, já recortada no
+# cliente) vive no banco e é servida por /api/avatar/{id} com cache.
+_AVATAR_MAX_BYTES = 400_000
+
+
+class AvatarPayload(BaseModel):
+    data: str  # base64 (sem prefixo data:)
+
+
+def _sniff_imagem(raw: bytes) -> str:
+    if raw[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    return ""
+
+
+@app.post("/api/eu/avatar")
+def subir_avatar(payload: AvatarPayload, request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para mudar sua foto.", 401)
+    if getattr(u, "is_demo", False):
+        raise HTTPException(403, "Perfis de demonstração não podem ser editados.")
+    try:
+        raw = base64.b64decode(payload.data or "", validate=True)
+    except Exception:
+        raise HTTPException(400, "imagem inválida")
+    if not raw:
+        raise HTTPException(400, "imagem vazia")
+    if len(raw) > _AVATAR_MAX_BYTES:
+        raise HTTPException(400, "imagem muito grande")
+    mime = _sniff_imagem(raw)
+    if not mime:
+        raise HTTPException(400, "formato não suportado (use JPEG, PNG ou WebP)")
+    u.avatar_blob = raw
+    u.avatar_mime = mime
+    u.avatar_custom = True
+    u.avatar_url = f"/api/avatar/{u.id}?v={int(time.time())}"
+    s.add(u); s.commit()
+    return {"avatar_url": u.avatar_url, "avatar_custom": True}
+
+
+@app.delete("/api/eu/avatar")
+def remover_avatar(request: Request, s: Session = Depends(get_session)):
+    u = _require_google_user(request, s, "Entre com Google para mudar sua foto.", 401)
+    if getattr(u, "is_demo", False):
+        raise HTTPException(403, "Perfis de demonstração não podem ser editados.")
+    u.avatar_blob = None
+    u.avatar_mime = ""
+    u.avatar_custom = False
+    u.avatar_url = getattr(u, "avatar_google", "") or ""
+    s.add(u); s.commit()
+    return {"avatar_url": u.avatar_url, "avatar_custom": False}
+
+
+@app.get("/api/avatar/{usuario_id}")
+def servir_avatar(usuario_id: int, s: Session = Depends(get_session)):
+    u = s.get(Usuario, usuario_id)
+    blob = getattr(u, "avatar_blob", None) if u else None
+    if not u or not blob:
+        raise HTTPException(404, "sem foto")
+    return Response(content=blob, media_type=u.avatar_mime or "image/jpeg",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 def _edition_read_by_user(s: Session, edicao_id: int, usuario_id: int | None) -> bool:
     if not usuario_id:
         return False
@@ -885,6 +954,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
         "nome": u.nome,
         "bio": getattr(u, "bio", ""),
         "avatar_url": getattr(u, "avatar_url", "") or "",
+        "avatar_custom": bool(getattr(u, "avatar_custom", False)),
         "email": u.email,
         "logado": logado,
         "provedor": "google" if logado else "anonimo",

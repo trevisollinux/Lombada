@@ -216,7 +216,7 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
     follow_html += '<button type="button" class="follow-btn copy-link-btn" onclick="copiarLinkPerfil(this)">copiar link</button>'
     follow_html += '</div>'
     avatar = (getattr(u, "avatar_url", "") or "").strip()
-    avatar_html = f'<img class="pavatar" src="{_esc(avatar)}" alt="" onerror="this.remove()">' if avatar.startswith("https://") else ""
+    avatar_html = f'<img class="pavatar" src="{_esc(avatar)}" alt="" onerror="this.remove()">' if (avatar.startswith("https://") or avatar.startswith("/api/avatar/")) else ""
     header = (
         f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>{avatar_html}'
         f'<div class="profile-name">{_esc(nome)}</div><h1>@{_esc(u.handle)}</h1>{bio_html}'
