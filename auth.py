@@ -512,6 +512,13 @@ def google_callback(request: Request, code: str = "", state: str = "",
                     return RedirectResponse("/?conta=erro", status_code=303)
                 destino = canonico
 
+        # foto de perfil do Google: atualiza sempre que mudar (URLs do
+        # googleusercontent expiram/rotacionam entre logins)
+        picture = (info.get("picture") or "").strip()[:500]
+        if picture.startswith("https://") and getattr(destino, "avatar_url", "") != picture:
+            destino.avatar_url = picture
+            s.add(destino); s.commit()
+
         request.session["uid"] = destino.id
         return RedirectResponse("/?conta=ok", status_code=303)
     except HTTPException:

@@ -502,7 +502,7 @@ function coverHTML(titulo,autor,capa,extra){
   const cover=getSafeCoverUrl({capa_url:capa});
   if(cover){
     return `<div class="cover">
-      <img src="${esc(capaProxy(cover))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)">
+      <img src="${esc(capaProxy(cover))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)" onload="if(this.naturalWidth<3)trocarParaCapaArte(this)">
       ${extra||''}</div>`;
   }
   return coverFallbackHTML(titulo,autor,extra);
@@ -860,9 +860,11 @@ function handleLinkHTML(handle, cls='feed-user') {
   const h=esc(handle||'leitor');
   return `<button type="button" class="${cls}" onclick="abrirPerfilPublico('${h.replace(/'/g,"\'")}')" title="${t('view_profile')}">@${h}</button>`;
 }
-function avatarHTML(nome, handle){
+function avatarHTML(nome, handle, avatarUrl=''){
   const inicial=((nome||handle||'?').trim().charAt(0)||'?').toUpperCase();
-  return `<span class="avatar-chip" style="--av-h:${hue(handle||nome||'?')}" aria-hidden="true">${esc(inicial)}</span>`;
+  const url=(avatarUrl||'').trim();
+  const foto=/^https:\/\//i.test(url)?`<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'';
+  return `<span class="avatar-chip${foto?' has-photo':''}" style="--av-h:${hue(handle||nome||'?')}" aria-hidden="true">${esc(inicial)}${foto}</span>`;
 }
 /* bloco "pessoa": avatar + nome legível + @handle (e ação opcional), tudo
    clicável pro perfil. Substitui o handle solto em caps nas superfícies
@@ -872,7 +874,7 @@ function pessoaHTML(u, acao=''){
   const nome=(u?.nome||'').trim();
   const sub=[`@${handle}`, acao].filter(Boolean).join(' · ');
   return `<button type="button" class="person-block" onclick="abrirPerfilPublico('${handle.replace(/'/g,"\'")}')" title="${t('view_profile')}">
-    ${avatarHTML(nome,u?.handle)}
+    ${avatarHTML(nome,u?.handle,u?.avatar_url)}
     <span class="person-copy"><b>${esc(nome||'@'+handle)}</b><span>${esc(sub)}</span></span>
   </button>`;
 }
@@ -907,6 +909,7 @@ async function toggleFollowHandle(handle){
     if(obraSocial?.criticas?.some(c=>c.usuario===handle)) renderEdicoes();
   }catch(e){ toast(t('interaction_error')); }
 }
+let feedLendo=[];
 function mudarFeedTab(tab){ feedTab=tab==='following'?'following':'discover'; localStorage.setItem('lombada_feed_tab',feedTab); carregarFeed(); }
 
 function feedAction(tipo,status){
@@ -933,9 +936,10 @@ function renderFeed(){
   const box=$('#feed'); if(!box)return;
   const tabs=`<div class="feed-tabs"><button type="button" class="${feedTab==='discover'?'active':''}" onclick="mudarFeedTab('discover')">${t('feed_discover')}</button><button type="button" class="${feedTab==='following'?'active':''}" onclick="mudarFeedTab('following')">${t('feed_following')}</button></div>`;
   const intro=`<div class="feed-intro"><p class="screen-helper">${feedTab==='discover'?t('discover_hint'):t('following_hint')}</p></div>`;
+  const stories=storiesHTML();
   if(feedTab==='following' && !feedFollowingCount){ box.innerHTML=tabs+intro+`<div class="empty-rich"><h3>${t('empty_following_title')}</h3><p>${t('empty_following_hint')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('explore_reviews')}</button></div>`; return; }
-  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('discover_readers')}</button></div>`; return; }
-  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
+  if(feedTab==='following' && !feedItems.length){ box.innerHTML=tabs+intro+stories+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p><button class="btn-cta" onclick="mudarFeedTab('discover')">${t('discover_readers')}</button></div>`; return; }
+  if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+stories+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
   const reviewCards=feedItems.map((it,i)=>{
     const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
     const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
@@ -944,7 +948,7 @@ function renderFeed(){
     return `<article class="feed-card">
       <div class="feed-cover">${coverHTML(livro.titulo,livro.autor,livro.capa_url,'')}</div>
       <div class="feed-copy">
-        <div class="feed-card-top">${pessoaHTML(u,feedAction(it.tipo,l.status))}${followButtonHTML(u)}</div>
+        <div class="feed-card-top">${pessoaHTML(u,feedAction(it.tipo,l.status))}${feedTab==='following'?'':followButtonHTML(u)}</div>
         <div class="feed-title-row"><button class="feed-title work-title-link" type="button" onclick="abrirPaginaObraDoFeed(${i})">${esc(livro.titulo)}</button>${l.nota?`<span class="feed-stars">${estrelasStr(l.nota)}</span>`:''}</div>
         <div class="feed-meta">${esc(meta)}</div>
         ${spoiler?`<button class="feed-spoiler" data-feed-spoiler="${i}" onclick="revelarFeedSpoiler(${i})">${t('spoiler_review')} — ${t('tap_to_reveal')}</button>`:(l.relato?`<div class="feed-quote">“${esc(l.relato)}”</div>`:'')}
@@ -958,10 +962,29 @@ function renderFeed(){
     return `<article><div class="discover-main">${pessoaHTML(r)}<small class="discover-sub">${esc(contagem)}${badge}</small></div>${followButtonHTML(r)}</article>`;
   }).join('')}</section>`:'';
   const title=feedTab==='discover'?`<div class="label community-label">${t('discover_reviews')}</div>`:'';
-  box.innerHTML=tabs+intro+readers+title+reviewCards;
+  box.innerHTML=tabs+intro+stories+readers+title+reviewCards;
+}
+
+/* carrossel "lendo agora": círculos com a capa do livro em leitura, estilo stories */
+function storiesHTML(){
+  if(!feedLendo.length) return '';
+  const bolha=it=>{
+    const cap=getSafeCoverUrl({capa_url:it.capa_url});
+    const d=capaArteDados(it.titulo||'?',it.autor||'');
+    const inicial=esc((it.titulo||'?').trim().charAt(0).toUpperCase());
+    const fbVisivel=cap?'display:none;':'';
+    const img=cap?`<img src="${esc(capaProxy(cap))}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">`:'';
+    const fb=`<span class="story-fb" style="${fbVisivel}background:${d.papel};color:${d.tinta}">${inicial}</span>`;
+    return `<button type="button" class="story" onclick="abrirPerfilPublico('${esc(it.handle).replace(/'/g,"\\'")}')" title="${esc(it.nome||'@'+it.handle)} · ${esc(it.titulo)}">
+    <span class="story-ring">${img}${fb}</span>
+    <span class="story-name">${esc((it.nome||'').split(' ')[0]||'@'+it.handle)}</span>
+  </button>`;
+  };
+  return `<div class="stories" aria-label="${t('reading_now')}"><div class="label stories-label">${t('reading_now')}</div><div class="stories-strip">${feedLendo.map(bolha).join('')}</div></div>`;
 }
 async function carregarFeed(){
   const box=$('#feed'); if(box) box.innerHTML=`<div class="empty">${t('loading_activity')}</div>`;
+  const lendoPromise=fetch('/api/feed/lendo?scope='+(feedTab==='discover'?'discover':'following')).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}));
   try{
     if(feedTab==='discover'){
       const data=await (await fetch('/api/feed/discover')).json();
@@ -972,6 +995,7 @@ async function carregarFeed(){
     }
   }
   catch(e){ feedFollowingCount=1; feedItems=[]; discoverReaders=[]; }
+  feedLendo=(await lendoPromise).items||[];
   renderFeed();
 }
 /* ── perfil de leitor dentro do app ──
@@ -1046,7 +1070,7 @@ function renderLeitor(){
   const covers=lst=>lst.map(l=>`<div class="reader-shelf-item">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>`).join('');
   box.innerHTML=`
     <div class="reader-head">
-      ${avatarHTML(d.nome,d.handle).replace('avatar-chip','avatar-chip avatar-lg')}
+      ${avatarHTML(d.nome,d.handle,d.avatar_url).replace('avatar-chip','avatar-chip avatar-lg')}
       <div class="reader-who">
         <h2>${esc((d.nome||'').trim()||'@'+esc(d.handle))}</h2>
         <div class="reader-handle">@${esc(d.handle)}${d.is_demo?` · <span class="demo-badge">${t('sample_profile')}</span>`:''}</div>
@@ -1115,7 +1139,7 @@ function renderAtividade(lista){
   if(!lista.length){ box.innerHTML=`<div class="empty-rich activity-empty"><div class="ei">🔔</div><p>${t('activity_empty')}</p></div>`; return; }
   box.innerHTML=`<div class="activity-list">${lista.map(n=>`<div class="activity-item ${n.lida?'':'unread'}">
     <button type="button" class="activity-item-main" onclick="abrirPerfilPublico('${esc(n.ator?.handle||'').replace(/'/g,"\'")}')">
-      ${avatarHTML(n.ator?.nome,n.ator?.handle)}
+      ${avatarHTML(n.ator?.nome,n.ator?.handle,n.ator?.avatar_url)}
       <span class="activity-item-copy"><span>${esc(itemAtividadeTexto(n))}</span><small>${esc(dataFeed(n.criado_em))}</small></span>
     </button>
   </div>`).join('')}</div>`;
@@ -1525,7 +1549,7 @@ function comentariosPainelHTML(leituraId){
   if(st.carregando) return `<div class="review-comments"><div class="empty">${t('reader_loading')}</div></div>`;
   const lista=st.lista||[];
   const itens=lista.length?lista.map(cm=>`<div class="comment-item">
-      ${avatarHTML(cm.usuario?.nome,cm.usuario?.handle)}
+      ${avatarHTML(cm.usuario?.nome,cm.usuario?.handle,cm.usuario?.avatar_url)}
       <div class="comment-copy"><div class="comment-head"><b>${esc(cm.usuario?.nome||('@'+(cm.usuario?.handle||'')))}</b><small>${esc(dataFeed(cm.criado_em))}</small></div><p>${esc(cm.texto)}</p></div>
       ${cm.is_me?`<button type="button" class="comment-del" aria-label="${t('delete_comment')}" onclick="removerComentario(${leituraId},${cm.id})">×</button>`:''}
     </div>`).join(''):`<p class="comment-empty">${t('no_comments_yet')}</p>`;
@@ -1624,7 +1648,7 @@ function seguidosLeramHTML(){
   if(lista.length===1) texto=t('friends_read_one',{nome:nome(lista[0])});
   else if(lista.length===2) texto=t('friends_read_two',{a:nome(lista[0]),b:nome(lista[1])});
   else texto=t('friends_read_many',{nome:nome(lista[0]),count:lista.length-1});
-  const avatares=lista.slice(0,4).map(u=>`<button type="button" class="friends-read-av" onclick="abrirPerfilPublico('${esc(u.handle).replace(/'/g,"\'")}')" title="@${esc(u.handle)}">${avatarHTML(u.nome,u.handle)}</button>`).join('');
+  const avatares=lista.slice(0,4).map(u=>`<button type="button" class="friends-read-av" onclick="abrirPerfilPublico('${esc(u.handle).replace(/'/g,"\'")}')" title="@${esc(u.handle)}">${avatarHTML(u.nome,u.handle,u.avatar_url)}</button>`).join('');
   return `<section class="friends-read work-section"><span class="friends-read-avs">${avatares}</span><span class="friends-read-text">${esc(texto)}</span></section>`;
 }
 function toggleAboutWork(btn){
@@ -2663,8 +2687,11 @@ function renderPerfil(){
       </form>`:'';
   $('#perfil').innerHTML=`
     <div class="pcard">
+      <button type="button" class="profile-gear" onclick="alternarConfigPerfil()" aria-label="${t('profile_settings')}" title="${t('profile_settings')}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.09a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.09a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03z"/></svg>
+      </button>
       <div class="profile-top">
-        <div class="profile-avatar">${esc(inicial)}</div>
+        <div class="profile-avatar">${esc(inicial)}${minhaConta.avatar_url?`<img src="${esc(minhaConta.avatar_url)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</div>
         <div class="profile-stats-row">
           <button type="button" class="profile-stat" onclick="abrirMinhaEstantePerfil()"><strong>${n}</strong><span>${t('stat_books')}</span></button>
           <button type="button" class="profile-stat" onclick="abrirMinhasConexoes('followers')"><strong>${minhaConta.followers_count||0}</strong><span>${t('stat_followers')}</span></button>
@@ -2682,6 +2709,9 @@ function renderPerfil(){
       </div>
       <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
       ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
+      ${n?grelhaPerfilHTML():estatisticasPerfilHTML(0,0,0,0)}
+      <div id="profileSettings" class="profile-settings" hidden>
+      <div class="label settings-title">${t('profile_settings')}</div>
       <div class="account-box theme-box">
         <div class="label">${t('appearance')}</div>
         <p>${t('appearance_hint')}</p>
@@ -2698,7 +2728,7 @@ function renderPerfil(){
         </div>
       </div>
       ${previewHTML}
-      ${estatisticasPerfilHTML(n,lendo,lidos,quero)}
+      ${n?estatisticasPerfilHTML(n,lendo,lidos,quero):''}
       <div class="account-box library-box">
         <div class="label">${t('library')}</div>
         <p>${t('library_hint')}</p>
@@ -2707,7 +2737,24 @@ function renderPerfil(){
       ${contaHTML}
       ${installCtaHTML()}
       ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
+      </div>
     </div>`;
+}
+
+/* vitrine do perfil: grade de capas das últimas leituras, estilo grid de posts */
+function grelhaPerfilHTML(){
+  if(!prateleira.length) return '';
+  const itens=prateleira.slice(0,12);
+  return `<section class="profile-shelf">
+    <div class="section-head"><div class="label">${t('profile_recent_readings')}</div><span class="more" onclick="abrirMinhaEstantePerfil()">${t('view_my_shelf')}</span></div>
+    <div class="wall profile-wall">${itens.map((l,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirCard(${i})" aria-label="${esc(l.titulo)}">${coverHTML(l.titulo,l.autor,l.capa_url,l.nota?`<span class="stars-overlay"><span>${estrelasStr(l.nota)}</span></span>`:'')}</div>`).join('')}</div>
+  </section>`;
+}
+
+function alternarConfigPerfil(){
+  const box=$('#profileSettings'); if(!box) return;
+  box.hidden=!box.hidden;
+  if(!box.hidden) box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 function alternarEditarPerfil(){

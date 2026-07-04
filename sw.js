@@ -2,7 +2,7 @@
    Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v6';
+const CACHE_NAME = 'lombada-shell-v7';
 
 const APP_SHELL = [
   '/',
