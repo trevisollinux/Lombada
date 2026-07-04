@@ -29,6 +29,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import xml.etree.ElementTree as ET
 from collections import deque
 from typing import Any
@@ -487,6 +488,61 @@ def clean_title(title: str, publisher_name: str) -> str:
     return " - ".join(kept).strip() or title
 
 
+_NOME_CONECTORES_PT = {"de", "da", "do", "dos", "das", "e"}
+# palavras comuns em SUBTÍTULO (não em nome de autor) — evita que algo como
+# "O Iluminismo Radical - As Origens Intelectuais da Democracia" seja lido
+# como se "As Origens Intelectuais da Democracia" fosse um nome de pessoa.
+_PALAVRAS_SUBTITULO_PT = {
+    "historia", "guia", "manual", "ensaio", "ensaios", "reflexao", "reflexoes",
+    "introducao", "origem", "origens", "teoria", "arte", "ciencia", "filosofia",
+    "sociedade", "cultura", "mundo", "vida", "poder", "tempo", "memoria",
+    "verdade", "liberdade", "revolucao", "epoca", "seculo", "romance",
+    "contos", "poemas", "cronicas", "biografia", "obra", "volume", "uma", "um",
+    "as", "os",
+}
+
+
+def _sem_acento(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c))
+
+
+def parece_nome_de_pessoa(segmento: str) -> bool:
+    palavras = segmento.split()
+    # exige nome E sobrenome — um segmento de 1 palavra só é ambíguo demais
+    # com subtítulo de uma palavra (ex.: "Grande Sertão - Veredas").
+    if not (2 <= len(palavras) <= 4):
+        return False
+    if any(ch.isdigit() for ch in segmento):
+        return False
+    for p in palavras:
+        limpo = re.sub(r"[^\wÀ-ÿ]", "", p)
+        if not limpo:
+            return False
+        if limpo.lower() in _NOME_CONECTORES_PT:
+            continue
+        if _sem_acento(limpo.lower()) in _PALAVRAS_SUBTITULO_PT:
+            return False
+        if not limpo[0].isupper():
+            return False
+    return True
+
+
+def dividir_titulo_autor_cia_das_letras(title: str) -> tuple[str, str]:
+    """Nas páginas de livro da Cia das Letras o <title>/h1 vem como "{Título} —
+    {Autor}", sem JSON-LD nem meta de autor (confirmado: coleta real trouxe
+    ISBN 171/171 mas autor só 1/171, com títulos tipo "Seja ousado - Ranjay
+    Gulati"). Separa o autor quando o último segmento parece um nome próprio;
+    senão deixa o título como está — mais seguro não separar do que cortar um
+    subtítulo legítimo por engano."""
+    partes = re.split(r"\s+[\-|–—]\s+", title)
+    if len(partes) < 2:
+        return title, ""
+    candidato = partes[-1].strip()
+    if parece_nome_de_pessoa(candidato):
+        return " - ".join(partes[:-1]).strip(), candidato
+    return title, ""
+
+
 def isbn_from_jsonld(objects: list[dict[str, Any]]) -> str:
     for obj in objects:
         for key in ("isbn", "gtin13", "gtin", "gtin14", "productID"):
@@ -636,6 +692,8 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
         title = h1.get_text(" ", strip=True) if h1 else ""
 
     title = clean_title(title, publisher["name"])
+    if not author and publisher.get("slug") == "cia_das_letras":
+        title, author = dividir_titulo_autor_cia_das_letras(title)
 
     visible_text = soup.get_text(" ", strip=True)
     raw_text = " ".join(filter(None, [author, description, visible_text]))
@@ -687,6 +745,21 @@ def _isbn_de_variantes(variants: list[dict[str, Any]]) -> str:
         next((norm_isbn(v.get("barcode")) for v in variants if norm_isbn(v.get("barcode"))), "")
         or next((norm_isbn(v.get("sku")) for v in variants if norm_isbn(v.get("sku"))), "")
     )
+
+
+def _vendor_e_a_propria_editora(vendor: str, publisher_name: str) -> bool:
+    """"vendor" no Shopify costuma ser o selo/editora, não o autor do livro —
+    confirmado na prática: Record e Sextante tinham vendor="Editora Record"/
+    "Editora Sextante" em 100% dos produtos, o que geraria autor=editora se
+    usado direto. Descarta o vendor quando ele é só a própria editora (mais
+    genérica que específica: não pega imprints diferentes do nome principal,
+    mas evita o caso confirmado)."""
+    if not vendor:
+        return False
+    palavras_editora = {_sem_acento(w) for w in re.findall(r"\w+", publisher_name.lower()) if len(w) > 2}
+    palavras_editora |= {"grupo", "editora", "selo", "livraria", "editorial"}
+    palavras_vendor = {_sem_acento(w) for w in re.findall(r"\w+", vendor.lower())}
+    return bool(palavras_vendor) and palavras_vendor <= palavras_editora
 
 
 def _isbn_via_produto_unico(base_url: str, handle: str, sleep_seconds: float) -> str:
@@ -750,8 +823,13 @@ def collect_via_shopify(
             year = extract_year(str(product.get("published_at") or ""))
             # "vendor" no Shopify costuma ser o selo/editora (ex.: "Record",
             # "Bertrand Brasil"), não o autor do livro — só serve de último
-            # recurso. Preferimos um "Autor: Fulano" explícito na descrição.
-            author = extract_author_from_text(description_full) or (product.get("vendor") or "").strip()
+            # recurso, e nunca quando é claramente a própria editora (ver
+            # _vendor_e_a_propria_editora). Preferimos um "Autor: Fulano"
+            # explícito na descrição.
+            vendor = (product.get("vendor") or "").strip()
+            author = extract_author_from_text(description_full)
+            if not author and vendor and not _vendor_e_a_propria_editora(vendor, publisher["name"]):
+                author = vendor
             record = build_record(
                 publisher,
                 url,

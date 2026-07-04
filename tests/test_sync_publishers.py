@@ -49,5 +49,55 @@ class ShopifyAuthorPreferenceTest(unittest.TestCase):
         self.assertEqual(author, "")
 
 
+class VendorEAPropriaEditoraTest(unittest.TestCase):
+    """Reproduz o incidente real: rodar o scraper corrigido em produção mostrou
+    vendor="Editora Record"/"Editora Sextante" em 100% dos produtos dessas
+    lojas -- ou seja, vendor era só a marca da própria editora, não teria
+    dado pra usar como autor sem essa checagem."""
+
+    def test_vendor_is_the_publisher_itself_record(self):
+        self.assertTrue(sp._vendor_e_a_propria_editora("Editora Record", "Grupo Editorial Record"))
+
+    def test_vendor_is_the_publisher_itself_sextante(self):
+        self.assertTrue(sp._vendor_e_a_propria_editora("Editora Sextante", "Sextante"))
+
+    def test_vendor_that_is_a_real_author_passes_through(self):
+        self.assertFalse(sp._vendor_e_a_propria_editora("Machado de Assis", "Sextante"))
+
+    def test_empty_vendor_is_not_the_publisher(self):
+        self.assertFalse(sp._vendor_e_a_propria_editora("", "Sextante"))
+
+
+class DividirTituloAutorCiaDasLetrasTest(unittest.TestCase):
+    """Casos reais observados numa coleta real (issue #168): a página de livro
+    da Cia das Letras não expõe autor via JSON-LD/meta, só embutido no
+    <title>/h1 como "{Título} - {Autor}"."""
+
+    def test_splits_real_samples_from_production_run(self):
+        casos = [
+            ("Seja ousado - Ranjay Gulati", ("Seja ousado", "Ranjay Gulati")),
+            ("Aventureiros e larápios - Roberto Teixeira de Freitas", ("Aventureiros e larápios", "Roberto Teixeira de Freitas")),
+            ("Empatia estoica - Shermin Kruse", ("Empatia estoica", "Shermin Kruse")),
+            ("1929 - Andrew Ross Sorkin", ("1929", "Andrew Ross Sorkin")),
+        ]
+        for titulo, esperado in casos:
+            with self.subTest(titulo=titulo):
+                self.assertEqual(sp.dividir_titulo_autor_cia_das_letras(titulo), esperado)
+
+    def test_title_without_separator_is_untouched(self):
+        titulo = "As 12 competências da inteligência emocional"
+        self.assertEqual(sp.dividir_titulo_autor_cia_das_letras(titulo), (titulo, ""))
+
+    def test_does_not_mistake_subtitle_for_author_name(self):
+        # todas as palavras do último segmento são capitalizadas/conectores,
+        # mas é claramente um subtítulo de não-ficção, não um nome de pessoa.
+        titulo = "O Iluminismo Radical - As Origens Intelectuais da Democracia"
+        self.assertEqual(sp.dividir_titulo_autor_cia_das_letras(titulo), (titulo, ""))
+
+    def test_single_word_subtitle_is_not_mistaken_for_author(self):
+        titulo = "Grande Sertão - Veredas"
+        self.assertEqual(sp.dividir_titulo_autor_cia_das_letras(titulo), (titulo, ""))
+
+
 if __name__ == "__main__":
     unittest.main()
