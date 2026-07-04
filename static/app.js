@@ -1105,7 +1105,7 @@ function renderLeitor(){
   const lendo=(d.lendo_agora||[]).slice(0,3);
   const ultimas=(d.ultimas_leituras||[]).slice(0,6);
   const criticas=(d.criticas_publicas||[]).slice(0,2);
-  const covers=lst=>lst.map(l=>`<div class="reader-shelf-item">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>`).join('');
+  const covers=(lst,tipo)=>lst.map((l,i)=>`<button class="reader-shelf-item reader-shelf-link" type="button" onclick="event.stopPropagation(); abrirPaginaObraDoLeitor('${tipo}',${i})" aria-label="${esc('Abrir obra '+(l.titulo||''))}">${coverHTML(l.titulo,l.autor,l.capa_url,'')}<span class="reader-shelf-title">${esc(l.titulo)}</span></button>`).join('');
   box.innerHTML=`
     <div class="reader-head">
       ${avatarHTML(d.nome,d.handle,d.avatar_url).replace('avatar-chip','avatar-chip avatar-lg')}
@@ -1123,8 +1123,8 @@ function renderLeitor(){
       <span>·</span>
       <span class="reader-books">${plural(stats.total||0,'book_count_one','book_count_many')}</span>
     </div>
-    ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo)}</div>`:''}
-    ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas)}</div>`:''}
+    ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo,'lendo_agora')}</div>`:''}
+    ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas,'ultimas_leituras')}</div>`:''}
     ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}
     ${d.is_me?'':`<button type="button" class="report-profile-link" onclick="denunciarPerfil('${esc(d.handle).replace(/'/g,"\\'")}')">${t('report_profile')}</button>`}`;
 }
@@ -1414,6 +1414,25 @@ function obraDeLeitura(l){
   if(!l) return null;
   const edicao={edicao_id:l.edicao_id,titulo_edicao:l.titulo,editora:l.editora,ano:l.ano_edicao||l.ano,tradutor:l.tradutor,isbn:l.isbn,idioma:l.idioma,capa_url:l.capa_url};
   return {work_key:l.work_key||'',titulo:l.titulo,autor:l.autor,ano:l.ano_obra||l.ano,idioma_original:l.idioma_original,capa_url:l.capa_url,edicoes:[edicao]};
+}
+function obraDeLeituraPublica(l){
+  if(!l) return null;
+  const edicao={
+    edicao_id:l.edicao_id, titulo_edicao:l.titulo, editora:l.editora, tradutor:l.tradutor,
+    ano:l.ano_edicao||l.ano, isbn:l.isbn, idioma:l.idioma, capa_url:l.capa_url
+  };
+  return {
+    work_key:l.work_key||'', titulo:l.titulo||'', autor:l.autor||'', ano:l.ano_obra||l.ano,
+    idioma_original:l.idioma_original, capa_url:l.capa_url, edicoes:[edicao].filter(e=>Object.values(e).some(Boolean))
+  };
+}
+async function abrirPaginaObraDoLeitor(tipo,index){
+  const chave=tipo==='lendo_agora'?'lendo_agora':'ultimas_leituras';
+  const item=(leitorAtual?.[chave]||[])[index];
+  const obra=obraDeLeituraPublica(item);
+  if(!obra) return;
+  irPara('buscar',{resetBusca:false});
+  await abrirPaginaObra(obra);
 }
 async function abrirPaginaObraDaLeitura(i){
   const obra=obraDeLeitura(prateleira[i]);

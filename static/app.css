@@ -1670,10 +1670,13 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .reader-sec{margin:14px 0 8px}
 .reader-shelf{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
 .reader-shelf-item{flex:0 0 64px}
+.reader-shelf-link{border:0;background:transparent;color:inherit;padding:0;text-align:left;cursor:pointer;font:inherit}
+.reader-shelf-link:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
 .reader-shelf-item .cover{width:64px;box-shadow:var(--shadow-sm)}
 .reader-shelf-item .cover-art{padding:7px 6px}
 .reader-shelf-item .cover-art-author,.reader-shelf-item .cover-art-meta{display:none}
 .reader-shelf-item .cover-art-title{font-size:10px;line-height:1.05}
+.reader-shelf-title{display:block;margin-top:6px;font-family:var(--font-display);font-style:italic;font-size:11px;line-height:1.05;color:var(--ink);max-width:64px}
 .reader-review{border:1px solid var(--rule);border-radius:12px;padding:12px 14px;margin-bottom:8px}
 .reader-review b{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:15px}
 .reader-review p{font-style:italic;color:var(--ink-2);font-size:13px;margin-top:5px;line-height:1.45}
