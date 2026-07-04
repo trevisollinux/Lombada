@@ -1906,3 +1906,7 @@ body.theme-dark .cover,body.theme-dark .shelf-cover{box-shadow:0 1px 2px rgba(0,
   .wall.profile-wall{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 14px}
   .profile-settings .account-box{max-width:640px}
 }
+
+/* números clicáveis (perfil → estante filtrada) */
+.metric-link{background:none;border:0;padding:2px 4px;font:inherit;color:inherit;cursor:pointer;text-align:center}
+.metric-link:hover strong{color:var(--accent)}

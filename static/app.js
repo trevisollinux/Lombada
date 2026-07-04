@@ -433,11 +433,18 @@ function extrairAbaDeepLink(){
   // ?aba=feed|estante|perfil pra abrir direto na aba certa
   const params=new URLSearchParams(location.search);
   const aba=params.get('aba');
-  if(!aba) return '';
-  params.delete('aba');
+  const filtro=params.get('filtro');
+  if(!aba && !filtro) return '';
+  params.delete('aba'); params.delete('filtro');
   const qs=params.toString();
   history.replaceState(history.state || estadoNav('buscar','home'), '', location.pathname+(qs?'?'+qs:'')+location.hash);
-  return ['buscar','feed','estante','perfil'].includes(aba)?aba:'';
+  if(filtro){
+    const mapa={'todos':'Todos','lido':'Lido','lendo':'Lendo','quero-ler':'Quero ler','quero ler':'Quero ler'};
+    const f=mapa[filtro.toLowerCase()];
+    if(f) filtroEstante=f;
+  }
+  if(['buscar','feed','estante','perfil','diario'].includes(aba)) return aba;
+  return filtro?'estante':'';
 }
 
 function extrairBuscaDeepLink(){
@@ -562,6 +569,18 @@ function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
   const shareBtn=document.getElementById('shelfShareButton');
   if(shareBtn) shareBtn.hidden=ativa==='diario';
 }
+/* toque na aba já ativa: volta ao topo e reseta a pilha da aba, sem refetch
+   (padrão de rede social). Usado só pelos botões da barra inferior. */
+function tabTap(aba){
+  if(aba===navAtual.aba && !modalAberto() && !leitorModalAberto() && !atividadeModalAberta()){
+    if(aba==='buscar' && navAtual.busca!=='home'){ $('#q').value=''; limparBusca(); mostrarBusca('home'); return; }
+    if(aba==='estante' && (navAtual.estanteSub||'shelf')!=='shelf'){ irPara('estante',{subaba:'shelf'}); return; }
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  irPara(aba);
+}
+
 function irPara(aba,opcoes={}){
   if(aba==='diario'){ aba='estante'; opcoes={...opcoes,subaba:'diario'}; }
   const resetBusca=opcoes.resetBusca ?? aba==='buscar';
@@ -2569,6 +2588,10 @@ function renderDiario(){
   $('#diario').innerHTML=`<div class="diary-head">${lendo?`<div class="diary-continue">${lendoAgoraCard(lendo,lendoIdx,true)}</div>`:''}<p class="diary-helper">${t('diary_hint')}</p></div><div class="diary diary-grouped">${agruparEntradasDiario().map(diarioGrupoHTML).join('')}</div>`;
 }
 /* perfil */
+function abrirEstanteFiltrada(f){
+  filtroEstante=['Todos','Lido','Lendo','Quero ler'].includes(f)?f:'Todos';
+  irPara('estante',{subaba:'shelf'});
+}
 function abrirMinhaEstantePerfil(){
   filtroEstante='Todos';
   irPara('estante',{subaba:'shelf'});
@@ -2578,12 +2601,12 @@ function estatisticasPerfilHTML(total,lendo,lidos,quero){
     return `<section class="account-box profile-stats-box profile-stats-empty"><div class="label">${t('your_lombada')}</div><p>${t('profile_shelf_empty')}</p><button class="pbtn solid" type="button" onclick="irPara('buscar')">${t('search_books')}</button></section>`;
   }
   const stats=[
-    [total,t('profile_stat_readings')],
-    [lendo,t('currently_reading')],
-    [lidos,t('status_read')],
-    [quero,t('want_to_read')]
+    [total,t('profile_stat_readings'),'Todos'],
+    [lendo,t('currently_reading'),'Lendo'],
+    [lidos,t('status_read'),'Lido'],
+    [quero,t('want_to_read'),'Quero ler']
   ];
-  return `<section class="account-box profile-stats-box"><div class="label">${t('your_lombada')}</div><div class="profile-quick-stats">${stats.map(([valor,label])=>`<div><strong>${valor}</strong><span>${label}</span></div>`).join('')}</div><button class="pbtn solid profile-shelf-cta" type="button" onclick="abrirMinhaEstantePerfil()">${t('view_my_shelf')}</button></section>`;
+  return `<section class="account-box profile-stats-box"><div class="label">${t('your_lombada')}</div><div class="profile-quick-stats">${stats.map(([valor,label,filtro])=>`<button type="button" class="metric-link" onclick="abrirEstanteFiltrada('${filtro}')"><strong>${valor}</strong><span>${label}</span></button>`).join('')}</div><button class="pbtn solid profile-shelf-cta" type="button" onclick="abrirMinhaEstantePerfil()">${t('view_my_shelf')}</button></section>`;
 }
 function normalizarHandlePerfil(valor){
   return (valor||'').toString().trim().toLowerCase()
@@ -2728,7 +2751,7 @@ function renderPerfil(){
         ${logado?`<button class="pbtn" type="button" onclick="alternarEditarPerfil()">${t('edit_profile')}</button>`:''}
         <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
       </div>
-      <div class="profile-metrics"><div><strong>${lidos}</strong><span>${t('status_read')}</span></div><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
+      <div class="profile-metrics"><button type="button" class="metric-link" onclick="abrirEstanteFiltrada('Lido')"><strong>${lidos}</strong><span>${t('status_read')}</span></button><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
       ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
       ${n?grelhaPerfilHTML():estatisticasPerfilHTML(0,0,0,0)}
       <div id="profileSettings" class="profile-settings" hidden>
