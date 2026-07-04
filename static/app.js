@@ -3448,6 +3448,56 @@ async function removerLeitura(el=null){
 }
 
 /* init */
+/* botão central "+": registrar leitura = ir pra busca com o teclado pronto */
+function abrirRegistro(){
+  irPara('buscar');
+  setTimeout(()=>{ $('#q')?.focus(); },120);
+}
+
+/* swipe horizontal alterna subabas (feed: descobrir/seguindo · estante: estante/diário) */
+function configurarSwipeAbas(){
+  let sx=0,sy=0,ok=false;
+  const ignora=el=>!!el.closest?.('.stories-strip,.shelf-filters,.reader-shelf,input,textarea,.modal,.share-canvas');
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||ignora(e.target)){ ok=false; return; }
+    ok=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!ok) return; ok=false;
+    const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.6) return;
+    const esq=dx<0;
+    if(navAtual.aba==='feed'){ mudarFeedTab(esq?'following':'discover'); }
+    else if(navAtual.aba==='estante'){ irPara('estante',{subaba:esq?'diario':'shelf'}); }
+  },{passive:true});
+}
+
+/* pull-to-refresh no feed (o PWA instalado não tem botão de recarregar) */
+function configurarPullToRefresh(){
+  const sec=$('#secFeed'); if(!sec) return;
+  const ind=document.createElement('div');
+  ind.className='ptr-indicator';
+  ind.innerHTML='<span class="ptr-spin"></span>';
+  sec.prepend(ind);
+  let startY=0,pulling=false,dist=0;
+  document.addEventListener('touchstart',e=>{
+    if(navAtual.aba!=='feed'||window.scrollY>4||e.touches.length!==1||modalAberto()||leitorModalAberto()){ pulling=false; return; }
+    pulling=true; dist=0; startY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!pulling) return;
+    dist=e.touches[0].clientY-startY;
+    if(dist>0&&window.scrollY<=0){ ind.style.height=Math.min(64,dist*0.4)+'px'; ind.classList.toggle('ready',dist>150); }
+  },{passive:true});
+  document.addEventListener('touchend',async()=>{
+    if(!pulling) return; pulling=false;
+    const vai=dist>150;
+    if(vai){ ind.classList.add('loading'); ind.style.height='52px'; await carregarFeed(); }
+    ind.classList.remove('loading','ready');
+    ind.style.height='0px';
+  });
+}
+
 async function carregarVersaoApp(){
   try{
     const res=await fetch('/api/version',{cache:'no-store'});
@@ -3469,6 +3519,8 @@ async function init(){
   const buscaDeepLink=extrairBuscaDeepLink();
   renderChips();
   atualizarSeletorIdioma();
+  configurarSwipeAbas();
+  configurarPullToRefresh();
   carregarObrasPopulares();
   await carregarVersaoApp();
   try{

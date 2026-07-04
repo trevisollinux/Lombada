@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Lombada" />
 <link rel="apple-touch-icon" href="/static/icons/icon.svg" />
-<link rel="stylesheet" href="/static/app.css?v=20260707a" />
+<link rel="stylesheet" href="/static/app.css?v=20260707b" />
 </head>
 <body class="theme-dark" data-theme="dark">
 <div id="coldStartNotice" class="cold-start-notice" hidden role="status">
@@ -114,6 +114,8 @@
     <button class="tab" id="tabFeed" onclick="tabTap('feed')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h10"/></svg>
       <span data-i18n="nav_feed">feed</span></button>
+    <button class="tab tab-add" id="tabAdd" onclick="abrirRegistro()" aria-label="registrar leitura" data-i18n-aria-label="nav_add">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
     <button class="tab" id="tabEstante" onclick="tabTap('estante')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h2v18H6a2 2 0 0 1-2-2z"/><path d="M10 3h2v18h-2z"/><path d="m15 4 4 1-3 15-4-1z"/></svg>
       <span data-i18n="nav_shelf">estante</span></button>
@@ -156,8 +158,8 @@
   </div>
 </div>
 
-<script src="/static/i18n.js?v=20260707a"></script>
-<script src="/static/app.js?v=20260707a"></script>
+<script src="/static/i18n.js?v=20260707b"></script>
+<script src="/static/app.js?v=20260707b"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

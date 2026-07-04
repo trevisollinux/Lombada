@@ -1910,3 +1910,20 @@ body.theme-dark .cover,body.theme-dark .shelf-cover{box-shadow:0 1px 2px rgba(0,
 /* números clicáveis (perfil → estante filtrada) */
 .metric-link{background:none;border:0;padding:2px 4px;font:inherit;color:inherit;cursor:pointer;text-align:center}
 .metric-link:hover strong{color:var(--accent)}
+
+/* ── botão central "+" na barra (registrar leitura) ── */
+.tabs-inner{grid-template-columns:repeat(5,1fr)}
+.tab-add{justify-self:center;align-self:center;width:46px;height:46px;min-height:46px;border-radius:50%;background:var(--primary);color:var(--primary-text);display:grid;place-items:center;padding:0;gap:0;margin-top:-2px;box-shadow:0 6px 16px rgba(26,23,20,.30)}
+body.theme-dark .tab-add{box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.tab-add svg{width:22px;height:22px;stroke-width:2}
+.tab-add:active{transform:scale(.94)}
+.tab-add.active{background:var(--primary);color:var(--primary-text)}
+.tab-add::before,.tab-add::after{display:none}
+
+/* ── pull-to-refresh do feed ── */
+.ptr-indicator{height:0;overflow:hidden;display:grid;place-items:center;transition:height .18s ease}
+.ptr-spin{width:20px;height:20px;border-radius:50%;border:2px solid var(--rule);border-top-color:var(--accent);opacity:.55;transition:opacity .15s,transform .2s}
+.ptr-indicator.ready .ptr-spin{opacity:1;transform:rotate(180deg)}
+.ptr-indicator.loading .ptr-spin{opacity:1;animation:ptrspin .7s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+@media(min-width:900px){.tabs .tab-add{justify-self:start;margin:10px 0 10px 26px}}
