@@ -1484,3 +1484,40 @@ Object.assign(I18N['es'], { nav_add: 'registrar lectura' });
 Object.assign(I18N['pt-BR'], { copy_work_link: 'copiar link da obra' });
 Object.assign(I18N['en'], { copy_work_link: 'copy work link' });
 Object.assign(I18N['es'], { copy_work_link: 'copiar enlace de la obra' });
+
+Object.assign(I18N['pt-BR'], {
+  nav_add: 'ações de leitura',
+  quick_actions_title: 'ações de leitura',
+  quick_actions_hint: 'Escolha como quer adicionar ou atualizar sua leitura.',
+  quick_actions_close: 'fechar ações',
+  quick_register_reading: 'Registrar leitura',
+  quick_register_hint: 'Buscar um livro e registrar uma edição.',
+  quick_manual: 'Cadastrar manualmente',
+  quick_manual_hint: 'Adicionar um livro que não apareceu na busca.',
+  quick_no_reading: 'Nenhum livro em andamento por enquanto.',
+  quick_choose_reading: 'Escolha uma leitura em andamento.'
+});
+Object.assign(I18N['en'], {
+  nav_add: 'reading actions',
+  quick_actions_title: 'reading actions',
+  quick_actions_hint: 'Choose how you want to add or update a reading.',
+  quick_actions_close: 'close actions',
+  quick_register_reading: 'Log a reading',
+  quick_register_hint: 'Search for a book and log an edition.',
+  quick_manual: 'Add manually',
+  quick_manual_hint: 'Add a book that did not show up in search.',
+  quick_no_reading: 'No book in progress yet.',
+  quick_choose_reading: 'Choose a reading in progress.'
+});
+Object.assign(I18N['es'], {
+  nav_add: 'acciones de lectura',
+  quick_actions_title: 'acciones de lectura',
+  quick_actions_hint: 'Elige cómo quieres añadir o actualizar una lectura.',
+  quick_actions_close: 'cerrar acciones',
+  quick_register_reading: 'Registrar lectura',
+  quick_register_hint: 'Buscar un libro y registrar una edición.',
+  quick_manual: 'Registrar manualmente',
+  quick_manual_hint: 'Añadir un libro que no apareció en la búsqueda.',
+  quick_no_reading: 'No hay libros en curso por ahora.',
+  quick_choose_reading: 'Elige una lectura en curso.'
+});

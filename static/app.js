@@ -99,6 +99,7 @@ function setupGlobalKeyboard(){
   if(document.__lombadaKeyboard) return;
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
+    if(event.key==='Escape' && $('#quickActions') && !$('#quickActions').hidden){ event.preventDefault(); fecharAcoesLeitura(); return; }
     if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
     if(event.key==='Escape' && modalAberto()){ event.preventDefault(); fecharModal(); return; }
@@ -3503,10 +3504,55 @@ async function removerLeitura(el=null){
 }
 
 /* init */
-/* botão central "+": registrar leitura = ir pra busca com o teclado pronto */
-function abrirRegistro(){
+function leiturasEmAndamento(){
+  return prateleira.map((l,idx)=>({l,idx})).filter(item=>item.l?.status==='Lendo');
+}
+function registrarLeituraRapida(){
+  fecharAcoesLeitura();
   irPara('buscar');
   setTimeout(()=>{ $('#q')?.focus(); },120);
+}
+function cadastrarManualRapido(event){
+  fecharAcoesLeitura();
+  abrirManual(event);
+}
+function atualizarProgressoRapido(idx=null){
+  const lendo=leiturasEmAndamento();
+  const alvo=Number.isInteger(idx)?idx:(lendo.length===1?lendo[0].idx:null);
+  if(alvo===null){ renderAcoesLeitura(true); return; }
+  fecharAcoesLeitura();
+  abrirDiarioLeitura(alvo);
+}
+function renderAcoesLeitura(mostrarAviso=false){
+  const body=$('#quickActionsBody'); if(!body) return;
+  const lendo=leiturasEmAndamento();
+  const lista=lendo.slice(0,4).map(({l,idx})=>`<button class="quick-reading-row" type="button" onclick="atualizarProgressoRapido(${idx})"><span>${esc(l.titulo)}</span><small>${esc(l.autor||'')}</small></button>`).join('');
+  const progresso=lendo.length===0
+    ? `<button class="quick-action primary" type="button" disabled><strong>${t('update_progress')}</strong><span>${t('quick_no_reading')}</span></button>`
+    : lendo.length===1
+      ? `<button class="quick-action primary" type="button" onclick="atualizarProgressoRapido()"><strong>${t('update_progress')}</strong><span>${esc(lendo[0].l.titulo)}</span></button>`
+      : `<div class="quick-action-group primary"><div class="quick-action-title">${t('update_progress')}</div><div class="quick-action-sub">${t('quick_choose_reading')}</div><div class="quick-reading-list">${lista}</div></div>`;
+  body.innerHTML=`${progresso}${mostrarAviso?`<p class="quick-actions-note">${t('quick_no_reading')}</p>`:''}<button class="quick-action" type="button" onclick="registrarLeituraRapida()"><strong>${t('quick_register_reading')}</strong><span>${t('quick_register_hint')}</span></button><button class="quick-action" type="button" onclick="cadastrarManualRapido(event)"><strong>${t('quick_manual')}</strong><span>${t('quick_manual_hint')}</span></button>`;
+}
+function abrirAcoesLeitura(){
+  renderAcoesLeitura();
+  const panel=$('#quickActions'); if(!panel) return;
+  panel.hidden=false;
+  $('#tabAdd')?.setAttribute('aria-expanded','true');
+  document.body.classList.add('quick-actions-open');
+  setTimeout(()=>panel.querySelector('button:not([disabled])')?.focus?.({preventScroll:true}),30);
+}
+function fecharAcoesLeitura(){
+  const panel=$('#quickActions'); if(!panel) return;
+  panel.hidden=true;
+  $('#tabAdd')?.setAttribute('aria-expanded','false');
+  document.body.classList.remove('quick-actions-open');
+}
+/* botão central "+": abre ações rápidas de leitura */
+function abrirRegistro(event){
+  event?.preventDefault?.();
+  const panel=$('#quickActions');
+  if(panel && !panel.hidden) fecharAcoesLeitura(); else abrirAcoesLeitura();
 }
 
 /* swipe horizontal alterna subabas (feed: descobrir/seguindo · estante: estante/diário) */

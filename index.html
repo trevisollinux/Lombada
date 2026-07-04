@@ -114,7 +114,7 @@
     <button class="tab" id="tabFeed" onclick="tabTap('feed')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14"/><path d="M5 12h14"/><path d="M5 19h10"/></svg>
       <span data-i18n="nav_feed">feed</span></button>
-    <button class="tab tab-add" id="tabAdd" onclick="abrirRegistro()" aria-label="registrar leitura" data-i18n-aria-label="nav_add">
+    <button class="tab tab-add" id="tabAdd" onclick="abrirRegistro(event)" aria-label="ações de leitura" data-i18n-aria-label="nav_add" aria-haspopup="dialog" aria-expanded="false">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
     <button class="tab" id="tabEstante" onclick="tabTap('estante')">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h2v18H6a2 2 0 0 1-2-2z"/><path d="M10 3h2v18h-2z"/><path d="m15 4 4 1-3 15-4-1z"/></svg>
@@ -124,6 +124,20 @@
       <span data-i18n="nav_profile">perfil</span></button>
   </div>
 </nav>
+
+<div class="quick-actions-backdrop" id="quickActions" hidden onclick="if(event.target===this)fecharAcoesLeitura()">
+  <section class="quick-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="quickActionsTitle">
+    <div class="quick-actions-handle" aria-hidden="true"></div>
+    <div class="quick-actions-head">
+      <div>
+        <div class="label" id="quickActionsTitle" data-i18n="quick_actions_title">ações de leitura</div>
+        <p data-i18n="quick_actions_hint">Escolha como quer adicionar ou atualizar sua leitura.</p>
+      </div>
+      <button class="quick-actions-close" type="button" onclick="fecharAcoesLeitura()" aria-label="fechar ações" data-i18n-aria-label="quick_actions_close">×</button>
+    </div>
+    <div id="quickActionsBody" class="quick-actions-body"></div>
+  </section>
+</div>
 
 <!-- MODAL ATIVIDADE -->
 <div class="modal" id="activityModal" onclick="if(event.target===this)fecharAtividade()">
