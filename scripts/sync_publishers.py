@@ -1206,6 +1206,21 @@ def diagnosticar_paginacao_categoria(url: str) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(user_agent=HEADERS["User-Agent"])
+
+        # Captura chamadas xhr/fetch feitas durante o carregamento — se o
+        # grid é montado por Angular chamando uma API JSON por trás, é aqui
+        # que aparece o endpoint real de paginação (parâmetro page/skip/take
+        # etc.), que nenhum controle visível na página revelou.
+        chamadas: list[Any] = []
+
+        def registrar_resposta(response: Any) -> None:
+            try:
+                if response.request.resource_type in ("xhr", "fetch"):
+                    chamadas.append(response)
+            except Exception:  # noqa: BLE001
+                pass
+
+        page.on("response", registrar_resposta)
         page.goto(url, timeout=20000, wait_until="domcontentloaded")
         try:
             page.wait_for_selector("a[href*='/livro/']", timeout=8000)
@@ -1248,6 +1263,17 @@ def diagnosticar_paginacao_categoria(url: str) -> None:
         m = re.search(r"(\d{1,5})\s*(resultados?|livros?|itens?)\b", texto, re.I)
         if m:
             print(f"  [diag] texto de contagem total na página: {m.group(0)!r}")
+
+        print(f"  [diag] chamadas xhr/fetch capturadas: {len(chamadas)}")
+        for resp in chamadas[:15]:
+            print(f"    - {resp.request.method} {resp.url} -> status={resp.status}")
+            try:
+                corpo = resp.json()
+                amostra = json.dumps(corpo, ensure_ascii=False)[:600]
+                print(f"      json[:600]={amostra!r}")
+            except Exception:  # noqa: BLE001 — resposta não-JSON ou já consumida, ignora
+                pass
+
         browser.close()
 
 
