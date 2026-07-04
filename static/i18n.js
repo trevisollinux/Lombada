@@ -1476,3 +1476,7 @@ Object.assign(I18N['es'], {
   use_photo: 'Usar foto', cancel_action: 'Cancelar',
   report_profile: 'denunciar perfil', report_profile_confirm: '¿Denunciar este perfil para revisión? Úsalo para foto, nombre o bio inapropiados.'
 });
+
+Object.assign(I18N['pt-BR'], { nav_add: 'registrar leitura' });
+Object.assign(I18N['en'], { nav_add: 'log a reading' });
+Object.assign(I18N['es'], { nav_add: 'registrar lectura' });
