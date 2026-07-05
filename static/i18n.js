@@ -1554,6 +1554,14 @@ Object.assign(I18N['pt-BR'], {
   publisher_filter_active: 'editora: {publisher}',
   clear_publisher_filter: 'limpar filtro de editora',
   no_results_in_publisher: 'Não houve resultados nessa editora: {publisher}.',
+  style_filter: 'estilo',
+  all_genres: 'todos os estilos',
+  filter_by_genre: 'Filtrar por estilo',
+  genre_filter_hint: 'Escolha um estilo literário para refinar a busca.',
+  genre_filter_active: 'estilo: {genre}',
+  clear_genre_filter: 'limpar filtro de estilo',
+  close_genre_filter: 'fechar filtro de estilo',
+  no_results_in_genre: 'Não houve resultados nesse estilo: {genre}.',
 });
 Object.assign(I18N['en'], {
   search_filters: 'filters',
@@ -1562,6 +1570,14 @@ Object.assign(I18N['en'], {
   publisher_filter_active: 'publisher: {publisher}',
   clear_publisher_filter: 'clear publisher filter',
   no_results_in_publisher: 'No results found for this publisher: {publisher}.',
+  style_filter: 'style',
+  all_genres: 'all styles',
+  filter_by_genre: 'Filter by style',
+  genre_filter_hint: 'Choose a literary style to refine search.',
+  genre_filter_active: 'style: {genre}',
+  clear_genre_filter: 'clear style filter',
+  close_genre_filter: 'close style filter',
+  no_results_in_genre: 'No results found for this style: {genre}.',
 });
 Object.assign(I18N['es'], {
   search_filters: 'filtros',
@@ -1570,6 +1586,14 @@ Object.assign(I18N['es'], {
   publisher_filter_active: 'editorial: {publisher}',
   clear_publisher_filter: 'quitar filtro de editorial',
   no_results_in_publisher: 'No hubo resultados en esta editorial: {publisher}.',
+  style_filter: 'estilo',
+  all_genres: 'todos los estilos',
+  filter_by_genre: 'Filtrar por estilo',
+  genre_filter_hint: 'Elige un estilo literario para refinar la búsqueda.',
+  genre_filter_active: 'estilo: {genre}',
+  clear_genre_filter: 'quitar filtro de estilo',
+  close_genre_filter: 'cerrar filtro de estilo',
+  no_results_in_genre: 'No hubo resultados en este estilo: {genre}.',
 });
 Object.assign(I18N['pt-BR'], {
   publisher_filter_hint: 'Escolha uma editora para refinar a busca.',

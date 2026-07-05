@@ -51,6 +51,7 @@
     </form>
     <div class="search-filters" id="searchFilters">
       <button type="button" class="search-filter-toggle" id="searchPublisherButton" onclick="toggleFiltroEditora()" aria-haspopup="dialog" aria-expanded="false" data-i18n="search_filters">filtros</button>
+      <button type="button" class="search-filter-toggle" id="searchGenreButton" onclick="toggleFiltroGenero()" aria-haspopup="dialog" aria-expanded="false" data-i18n="style_filter">estilo</button>
       <div id="activeSearchFilters" class="active-search-filters" aria-live="polite"></div>
     </div>
 
@@ -159,6 +160,20 @@
       <input id="publisherSheetSearch" type="search" autocomplete="off" placeholder="buscar editora" data-i18n-placeholder="search_publisher" oninput="renderFiltroEditoraBusca()" />
     </label>
     <div id="publisherSheetOptions" class="publisher-sheet-options" role="radiogroup" aria-label="Filtrar por editora" data-i18n-aria-label="filter_by_publisher"></div>
+  </section>
+</div>
+
+<div class="publisher-sheet-backdrop" id="genreSheet" hidden onclick="if(event.target===this)fecharFiltroGenero()">
+  <section class="publisher-sheet" role="dialog" aria-modal="true" aria-labelledby="genreSheetTitle">
+    <div class="publisher-sheet-handle" aria-hidden="true"></div>
+    <div class="publisher-sheet-head">
+      <div>
+        <div class="label" id="genreSheetTitle" data-i18n="filter_by_genre">Filtrar por estilo</div>
+        <p data-i18n="genre_filter_hint">Escolha um estilo literário para refinar a busca.</p>
+      </div>
+      <button class="publisher-sheet-close" type="button" onclick="fecharFiltroGenero()" aria-label="fechar filtro de estilo" data-i18n-aria-label="close_genre_filter">×</button>
+    </div>
+    <div id="genreSheetOptions" class="publisher-sheet-options genre-sheet-options" role="radiogroup" aria-label="Filtrar por estilo" data-i18n-aria-label="filter_by_genre"></div>
   </section>
 </div>
 

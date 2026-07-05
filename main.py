@@ -382,6 +382,76 @@ def _normalizar_busca(valor: str | None) -> str:
     return re.sub(r"\s+", " ", texto.lower().strip())
 
 
+GENEROS_CANONICOS = [
+    "romance", "conto", "poesia", "teatro", "ensaio", "biografia", "autobiografia",
+    "história", "filosofia", "crítica literária", "fantasia", "ficção científica",
+    "terror", "policial", "infantil", "juvenil", "crônica", "quadrinhos",
+]
+_GENEROS_NORM = {_normalizar_busca(g): g for g in GENEROS_CANONICOS}
+_GENERO_ALIASES = {
+    "ficcao cientifica": "ficção científica", "sci fi": "ficção científica", "science fiction": "ficção científica",
+    "critica literaria": "crítica literária", "literary criticism": "crítica literária",
+    "historia": "história", "history": "história", "novel": "romance",
+    "short stories": "conto", "poetry": "poesia", "drama": "teatro", "plays": "teatro",
+    "essays": "ensaio", "biography": "biografia", "autobiography": "autobiografia",
+    "fantasy": "fantasia", "horror": "terror", "detective": "policial", "mystery": "policial",
+    "crime": "policial", "children": "infantil", "juvenile": "juvenil", "young adult": "juvenil",
+    "comics": "quadrinhos", "graphic novels": "quadrinhos", "chronicles": "crônica", "cronica": "crônica",
+}
+
+def normalizar_genero(valor: str | None) -> str:
+    norm = _normalizar_busca(valor)
+    if not norm:
+        return ""
+    return _GENEROS_NORM.get(norm) or _GENERO_ALIASES.get(norm, "")
+
+def generos_obra(obra: Obra | None) -> list[str]:
+    raw = getattr(obra, "generos_json", "") or ""
+    try:
+        valores = json.loads(raw) if raw else []
+    except Exception:
+        valores = re.split(r"[,;]", raw)
+    out = []
+    for valor in valores if isinstance(valores, list) else []:
+        genero = normalizar_genero(str(valor))
+        if genero and genero not in out:
+            out.append(genero)
+    return out
+
+def _doc_generos(doc: dict) -> list[str]:
+    valores = []
+    for campo in ("generos", "tags", "categorias", "categories", "subjects"):
+        v = doc.get(campo)
+        if isinstance(v, list): valores.extend(v)
+        elif isinstance(v, str): valores.extend(re.split(r"[,;/]", v))
+    for ed in (doc.get("edicoes") or []) + ([doc.get("edicao_isbn")] if doc.get("edicao_isbn") else []):
+        if not isinstance(ed, dict): continue
+        v = ed.get("categorias") or ed.get("generos")
+        if isinstance(v, list): valores.extend(v)
+    out = []
+    for valor in valores:
+        texto = str(valor)
+        genero = normalizar_genero(texto)
+        if not genero:
+            texto_norm = _normalizar_busca(texto)
+            for alias, canonico in _GENERO_ALIASES.items():
+                if alias in texto_norm:
+                    genero = canonico; break
+            if not genero:
+                for canonico_norm, canonico in _GENEROS_NORM.items():
+                    if canonico_norm in texto_norm:
+                        genero = canonico; break
+        if genero and genero not in out:
+            out.append(genero)
+    return out
+
+def _doc_compativel_genero(doc: dict, genero: str) -> bool:
+    generos = _doc_generos(doc)
+    if generos:
+        doc["generos"] = generos
+        return genero in generos
+    return True
+
 _AUTORES_DOSTOIEVSKI = {
     "dostoievski", "dostoevsky", "dostoyevsky", "dostoiévski", "dostoievsky",
     "fiodor dostoievski", "fiodor dostoevsky", "fiodor dostoyevsky",
@@ -498,10 +568,11 @@ def _score_local(obra: Obra, ed: Edicao, q_norm: str, isbn: str, editora_norm: s
     return score + min(leituras_count, 50), match
 
 
-def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
+def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = "") -> list[dict]:
     q_norm = _normalizar_busca(q)
     editora_norm = _normalizar_busca(editora)
     isbn = normalizar_isbn(q or "")
+    genero = normalizar_genero(genero)
     if not q_norm and not editora_norm:
         return []
 
@@ -521,6 +592,8 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
         if q_norm and q_norm not in searchable and not (isbn and normalizar_isbn(ed.isbn or "") == isbn):
             continue
         if editora_norm and editora_norm not in _normalizar_busca(ed.editora):
+            continue
+        if genero and genero not in generos_obra(obra):
             continue
         if score <= 0:
             continue
@@ -590,6 +663,7 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "") -> list[dict]:
         docs.append({
             "work_key": obra_principal.ol_work_key, "titulo": obra_principal.titulo, "autor": obra_principal.autor,
             "descricao": getattr(obra_principal, "descricao", "") or "",
+            "generos": generos_obra(obra_principal),
             "idioma_original": obra_principal.idioma_original, "ano": obra_principal.ano, "tem_pt": _idioma_portugues(ed.idioma),
             "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
             "edicoes_encontradas": len(edicoes_docs),
@@ -1055,13 +1129,14 @@ def _doc_tem_editora(doc: dict, editora_norm: str) -> bool:
 
 
 @app.get("/api/buscar")
-def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Session = Depends(get_session)):
+def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
     logger.info("search_started", extra={"query_len": len(q)})
     editora_norm = _normalizar_busca(editora)
-    locais = _buscar_catalogo_local(q, s, editora=editora)
+    genero_canonico = normalizar_genero(genero)
+    locais = _buscar_catalogo_local(q, s, editora=editora, genero=genero_canonico)
     def _resposta_final(externos: list[dict]) -> list[dict]:
-        externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm)]
+        externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm) and (not genero_canonico or _doc_compativel_genero(d, genero_canonico))]
         return consolidar_resultados_busca_final(q, locais + externos_filtrados)
 
     isbn = normalizar_isbn(q)
