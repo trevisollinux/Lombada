@@ -51,6 +51,7 @@ class Obra(SQLModel, table=True):
     idioma_original: str           = ""
     ano:             Optional[int] = None
     descricao:       str           = ""
+    generos_json:     str           = ""
 
 
 class Edicao(SQLModel, table=True):
@@ -281,6 +282,7 @@ def migrar():
         _add_column_if_missing("leitura", "spoiler", "ALTER TABLE leitura ADD COLUMN spoiler BOOLEAN NOT NULL DEFAULT 0")
 
     _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
+    _add_column_if_missing("obra", "generos_json", "ALTER TABLE obra ADD COLUMN generos_json TEXT DEFAULT '[]'")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
     _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
     _add_column_if_missing("edicaocapitulo", "pagina_inicio", "ALTER TABLE edicaocapitulo ADD COLUMN pagina_inicio INTEGER")

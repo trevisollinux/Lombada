@@ -458,6 +458,7 @@ def _gbooks_volumes(q: str, maxr: int = 40) -> list:
             "ano":      _ano_de_data(info.get("publishedDate", "")),
             "capa_url": capa,
             "paginas":  info.get("pageCount") if isinstance(info.get("pageCount"), int) and info.get("pageCount") > 0 else None,
+            "categorias": info.get("categories") or [],
             "_autor":   (info.get("authors") or [""])[0],
             "_autores": info.get("authors") or [],
         })
@@ -511,6 +512,7 @@ def gbooks_buscar(q: str, limite: int = 18) -> list:
             "isbn_match":     False,
             "edicao_isbn":    edicoes[0],
             "edicoes":        edicoes,
+            "categorias":     sorted({c for e in lista for c in (e.get("categorias") or []) if c}),
             "_fonte":         "gb",
         })
         if len(obras) >= limite * 2:
