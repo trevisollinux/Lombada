@@ -1072,10 +1072,14 @@ function abrirDiarioLeitura(idx){
 function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
   const progresso=progressoLeitura(l);
   const previsaoTexto=previsaoTerminoTexto(l);
+  const noFim=leituraNoFim(l);
+  const acaoPrincipal=noFim
+    ?`<button type="button" class="reading-diary-action" aria-label="${t('mark_as_read')}" onclick="event.stopPropagation();concluirLeitura(${idx},this)">${t('mark_as_read')}</button>`
+    :`<button type="button" class="reading-diary-action" aria-label="${t('update_progress')}" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>`;
   return `<div class="reading-now-card ${compacto?'compact':''}" role="button" tabindex="0" onclick="abrirCard(${idx})" aria-label="${esc(l.titulo)}">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
-      ${mostrarLabel?`<div class="label">${t('continue_reading')}</div>`:''}
+      ${mostrarLabel?`<div class="label">${noFim?t('reading_finished_label'):t('continue_reading')}</div>`:''}
       <h3>${esc(l.titulo)}</h3>
       <p>${esc(l.autor)}</p>
       <div class="reading-spacer"></div>
@@ -1085,7 +1089,8 @@ function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
     </div>
     <div class="continue-reading-actions">
       ${reviewCardActionHTML(idx,'reading-review-card-action')}
-      <button type="button" class="reading-diary-action" aria-label="${t('update_progress')}" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>
+      ${acaoPrincipal}
+      ${noFim?`<button type="button" class="review-card-action reading-review-card-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>`:''}
     </div>
   </div>`;
 }
@@ -1094,7 +1099,7 @@ function renderLendoAgora(){
   const box=$('#lendoAgora');
   if(!lendo.length){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
-  box.innerHTML=`<div class="section-head"><h2 class="h-section">${t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx,false,false)}`;
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx,false,false)}`;
 }
 
 /* onboarding: primeira visita, primeiros passos — some pra sempre depois de completar as 3 ações */
@@ -2491,6 +2496,31 @@ function progressoLeitura(l){
 function dataDiario(e){
   try{return new Date(e.created_at).toLocaleDateString(getLocale(),{day:'2-digit',month:'short'});}catch(_){return '';}
 }
+function leituraNoFim(l){
+  if(!l||l.status!=='Lendo') return false;
+  const entradas=diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const pct=entradas.find(e=>e.porcentagem!==null&&e.porcentagem!==undefined);
+  if(pct&&Number(pct.porcentagem)>=100) return true;
+  let pag=null;
+  for(const e of entradas){ pag=paginaEfetiva(e); if(pag) break; }
+  const total=Number(l.paginas)||0;
+  return !!(pag&&total>0&&pag.valor>=total);
+}
+async function concluirLeitura(idx,el=null){
+  const l=prateleira[idx];
+  if(!l) return;
+  if(el) el.disabled=true;
+  const body={status:'Lido'};
+  if(!(l.data||'').trim()){
+    try{ body.data=new Date().toLocaleDateString(getLocale(),{month:'short',year:'numeric'}); }catch(_){}
+  }
+  try{
+    const r=await fetch('/api/prateleira/'+l.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('patch status '+r.status);
+  }catch(e){ if(el) el.disabled=false; toast(t('edit_save_error')); return; }
+  await carregarPrateleira();
+  toast(t('reading_completed_toast'));
+}
 function progressoDetalhado(l){
   if(!l) return null;
   const entradas=diarioEntradas.filter(e=>e.leitura_id===l.leitura_id&&paginaEfetiva(e)).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
@@ -2865,7 +2895,9 @@ async function salvarDiario(leituraId,id='',el=null){
       toast(mensagem);
       return;
     }
-    diarioEditId=null; await carregarPrateleira(); if(cardAtual) renderDetalheLivro(cardAtual); else renderDiario(); toast(t('diary_entry_saved'));
+    diarioEditId=null; await carregarPrateleira(); if(cardAtual) renderDetalheLivro(cardAtual); else renderDiario();
+    const leituraSalva=prateleira.find(x=>String(x.leitura_id)===String(leituraId));
+    toast(leituraNoFim(leituraSalva)?t('reading_finished_hint'):t('diary_entry_saved'));
   }catch(e){ console.error('[diario save error]',0,e); mostrarErroFormulario(form,t('diary_save_error')); toast(t('diary_save_error')); }
 }
 async function excluirDiario(id,el=null){
