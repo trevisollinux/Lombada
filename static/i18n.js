@@ -36,6 +36,10 @@ const I18N = {
     home_label: 'um diário de leituras',
     home_title_html: 'o que você<br>está lendo<span class="q">?</span>',
     popular_works_label: 'explore · obras populares',
+    publishers_home_label: 'explore por editora',
+    see_all_publishers: 'ver todas as editoras',
+    publisher_work_count_one: '1 obra',
+    publisher_work_count_many: '{count} obras',
     loading_popular_works: 'carregando obras…',
     recent_searches: 'buscas recentes',
     popular_searches: 'mais buscadas',
@@ -415,6 +419,10 @@ const I18N = {
     "home_label": "a reading diary",
     "home_title_html": "what are you<br>reading<span class=\"q\">?</span>",
     popular_works_label: 'explore · popular works',
+    publishers_home_label: 'explore by publisher',
+    see_all_publishers: 'see all publishers',
+    publisher_work_count_one: '1 work',
+    publisher_work_count_many: '{count} works',
     loading_popular_works: 'loading works…',
     recent_searches: 'recent searches',
     popular_searches: 'most searched',
@@ -1486,6 +1494,10 @@ Object.assign(I18N['en'], { copy_work_link: 'copy work link' });
 Object.assign(I18N['es'], { copy_work_link: 'copiar enlace de la obra' });
 
 Object.assign(I18N['pt-BR'], {
+  publishers_home_label: 'explore por editora',
+  see_all_publishers: 'ver todas as editoras',
+  publisher_work_count_one: '1 obra',
+  publisher_work_count_many: '{count} obras',
   nav_add: 'ações de leitura',
   quick_actions_title: 'ações de leitura',
   quick_actions_hint: 'Escolha como quer adicionar ou atualizar sua leitura.',
@@ -1498,6 +1510,10 @@ Object.assign(I18N['pt-BR'], {
   quick_choose_reading: 'Escolha uma leitura em andamento.'
 });
 Object.assign(I18N['en'], {
+  publishers_home_label: 'explore by publisher',
+  see_all_publishers: 'see all publishers',
+  publisher_work_count_one: '1 work',
+  publisher_work_count_many: '{count} works',
   nav_add: 'reading actions',
   quick_actions_title: 'reading actions',
   quick_actions_hint: 'Choose how you want to add or update a reading.',
@@ -1510,6 +1526,10 @@ Object.assign(I18N['en'], {
   quick_choose_reading: 'Choose a reading in progress.'
 });
 Object.assign(I18N['es'], {
+  publishers_home_label: 'explorar por editorial',
+  see_all_publishers: 'ver todas las editoriales',
+  publisher_work_count_one: '1 obra',
+  publisher_work_count_many: '{count} obras',
   nav_add: 'acciones de lectura',
   quick_actions_title: 'acciones de lectura',
   quick_actions_hint: 'Elige cómo quieres añadir o actualizar una lectura.',
