@@ -225,6 +225,14 @@ def main() -> int:
 
     conn = connect()
     try:
+        with conn.cursor() as cur:
+            # Os workflows de sync rodam em PARALELO (grupos de concorrência
+            # distintos no Actions) e todos chamam este script no fim. Dois
+            # promotes simultâneos duplicariam obras: find_obra + INSERT não é
+            # atômico. O advisory lock serializa no próprio Postgres — o
+            # segundo processo espera o primeiro terminar (~2-3 min) e segue.
+            # Lock de sessão: liberado automaticamente no conn.close()/queda.
+            cur.execute("SELECT pg_advisory_lock(hashtext('lombada_promote_source_records'))")
         autores_rederivados = backfill_source_record_authors(conn, dry_run)
         print(f"autores re-derivados da descrição (sem rede): {autores_rederivados}")
         with conn.cursor() as cur:

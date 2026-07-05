@@ -51,6 +51,26 @@ campos vazios, nunca sobrescreve).
 
 ### Editoras (`SOURCES` em `scripts/sync_publishers.py`)
 
+As fontes são divididas em **grupos** (campo `group` no `SOURCES`; sem campo =
+`principal`), e cada grupo tem um workflow de sync próprio que roda **em
+paralelo** aos outros (concurrency groups distintos no Actions):
+
+| grupo | workflow | cron | fontes |
+|---|---|---|---|
+| `principal` | `sync-publishers.yml` | `:13` | Cia das Letras, Editora 34, Record, Intrínseca, Todavia, Sextante, Autêntica |
+| `expansao` | `sync-publishers-expansao.yml` | `:29` | Rocco, Arqueiro, Aleph, DarkSide, Boitempo, Ubu, Antofágica, Carambaia, Alta Books, L&PM |
+| `universitaria` | `sync-publishers-universitarias.yml` | `:43` | Edusp, Unesp, Unicamp, UFMG, EDUFBA, UFSC, EDIPUCRS, UnB |
+
+O "1 sync por vez" vale **dentro de cada workflow** (grupo de concorrência
+próprio), não entre workflows. O passo de promote de todos eles é serializado
+por **advisory lock no Postgres** (`promote_source_records.py`) — sem isso,
+dois promotes simultâneos duplicariam obras. `PUBLISHER_SLUGS` explícito vence
+o filtro de grupo (dá pra testar qualquer editora a partir de qualquer
+workflow). Fontes dos grupos novos entram com `platform=auto` até o
+`diagnose=true` confirmar a plataforma real de cada site.
+
+#### Grupo principal — status
+
 | slug | método | observações |
 |---|---|---|
 | `cia_das_letras` | `["sitemap","categoria_json","html"]` | Sem sitemap → categoria via API JSON (ver "Status atual"), com fallback pro crawl HTML. |
@@ -64,7 +84,11 @@ campos vazios, nunca sobrescreve).
 - **Sync publisher source records** (`.github/workflows/sync-publishers.yml`):
   raspa → `source_records` e promove. Inputs: `dry_run`, `diagnose`, `dump_url`,
   `max_urls`, `offset`, `slugs`, `sleep_seconds`. Tem **cron horário** e um
-  **concurrency group `sync-publishers`**.
+  **concurrency group `sync-publishers`**. Cobre só o grupo `principal`.
+- **Sync publishers (expansão)** (`sync-publishers-expansao.yml`) e
+  **Sync publishers (universitárias)** (`sync-publishers-universitarias.yml`):
+  mesmos inputs e pipeline, cada um cobrindo seu grupo de fontes, com
+  concurrency group e cron próprios — rodam em paralelo ao principal.
 - **Promote source records to catalog** (`.github/workflows/promote-catalog.yml`):
   só promove (sem raspar). Inputs: `dry_run`, `min_confidence`, `limit`. Ideal
   para backfill de campos (autor/descrição) sem re-scrape.
@@ -101,9 +125,11 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 ## Armadilhas operacionais (importante)
 
-- **Concurrency do Actions:** o grupo `sync-publishers` mantém só **1 run
-  pending**; disparar outro **cancela o pending anterior**. Dispare **um sync por
-  vez** e espere terminar. (`promote-catalog` é outro grupo, roda em paralelo.)
+- **Concurrency do Actions:** cada workflow de sync tem seu grupo e mantém só
+  **1 run pending**; disparar outro do MESMO workflow **cancela o pending
+  anterior**. Dispare **um run por workflow** e espere terminar. Workflows
+  diferentes (principal/expansão/universitárias/promote) rodam em paralelo
+  entre si numa boa — o promote é protegido por advisory lock no Postgres.
 - **Timing de merge:** o merge de um PR é um snapshot; commits empurrados
   **depois** do merge ficam de fora. Após mergear, **confirme que entrou na
   `main`** antes de agir (`git fetch origin main && git grep …`).

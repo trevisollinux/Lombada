@@ -95,6 +95,9 @@ HEADERS = {
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
+# group: separa as fontes entre os workflows de sync que rodam em PARALELO
+# (cada workflow tem seu concurrency group próprio no Actions e filtra por
+# PUBLISHER_GROUP). Sem "group" = "principal" (sync-publishers.yml).
 SOURCES = [
     {
         # Plataforma custom (agência "Communiplex", não é uma API pública): a home
@@ -149,6 +152,143 @@ SOURCES = [
         "name": "Autêntica",
         "base_url": "https://grupoautentica.com.br",
         "platform": "auto",
+    },
+    # ------------------------------------------------------------------
+    # group=expansao — segunda leva de editoras comerciais
+    # (sync-publishers-expansao.yml). Entram com platform=auto; a plataforma
+    # real de cada uma é confirmada com o input diagnose=true do workflow
+    # (a rede do ambiente de dev bloqueia os sites — ver README).
+    # ------------------------------------------------------------------
+    {
+        "slug": "rocco",
+        "name": "Rocco",
+        "base_url": "https://www.rocco.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "arqueiro",
+        "name": "Editora Arqueiro",
+        "base_url": "https://www.editoraarqueiro.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "aleph",
+        "name": "Editora Aleph",
+        "base_url": "https://www.editoraaleph.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "darkside",
+        "name": "DarkSide Books",
+        "base_url": "https://www.darksidebooks.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "boitempo",
+        "name": "Boitempo Editorial",
+        "base_url": "https://www.boitempoeditorial.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "ubu",
+        "name": "Ubu Editora",
+        "base_url": "https://www.ubueditora.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "antofagica",
+        "name": "Antofágica",
+        "base_url": "https://antofagica.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "carambaia",
+        "name": "Carambaia",
+        "base_url": "https://carambaia.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "altabooks",
+        "name": "Alta Books",
+        "base_url": "https://www.altabooks.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    {
+        "slug": "lpm",
+        "name": "L&PM Editores",
+        "base_url": "https://www.lpm.com.br",
+        "platform": "auto",
+        "group": "expansao",
+    },
+    # ------------------------------------------------------------------
+    # group=universitaria — editoras universitárias
+    # (sync-publishers-universitarias.yml). Mesma regra: platform=auto até o
+    # diagnose confirmar a plataforma de cada uma.
+    # ------------------------------------------------------------------
+    {
+        "slug": "edusp",
+        "name": "Edusp (USP)",
+        "base_url": "https://www.edusp.com.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "editora_unesp",
+        "name": "Editora Unesp",
+        "base_url": "https://www.editoraunesp.com.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "editora_unicamp",
+        "name": "Editora da Unicamp",
+        "base_url": "https://www.editoraunicamp.com.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "editora_ufmg",
+        "name": "Editora UFMG",
+        "base_url": "https://www.editoraufmg.com.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "edufba",
+        "name": "EDUFBA (UFBA)",
+        "base_url": "https://edufba.ufba.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "editora_ufsc",
+        "name": "Editora da UFSC",
+        "base_url": "https://editora.ufsc.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "edipucrs",
+        "name": "EDIPUCRS (PUCRS)",
+        "base_url": "https://www.edipucrs.com.br",
+        "platform": "auto",
+        "group": "universitaria",
+    },
+    {
+        "slug": "editora_unb",
+        "name": "Editora UnB",
+        "base_url": "https://editora.unb.br",
+        "platform": "auto",
+        "group": "universitaria",
     },
 ]
 ISBN_RE = re.compile(r"((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])")
@@ -1539,11 +1679,22 @@ def upsert_records(conn, records: list[tuple[dict[str, Any], dict[str, Any]]]) -
 
 
 def select_sources() -> list[dict[str, str]]:
+    # PUBLISHER_SLUGS explícito vence tudo (inclusive o grupo): permite testar
+    # qualquer editora a partir de qualquer workflow.
     raw = os.getenv("PUBLISHER_SLUGS", "").strip()
-    if not raw:
-        return SOURCES
-    wanted = {s.strip().lower() for s in raw.split(",") if s.strip()}
-    return [s for s in SOURCES if s["slug"].lower() in wanted] or SOURCES
+    if raw:
+        wanted = {s.strip().lower() for s in raw.split(",") if s.strip()}
+        escolhidas = [s for s in SOURCES if s["slug"].lower() in wanted]
+        if escolhidas:
+            return escolhidas
+    # PUBLISHER_GROUP separa as fontes entre os workflows paralelos (cada um
+    # com seu concurrency group). Fonte sem "group" pertence ao "principal".
+    grupo = os.getenv("PUBLISHER_GROUP", "").strip().lower()
+    if grupo:
+        do_grupo = [s for s in SOURCES if s.get("group", "principal").lower() == grupo]
+        if do_grupo:
+            return do_grupo
+    return SOURCES
 
 
 def diagnose(publisher: dict[str, str]) -> None:

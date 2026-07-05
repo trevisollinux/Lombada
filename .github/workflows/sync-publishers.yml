@@ -52,8 +52,11 @@ on:
     # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
     - cron: "13 * * * *"
 
-# Garante um run por vez: se um ainda está rodando, o próximo espera (não atropela
-# nem duplica trabalho).
+# Garante um run POR WORKFLOW por vez: se um ainda está rodando, o próximo espera
+# (não atropela nem duplica trabalho). O limite é deste grupo, não do GitHub —
+# sync-publishers-expansao.yml e sync-publishers-universitarias.yml têm grupos
+# próprios e rodam em PARALELO a este (cada um cobre um PUBLISHER_GROUP distinto;
+# o promote é serializado entre eles por advisory lock no Postgres).
 concurrency:
   group: sync-publishers
   cancel-in-progress: false
@@ -104,6 +107,10 @@ jobs:
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
+          # Este workflow cobre só as fontes do grupo "principal"; as demais
+          # ficam com os workflows paralelos (expansao/universitarias).
+          # PUBLISHER_SLUGS explícito vence o grupo (dá pra testar qualquer uma).
+          PUBLISHER_GROUP: 'principal'
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
 
       - name: Promote new records to catalog
