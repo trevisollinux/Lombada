@@ -1541,3 +1541,28 @@ Object.assign(I18N['es'], {
   quick_no_reading: 'No hay libros en curso por ahora.',
   quick_choose_reading: 'Elige una lectura en curso.'
 });
+
+Object.assign(I18N['pt-BR'], {
+  search_filters: 'filtros',
+  all_publishers: 'todas as editoras',
+  filter_by_publisher: 'Filtrar por editora',
+  publisher_filter_active: 'editora: {publisher}',
+  clear_publisher_filter: 'limpar filtro de editora',
+  no_results_in_publisher: 'Não houve resultados nessa editora: {publisher}.',
+});
+Object.assign(I18N['en'], {
+  search_filters: 'filters',
+  all_publishers: 'all publishers',
+  filter_by_publisher: 'Filter by publisher',
+  publisher_filter_active: 'publisher: {publisher}',
+  clear_publisher_filter: 'clear publisher filter',
+  no_results_in_publisher: 'No results found for this publisher: {publisher}.',
+});
+Object.assign(I18N['es'], {
+  search_filters: 'filtros',
+  all_publishers: 'todas las editoriales',
+  filter_by_publisher: 'Filtrar por editorial',
+  publisher_filter_active: 'editorial: {publisher}',
+  clear_publisher_filter: 'quitar filtro de editorial',
+  no_results_in_publisher: 'No hubo resultados en esta editorial: {publisher}.',
+});
