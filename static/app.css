@@ -1967,6 +1967,8 @@ body.theme-dark .tab-add{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .publisher-chip:active{transform:translate(1px,1px);background:var(--ink);color:var(--paper)}
 .publisher-name{display:block;font-family:"Fraunces",serif;font-style:italic;font-size:16px;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .publisher-count{display:block;margin-top:5px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.publisher-empty-note{margin:0;color:var(--muted);font-size:13px;line-height:1.35}
+.publisher-strip-empty{padding-bottom:14px}
 .publisher-chip:active .publisher-count{color:var(--paper-2)}
 .publisher-chip.skeleton{height:58px;min-width:142px;border-color:transparent;background:linear-gradient(90deg,rgba(26,23,20,.06),rgba(26,23,20,.12),rgba(26,23,20,.06));background-size:220% 100%;animation:publisherPulse 1.2s ease-in-out infinite;box-shadow:none}
 .publisher-chip.skeleton.short{min-width:104px}

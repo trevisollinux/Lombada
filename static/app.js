@@ -776,8 +776,10 @@ async function toggleFiltroEditora(){
   if(!wrap.hidden){ await carregarEditorasBusca(); $('#searchPublisher')?.focus(); }
 }
 function selecionarFiltroEditora(nome){
+  const anterior=filtroEditoraBusca;
   filtroEditoraBusca=(nome||'').trim();
   renderFiltroEditoraBusca();
+  if(anterior!==filtroEditoraBusca && ($('#q')?.value.trim()||'').length>=2) buscar();
 }
 function limparFiltroEditoraBusca(refazer=false){
   const tinha=!!filtroEditoraBusca;
@@ -809,7 +811,10 @@ function renderEditorasHome({loading=false}={}){
     return;
   }
   const lista=(editorasHome||[]).map(normalizarEditoraHome).filter(e=>e.editora&&e.slug).slice(0,10);
-  if(!lista.length){ box.innerHTML=''; return; }
+  if(!lista.length){
+    box.innerHTML=`<section class="publisher-strip publisher-strip-empty"><div class="section-head publisher-strip-head"><div class="label">${t('publishers_home_label')}</div><a class="more" href="/editoras">${t('see_all_publishers')}</a></div><p class="publisher-empty-note">${t('publishers_empty_hint')}</p></section>`;
+    return;
+  }
   box.innerHTML=`<section class="publisher-strip">
     <div class="section-head publisher-strip-head"><div class="label">${t('publishers_home_label')}</div><a class="more" href="/editoras">${t('see_all_publishers')}</a></div>
     <div class="publisher-chip-row">
@@ -1533,6 +1538,10 @@ async function abrirPaginaObraDoLeitor(tipo,index){
   const item=(leitorAtual?.[chave]||[])[index];
   const obra=obraDeLeituraPublica(item);
   if(!obra) return;
+  fecharLeitorDireto();
+  if(history.state && history.state.lombada && history.state.readerHandle){
+    history.replaceState(estadoNav(navAtual.aba,navAtual.busca,false),'');
+  }
   irPara('buscar',{resetBusca:false});
   await abrirPaginaObra(obra);
 }
