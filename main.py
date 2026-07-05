@@ -1046,13 +1046,23 @@ def api_recon(q: str = Query(..., min_length=2), token: str = Query("")):
     return Response(json.dumps(resultado, ensure_ascii=False, indent=2), media_type="application/json; charset=utf-8")
 
 
+def _doc_tem_editora(doc: dict, editora_norm: str) -> bool:
+    if not editora_norm:
+        return True
+    candidatos = [doc.get("editora"), (doc.get("edicao_isbn") or {}).get("editora")]
+    candidatos.extend((e or {}).get("editora") for e in (doc.get("edicoes") or []))
+    return any(editora_norm in _normalizar_busca(c) for c in candidatos if c)
+
+
 @app.get("/api/buscar")
 def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
     logger.info("search_started", extra={"query_len": len(q)})
+    editora_norm = _normalizar_busca(editora)
     locais = _buscar_catalogo_local(q, s, editora=editora)
     def _resposta_final(externos: list[dict]) -> list[dict]:
-        return consolidar_resultados_busca_final(q, locais + (externos or []))
+        externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm)]
+        return consolidar_resultados_busca_final(q, locais + externos_filtrados)
 
     isbn = normalizar_isbn(q)
     if isbn:

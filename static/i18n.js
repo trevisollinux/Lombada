@@ -38,6 +38,7 @@ const I18N = {
     popular_works_label: 'explore · obras populares',
     publishers_home_label: 'explore por editora',
     see_all_publishers: 'ver todas as editoras',
+    publishers_empty_hint: 'catálogo editorial em atualização — veja o índice completo.',
     publisher_work_count_one: '1 obra',
     publisher_work_count_many: '{count} obras',
     loading_popular_works: 'carregando obras…',
@@ -421,6 +422,7 @@ const I18N = {
     popular_works_label: 'explore · popular works',
     publishers_home_label: 'explore by publisher',
     see_all_publishers: 'see all publishers',
+    publishers_empty_hint: 'publisher catalog updating — open the full index.',
     publisher_work_count_one: '1 work',
     publisher_work_count_many: '{count} works',
     loading_popular_works: 'loading works…',
@@ -1496,6 +1498,7 @@ Object.assign(I18N['es'], { copy_work_link: 'copiar enlace de la obra' });
 Object.assign(I18N['pt-BR'], {
   publishers_home_label: 'explore por editora',
   see_all_publishers: 'ver todas as editoras',
+  publishers_empty_hint: 'catálogo editorial em atualização — veja o índice completo.',
   publisher_work_count_one: '1 obra',
   publisher_work_count_many: '{count} obras',
   nav_add: 'ações de leitura',
@@ -1512,6 +1515,7 @@ Object.assign(I18N['pt-BR'], {
 Object.assign(I18N['en'], {
   publishers_home_label: 'explore by publisher',
   see_all_publishers: 'see all publishers',
+  publishers_empty_hint: 'publisher catalog updating — open the full index.',
   publisher_work_count_one: '1 work',
   publisher_work_count_many: '{count} works',
   nav_add: 'reading actions',
@@ -1528,6 +1532,7 @@ Object.assign(I18N['en'], {
 Object.assign(I18N['es'], {
   publishers_home_label: 'explorar por editorial',
   see_all_publishers: 'ver todas las editoriales',
+  publishers_empty_hint: 'catálogo editorial en actualización — abre el índice completo.',
   publisher_work_count_one: '1 obra',
   publisher_work_count_many: '{count} obras',
   nav_add: 'acciones de lectura',
