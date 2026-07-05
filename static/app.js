@@ -21,7 +21,8 @@ const SUGESTOES = [
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
-let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', editorasBuscaCarregadas=false;
+let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', filtroGeneroBusca='', editorasBuscaCarregadas=false;
+const GENEROS_BUSCA=['romance','conto','poesia','teatro','ensaio','biografia','autobiografia','história','filosofia','crítica literária','fantasia','ficção científica','terror','policial','infantil','juvenil','crônica','quadrinhos'];
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 const CARD_THEME_KEY='lombada_card_theme';
 let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=false, cardContext={type:'leitura',source:null};
@@ -101,6 +102,7 @@ function setupGlobalKeyboard(){
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
     if(event.key==='Escape' && $('#publisherSheet') && !$('#publisherSheet').hidden){ event.preventDefault(); fecharFiltroEditora(); return; }
+    if(event.key==='Escape' && $('#genreSheet') && !$('#genreSheet').hidden){ event.preventDefault(); fecharFiltroGenero(); return; }
     if(event.key==='Escape' && $('#quickActions') && !$('#quickActions').hidden){ event.preventDefault(); fecharAcoesLeitura(); return; }
     if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
@@ -763,12 +765,20 @@ function opcoesEditorasBusca(){
 function renderFiltroEditoraBusca(){
   const active=$('#activeSearchFilters');
   if(active){
-    active.innerHTML=filtroEditoraBusca ? `<span class="search-filter-chip">${esc(t('publisher_filter_active',{publisher:filtroEditoraBusca}))}<button type="button" aria-label="${esc(t('clear_publisher_filter'))}" onclick="limparFiltroEditoraBusca(true)">×</button></span>` : '';
+    const chips=[];
+    if(filtroEditoraBusca) chips.push(`<span class="search-filter-chip">${esc(t('publisher_filter_active',{publisher:filtroEditoraBusca}))}<button type="button" aria-label="${esc(t('clear_publisher_filter'))}" onclick="limparFiltroEditoraBusca(true)">×</button></span>`);
+    if(filtroGeneroBusca) chips.push(`<span class="search-filter-chip">${esc(t('genre_filter_active',{genre:filtroGeneroBusca}))}<button type="button" aria-label="${esc(t('clear_genre_filter'))}" onclick="limparFiltroGeneroBusca(true)">×</button></span>`);
+    active.innerHTML=chips.join('');
   }
   const toggle=$('#searchPublisherButton');
   if(toggle){
     toggle.classList.toggle('has-active-filter', !!filtroEditoraBusca);
     toggle.setAttribute('aria-expanded', $('#publisherSheet') && !$('#publisherSheet').hidden ? 'true' : 'false');
+  }
+  const genreToggle=$('#searchGenreButton');
+  if(genreToggle){
+    genreToggle.classList.toggle('has-active-filter', !!filtroGeneroBusca);
+    genreToggle.setAttribute('aria-expanded', $('#genreSheet') && !$('#genreSheet').hidden ? 'true' : 'false');
   }
   const options=$('#publisherSheetOptions');
   if(!options) return;
@@ -810,6 +820,45 @@ function limparFiltroEditoraBusca(refazer=false){
   const tinha=!!filtroEditoraBusca;
   filtroEditoraBusca='';
   renderFiltroEditoraBusca();
+  if(refazer && tinha && ($('#q')?.value.trim()||'').length>=2) buscar();
+}
+
+function renderFiltroGeneroBusca(){
+  renderFiltroEditoraBusca();
+  const options=$('#genreSheetOptions');
+  if(!options) return;
+  const item=(nome)=>{
+    const selecionado=(nome||'')===filtroGeneroBusca;
+    const label=nome || t('all_genres');
+    return `<button type="button" class="publisher-option genre-option${selecionado?' selected':''}" role="radio" aria-checked="${selecionado?'true':'false'}" data-genre="${esc(nome)}" onclick="selecionarFiltroGenero(this.dataset.genre)"><span class="publisher-option-mark" aria-hidden="true"></span><span>${esc(label)}</span></button>`;
+  };
+  options.innerHTML=item('') + GENEROS_BUSCA.map(item).join('');
+}
+function toggleFiltroGenero(){ abrirFiltroGenero(); }
+function abrirFiltroGenero(){
+  const sheet=$('#genreSheet');
+  if(!sheet) return;
+  sheet.hidden=false;
+  document.body.classList.add('sheet-open');
+  renderFiltroGeneroBusca();
+}
+function fecharFiltroGenero(){
+  const sheet=$('#genreSheet');
+  if(sheet) sheet.hidden=true;
+  document.body.classList.remove('sheet-open');
+  renderFiltroGeneroBusca();
+  $('#searchGenreButton')?.focus();
+}
+function selecionarFiltroGenero(nome){
+  const anterior=filtroGeneroBusca;
+  filtroGeneroBusca=(nome||'').trim();
+  fecharFiltroGenero();
+  if(anterior!==filtroGeneroBusca && ($('#q')?.value.trim()||'').length>=2) buscar();
+}
+function limparFiltroGeneroBusca(refazer=false){
+  const tinha=!!filtroGeneroBusca;
+  filtroGeneroBusca='';
+  renderFiltroGeneroBusca();
   if(refazer && tinha && ($('#q')?.value.trim()||'').length>=2) buscar();
 }
 
@@ -1484,6 +1533,7 @@ async function buscar(event){
   try{
     const params=new URLSearchParams({q});
     if(filtroEditoraBusca) params.set('editora', filtroEditoraBusca);
+    if(filtroGeneroBusca) params.set('genero', filtroGeneroBusca);
     const res=await fetch('/api/buscar?'+params.toString());
     if(!res.ok) throw new Error(`search http ${res.status}`);
     try{ docs=await res.json(); }catch(err){ throw new Error('search invalid json'); }
@@ -1496,10 +1546,12 @@ async function buscar(event){
   finally{ clearTimeout(avisoBusca); }
   ultimaBuscaQ=q;
   $('#resultados').dataset.editora=filtroEditoraBusca||'';
+  $('#resultados').dataset.genero=filtroGeneroBusca||'';
   resultadosArr=ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
   if(!obrasAgrupadas.length){
-    $('#resultados').innerHTML=filtroEditoraBusca ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_in_publisher',{publisher:filtroEditoraBusca})}</p><button class="link-manual" type="button" onclick="limparFiltroEditoraBusca(true)">${t('clear_publisher_filter')}</button></div>`+manualCtaHTML(false) : manualCtaHTML(true);
+    const msg=filtroGeneroBusca ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_in_genre',{genre:filtroGeneroBusca})}</p><button class="link-manual" type="button" onclick="limparFiltroGeneroBusca(true)">${t('clear_genre_filter')}</button></div>` : (filtroEditoraBusca ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_in_publisher',{publisher:filtroEditoraBusca})}</p><button class="link-manual" type="button" onclick="limparFiltroEditoraBusca(true)">${t('clear_publisher_filter')}</button></div>` : '');
+    $('#resultados').innerHTML=msg ? msg+manualCtaHTML(false) : manualCtaHTML(true);
     return;
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
