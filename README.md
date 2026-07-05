@@ -53,7 +53,7 @@ campos vazios, nunca sobrescreve).
 
 | slug | método | observações |
 |---|---|---|
-| `cia_das_letras` | `["sitemap","categoria_js","html"]` | Sem sitemap → categoria via Playwright (resolve o platô de ~255, ver "Status atual"), com fallback pro crawl HTML. |
+| `cia_das_letras` | `["sitemap","categoria_json","html"]` | Sem sitemap → categoria via API JSON (ver "Status atual"), com fallback pro crawl HTML. |
 | `editora_34` | `id_range` 1–3000 | ~800 livros. Sem JSON-LD/meta; autor e sinopse ficam no bloco do `<h1>` (extrator dedicado `autor_editora34()`). |
 | `record`, `sextante` | `auto` → Shopify | **Resolvido:** ISBN vinha vazio (`record` só tinha 19/3920 promovidos; `sextante` 1/732). `collect_via_shopify` cai em cascata: `barcode` → `sku` da variante → varredura da descrição → endpoint de produto único (`/products/{handle}.json` — algumas lojas, ex. sextante, omitem `barcode` da listagem em lote mas incluem no produto único) → ISBN embutido na URL. |
 | `todavia`, `autentica` | `auto` → sitemap | Boa cobertura, com ISBN. |
@@ -122,11 +122,13 @@ Promote source records to catalog → dry_run=false, limit=5000
 
 - Editora 34: ~800 livros, ~634 com autor.
 - Descrições (sinopses): ~2.450 obras preenchidas (~87% do catálogo).
-- Companhia das Letras: **1.366 livros candidatos** descobertos (era platô de
-  ~255) — ver diagnóstico e solução abaixo (`collect_via_categoria_playwright`).
-  Ainda por gravar de fato (rodado só em `dry_run`); e cobertura de autor nas
-  páginas de livro dessa editora ficou baixa (1/171 na amostra) — não
-  investigado ainda.
+- Companhia das Letras: coleta migrada de `collect_via_categoria_playwright`
+  (Chromium + scrape de cada página de livro, ~35% de falha por página) para
+  `collect_via_categoria_json` — POST direto na API JSON por trás do grid de
+  categoria (`action=buscar&categoria=...&pg=N`, ver diagnóstico abaixo), que
+  já devolve título/autor(es)/link estruturados sem precisar de browser nem de
+  uma segunda requisição por livro. Cobre as ~16 páginas × 218 categorias do
+  catálogo (bem além do teto anterior de 1.366 candidatos via HTML).
 
 ## Próximos passos possíveis
 
@@ -159,21 +161,26 @@ Promote source records to catalog → dry_run=false, limit=5000
     real independente do resto). Não decifrado: token/nonce por requisição?
     nome de selo diferente do esperado? Vale testar outro selo (`/Selo/
     Escarlate`) ou inspecionar a Network tab de uma navegação real.
-  - **Resolvido:** implementado `collect_via_categoria_playwright()`, isolado
-    só pra essa editora (não afeta as outras). Usa Chromium headless
-    (Playwright) SÓ pra renderizar as páginas `/Busca?categoria=...` e extrair
-    os links `/livro/{isbn}/...` do DOM já processado pelo Angular; as páginas
-    de livro em si continuam via `requests` normal (são estáticas). Registrado
-    como plataforma `"categoria_js"` em `SOURCES`, com fallback pro crawl HTML
-    antigo se o Playwright falhar. Testado ao vivo via `workflow_dispatch`
-    (`dry_run=true`): **218 páginas de categoria visitadas, 1.366 livros
-    candidatos únicos encontrados** — 5x+ o platô anterior. O workflow ganhou
-    um passo `playwright install --with-deps chromium` (só usado por essa
-    editora, mas roda toda vez que o job dispara).
-  - Pendências: cobertura de autor ficou baixa nas páginas de livro dessa
-    editora (1/171 na amostra) — não investigado, possivelmente a extração
-    genérica de autor não reconhece o padrão específico do site. E `/Selo/
-    {nome}` continua retornando `"Erro: Selo inválido"` sem explicação — não
-    bloqueante, já que `categoria_js` resolveu o problema principal.
+  - **Primeira solução (superada):** `collect_via_categoria_playwright()`, com
+    Chromium headless SÓ pra renderizar `/Busca?categoria=...` e extrair os
+    links `/livro/{isbn}/...` do DOM, mais um `requests` por livro pra pegar
+    título/autor/ISBN da página. Achou 1.366 candidatos (218 categorias), mas
+    ~35% das páginas de livro falhavam no fetch e a cobertura de autor ficou
+    baixíssima (1/171 na amostra) — a extração genérica não reconhece o
+    padrão de autor do site.
+  - **Resolvido de vez:** `diagnosticar_paginacao_categoria()` (captura de
+    chamadas xhr/fetch via Playwright) revelou que o grid da página de
+    categoria é alimentado por um POST pra ela mesma
+    (`action=buscar&categoria=...&pg=N&anoMin=...&anoMax=...&idadeMax=18&
+    ordem=cronologica`) que devolve `{total, pp, totalPages, livros: [...]}`
+    com cada livro JÁ estruturado (`titulo`, `autores: [{nome}]`, `link` com o
+    ISBN embutido, `selo`, `capa`). `collect_via_categoria_json()` substitui o
+    Playwright por esse POST direto via `requests`/`SESSION` — sem Chromium,
+    sem segunda requisição por livro, e com autor de verdade em praticamente
+    100% dos casos (vem pronto no JSON). Isso também torna moot a
+    investigação de `/Selo/{nome}` acima. Nota de codificação: os hrefs de
+    categoria na home usam Latin-1 (`%E7`=ç, `%F3`=ó) mas o corpo do POST
+    espera UTF-8 — `_categoria_valor()` decodifica a URL em Latin-1 antes de
+    reenviar no POST (que o `requests` codifica em UTF-8 por padrão).
 - **Sinopse da Editora 34:** se faltar cobertura, extrator dedicado (a sinopse
   está no `h1.parent`, depois dos metadados — mesma técnica do autor).

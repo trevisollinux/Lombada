@@ -74,9 +74,10 @@ jobs:
         run: pip install -r requirements-sync.txt
 
       - name: Install Playwright browser (Chromium)
-        # Só a Cia das Letras usa isto hoje (collect_via_categoria_playwright,
-        # scripts/sync_publishers.py) — a página de resultado de categoria
-        # renderiza o grid de livros via JS/Angular, requests não dá conta.
+        # A coleta real da Cia das Letras não usa mais Playwright (foi trocada
+        # por collect_via_categoria_json, que fala direto com a API JSON via
+        # requests). Isto fica só pra debug_categoria_paginacao=true, que
+        # inspeciona chamadas xhr/fetch com o Chromium headless.
         run: playwright install --with-deps chromium
 
       - name: Sync publisher source records
