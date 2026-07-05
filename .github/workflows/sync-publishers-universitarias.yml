@@ -1,0 +1,114 @@
+name: Sync publishers (universitárias)
+
+# Mesmo pipeline do sync-publishers.yml, mas cobrindo o grupo "universitaria"
+# do SOURCES (editoras universitárias: Edusp, Unesp, Unicamp, UFMG, EDUFBA,
+# UFSC, EDIPUCRS, UnB). Roda em PARALELO aos outros syncs — concurrency group
+# próprio; o promote é serializado entre workflows por advisory lock no
+# Postgres (scripts/promote_source_records.py).
+#
+# Bootstrap de editora nova: rode com diagnose=true pra ver plataforma/status
+# de cada site, depois dry_run=true pra validar a coleta, e só então grave.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = só testa e mostra amostra; false = grava + promove'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      diagnose:
+        description: 'true = só mostra status/plataforma de cada editora (não coleta)'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
+      max_urls:
+        description: 'tamanho do lote: nº de livros por editora nesta execução'
+        required: false
+        default: '100'
+      offset:
+        description: 'faixa: começar do livro nº (ex.: 0, depois 100, 200...). Vazio = incremental automático'
+        required: false
+        default: ''
+      slugs:
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo universitaria)'
+        required: false
+        default: ''
+      sleep_seconds:
+        description: 'pausa entre páginas (segundos) — maior = mais gentil'
+        required: false
+        default: '1.0'
+      dump_url:
+        description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
+        required: false
+        default: ''
+  schedule:
+    # De hora em hora, defasado dos outros syncs (:13 principal, :29 expansão)
+    # só pra espalhar a carga no Neon.
+    - cron: "43 * * * *"
+
+concurrency:
+  group: sync-publishers-universitarias
+  cancel-in-progress: false
+
+jobs:
+  sync-publishers-universitarias:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      # Sem passo de Playwright: as fontes deste grupo usam platform=auto
+      # (shopify/vtex/sitemap/html via requests).
+
+      - name: Sync publisher source records (grupo universitaria)
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
+          {
+            echo '### Sync de editoras universitárias -> source_records'
+            echo ''
+            echo '```'
+            cat sync_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
+          PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
+          PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
+          PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
+          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
+          PUBLISHER_GROUP: 'universitaria'
+
+      - name: Promote new records to catalog
+        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/promote_source_records.py | tee promote_resultado.txt || status=$?
+          {
+            echo '### Promoção source_records -> catálogo'
+            echo ''
+            echo '```'
+            cat promote_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRY_RUN: 'false'
+          PROMOTE_MIN_CONFIDENCE: '0.5'
+          PROMOTE_LIMIT: '5000'
