@@ -49,6 +49,16 @@
       <input id="q" type="search" placeholder="que livro você está lendo agora?" data-i18n-placeholder="search_placeholder" autocomplete="off" oninput="onQInput()" onfocus="onQFocus()" onblur="onQBlur()" />
       <button type="submit" aria-label="Buscar livros" data-i18n-aria-label="search_books" data-i18n="search_button">buscar</button>
     </form>
+    <div class="search-filters" id="searchFilters">
+      <button type="button" class="search-filter-toggle" onclick="toggleFiltroEditora()" data-i18n="search_filters">filtros</button>
+      <label class="search-publisher-select" id="searchPublisherWrap" hidden>
+        <span data-i18n="publisher">editora</span>
+        <select id="searchPublisher" onchange="selecionarFiltroEditora(this.value)" aria-label="Filtrar por editora" data-i18n-aria-label="filter_by_publisher">
+          <option value="" data-i18n="all_publishers">todas as editoras</option>
+        </select>
+      </label>
+      <div id="activeSearchFilters" class="active-search-filters" aria-live="polite"></div>
+    </div>
 
     <!-- sugestões: buscas recentes + mais buscadas (estilo autocomplete) -->
     <div id="searchSuggest" class="search-suggest" hidden></div>
