@@ -21,6 +21,7 @@ const SUGESTOES = [
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
+let editorasHome=[];
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 const CARD_THEME_KEY='lombada_card_theme';
 let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=false, cardContext={type:'leitura',source:null};
@@ -152,6 +153,7 @@ function mudarIdioma(locale){
   setLocale(locale);
   atualizarSeletorIdioma();
   renderChips();
+  renderEditorasHome();
   renderLendoAgora();
   renderPrateleira();
   renderDiario();
@@ -732,6 +734,52 @@ function limparBusca(){
   $('#edicoes').innerHTML='';
   $('#form').innerHTML='';
   $('#manual').innerHTML='';
+}
+
+
+/* editoras na home — caminhos curtos para explorar o catálogo editorial */
+function normalizarEditoraHome(e){
+  if(typeof e==='string') return {editora:e,nome:e,slug:slugEditora(e),obras_count:0};
+  const nome=(e&& (e.editora||e.nome||e.name||e.publisher)) || '';
+  return {
+    ...e,
+    editora:nome,
+    slug:(e&&e.slug)||slugEditora(nome),
+    obras_count:Number((e&& (e.obras_count ?? e.obrasCount ?? e.count ?? e.total_obras)) || 0)
+  };
+}
+function editoraHomeCountLabel(total){
+  if(!total) return '';
+  return total===1 ? t('publisher_work_count_one') : t('publisher_work_count_many',{count:total});
+}
+function renderEditorasHome({loading=false}={}){
+  const box=$('#editorasHome');
+  if(!box) return;
+  if(loading && !editorasHome.length){
+    box.innerHTML=`<section class="publisher-strip publisher-strip-loading" aria-busy="true"><div class="section-head"><div class="label">${t('publishers_home_label')}</div></div><div class="publisher-chip-row"><span class="publisher-chip skeleton"></span><span class="publisher-chip skeleton"></span><span class="publisher-chip skeleton short"></span></div></section>`;
+    return;
+  }
+  const lista=(editorasHome||[]).map(normalizarEditoraHome).filter(e=>e.editora&&e.slug).slice(0,10);
+  if(!lista.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<section class="publisher-strip">
+    <div class="section-head publisher-strip-head"><div class="label">${t('publishers_home_label')}</div><a class="more" href="/editoras">${t('see_all_publishers')}</a></div>
+    <div class="publisher-chip-row">
+      ${lista.map(e=>`<a class="publisher-chip" href="/editora/${encodeURIComponent(e.slug)}" onclick="location.href=this.href; return false;"><span class="publisher-name">${esc(e.editora)}</span>${editoraHomeCountLabel(e.obras_count)?`<span class="publisher-count">${esc(editoraHomeCountLabel(e.obras_count))}</span>`:''}</a>`).join('')}
+    </div>
+  </section>`;
+}
+async function carregarEditorasHome(){
+  renderEditorasHome({loading:true});
+  try{
+    const r=await fetch('/api/editoras');
+    if(!r.ok) throw new Error('publishers');
+    const dados=await r.json();
+    editorasHome=Array.isArray(dados)?dados:[];
+    renderEditorasHome();
+  }catch(e){
+    editorasHome=[];
+    renderEditorasHome();
+  }
 }
 
 /* feed da home — obras populares como mini estante */
@@ -3624,6 +3672,7 @@ async function init(){
   configurarSwipeAbas();
   configurarPullToRefresh();
   carregarObrasPopulares();
+  carregarEditorasHome();
   await carregarVersaoApp();
   try{
     const me=await (await fetch('/api/eu')).json();

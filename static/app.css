@@ -1956,3 +1956,19 @@ body.theme-dark .tab-add{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 .tab-add[aria-expanded="true"]{transform:scale(.94)}
 @media(min-width:720px){.quick-actions-backdrop{align-items:flex-end;padding-bottom:86px}.quick-actions-sheet{max-width:420px}}
 @media(max-width:420px){.quick-actions-backdrop{padding:10px 10px calc(72px + env(safe-area-inset-bottom))}.quick-actions-sheet{border-radius:20px 20px 0 0;padding:9px 12px 12px}}
+
+/* explore por editora — trilha editorial compacta na home */
+.publisher-strip{margin:26px 0 4px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:15px 0 16px}
+.publisher-strip .section-head{margin:0 0 12px}
+.publisher-strip-head .more{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--gold);padding-bottom:1px;white-space:nowrap}
+.publisher-chip-row{display:flex;gap:9px;overflow-x:auto;padding:1px 2px 3px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.publisher-chip-row::-webkit-scrollbar{display:none}
+.publisher-chip{flex:0 0 auto;min-width:128px;max-width:190px;scroll-snap-align:start;border:1px solid var(--rule);background:color-mix(in srgb,var(--paper-2),transparent 8%);padding:10px 11px 9px;box-shadow:2px 3px 0 rgba(26,23,20,.08);transition:background .15s,color .15s,transform .15s}
+.publisher-chip:active{transform:translate(1px,1px);background:var(--ink);color:var(--paper)}
+.publisher-name{display:block;font-family:"Fraunces",serif;font-style:italic;font-size:16px;line-height:1.08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.publisher-count{display:block;margin-top:5px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.publisher-chip:active .publisher-count{color:var(--paper-2)}
+.publisher-chip.skeleton{height:58px;min-width:142px;border-color:transparent;background:linear-gradient(90deg,rgba(26,23,20,.06),rgba(26,23,20,.12),rgba(26,23,20,.06));background-size:220% 100%;animation:publisherPulse 1.2s ease-in-out infinite;box-shadow:none}
+.publisher-chip.skeleton.short{min-width:104px}
+@keyframes publisherPulse{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media(max-width:380px){.publisher-chip{min-width:118px}.publisher-name{font-size:15px}.publisher-strip-head{align-items:flex-start;gap:10px}}
