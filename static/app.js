@@ -100,6 +100,7 @@ function setupGlobalKeyboard(){
   if(document.__lombadaKeyboard) return;
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
+    if(event.key==='Escape' && $('#publisherSheet') && !$('#publisherSheet').hidden){ event.preventDefault(); fecharFiltroEditora(); return; }
     if(event.key==='Escape' && $('#quickActions') && !$('#quickActions').hidden){ event.preventDefault(); fecharAcoesLeitura(); return; }
     if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
@@ -756,29 +757,53 @@ async function carregarEditorasBusca(){
   renderFiltroEditoraBusca();
   return editorasBusca;
 }
+function opcoesEditorasBusca(){
+  return editorasBusca.filter((e,i,a)=>a.findIndex(x=>normBusca(x)===normBusca(e))===i);
+}
 function renderFiltroEditoraBusca(){
-  const select=$('#searchPublisher');
-  if(select){
-    const atual=select.value;
-    const opcoes=['', ...editorasBusca.filter((e,i,a)=>a.findIndex(x=>normBusca(x)===normBusca(e))===i)];
-    select.innerHTML=opcoes.map(nome=>`<option value="${esc(nome)}">${esc(nome||t('all_publishers'))}</option>`).join('');
-    select.value=filtroEditoraBusca || atual || '';
-  }
   const active=$('#activeSearchFilters');
   if(active){
     active.innerHTML=filtroEditoraBusca ? `<span class="search-filter-chip">${esc(t('publisher_filter_active',{publisher:filtroEditoraBusca}))}<button type="button" aria-label="${esc(t('clear_publisher_filter'))}" onclick="limparFiltroEditoraBusca(true)">×</button></span>` : '';
   }
+  const toggle=$('#searchPublisherButton');
+  if(toggle){
+    toggle.classList.toggle('has-active-filter', !!filtroEditoraBusca);
+    toggle.setAttribute('aria-expanded', $('#publisherSheet') && !$('#publisherSheet').hidden ? 'true' : 'false');
+  }
+  const options=$('#publisherSheetOptions');
+  if(!options) return;
+  const termo=normBusca($('#publisherSheetSearch')?.value||'');
+  const lista=opcoesEditorasBusca().filter(nome=>!termo || normBusca(nome).includes(termo));
+  const item=(nome)=>{
+    const selecionada=normBusca(nome)===normBusca(filtroEditoraBusca);
+    const label=nome || t('all_publishers');
+    return `<button type="button" class="publisher-option${selecionada?' selected':''}" role="radio" aria-checked="${selecionada?'true':'false'}" data-publisher="${esc(nome)}" onclick="selecionarFiltroEditora(this.dataset.publisher)"><span class="publisher-option-mark" aria-hidden="true"></span><span>${esc(label)}</span></button>`;
+  };
+  options.innerHTML=item('') + lista.map(item).join('') + (!lista.length?`<p class="publisher-options-empty">${esc(t('publisher_filter_empty'))}</p>`:'');
 }
 async function toggleFiltroEditora(){
-  const wrap=$('#searchPublisherWrap');
-  if(!wrap) return;
-  wrap.hidden=!wrap.hidden;
-  if(!wrap.hidden){ await carregarEditorasBusca(); $('#searchPublisher')?.focus(); }
+  await abrirFiltroEditora();
+}
+async function abrirFiltroEditora(){
+  const sheet=$('#publisherSheet');
+  if(!sheet) return;
+  sheet.hidden=false;
+  document.body.classList.add('sheet-open');
+  await carregarEditorasBusca();
+  renderFiltroEditoraBusca();
+  setTimeout(()=>$('#publisherSheetSearch')?.focus(),30);
+}
+function fecharFiltroEditora(){
+  const sheet=$('#publisherSheet');
+  if(sheet) sheet.hidden=true;
+  document.body.classList.remove('sheet-open');
+  renderFiltroEditoraBusca();
+  $('#searchPublisherButton')?.focus();
 }
 function selecionarFiltroEditora(nome){
   const anterior=filtroEditoraBusca;
   filtroEditoraBusca=(nome||'').trim();
-  renderFiltroEditoraBusca();
+  fecharFiltroEditora();
   if(anterior!==filtroEditoraBusca && ($('#q')?.value.trim()||'').length>=2) buscar();
 }
 function limparFiltroEditoraBusca(refazer=false){

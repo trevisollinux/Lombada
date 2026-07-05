@@ -1571,3 +1571,27 @@ Object.assign(I18N['es'], {
   clear_publisher_filter: 'quitar filtro de editorial',
   no_results_in_publisher: 'No hubo resultados en esta editorial: {publisher}.',
 });
+Object.assign(I18N['pt-BR'], {
+  publisher_filter_hint: 'Escolha uma editora para refinar a busca.',
+  close_publisher_filter: 'fechar filtro de editora',
+  search_publisher: 'buscar editora',
+  publisher_filter_empty: 'nenhuma editora encontrada.'
+});
+Object.assign(I18N['en'], {
+  publisher_filter_hint: 'Choose a publisher to refine the search.',
+  close_publisher_filter: 'close publisher filter',
+  search_publisher: 'search publisher',
+  publisher_filter_empty: 'no publishers found.'
+});
+Object.assign(I18N['es'], {
+  search_filters: 'filtros',
+  all_publishers: 'todas las editoriales',
+  filter_by_publisher: 'Filtrar por editorial',
+  publisher_filter_active: 'editorial: {publisher}',
+  clear_publisher_filter: 'limpiar filtro de editorial',
+  no_results_in_publisher: 'No hubo resultados en esta editorial: {publisher}.',
+  publisher_filter_hint: 'Elige una editorial para refinar la búsqueda.',
+  close_publisher_filter: 'cerrar filtro de editorial',
+  search_publisher: 'buscar editorial',
+  publisher_filter_empty: 'no se encontraron editoriales.'
+});
