@@ -69,6 +69,29 @@ o filtro de grupo (dá pra testar qualquer editora a partir de qualquer
 workflow). Fontes dos grupos novos entram com `platform=auto` até o
 `diagnose=true` confirmar a plataforma real de cada site.
 
+#### Grupos expansao/universitaria — diagnose de 05/07/2026 (todas as 18 respondem)
+
+| slug | plataforma detectada | sinal |
+|---|---|---|
+| `rocco` | WordPress | `wp-sitemap.xml` 200; 127 links de livro (`/produto/…`) na home |
+| `arqueiro` | sem sitemap | 35 links `/produto/…` na home → crawl HTML |
+| `aleph` | **Shopify** | `products.json` 200 JSON |
+| `darkside` | **VTEX** | `/api/catalog_system/...` 206 JSON (Shopify probe devolve HTML) |
+| `boitempo` | sitemap próprio | `sitemap.xml` 200 XML (home sem links no HTML bruto) |
+| `ubu` | Magento | paths `/pub/media/catalog/...`; 48 links de livro na home |
+| `antofagica` | **anti-bot** | tudo responde 202 text/html (challenge) — pode nunca coletar |
+| `carambaia` | custom | 20 links de livro na home (`/livros/…`) → crawl HTML |
+| `altabooks` | WordPress | `wp-sitemap.xml` 200; 379 links de livro na home |
+| `lpm` | ASP clássico (IIS) | soft-200 em tudo; 76 links `/livro/{id}/{slug}` na home → crawl HTML (candidata futura a `id_range`) |
+| `edusp` | custom | 19 links `/livros/…` na home → crawl HTML |
+| `editora_unesp` | IIS soft-200 | só 2 links de livro na home — cobertura deve sair fraca |
+| `editora_unicamp` | custom | 0 links de livro na home — vai precisar de extrator dedicado |
+| `editora_ufmg` | SPA (JS) | paths devolvem 500 JSON; home sem links no HTML bruto |
+| `edufba` | custom | 12 links de livro na home → crawl HTML |
+| `editora_ufsc` | WordPress (sem sitemap) | 17 links de livro na home → crawl HTML |
+| `edipucrs` | ? | origem fora do ar no diagnose (Cloudflare 522) — re-testar |
+| `editora_unb` | WordPress | `wp-sitemap.xml` 200 |
+
 #### Grupo principal — status
 
 | slug | método | observações |

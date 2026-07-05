@@ -33,21 +33,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
-      # TEMPORÁRIO (branch claude/lombada-catalog-coverage-q3mm3w): diagnose das
-      # editoras novas dos grupos expansao/universitaria. Os workflows novos só
-      # ficam dispatcháveis quando chegarem na main, e o grupo sync-publishers
-      # está ocupado — este workflow já é registrado e tem grupo livre. Será
-      # revertido pro list_catalog.py antes do merge.
       - name: List catalog
         run: |
-          python scripts/sync_publishers.py | tee lista.txt
+          python scripts/list_catalog.py | tee lista.txt
           {
-            echo '### Diagnose editoras novas (expansao + universitaria)'
+            echo '### Catálogo na base'
             echo ''
             echo '```'
             cat lista.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
         env:
-          PUBLISHER_DIAGNOSE: 'true'
-          PUBLISHER_SLUGS: 'rocco,arqueiro,aleph,darkside,boitempo,ubu,antofagica,carambaia,altabooks,lpm,edusp,editora_unesp,editora_unicamp,editora_ufmg,edufba,editora_ufsc,edipucrs,editora_unb'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LIST_SLUGS: ${{ inputs.slugs || '' }}
+          LIST_LIMIT: ${{ inputs.limit || '500' }}
+          LIST_ONLY_ISBN: ${{ inputs.only_isbn || 'false' }}
