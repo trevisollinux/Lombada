@@ -308,6 +308,13 @@ def _merge_doc_busca_final(vitrine: dict, extra: dict) -> dict:
     if not vitrine.get("edicao_isbn") and extra.get("edicao_isbn"):
         vitrine["edicao_isbn"] = extra["edicao_isbn"]
     vitrine["tem_pt"] = vitrine.get("tem_pt") or extra.get("tem_pt")
+    # metadados de origem e sinais sociais vêm do catálogo local — não podem
+    # se perder quando o doc externo vence a vitrine no merge
+    for campo in ("autor_pais", "autor_nacionalidade", "literatura_pais", "literatura_regiao",
+                  "leituras_count", "criticas_publicas", "lendo_agora_count", "nota_media",
+                  "_literatura_match"):
+        if vitrine.get(campo) in (None, "", 0, False) and extra.get(campo) not in (None, "", 0, False):
+            vitrine[campo] = extra[campo]
     return vitrine
 
 

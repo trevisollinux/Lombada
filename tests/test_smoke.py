@@ -143,6 +143,109 @@ class SmokeTest(unittest.TestCase):
             self.assertEqual(moved_entry.leitura_id, moved_leitura.id)
             self.assertEqual(moved_leitura.usuario_id, google.id)
 
+    def test_literaturas_endpoint_lista_canonica(self):
+        r = self.client.get("/api/literaturas")
+        self.assertEqual(r.status_code, 200)
+        slugs = {item["slug"] for item in r.json()}
+        self.assertIn("brasileira", slugs)
+        self.assertIn("latino-americana", slugs)
+
+    def _semear_obras_filtros(self):
+        """Três obras do mesmo autor-alvo: uma com origem Brasil (capa, ISBN,
+        pt, leitura pública), uma com origem Rússia e uma sem metadado."""
+        with main.Session(main.engine) as s:
+            ja_existe = s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "filtros-br")).first()
+            if ja_existe:
+                return
+            obra_br = main.Obra(ol_work_key="filtros-br", titulo="Mar de Ipanema", autor="Autorfiltro Silva",
+                                literatura_pais="Brasil", literatura_regiao="América Latina", autor_pais="Brasil")
+            obra_ru = main.Obra(ol_work_key="filtros-ru", titulo="Neve de Moscou", autor="Autorfiltro Ivanov",
+                                literatura_pais="Rússia")
+            obra_sem = main.Obra(ol_work_key="filtros-sem", titulo="Caminho Perdido", autor="Autorfiltro Souza")
+            for obra in (obra_br, obra_ru, obra_sem):
+                s.add(obra)
+            s.commit()
+            for obra in (obra_br, obra_ru, obra_sem):
+                s.refresh(obra)
+            ed_br = main.Edicao(obra_id=obra_br.id, editora="Editora Filtros", isbn="9788512345678",
+                                idioma="pt", capa_url="https://exemplo.com/capa.jpg", ano=2021)
+            ed_ru = main.Edicao(obra_id=obra_ru.id, editora="Editora Filtros")
+            ed_sem = main.Edicao(obra_id=obra_sem.id, editora="Editora Filtros")
+            for ed in (ed_br, ed_ru, ed_sem):
+                s.add(ed)
+            s.commit()
+            s.refresh(ed_br)
+            leitor = main.Usuario(handle="leitor-filtros", nome="Leitor Filtros")
+            s.add(leitor)
+            s.commit()
+            s.refresh(leitor)
+            s.add(main.Leitura(edicao_id=ed_br.id, usuario_id=leitor.id, status="Lido",
+                               nota=4.5, relato="Crítica pública dos filtros", publico=True))
+            s.add(main.Leitura(edicao_id=ed_br.id, usuario_id=leitor.id, status="Lendo"))
+            s.commit()
+
+    def test_buscar_filtro_literatura_prioriza_sem_esconder_obras_sem_metadado(self):
+        self._semear_obras_filtros()
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "literatura": "brasileira"})
+        self.assertEqual(r.status_code, 200)
+        docs = r.json()
+        titulos = [d["titulo"] for d in docs]
+        self.assertIn("Mar de Ipanema", titulos)
+        self.assertNotIn("Neve de Moscou", titulos)          # origem incompatível catalogada sai
+        self.assertIn("Caminho Perdido", titulos)            # sem metadado não some da busca
+        self.assertEqual(titulos[0], "Mar de Ipanema")       # match confirmado vem primeiro
+        doc_br = next(d for d in docs if d["titulo"] == "Mar de Ipanema")
+        self.assertEqual(doc_br["literatura_pais"], "Brasil")
+        self.assertEqual(doc_br["literatura_regiao"], "América Latina")
+        self.assertTrue(doc_br.get("_literatura_match"))
+
+    def test_buscar_filtro_regiao_latino_americana(self):
+        self._semear_obras_filtros()
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "literatura": "latino-americana"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertIn("Mar de Ipanema", titulos)
+        self.assertNotIn("Neve de Moscou", titulos)
+
+    def test_buscar_filtros_sociais_e_de_qualidade(self):
+        self._semear_obras_filtros()
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "com_capa": "true", "com_isbn": "true"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertEqual(titulos, ["Mar de Ipanema"])
+
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "com_criticas": "true"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertEqual(titulos, ["Mar de Ipanema"])
+        doc = r.json()[0]
+        self.assertEqual(doc["criticas_publicas"], 1)
+        self.assertEqual(doc["lendo_agora_count"], 1)
+        self.assertEqual(doc["nota_media"], 4.5)
+
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "lendo_agora": "true"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([d["titulo"] for d in r.json()], ["Mar de Ipanema"])
+
+        # idioma=pt mantém docs sem dado de idioma (filtro só age quando o dado existe)
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "idioma": "pt"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertIn("Mar de Ipanema", titulos)
+        self.assertIn("Caminho Perdido", titulos)
+
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro", "ordenar": "popular"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()[0]["titulo"], "Mar de Ipanema")
+
+    def test_buscar_sem_filtros_continua_igual(self):
+        self._semear_obras_filtros()
+        r = self.client.get("/api/buscar", params={"q": "autorfiltro"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        for titulo in ("Mar de Ipanema", "Neve de Moscou", "Caminho Perdido"):
+            self.assertIn(titulo, titulos)
+
     def test_version_endpoint(self):
         r = self.client.get("/api/version")
         self.assertEqual(r.status_code, 200)

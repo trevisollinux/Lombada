@@ -21,8 +21,30 @@ const SUGESTOES = [
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
-let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', filtroGeneroBusca='', editorasBuscaCarregadas=false;
+let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', filtroGeneroBusca='', filtroLiteraturaBusca='', editorasBuscaCarregadas=false;
 const GENEROS_BUSCA=['romance','conto','poesia','teatro','ensaio','biografia','autobiografia','história','filosofia','crítica literária','fantasia','ficção científica','terror','policial','infantil','juvenil','crônica','quadrinhos'];
+/* lista canônica inicial de literaturas/origens (espelha /api/literaturas) */
+const LITERATURAS_BUSCA=[
+  {slug:'brasileira',label:'brasileira'},{slug:'russa',label:'russa'},{slug:'francesa',label:'francesa'},
+  {slug:'argentina',label:'argentina'},{slug:'japonesa',label:'japonesa'},{slug:'inglesa',label:'inglesa'},
+  {slug:'norte-americana',label:'norte-americana'},{slug:'alema',label:'alemã'},{slug:'italiana',label:'italiana'},
+  {slug:'portuguesa',label:'portuguesa'},{slug:'espanhola',label:'espanhola'},{slug:'latino-americana',label:'latino-americana'},
+];
+const ORDENACOES_BUSCA=[
+  {valor:'',chave:'order_relevance'},{valor:'popular',chave:'order_popular'},
+  {valor:'avaliacao',chave:'order_rating'},{valor:'recentes',chave:'order_recent'},
+];
+const FILTROS_SOCIAIS_DEF=[
+  {chave:'com_capa',grupo:'catalogo',chaveLabel:'filter_with_cover'},
+  {chave:'com_isbn',grupo:'catalogo',chaveLabel:'filter_with_isbn'},
+  {chave:'idioma_pt',grupo:'catalogo',chaveLabel:'filter_in_portuguese'},
+  {chave:'com_criticas',grupo:'comunidade',chaveLabel:'filter_with_reviews'},
+  {chave:'lendo_agora',grupo:'comunidade',chaveLabel:'filter_reading_now'},
+];
+let filtrosSociaisBusca={com_capa:false,com_isbn:false,idioma_pt:false,com_criticas:false,lendo_agora:false};
+let ordenacaoBusca='';
+let filtroEditoraTermo='';
+let filtrosBuscaDirty=false;
 let cardCoverIndex=0, cardCoverAutoLowRes=false, cardCoverUserChanged=false;
 const CARD_THEME_KEY='lombada_card_theme';
 let cardTheme=localStorage.getItem(CARD_THEME_KEY)||'auto', cardIncludeExcerpt=false, cardContext={type:'leitura',source:null};
@@ -101,8 +123,7 @@ function setupGlobalKeyboard(){
   if(document.__lombadaKeyboard) return;
   document.__lombadaKeyboard=true;
   document.addEventListener('keydown', event => {
-    if(event.key==='Escape' && $('#publisherSheet') && !$('#publisherSheet').hidden){ event.preventDefault(); fecharFiltroEditora(); return; }
-    if(event.key==='Escape' && $('#genreSheet') && !$('#genreSheet').hidden){ event.preventDefault(); fecharFiltroGenero(); return; }
+    if(event.key==='Escape' && $('#filterSheet') && !$('#filterSheet').hidden){ event.preventDefault(); fecharFiltrosBusca(); return; }
     if(event.key==='Escape' && $('#quickActions') && !$('#quickActions').hidden){ event.preventDefault(); fecharAcoesLeitura(); return; }
     if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
@@ -592,7 +613,7 @@ function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
    (padrão de rede social). Usado só pelos botões da barra inferior. */
 function tabTap(aba){
   if(aba===navAtual.aba && !modalAberto() && !leitorModalAberto() && !atividadeModalAberta()){
-    if(aba==='buscar' && navAtual.busca!=='home'){ $('#q').value=''; limparFiltroEditoraBusca(false); limparBusca(); mostrarBusca('home'); return; }
+    if(aba==='buscar' && navAtual.busca!=='home'){ $('#q').value=''; limparTodosFiltrosBusca(false); limparBusca(); mostrarBusca('home'); return; }
     if(aba==='estante' && (navAtual.estanteSub||'shelf')!=='shelf'){ irPara('estante',{subaba:'shelf'}); return; }
     window.scrollTo({top:0,behavior:'smooth'});
     return;
@@ -611,7 +632,7 @@ function irPara(aba,opcoes={}){
   $('#tabFeed')?.classList.toggle('active',aba==='feed');
   $('#tabEstante').classList.toggle('active',aba==='estante');
   $('#tabPerfil').classList.toggle('active',aba==='perfil');
-  if(aba==='buscar' && resetBusca){ $('#q').value=''; limparFiltroEditoraBusca(false); limparBusca(); mostrarBusca('home',{registrar:false}); }
+  if(aba==='buscar' && resetBusca){ $('#q').value=''; limparTodosFiltrosBusca(false); limparBusca(); mostrarBusca('home',{registrar:false}); }
   const recarregarEstante=opcoes.recarregar ?? true;
   if(aba==='feed') carregarFeed();
   if(aba==='estante'){
@@ -652,7 +673,7 @@ function aplicarHistorico(estado){
     // já temos esses resultados renderizados em #resultados (só ficaram
     // escondidos ao navegar pra edições/form) — refazer a busca aqui
     // significa skeleton + fetch de novo por nada
-    const jaTemResultadoCacheado=normBusca(proximo.q)===normBusca(ultimaBuscaQ) && (!filtroEditoraBusca || $('#resultados').dataset.editora===filtroEditoraBusca) && $('#resultados').innerHTML.trim();
+    const jaTemResultadoCacheado=normBusca(proximo.q)===normBusca(ultimaBuscaQ) && $('#resultados').dataset.filtros===assinaturaFiltrosBusca() && $('#resultados').innerHTML.trim();
     if(proximo.busca==='resultados' && proximo.q && !jaTemResultadoCacheado) buscar();
   }
   navAtual={aba:proximo.aba,busca:proximo.busca||'home',estanteSub:proximo.estanteSub||'shelf'};
@@ -762,27 +783,50 @@ async function carregarEditorasBusca(){
 function opcoesEditorasBusca(){
   return editorasBusca.filter((e,i,a)=>a.findIndex(x=>normBusca(x)===normBusca(e))===i);
 }
-function renderFiltroEditoraBusca(){
+/* ── filtros da busca: um único bottom sheet editorial (sem select nativo) ── */
+function literaturaLabelBusca(slug){
+  const lit=LITERATURAS_BUSCA.find(l=>l.slug===slug);
+  return lit?lit.label:slug;
+}
+function ordenacaoLabelBusca(valor){
+  const ord=ORDENACOES_BUSCA.find(o=>o.valor===valor);
+  return t(ord?ord.chave:'order_relevance');
+}
+function filtrosBuscaAtivos(){
+  const ativos=[];
+  if(filtroEditoraBusca) ativos.push({label:t('publisher_filter_active',{publisher:filtroEditoraBusca}),aria:t('clear_publisher_filter'),onclear:'limparFiltroEditoraBusca(true)'});
+  if(filtroGeneroBusca) ativos.push({label:t('genre_filter_active',{genre:filtroGeneroBusca}),aria:t('clear_genre_filter'),onclear:'limparFiltroGeneroBusca(true)'});
+  if(filtroLiteraturaBusca) ativos.push({label:t('literature_filter_active',{literature:literaturaLabelBusca(filtroLiteraturaBusca)}),aria:t('clear_literature_filter'),onclear:'limparFiltroLiteraturaBusca(true)'});
+  FILTROS_SOCIAIS_DEF.forEach(def=>{
+    if(filtrosSociaisBusca[def.chave]) ativos.push({label:t(def.chaveLabel),aria:t('clear_filter_generic',{filter:t(def.chaveLabel)}),onclear:`limparFiltroSocialBusca('${def.chave}',true)`});
+  });
+  if(ordenacaoBusca) ativos.push({label:t('order_filter_active',{order:ordenacaoLabelBusca(ordenacaoBusca)}),aria:t('clear_order_filter'),onclear:'limparOrdenacaoBusca(true)'});
+  return ativos;
+}
+function assinaturaFiltrosBusca(){
+  return JSON.stringify([filtroEditoraBusca,filtroGeneroBusca,filtroLiteraturaBusca,ordenacaoBusca,filtrosSociaisBusca]);
+}
+function renderFiltrosBusca(){
+  const ativos=filtrosBuscaAtivos();
   const active=$('#activeSearchFilters');
   if(active){
-    const chips=[];
-    if(filtroEditoraBusca) chips.push(`<span class="search-filter-chip">${esc(t('publisher_filter_active',{publisher:filtroEditoraBusca}))}<button type="button" aria-label="${esc(t('clear_publisher_filter'))}" onclick="limparFiltroEditoraBusca(true)">×</button></span>`);
-    if(filtroGeneroBusca) chips.push(`<span class="search-filter-chip">${esc(t('genre_filter_active',{genre:filtroGeneroBusca}))}<button type="button" aria-label="${esc(t('clear_genre_filter'))}" onclick="limparFiltroGeneroBusca(true)">×</button></span>`);
+    const chips=ativos.map(a=>`<span class="search-filter-chip">${esc(a.label)}<button type="button" aria-label="${esc(a.aria)}" onclick="${a.onclear}">×</button></span>`);
+    if(ativos.length>1) chips.push(`<button type="button" class="search-filter-clear-all" onclick="limparTodosFiltrosBusca(true)">${esc(t('clear_all_filters'))}</button>`);
     active.innerHTML=chips.join('');
   }
-  const toggle=$('#searchPublisherButton');
+  const toggle=$('#searchFiltersButton');
   if(toggle){
-    toggle.classList.toggle('has-active-filter', !!filtroEditoraBusca);
-    toggle.setAttribute('aria-expanded', $('#publisherSheet') && !$('#publisherSheet').hidden ? 'true' : 'false');
+    toggle.classList.toggle('has-active-filter', ativos.length>0);
+    toggle.setAttribute('aria-expanded', $('#filterSheet') && !$('#filterSheet').hidden ? 'true' : 'false');
   }
-  const genreToggle=$('#searchGenreButton');
-  if(genreToggle){
-    genreToggle.classList.toggle('has-active-filter', !!filtroGeneroBusca);
-    genreToggle.setAttribute('aria-expanded', $('#genreSheet') && !$('#genreSheet').hidden ? 'true' : 'false');
-  }
-  const options=$('#publisherSheetOptions');
+  if($('#filterSheet') && !$('#filterSheet').hidden) renderFilterSheetBody();
+}
+/* compat: chamadas antigas continuam funcionando */
+function renderFiltroEditoraBusca(){ renderFiltrosBusca(); }
+function renderFiltroEditoraOpcoes(){
+  const options=$('#filterPublisherOptions');
   if(!options) return;
-  const termo=normBusca($('#publisherSheetSearch')?.value||'');
+  const termo=normBusca(filtroEditoraTermo);
   const lista=opcoesEditorasBusca().filter(nome=>!termo || normBusca(nome).includes(termo));
   const item=(nome)=>{
     const selecionada=normBusca(nome)===normBusca(filtroEditoraBusca);
@@ -791,75 +835,136 @@ function renderFiltroEditoraBusca(){
   };
   options.innerHTML=item('') + lista.map(item).join('') + (!lista.length?`<p class="publisher-options-empty">${esc(t('publisher_filter_empty'))}</p>`:'');
 }
-async function toggleFiltroEditora(){
-  await abrirFiltroEditora();
+function renderFilterSheetBody(){
+  const body=$('#filterSheetBody');
+  if(!body) return;
+  const radioChip=(selecionado,onclick,label)=>`<button type="button" class="filter-chip-option${selecionado?' selected':''}" role="radio" aria-checked="${selecionado?'true':'false'}" ${onclick}>${esc(label)}</button>`;
+  const generoChips=[radioChip(!filtroGeneroBusca,`onclick="selecionarFiltroGenero('')"`,t('all_genres'))]
+    .concat(GENEROS_BUSCA.map(nome=>radioChip(nome===filtroGeneroBusca,`data-genre="${esc(nome)}" onclick="selecionarFiltroGenero(this.dataset.genre)"`,nome)));
+  const litChips=[radioChip(!filtroLiteraturaBusca,`onclick="selecionarFiltroLiteratura('')"`,t('all_literatures'))]
+    .concat(LITERATURAS_BUSCA.map(l=>radioChip(l.slug===filtroLiteraturaBusca,`onclick="selecionarFiltroLiteratura('${l.slug}')"`,l.label)));
+  const socialChips=grupo=>FILTROS_SOCIAIS_DEF.filter(d=>d.grupo===grupo)
+    .map(d=>`<button type="button" class="filter-chip-option${filtrosSociaisBusca[d.chave]?' selected':''}" role="switch" aria-checked="${filtrosSociaisBusca[d.chave]?'true':'false'}" onclick="toggleFiltroSocialBusca('${d.chave}')">${esc(t(d.chaveLabel))}</button>`).join('');
+  const ordemChips=ORDENACOES_BUSCA.map(o=>radioChip(o.valor===ordenacaoBusca,`onclick="selecionarOrdenacaoBusca('${o.valor}')"`,t(o.chave))).join('');
+  body.innerHTML=`
+    <div class="filter-group">
+      <div class="label">${esc(t('filter_group_publisher'))}</div>
+      <label class="publisher-sheet-search">
+        <span>${esc(t('search_publisher'))}</span>
+        <input id="filterPublisherSearch" type="search" autocomplete="off" placeholder="${esc(t('search_publisher'))}" value="${esc(filtroEditoraTermo)}" oninput="filtroEditoraTermo=this.value;renderFiltroEditoraOpcoes()" />
+      </label>
+      <div id="filterPublisherOptions" class="publisher-sheet-options filter-publisher-options" role="radiogroup" aria-label="${esc(t('filter_by_publisher'))}"></div>
+    </div>
+    <div class="filter-group">
+      <div class="label">${esc(t('filter_group_genre'))}</div>
+      <div class="filter-chip-row" role="radiogroup" aria-label="${esc(t('filter_by_genre'))}">${generoChips.join('')}</div>
+    </div>
+    <div class="filter-group">
+      <div class="label">${esc(t('filter_group_literature'))}</div>
+      <div class="filter-chip-row" role="radiogroup" aria-label="${esc(t('filter_group_literature'))}">${litChips.join('')}</div>
+    </div>
+    <div class="filter-group">
+      <div class="label">${esc(t('filter_group_more'))}</div>
+      <div class="filter-subgroup"><span class="filter-subgroup-title">${esc(t('filter_group_catalog'))}</span><div class="filter-chip-row">${socialChips('catalogo')}</div></div>
+      <div class="filter-subgroup"><span class="filter-subgroup-title">${esc(t('filter_group_community'))}</span><div class="filter-chip-row">${socialChips('comunidade')}</div></div>
+      <div class="filter-subgroup"><span class="filter-subgroup-title">${esc(t('filter_group_order'))}</span><div class="filter-chip-row" role="radiogroup" aria-label="${esc(t('filter_group_order'))}">${ordemChips}</div></div>
+    </div>`;
+  renderFiltroEditoraOpcoes();
+  const clear=$('#filterSheetClear');
+  if(clear) clear.hidden=!filtrosBuscaAtivos().length;
 }
-async function abrirFiltroEditora(){
-  const sheet=$('#publisherSheet');
+async function toggleFiltrosBusca(){
+  const sheet=$('#filterSheet');
   if(!sheet) return;
+  if(sheet.hidden) await abrirFiltrosBusca();
+  else fecharFiltrosBusca();
+}
+async function abrirFiltrosBusca(){
+  const sheet=$('#filterSheet');
+  if(!sheet) return;
+  filtrosBuscaDirty=false;
   sheet.hidden=false;
   document.body.classList.add('sheet-open');
+  renderFilterSheetBody();
+  renderFiltrosBusca();
   await carregarEditorasBusca();
-  renderFiltroEditoraBusca();
-  setTimeout(()=>$('#publisherSheetSearch')?.focus(),30);
+  renderFiltroEditoraOpcoes();
 }
-function fecharFiltroEditora(){
-  const sheet=$('#publisherSheet');
+function fecharFiltrosBusca(){
+  const sheet=$('#filterSheet');
   if(sheet) sheet.hidden=true;
   document.body.classList.remove('sheet-open');
-  renderFiltroEditoraBusca();
-  $('#searchPublisherButton')?.focus();
+  renderFiltrosBusca();
+  $('#searchFiltersButton')?.focus();
+  if(filtrosBuscaDirty){ filtrosBuscaDirty=false; refazerBuscaComFiltros(); }
+}
+function refazerBuscaComFiltros(){
+  if(($('#q')?.value.trim()||'').length>=2) buscar();
+}
+function aplicarMudancaFiltro(){
+  filtrosBuscaDirty=true;
+  renderFilterSheetBody();
+  renderFiltrosBusca();
 }
 function selecionarFiltroEditora(nome){
-  const anterior=filtroEditoraBusca;
   filtroEditoraBusca=(nome||'').trim();
-  fecharFiltroEditora();
-  if(anterior!==filtroEditoraBusca && ($('#q')?.value.trim()||'').length>=2) buscar();
+  aplicarMudancaFiltro();
+}
+function selecionarFiltroGenero(nome){
+  filtroGeneroBusca=(nome||'').trim();
+  aplicarMudancaFiltro();
+}
+function selecionarFiltroLiteratura(slug){
+  filtroLiteraturaBusca=(slug||'').trim();
+  aplicarMudancaFiltro();
+}
+function toggleFiltroSocialBusca(chave){
+  if(!(chave in filtrosSociaisBusca)) return;
+  filtrosSociaisBusca[chave]=!filtrosSociaisBusca[chave];
+  aplicarMudancaFiltro();
+}
+function selecionarOrdenacaoBusca(valor){
+  ordenacaoBusca=ORDENACOES_BUSCA.some(o=>o.valor===valor)?valor:'';
+  aplicarMudancaFiltro();
 }
 function limparFiltroEditoraBusca(refazer=false){
   const tinha=!!filtroEditoraBusca;
   filtroEditoraBusca='';
-  renderFiltroEditoraBusca();
-  if(refazer && tinha && ($('#q')?.value.trim()||'').length>=2) buscar();
-}
-
-function renderFiltroGeneroBusca(){
-  renderFiltroEditoraBusca();
-  const options=$('#genreSheetOptions');
-  if(!options) return;
-  const item=(nome)=>{
-    const selecionado=(nome||'')===filtroGeneroBusca;
-    const label=nome || t('all_genres');
-    return `<button type="button" class="publisher-option genre-option${selecionado?' selected':''}" role="radio" aria-checked="${selecionado?'true':'false'}" data-genre="${esc(nome)}" onclick="selecionarFiltroGenero(this.dataset.genre)"><span class="publisher-option-mark" aria-hidden="true"></span><span>${esc(label)}</span></button>`;
-  };
-  options.innerHTML=item('') + GENEROS_BUSCA.map(item).join('');
-}
-function toggleFiltroGenero(){ abrirFiltroGenero(); }
-function abrirFiltroGenero(){
-  const sheet=$('#genreSheet');
-  if(!sheet) return;
-  sheet.hidden=false;
-  document.body.classList.add('sheet-open');
-  renderFiltroGeneroBusca();
-}
-function fecharFiltroGenero(){
-  const sheet=$('#genreSheet');
-  if(sheet) sheet.hidden=true;
-  document.body.classList.remove('sheet-open');
-  renderFiltroGeneroBusca();
-  $('#searchGenreButton')?.focus();
-}
-function selecionarFiltroGenero(nome){
-  const anterior=filtroGeneroBusca;
-  filtroGeneroBusca=(nome||'').trim();
-  fecharFiltroGenero();
-  if(anterior!==filtroGeneroBusca && ($('#q')?.value.trim()||'').length>=2) buscar();
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
 }
 function limparFiltroGeneroBusca(refazer=false){
   const tinha=!!filtroGeneroBusca;
   filtroGeneroBusca='';
-  renderFiltroGeneroBusca();
-  if(refazer && tinha && ($('#q')?.value.trim()||'').length>=2) buscar();
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
+}
+function limparFiltroLiteraturaBusca(refazer=false){
+  const tinha=!!filtroLiteraturaBusca;
+  filtroLiteraturaBusca='';
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
+}
+function limparFiltroSocialBusca(chave,refazer=false){
+  const tinha=!!filtrosSociaisBusca[chave];
+  filtrosSociaisBusca[chave]=false;
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
+}
+function limparOrdenacaoBusca(refazer=false){
+  const tinha=!!ordenacaoBusca;
+  ordenacaoBusca='';
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
+}
+function limparTodosFiltrosBusca(refazer=true){
+  const tinha=filtrosBuscaAtivos().length>0;
+  filtroEditoraBusca=''; filtroGeneroBusca=''; filtroLiteraturaBusca='';
+  ordenacaoBusca='';
+  Object.keys(filtrosSociaisBusca).forEach(k=>filtrosSociaisBusca[k]=false);
+  if($('#filterSheet') && !$('#filterSheet').hidden){ filtrosBuscaDirty=filtrosBuscaDirty||tinha; renderFilterSheetBody(); }
+  renderFiltrosBusca();
+  if(refazer && tinha) refazerBuscaComFiltros();
 }
 
 /* editoras na home — caminhos curtos para explorar o catálogo editorial */
@@ -1472,7 +1577,7 @@ function contagemEdicoesResultadoBusca(item, fallback=0){
   if(Array.isArray(edicoes) && edicoes.length) return edicoes.length;
   return fallback;
 }
-function agruparResultadosPorObra(docs,q){
+function agruparResultadosPorObra(docs,q,opcoes={}){
   const grupos=[]; const porChave=new Map();
   (docs||[]).forEach((doc,idx)=>{
     const chave=chaveAgrupamentoObra(doc,idx);
@@ -1490,6 +1595,7 @@ function agruparResultadosPorObra(docs,q){
       g.score_obra=s; g.titulo=doc.titulo||g.titulo; g.autor=doc.autor||g.autor; g.ano=doc.ano||g.ano; g.capa_url=doc.capa_url||g.capa_url; g.tem_pt=doc.tem_pt||g.tem_pt; g.work_key=doc.work_key||g.work_key; g.idioma_original=doc.idioma_original||g.idioma_original;
     }
   });
+  if(opcoes.manterOrdem) return grupos;   // ordem do servidor (ordenar=/literatura=)
   return grupos.sort((a,b)=>(b.score_obra-a.score_obra)||(b.edicoes_encontradas-a.edicoes_encontradas));
 }
 
@@ -1534,6 +1640,13 @@ async function buscar(event){
     const params=new URLSearchParams({q});
     if(filtroEditoraBusca) params.set('editora', filtroEditoraBusca);
     if(filtroGeneroBusca) params.set('genero', filtroGeneroBusca);
+    if(filtroLiteraturaBusca) params.set('literatura', filtroLiteraturaBusca);
+    if(ordenacaoBusca) params.set('ordenar', ordenacaoBusca);
+    if(filtrosSociaisBusca.com_capa) params.set('com_capa','true');
+    if(filtrosSociaisBusca.com_isbn) params.set('com_isbn','true');
+    if(filtrosSociaisBusca.com_criticas) params.set('com_criticas','true');
+    if(filtrosSociaisBusca.lendo_agora) params.set('lendo_agora','true');
+    if(filtrosSociaisBusca.idioma_pt) params.set('idioma','pt');
     const res=await fetch('/api/buscar?'+params.toString());
     if(!res.ok) throw new Error(`search http ${res.status}`);
     try{ docs=await res.json(); }catch(err){ throw new Error('search invalid json'); }
@@ -1547,16 +1660,22 @@ async function buscar(event){
   ultimaBuscaQ=q;
   $('#resultados').dataset.editora=filtroEditoraBusca||'';
   $('#resultados').dataset.genero=filtroGeneroBusca||'';
-  resultadosArr=ordenarResultadosBusca(docs||[], q);
-  obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q);
+  $('#resultados').dataset.filtros=assinaturaFiltrosBusca();
+  // com ordenação/literatura ativa o servidor já decidiu a ordem — não re-ranquear no cliente
+  const manterOrdemServidor=!!(ordenacaoBusca||filtroLiteraturaBusca);
+  resultadosArr=manterOrdemServidor?(docs||[]):ordenarResultadosBusca(docs||[], q);
+  obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q, {manterOrdem:manterOrdemServidor});
   if(!obrasAgrupadas.length){
-    const msg=filtroGeneroBusca ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_in_genre',{genre:filtroGeneroBusca})}</p><button class="link-manual" type="button" onclick="limparFiltroGeneroBusca(true)">${t('clear_genre_filter')}</button></div>` : (filtroEditoraBusca ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_in_publisher',{publisher:filtroEditoraBusca})}</p><button class="link-manual" type="button" onclick="limparFiltroEditoraBusca(true)">${t('clear_publisher_filter')}</button></div>` : '');
+    const temFiltro=filtrosBuscaAtivos().length>0;
+    const msg=temFiltro ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_with_filters')}</p><button class="link-manual" type="button" onclick="limparTodosFiltrosBusca(true)">${t('clear_filters')}</button></div>` : '';
     $('#resultados').innerHTML=msg ? msg+manualCtaHTML(false) : manualCtaHTML(true);
     return;
   }
   const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div><div class="wall">`+
+  const avisoLiteratura=(filtroLiteraturaBusca && !resultadosArr.some(d=>d._literatura_match))
+    ? `<div class="empty literatura-fallback-note">${t('literature_no_metadata_note',{literature:esc(literaturaLabelBusca(filtroLiteraturaBusca))})}</div>` : '';
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div>`+avisoLiteratura+`<div class="wall">`+
     obrasAgrupadas.map((d,i)=>`<div class="book work-card" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">
       ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
       <div class="t">${esc(d.titulo)}</div>

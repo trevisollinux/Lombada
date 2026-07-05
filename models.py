@@ -52,6 +52,12 @@ class Obra(SQLModel, table=True):
     ano:             Optional[int] = None
     descricao:       str           = ""
     generos_json:     str           = ""
+    # Metadados opcionais de origem (nacionalidade é ambígua: só preencher com
+    # dado confiável; busca e filtros funcionam mesmo com tudo vazio).
+    autor_pais:          str = ""
+    autor_nacionalidade: str = ""
+    literatura_pais:     str = ""
+    literatura_regiao:   str = ""
 
 
 class Edicao(SQLModel, table=True):
@@ -283,6 +289,10 @@ def migrar():
 
     _add_column_if_missing("obra", "descricao", "ALTER TABLE obra ADD COLUMN descricao VARCHAR DEFAULT ''")
     _add_column_if_missing("obra", "generos_json", "ALTER TABLE obra ADD COLUMN generos_json TEXT DEFAULT '[]'")
+    _add_column_if_missing("obra", "autor_pais", "ALTER TABLE obra ADD COLUMN autor_pais VARCHAR DEFAULT ''")
+    _add_column_if_missing("obra", "autor_nacionalidade", "ALTER TABLE obra ADD COLUMN autor_nacionalidade VARCHAR DEFAULT ''")
+    _add_column_if_missing("obra", "literatura_pais", "ALTER TABLE obra ADD COLUMN literatura_pais VARCHAR DEFAULT ''")
+    _add_column_if_missing("obra", "literatura_regiao", "ALTER TABLE obra ADD COLUMN literatura_regiao VARCHAR DEFAULT ''")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
     _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
     _add_column_if_missing("edicaocapitulo", "pagina_inicio", "ALTER TABLE edicaocapitulo ADD COLUMN pagina_inicio INTEGER")

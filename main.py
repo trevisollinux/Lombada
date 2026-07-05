@@ -452,6 +452,79 @@ def _doc_compativel_genero(doc: dict, genero: str) -> bool:
         return genero in generos
     return True
 
+# ─── literatura / nacionalidade ───────────────────────────
+# Base extensível: cada literatura aponta pra um país e/ou região. O metadado
+# na Obra é opcional — obra sem origem catalogada nunca é escondida da busca
+# (nacionalidade de autor é ambígua; não inventamos dado).
+LITERATURAS_CANONICAS = [
+    {"slug": "brasileira",       "label": "brasileira",       "pais": "Brasil",         "regiao": "América Latina"},
+    {"slug": "russa",            "label": "russa",            "pais": "Rússia",         "regiao": ""},
+    {"slug": "francesa",         "label": "francesa",         "pais": "França",         "regiao": ""},
+    {"slug": "argentina",        "label": "argentina",        "pais": "Argentina",      "regiao": "América Latina"},
+    {"slug": "japonesa",         "label": "japonesa",         "pais": "Japão",          "regiao": ""},
+    {"slug": "inglesa",          "label": "inglesa",          "pais": "Reino Unido",    "regiao": ""},
+    {"slug": "norte-americana",  "label": "norte-americana",  "pais": "Estados Unidos", "regiao": ""},
+    {"slug": "alema",            "label": "alemã",            "pais": "Alemanha",       "regiao": ""},
+    {"slug": "italiana",         "label": "italiana",         "pais": "Itália",         "regiao": ""},
+    {"slug": "portuguesa",       "label": "portuguesa",       "pais": "Portugal",       "regiao": ""},
+    {"slug": "espanhola",        "label": "espanhola",        "pais": "Espanha",        "regiao": ""},
+    {"slug": "latino-americana", "label": "latino-americana", "pais": "",               "regiao": "América Latina"},
+]
+_LITERATURA_ALIASES = {
+    "inglaterra": "inglesa", "reino unido": "inglesa", "uk": "inglesa",
+    "estados unidos": "norte-americana", "eua": "norte-americana", "americana": "norte-americana", "estadunidense": "norte-americana",
+    "america latina": "latino-americana", "latinoamericana": "latino-americana",
+    "alemanha": "alema", "alema": "alema",
+}
+
+def normalizar_literatura(valor: str | None) -> dict | None:
+    norm = _normalizar_busca(valor).replace("_", "-")
+    if not norm:
+        return None
+    norm = _LITERATURA_ALIASES.get(norm, norm)
+    for lit in LITERATURAS_CANONICAS:
+        chaves = {_normalizar_busca(lit["slug"]), _normalizar_busca(lit["label"]), _normalizar_busca(lit["pais"])} - {""}
+        if norm in chaves or norm.replace("-", " ") in chaves:
+            return lit
+    return None
+
+def _literatura_paises(lit: dict) -> set[str]:
+    if lit.get("pais"):
+        return {_normalizar_busca(lit["pais"])}
+    return {_normalizar_busca(l["pais"]) for l in LITERATURAS_CANONICAS if l["pais"] and l["regiao"] == lit["regiao"]}
+
+def _compat_literatura(lit: dict, pais: str, regiao: str, autor_pais: str = "") -> bool | None:
+    """True/False quando a obra tem metadado de origem; None quando não tem
+    (obra sem o dado não pode ser julgada — quem decide o que fazer é quem filtra)."""
+    pais_n, regiao_n, autor_n = _normalizar_busca(pais), _normalizar_busca(regiao), _normalizar_busca(autor_pais)
+    if not (pais_n or regiao_n or autor_n):
+        return None
+    paises = _literatura_paises(lit)
+    regiao_alvo = _normalizar_busca(lit.get("regiao") or "")
+    if pais_n and pais_n in paises:
+        return True
+    if autor_n and autor_n in paises:
+        return True
+    if regiao_alvo and regiao_n == regiao_alvo:
+        return True
+    return False
+
+def _doc_compativel_literatura(doc: dict, lit: dict | None) -> bool:
+    """Filtro tolerante: exclui só quem tem metadado incompatível. Doc sem o
+    dado (todo resultado externo hoje) continua na resposta — o front avisa."""
+    if not lit:
+        return True
+    compat = _compat_literatura(
+        lit,
+        doc.get("literatura_pais") or "",
+        doc.get("literatura_regiao") or "",
+        doc.get("autor_pais") or "",
+    )
+    if compat is None:
+        return True
+    doc["_literatura_match"] = compat
+    return compat
+
 _AUTORES_DOSTOIEVSKI = {
     "dostoievski", "dostoevsky", "dostoyevsky", "dostoiévski", "dostoievsky",
     "fiodor dostoievski", "fiodor dostoevsky", "fiodor dostoyevsky",
@@ -568,7 +641,7 @@ def _score_local(obra: Obra, ed: Edicao, q_norm: str, isbn: str, editora_norm: s
     return score + min(leituras_count, 50), match
 
 
-def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = "") -> list[dict]:
+def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = "", literatura: dict | None = None) -> list[dict]:
     q_norm = _normalizar_busca(q)
     editora_norm = _normalizar_busca(editora)
     isbn = normalizar_isbn(q or "")
@@ -578,11 +651,22 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
 
     rows = s.exec(select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id).limit(5000)).all()
     ed_ids = [ed.id for _, ed in rows if ed.id is not None]
-    leituras = dict(s.exec(
-        select(Leitura.edicao_id, func.count())
-        .where(Leitura.edicao_id.in_(ed_ids))
-        .group_by(Leitura.edicao_id)
-    ).all()) if ed_ids else {}
+    social_por_edicao: dict[int, dict] = {}
+    if ed_ids:
+        leituras_rows = s.exec(
+            select(Leitura.edicao_id, Leitura.status, Leitura.nota, Leitura.publico, Leitura.relato)
+            .where(Leitura.edicao_id.in_(ed_ids))
+        ).all()
+        for ed_id, status, nota, publico, relato in leituras_rows:
+            stats = social_por_edicao.setdefault(ed_id, {"leituras": 0, "criticas": 0, "lendo": 0, "notas": []})
+            stats["leituras"] += 1
+            if publico and (relato or "").strip():
+                stats["criticas"] += 1
+            if status == "Lendo":
+                stats["lendo"] += 1
+            if nota is not None:
+                stats["notas"].append(float(nota))
+    leituras = {ed_id: stats["leituras"] for ed_id, stats in social_por_edicao.items()}
 
     por_obra: dict[str, dict] = {}
     for obra, ed in rows:
@@ -595,13 +679,28 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
             continue
         if genero and genero not in generos_obra(obra):
             continue
+        lit_compat = None
+        if literatura:
+            lit_compat = _compat_literatura(
+                literatura,
+                getattr(obra, "literatura_pais", "") or "",
+                getattr(obra, "literatura_regiao", "") or "",
+                getattr(obra, "autor_pais", "") or "",
+            )
+            # obra com origem catalogada incompatível sai; sem metadado fica
+            # (o catálogo ainda tem pouca origem preenchida — não sumir com tudo)
+            if lit_compat is False:
+                continue
+            if lit_compat:
+                score += 40
         if score <= 0:
             continue
         chave = _chave_canonica_obra_busca(obra)
-        bucket = por_obra.setdefault(chave, {"obras": {}, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}})
+        bucket = por_obra.setdefault(chave, {"obras": {}, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}, "literatura_match": False})
         bucket["obras"][obra.id] = obra
         bucket["items"].append((score, leituras_count, obra, ed, match))
         bucket["score"] = max(bucket["score"], score)
+        bucket["literatura_match"] = bucket["literatura_match"] or bool(lit_compat)
         for key, value in match.items():
             bucket["match"][key] = bucket["match"][key] or value
 
@@ -660,7 +759,16 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
 
         edicoes = edicoes_docs[:5]
         ed_doc = _edicao_doc(obra, ed, best_leituras)
-        docs.append({
+        social = {"leituras": 0, "criticas": 0, "lendo": 0, "notas": []}
+        for ed_id in {item_ed.id for _s, _l, _o, item_ed, _m in items if item_ed.id is not None}:
+            stats = social_por_edicao.get(ed_id)
+            if not stats:
+                continue
+            social["leituras"] += stats["leituras"]
+            social["criticas"] += stats["criticas"]
+            social["lendo"] += stats["lendo"]
+            social["notas"].extend(stats["notas"])
+        doc = {
             "work_key": obra_principal.ol_work_key, "titulo": obra_principal.titulo, "autor": obra_principal.autor,
             "descricao": getattr(obra_principal, "descricao", "") or "",
             "generos": generos_obra(obra_principal),
@@ -668,8 +776,20 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
             "capa_url": ed.capa_url, "isbn_match": best_match["isbn"], "edicao_isbn": ed_doc, "edicoes": edicoes,
             "edicoes_encontradas": len(edicoes_docs),
             "chave_obra": chave_obra_canonica(obra_principal.titulo, obra_principal.autor),
+            "leituras_count": social["leituras"],
+            "criticas_publicas": social["criticas"],
+            "lendo_agora_count": social["lendo"],
+            "nota_media": round(sum(social["notas"]) / len(social["notas"]), 2) if social["notas"] else None,
             "_fonte": "local", "_ranking_score": bucket["score"], "_match": bucket["match"],
-        })
+        }
+        # metadados de origem só entram no payload quando existem de verdade
+        for campo in ("autor_pais", "autor_nacionalidade", "literatura_pais", "literatura_regiao"):
+            valor = (getattr(obra_principal, campo, "") or "").strip()
+            if valor:
+                doc[campo] = valor
+        if literatura:
+            doc["_literatura_match"] = bucket["literatura_match"]
+        docs.append(doc)
     return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:10]
 
 
@@ -1128,16 +1248,95 @@ def _doc_tem_editora(doc: dict, editora_norm: str) -> bool:
     return any(editora_norm in _normalizar_busca(c) for c in candidatos if c)
 
 
+def _edicoes_todas_doc(doc: dict) -> list[dict]:
+    eds = [doc.get("edicao_isbn")] if doc.get("edicao_isbn") else []
+    eds.extend(doc.get("edicoes") or [])
+    return [e for e in eds if isinstance(e, dict)]
+
+
+def _doc_tem_capa(doc: dict) -> bool:
+    return bool(doc.get("capa_url") or any(e.get("capa_url") for e in _edicoes_todas_doc(doc)))
+
+
+def _doc_tem_isbn(doc: dict) -> bool:
+    return bool(any(e.get("isbn") for e in _edicoes_todas_doc(doc)))
+
+
+def _doc_em_portugues(doc: dict) -> bool | None:
+    """True/False quando há dado de idioma; None quando o doc não traz idioma
+    nenhum (filtro só se aplica quando o dado existe)."""
+    if doc.get("tem_pt"):
+        return True
+    idiomas = [doc.get("idioma_original")] + [e.get("idioma") for e in _edicoes_todas_doc(doc)]
+    idiomas = [i for i in idiomas if i]
+    if not idiomas:
+        return None
+    return any(_idioma_portugues(i) for i in idiomas)
+
+
+def _doc_ano_recente(doc: dict) -> int:
+    anos = [doc.get("ano")] + [e.get("ano") for e in _edicoes_todas_doc(doc)]
+    anos = [int(a) for a in anos if isinstance(a, (int, float)) and a]
+    return max(anos) if anos else 0
+
+
+ORDENACOES_BUSCA = {"popular", "avaliacao", "recentes"}
+
+
+def _aplicar_filtros_extras(docs: list[dict], *, com_criticas: bool, lendo_agora: bool,
+                            com_capa: bool, com_isbn: bool, idioma_pt: bool) -> list[dict]:
+    """Filtros sociais/de qualidade. Dados sociais só existem nos docs locais;
+    resultados externos passam nesses filtros (aplicar só quando o dado existir)."""
+    saida = []
+    for doc in docs:
+        if com_capa and not _doc_tem_capa(doc):
+            continue
+        if com_isbn and not _doc_tem_isbn(doc):
+            continue
+        if idioma_pt and _doc_em_portugues(doc) is False:
+            continue
+        if com_criticas and "criticas_publicas" in doc and not doc["criticas_publicas"]:
+            continue
+        if lendo_agora and "lendo_agora_count" in doc and not doc["lendo_agora_count"]:
+            continue
+        saida.append(doc)
+    return saida
+
+
+def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: bool) -> list[dict]:
+    # sorts estáveis: a ordenação escolhida decide, quality_score desempata
+    if ordenar == "popular":
+        docs.sort(key=lambda d: (d.get("leituras_count") or 0), reverse=True)
+    elif ordenar == "avaliacao":
+        docs.sort(key=lambda d: (d.get("nota_media") is not None, d.get("nota_media") or 0), reverse=True)
+    elif ordenar == "recentes":
+        docs.sort(key=lambda d: _doc_ano_recente(d), reverse=True)
+    if literatura_ativa:
+        # prioriza obras com origem compatível confirmada, sem excluir as demais
+        docs.sort(key=lambda d: 0 if d.get("_literatura_match") else 1)
+    return docs
+
+
 @app.get("/api/buscar")
-def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: str = Query(""), s: Session = Depends(get_session)):
+def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: str = Query(""),
+           literatura: str = Query(""), ordenar: str = Query(""),
+           com_criticas: bool = Query(False), lendo_agora: bool = Query(False),
+           com_capa: bool = Query(False), com_isbn: bool = Query(False),
+           idioma: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
     logger.info("search_started", extra={"query_len": len(q)})
     editora_norm = _normalizar_busca(editora)
     genero_canonico = normalizar_genero(genero)
-    locais = _buscar_catalogo_local(q, s, editora=editora, genero=genero_canonico)
+    lit = normalizar_literatura(literatura)
+    ordenar = ordenar if ordenar in ORDENACOES_BUSCA else ""
+    idioma_pt = _idioma_portugues(idioma)
+    locais = _buscar_catalogo_local(q, s, editora=editora, genero=genero_canonico, literatura=lit)
     def _resposta_final(externos: list[dict]) -> list[dict]:
-        externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm) and (not genero_canonico or _doc_compativel_genero(d, genero_canonico))]
-        return consolidar_resultados_busca_final(q, locais + externos_filtrados)
+        externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm) and (not genero_canonico or _doc_compativel_genero(d, genero_canonico)) and _doc_compativel_literatura(d, lit)]
+        docs = consolidar_resultados_busca_final(q, locais + externos_filtrados)
+        docs = _aplicar_filtros_extras(docs, com_criticas=com_criticas, lendo_agora=lendo_agora,
+                                       com_capa=com_capa, com_isbn=com_isbn, idioma_pt=bool(idioma_pt))
+        return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit))
 
     isbn = normalizar_isbn(q)
     if isbn:
@@ -1190,6 +1389,12 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
 @app.get("/api/editoras")
 def api_listar_editoras(s: Session = Depends(get_session)):
     return listar_editoras(s)
+
+
+@app.get("/api/literaturas")
+def api_listar_literaturas():
+    """Lista canônica de literaturas/origens disponíveis pro filtro da busca."""
+    return LITERATURAS_CANONICAS
 
 
 @app.get("/api/edicoes")
