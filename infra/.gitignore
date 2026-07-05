@@ -1,0 +1,9 @@
+# Segredos e estado — nunca versionar
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
+crash.*.log
+generated.tf

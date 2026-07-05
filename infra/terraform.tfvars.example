@@ -1,0 +1,17 @@
+# Copie para terraform.tfvars (gitignored) e preencha. Em CI, não use este
+# arquivo — os valores entram como TF_VAR_* a partir de GitHub Actions secrets.
+
+render_api_key  = "rnd_xxxxxxxxxxxxxxxxxxxx"
+render_owner_id = "tea-xxxxxxxxxxxxxxxxxxxx"
+
+# Segredos da aplicação (os mesmos já configurados no Render)
+database_url         = "postgresql://user:pass@host/db"
+secret_key           = "troque-isto"
+google_client_id     = ""
+google_client_secret = ""
+google_books_api_key = ""
+hardcover_api_key    = ""
+penguin_api_key      = ""
+me_token             = ""
+recon_token          = ""
+admin_emails         = ""
