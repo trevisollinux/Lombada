@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Lombada" />
 <link rel="apple-touch-icon" href="/static/icons/icon.svg" />
-<link rel="stylesheet" href="/static/app.css?v=20260707d" />
+<link rel="stylesheet" href="/static/app.css?v=20260708a" />
 </head>
 <body class="theme-dark" data-theme="dark">
 <div id="coldStartNotice" class="cold-start-notice" hidden role="status">
@@ -50,8 +50,7 @@
       <button type="submit" aria-label="Buscar livros" data-i18n-aria-label="search_books" data-i18n="search_button">buscar</button>
     </form>
     <div class="search-filters" id="searchFilters">
-      <button type="button" class="search-filter-toggle" id="searchPublisherButton" onclick="toggleFiltroEditora()" aria-haspopup="dialog" aria-expanded="false" data-i18n="search_filters">filtros</button>
-      <button type="button" class="search-filter-toggle" id="searchGenreButton" onclick="toggleFiltroGenero()" aria-haspopup="dialog" aria-expanded="false" data-i18n="style_filter">estilo</button>
+      <button type="button" class="search-filter-toggle" id="searchFiltersButton" onclick="toggleFiltrosBusca()" aria-haspopup="dialog" aria-expanded="false" data-i18n="search_filters">filtros</button>
       <div id="activeSearchFilters" class="active-search-filters" aria-live="polite"></div>
     </div>
 
@@ -145,35 +144,21 @@
   </section>
 </div>
 
-<div class="publisher-sheet-backdrop" id="publisherSheet" hidden onclick="if(event.target===this)fecharFiltroEditora()">
-  <section class="publisher-sheet" role="dialog" aria-modal="true" aria-labelledby="publisherSheetTitle">
+<div class="publisher-sheet-backdrop" id="filterSheet" hidden onclick="if(event.target===this)fecharFiltrosBusca()">
+  <section class="publisher-sheet filter-sheet" role="dialog" aria-modal="true" aria-labelledby="filterSheetTitle">
     <div class="publisher-sheet-handle" aria-hidden="true"></div>
     <div class="publisher-sheet-head">
       <div>
-        <div class="label" id="publisherSheetTitle" data-i18n="filter_by_publisher">Filtrar por editora</div>
-        <p data-i18n="publisher_filter_hint">Escolha uma editora para refinar a busca.</p>
+        <div class="label" id="filterSheetTitle" data-i18n="search_filters_title">Filtros da busca</div>
+        <p data-i18n="search_filters_hint">Combine editora, estilo e origem para refinar a busca.</p>
       </div>
-      <button class="publisher-sheet-close" type="button" onclick="fecharFiltroEditora()" aria-label="fechar filtro de editora" data-i18n-aria-label="close_publisher_filter">×</button>
+      <button class="publisher-sheet-close" type="button" onclick="fecharFiltrosBusca()" aria-label="fechar filtros da busca" data-i18n-aria-label="close_search_filters">×</button>
     </div>
-    <label class="publisher-sheet-search">
-      <span data-i18n="search_publisher">buscar editora</span>
-      <input id="publisherSheetSearch" type="search" autocomplete="off" placeholder="buscar editora" data-i18n-placeholder="search_publisher" oninput="renderFiltroEditoraBusca()" />
-    </label>
-    <div id="publisherSheetOptions" class="publisher-sheet-options" role="radiogroup" aria-label="Filtrar por editora" data-i18n-aria-label="filter_by_publisher"></div>
-  </section>
-</div>
-
-<div class="publisher-sheet-backdrop" id="genreSheet" hidden onclick="if(event.target===this)fecharFiltroGenero()">
-  <section class="publisher-sheet" role="dialog" aria-modal="true" aria-labelledby="genreSheetTitle">
-    <div class="publisher-sheet-handle" aria-hidden="true"></div>
-    <div class="publisher-sheet-head">
-      <div>
-        <div class="label" id="genreSheetTitle" data-i18n="filter_by_genre">Filtrar por estilo</div>
-        <p data-i18n="genre_filter_hint">Escolha um estilo literário para refinar a busca.</p>
-      </div>
-      <button class="publisher-sheet-close" type="button" onclick="fecharFiltroGenero()" aria-label="fechar filtro de estilo" data-i18n-aria-label="close_genre_filter">×</button>
+    <div id="filterSheetBody" class="filter-sheet-body"></div>
+    <div class="filter-sheet-foot">
+      <button type="button" class="filter-clear-all" id="filterSheetClear" onclick="limparTodosFiltrosBusca(false)" hidden data-i18n="clear_all_filters">limpar tudo</button>
+      <button type="button" class="filter-apply" onclick="fecharFiltrosBusca()" data-i18n="see_results">ver resultados</button>
     </div>
-    <div id="genreSheetOptions" class="publisher-sheet-options genre-sheet-options" role="radiogroup" aria-label="Filtrar por estilo" data-i18n-aria-label="filter_by_genre"></div>
   </section>
 </div>
 
@@ -210,8 +195,8 @@
   </div>
 </div>
 
-<script src="/static/i18n.js?v=20260707d"></script>
-<script src="/static/app.js?v=20260707d"></script>
+<script src="/static/i18n.js?v=20260708a"></script>
+<script src="/static/app.js?v=20260708a"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
