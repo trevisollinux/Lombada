@@ -99,5 +99,74 @@ class DividirTituloAutorCiaDasLetrasTest(unittest.TestCase):
         self.assertEqual(sp.dividir_titulo_autor_cia_das_letras(titulo), (titulo, ""))
 
 
+class CategoriaValorTest(unittest.TestCase):
+    """A home da Cia das Letras usa Latin-1 nos hrefs (%E7=ç, %F3=ó) -- diferente
+    do UTF-8 que o corpo do POST espera (ver diagnosticar_paginacao_categoria).
+    URL real capturada num run de diagnóstico."""
+
+    def test_decodes_latin1_query_param(self):
+        url = "https://www.companhiadasletras.com.br/Busca?categoria=Administra%E7%E3o%2C+Neg%F3cios+e+Economia"
+        self.assertEqual(sp._categoria_valor(url), "Administração, Negócios e Economia")
+
+    def test_missing_categoria_param_yields_empty(self):
+        self.assertEqual(sp._categoria_valor("https://www.companhiadasletras.com.br/Busca"), "")
+
+
+class NormalizaTituloCaixaAltaTest(unittest.TestCase):
+    def test_all_caps_becomes_sentence_case(self):
+        self.assertEqual(
+            sp._normaliza_titulo_caixa_alta("AS 12 COMPETÊNCIAS DA INTELIGÊNCIA EMOCIONAL"),
+            "As 12 competências da inteligência emocional",
+        )
+
+    def test_already_mixed_case_is_untouched(self):
+        titulo = "Seja ousado"
+        self.assertEqual(sp._normaliza_titulo_caixa_alta(titulo), titulo)
+
+    def test_empty_title_is_untouched(self):
+        self.assertEqual(sp._normaliza_titulo_caixa_alta(""), "")
+
+
+class MontaRegistroCategoriaJsonTest(unittest.TestCase):
+    """livro vem estruturado da API JSON por trás do grid de categoria (ver
+    collect_via_categoria_json) -- amostra real capturada no diagnóstico."""
+
+    publisher = {"slug": "cia_das_letras", "name": "Companhia das Letras", "base_url": "https://www.companhiadasletras.com.br"}
+
+    def test_builds_record_from_real_sample(self):
+        livro = {
+            "titulo": "AS 12 COMPETÊNCIAS DA INTELIGÊNCIA EMOCIONAL",
+            "selo": "Objetiva",
+            "preco": "R$ 89,90",
+            "capa": "https://cdl-static.s3-sa-east-1.amazonaws.com/covers/160/9788539009794/capa.jpg",
+            "link": "/livro/9788539009794/as-12-competencias-da-inteligencia-emocional",
+            "autores": [{"nome": "Daniel Goleman", "link": "/colaborador/04392/daniel-goleman"}],
+        }
+        record = sp._monta_registro_categoria_json(livro, self.publisher, "Administração, Negócios e Economia")
+        self.assertIsNotNone(record)
+        normalized, _raw = record
+        self.assertEqual(normalized["title"], "As 12 competências da inteligência emocional")
+        self.assertEqual(normalized["author"], "Daniel Goleman")
+        self.assertEqual(normalized["isbn"], "9788539009794")
+        self.assertEqual(
+            normalized["permalink"],
+            "https://www.companhiadasletras.com.br/livro/9788539009794/as-12-competencias-da-inteligencia-emocional",
+        )
+        self.assertEqual(normalized["thumbnail"], livro["capa"])
+
+    def test_joins_multiple_authors(self):
+        livro = {
+            "titulo": "Livro a Quatro Mãos",
+            "link": "/livro/9780000000001/livro-a-quatro-maos",
+            "autores": [{"nome": "Autor Um"}, {"nome": "Autor Dois"}],
+        }
+        record = sp._monta_registro_categoria_json(livro, self.publisher, "Ficção")
+        normalized, _raw = record
+        self.assertEqual(normalized["author"], "Autor Um, Autor Dois")
+
+    def test_missing_link_yields_none(self):
+        self.assertIsNone(sp._monta_registro_categoria_json({"titulo": "Sem link"}, self.publisher, "Ficção"))
+
+
 if __name__ == "__main__":
     unittest.main()

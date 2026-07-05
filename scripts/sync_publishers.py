@@ -32,8 +32,9 @@ import time
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections import deque
+from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import psycopg2
 from psycopg2.extras import Json
@@ -96,16 +97,17 @@ SESSION.headers.update(HEADERS)
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 SOURCES = [
     {
-        # Plataforma custom (agência "Communiplex", não é uma API): a home lista
-        # /livro/{ISBN}/{slug} e o ISBN vem da URL. O crawl de HTML sozinho empaca
-        # (~255 livros) porque a página de RESULTADO de categoria (/Busca?categoria=)
-        # renderiza o grid via JS/Angular — ver collect_via_categoria_playwright.
-        # Tenta sitemap (não existe hoje) -> categoria via browser headless -> crawl
-        # HTML como fallback se o Playwright falhar por qualquer motivo.
+        # Plataforma custom (agência "Communiplex", não é uma API pública): a home
+        # lista /livro/{ISBN}/{slug} e o ISBN vem da URL. O grid de cada página de
+        # categoria (/Busca?categoria=...) é montado via JS/Angular, mas por trás
+        # dele tem uma API JSON (POST action=buscar&categoria=...&pg=N) que devolve
+        # os livros da página já estruturados — ver collect_via_categoria_json e
+        # diagnosticar_paginacao_categoria. Tenta sitemap (não existe hoje) ->
+        # categoria via JSON -> crawl HTML como fallback.
         "slug": "cia_das_letras",
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
-        "platforms": ["sitemap", "categoria_js", "html"],
+        "platforms": ["sitemap", "categoria_json", "html"],
     },
     {
         "slug": "editora_34",
@@ -1282,7 +1284,83 @@ def diagnosticar_paginacao_categoria(url: str) -> None:
         browser.close()
 
 
-def collect_via_categoria_playwright(
+def _categoria_valor(url: str) -> str:
+    """Decodifica o parâmetro 'categoria' da URL da página de listagem.
+
+    A home usa Latin-1 nos hrefs (ex.: %E7=ç, %F3=ó), diferente do UTF-8 que
+    o corpo do POST espera (ver diagnosticar_paginacao_categoria) — por isso
+    o decode explícito aqui em vez de deixar o default (utf-8) do parse_qs.
+    """
+    valores = parse_qs(urlparse(url).query, encoding="latin-1")
+    return (valores.get("categoria") or [""])[0]
+
+
+def _buscar_pagina_categoria_json(url: str, categoria: str, pg: int) -> dict[str, Any] | None:
+    """POST que alimenta o grid da página de categoria — descoberto via
+    diagnosticar_paginacao_categoria: a própria página faz `action=buscar` +
+    `categoria` + `pg=N` de volta pra si mesma e recebe os livros já
+    estruturados (título, autor(es), ISBN via link, selo) em JSON."""
+    try:
+        response = SESSION.post(
+            url,
+            data={
+                "action": "buscar",
+                "categoria": categoria,
+                "pg": pg,
+                "anoMin": 1900,
+                "anoMax": datetime.now().year + 1,
+                "idadeMax": 18,
+                "ordem": "cronologica",
+            },
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        print(f"Aviso: falha ao buscar {url} pg={pg}: {exc}", file=sys.stderr)
+        return None
+    if response.status_code >= 400:
+        return None
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+def _normaliza_titulo_caixa_alta(title: str) -> str:
+    """A API JSON devolve 'titulo' em CAIXA ALTA; a página de livro (fonte
+    anterior, via extract_page) vinha em minúsculas com só a inicial maiúscula
+    (ver amostras em DividirTituloAutorCiaDasLetrasTest) -- normaliza aqui pra
+    não regredir a formatação já exibida no catálogo."""
+    if title and title == title.upper() and title != title.lower():
+        return title.capitalize()
+    return title
+
+
+def _monta_registro_categoria_json(
+    livro: dict[str, Any], publisher: dict[str, str], categoria: str
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    base_url = publisher["base_url"].rstrip("/")
+    link = str(livro.get("link") or "").strip()
+    if not link:
+        return None
+    url = urljoin(base_url + "/", link.lstrip("/"))
+    autores = livro.get("autores") or []
+    autor = ", ".join(
+        str(a.get("nome") or "").strip() for a in autores if isinstance(a, dict) and a.get("nome")
+    )
+    titulo = _normaliza_titulo_caixa_alta(str(livro.get("titulo") or "").strip())
+    return build_record(
+        publisher,
+        url,
+        title=clean_title(titulo, publisher["name"]),
+        author=autor,
+        isbn=isbn_from_url(url),
+        thumbnail=str(livro.get("capa") or "").strip(),
+        structured=True,
+        raw_extra={"platform": "categoria_json", "categoria": categoria, "selo": livro.get("selo")},
+    )
+
+
+def collect_via_categoria_json(
     publisher: dict[str, str],
     max_urls: int,
     sleep_seconds: float,
@@ -1291,80 +1369,81 @@ def collect_via_categoria_playwright(
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """Isolado pra cia_das_letras (não usado por nenhuma outra editora).
 
-    O menu "COMPRE POR CATEGORIAS" da home é HTML estático e leva a páginas
-    /Busca?categoria=...&subcategoria=..., mas o GRID DE RESULTADO dessas
-    páginas é montado via JS/Angular (confirmado: HTML bruto tinha um
-    placeholder tipo "{{ extras.anoMin }}" não renderizado — ver README).
-    requests+BeautifulSoup só baixa a casca vazia. Aqui usamos Chromium
-    headless (Playwright) SÓ pra essas páginas de listagem; as páginas de
-    livro em si (extract_page, dentro de _collect_from_urls) continuam via
-    requests normal — são estáticas, não precisam de browser.
+    Substitui a versão anterior baseada em Playwright: em vez de renderizar
+    o grid via Chromium e depois baixar o HTML de cada livro individualmente
+    (extract_page, com ~35% de falha por página), aqui vamos direto na API
+    JSON que alimenta o grid (ver diagnosticar_paginacao_categoria) — cada
+    página de categoria já devolve os livros da página, com título,
+    autor(es) e link (de onde tiramos o ISBN), sem precisar de browser nem
+    de uma segunda requisição por livro.
     """
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        print("  [categoria-js] playwright não instalado — pulando este método.", file=sys.stderr)
-        return []
-
-    base_url = publisher["base_url"].rstrip("/")
     categoria_urls = _categoria_urls_da_home(publisher)
     if not categoria_urls:
-        print(f"  [categoria-js] nenhuma página de categoria encontrada na home de {publisher['slug']}.")
+        print(f"  [categoria-json] nenhuma página de categoria encontrada na home de {publisher['slug']}.")
         return []
-    print(f"  [categoria-js] {len(categoria_urls)} páginas de categoria na home")
+    print(f"  [categoria-json] {len(categoria_urls)} categorias na home")
 
     seen = seen or set()
     needed = (offset or 0) + max_urls
     target = max(max_urls * 5, needed * 2)
-    max_pages = min(len(categoria_urls), max(40, target // 4))
 
-    book_urls: list[str] = []
+    candidatos: list[tuple[str, dict[str, Any], str]] = []  # (external_id, livro, categoria)
     book_set: set[str] = set()
     new_found = 0
 
-    def absorb(html_text: str) -> None:
-        nonlocal new_found
-        books, _ = harvest_links(html_text, base_url)
-        for url in books:
-            if url not in book_set:
-                book_set.add(url)
-                book_urls.append(url)
-                if offset is None and stable_external_id(url) not in seen:
-                    new_found += 1
-
     def enough() -> bool:
-        return len(book_urls) >= target if offset is not None else new_found >= needed
+        return len(candidatos) >= target if offset is not None else new_found >= needed
 
-    visited_pages = 0
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(user_agent=HEADERS["User-Agent"])
-        for url in categoria_urls:
-            if visited_pages >= max_pages or enough():
+    paginas_consultadas = 0
+    for url in categoria_urls:
+        if enough():
+            break
+        categoria = _categoria_valor(url)
+        pg = 1
+        total_pages = 1
+        while pg <= total_pages and not enough():
+            data = _buscar_pagina_categoria_json(url, categoria, pg)
+            paginas_consultadas += 1
+            if not isinstance(data, dict):
                 break
-            visited_pages += 1
-            try:
-                page.goto(url, timeout=20000, wait_until="domcontentloaded")
-                page.wait_for_selector("a[href*='/livro/']", timeout=8000)
-            except Exception as exc:  # noqa: BLE001 — timeout numa categoria não derruba o resto
-                print(f"  [categoria-js] aviso: {url}: {exc!r}", file=sys.stderr)
-                continue
-            absorb(page.content())
+            total_pages = int(data.get("totalPages") or 1)
+            for livro in data.get("livros") or []:
+                link = str(livro.get("link") or "").strip()
+                if not link or link in book_set:
+                    continue
+                book_set.add(link)
+                external_id = stable_external_id(urljoin(publisher["base_url"].rstrip("/") + "/", link.lstrip("/")))
+                candidatos.append((external_id, livro, categoria))
+                if offset is None and external_id not in seen:
+                    new_found += 1
+            pg += 1
             if sleep_seconds:
                 time.sleep(sleep_seconds)
-        browser.close()
 
     extra = "" if offset is not None else f" novos~{new_found}"
     print(
-        f"  [categoria-js] urls_livro={len(book_urls)}{extra} "
-        f"(visitou {visited_pages}/{len(categoria_urls)} páginas de categoria)"
+        f"  [categoria-json] livros_descobertos={len(candidatos)}{extra} "
+        f"(páginas de categoria consultadas: {paginas_consultadas})"
     )
-    reset_fetch_diagnostics()
-    records = _collect_from_urls(book_urls, publisher, max_urls, sleep_seconds, seen, offset)
-    if FETCH_FAILURE_COUNTS:
-        print(f"  [categoria-js] motivos de falha na extração de página de livro: {FETCH_FAILURE_COUNTS}")
-        for reason, urls in FETCH_FAILURE_SAMPLES.items():
-            print(f"  [categoria-js] exemplos de {reason}: {urls}")
+
+    if offset is not None:
+        janela = candidatos[offset : offset + max_urls]
+    else:
+        janela = []
+        local_seen: set[str] = set()
+        for external_id, livro, categoria in candidatos:
+            if len(janela) >= max_urls:
+                break
+            if external_id in seen or external_id in local_seen:
+                continue
+            local_seen.add(external_id)
+            janela.append((external_id, livro, categoria))
+
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for _external_id, livro, categoria in janela:
+        record = _monta_registro_categoria_json(livro, publisher, categoria)
+        if record:
+            records.append(record)
     return records
 
 
@@ -1374,7 +1453,7 @@ PLATFORM_COLLECTORS = {
     "id_range": collect_via_id_range,
     "sitemap": collect_via_sitemap,
     "html": collect_via_html_crawl,
-    "categoria_js": collect_via_categoria_playwright,
+    "categoria_json": collect_via_categoria_json,
 }
 AUTO_ORDER = ["shopify", "vtex", "id_range", "sitemap", "html"]
 
