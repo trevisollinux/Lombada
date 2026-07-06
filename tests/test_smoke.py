@@ -49,6 +49,49 @@ class SmokeTest(unittest.TestCase):
         self.assertNotIn("apoiar ☕", r.text)
         self.assertNotIn("instalar no Android", r.text)
 
+    def test_quem_somos_page_loads(self):
+        r = self.client.get("/quem-somos")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("projeto independente", r.text)
+
+    def test_privacidade_page_loads(self):
+        r = self.client.get("/privacidade")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Política de Privacidade", r.text)
+
+    def test_manifest_tem_icones_png(self):
+        r = self.client.get("/manifest.json")
+        self.assertEqual(r.status_code, 200)
+        tipos = {i["type"] for i in r.json()["icons"]}
+        self.assertIn("image/png", tipos)  # Play Store exige PNG
+
+    def test_assetlinks_vazio_por_padrao(self):
+        r = self.client.get("/.well-known/assetlinks.json")
+        self.assertEqual(r.status_code, 200)
+        # sem ANDROID_PACKAGE_NAME/CERT configurados, lista vazia mas JSON válido
+        self.assertEqual(r.json(), [])
+
+    def test_blog_index_loads(self):
+        r = self.client.get("/blog")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Notas do Lombada", r.text)
+
+    def test_blog_post_renders_markdown(self):
+        import blog as blog_mod
+        posts = blog_mod.listar_posts()
+        self.assertTrue(posts, "deve haver ao menos um post de exemplo")
+        r = self.client.get(f"/blog/{posts[0]['slug']}")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("<h2", r.text)  # markdown convertido pra HTML
+
+    def test_blog_post_not_found(self):
+        r = self.client.get("/blog/post-que-nao-existe-xyz")
+        self.assertEqual(r.status_code, 404)
+
+    def test_blog_post_slug_traversal_blocked(self):
+        r = self.client.get("/blog/..%2fmain")
+        self.assertEqual(r.status_code, 404)
+
     def test_search_validates_query(self):
         r = self.client.get("/api/buscar", params={"q": "x"})
         self.assertEqual(r.status_code, 422)
@@ -258,6 +301,11 @@ class SmokeTest(unittest.TestCase):
     def test_version_endpoint(self):
         r = self.client.get("/api/version")
         self.assertEqual(r.status_code, 200)
+
+    def test_config_endpoint_expone_amazon_tag(self):
+        r = self.client.get("/api/config")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("amazon_tag", r.json())  # vazio por padrão (sem env var)
 
     def test_eu_endpoint_anonymous(self):
         r = self.client.get("/api/eu")

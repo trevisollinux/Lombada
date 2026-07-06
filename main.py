@@ -35,7 +35,9 @@ from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canoni
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
-from landing import render_landing
+from landing import (render_landing, render_quem_somos, render_blog_index,
+                     render_blog_post, render_privacidade)
+import blog as blog_mod
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
@@ -45,6 +47,18 @@ RECON_TOKEN = os.getenv("RECON_TOKEN", "")
 APOIO_URL = os.getenv("APOIO_URL", "").strip()          # ex.: https://apoia.se/lombada
 PLAY_STORE_URL = os.getenv("PLAY_STORE_URL", "").strip()  # preencher quando publicar na Play
 INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "").strip()
+BLOG_URL = os.getenv("BLOG_URL", "").strip()             # link "blog" no menu (some se vazio)
+# Amazon Associados: tag de afiliado (ex.: "lombada-20"). Vazio → botão de
+# compra some. O link usa a busca por ISBN (mais robusto que /dp/{asin}).
+AMAZON_ASSOC_TAG = os.getenv("AMAZON_ASSOC_TAG", "").strip()
+# Contato exibido na política de privacidade (/privacidade).
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
+# TWA (app Android via Trusted Web Activity): Digital Asset Links em
+# /.well-known/assetlinks.json. Preencher com o package do app e a(s) impressão(ões)
+# SHA-256 do certificado de assinatura (Play App Signing informa) — várias
+# separadas por vírgula. Vazio → assetlinks devolve lista vazia (não verifica ainda).
+ANDROID_PACKAGE_NAME = os.getenv("ANDROID_PACKAGE_NAME", "").strip()
+ANDROID_CERT_SHA256 = os.getenv("ANDROID_CERT_SHA256", "").strip()
 logger = logging.getLogger(__name__)
 
 
@@ -266,6 +280,13 @@ def readyz():
 @app.get("/api/version")
 def api_version():
     return {"version": APP_VERSION, "app": "Lombada"}
+
+
+@app.get("/api/config")
+def api_config():
+    # config pública consumida pelo frontend. Campos vazios → recurso desligado
+    # (ex.: sem tag da Amazon, o botão "Comprar" não é renderizado).
+    return {"amazon_tag": AMAZON_ASSOC_TAG}
 
 
 # ─── proxy de capa (anti-SSRF) ────────────────────────────
@@ -2977,7 +2998,54 @@ def sobre():
         play_store_url=PLAY_STORE_URL,
         apoio_url=APOIO_URL,
         instagram_url=INSTAGRAM_URL,
+        blog_url=BLOG_URL,
     ))
+
+
+@app.get("/quem-somos")
+def quem_somos():
+    return HTMLResponse(render_quem_somos(app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/blog")
+def blog_index():
+    return HTMLResponse(render_blog_index(blog_mod.listar_posts(), app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/blog/{slug}")
+def blog_post(slug: str):
+    post = blog_mod.carregar_post(slug)
+    if not post:
+        return HTMLResponse(_pagina("post não encontrado · Lombada",
+                                    '<p class="empty">Esse post não existe (ou saiu do ar). '
+                                    '<a href="/blog">Ver todos os posts</a>.</p>'), status_code=404)
+    return HTMLResponse(render_blog_post(post, app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/privacidade")
+def privacidade():
+    return HTMLResponse(render_privacidade(app_url="/", instagram_url=INSTAGRAM_URL,
+                                           contact_email=CONTACT_EMAIL))
+
+
+@app.get("/.well-known/assetlinks.json")
+def assetlinks():
+    # Digital Asset Links: verifica o domínio pra a TWA (app Android) abrir sem
+    # a barra de navegador. Enquanto package/fingerprint não estiverem
+    # configurados, devolve lista vazia (arquivo válido, ainda sem verificar).
+    fingerprints = [f.strip() for f in ANDROID_CERT_SHA256.split(",") if f.strip()]
+    if ANDROID_PACKAGE_NAME and fingerprints:
+        statements = [{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": ANDROID_PACKAGE_NAME,
+                "sha256_cert_fingerprints": fingerprints,
+            },
+        }]
+    else:
+        statements = []
+    return JSONResponse(statements, media_type="application/json")
 
 
 @app.get("/")

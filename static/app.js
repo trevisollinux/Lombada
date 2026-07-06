@@ -20,6 +20,7 @@ const SUGESTOES = [
 ];
 
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
+let appConfig={};
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
 let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', filtroGeneroBusca='', filtroLiteraturaBusca='', editorasBuscaCarregadas=false;
 const GENEROS_BUSCA=['romance','conto','poesia','teatro','ensaio','biografia','autobiografia','história','filosofia','crítica literária','fantasia','ficção científica','terror','policial','infantil','juvenil','crônica','quadrinhos'];
@@ -2103,7 +2104,7 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button></div></li>`;
+      <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<div class="edition-actions"><button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button>${botaoAmazon(e.isbn)}</div></div></li>`;
   }).join('');
   $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
@@ -2141,6 +2142,7 @@ function escolherEdicao(j,event){
         ${autor?`<p class="selected-edition-author">${esc(autor)}</p>`:''}
         ${metaHTML?`<div class="selected-edition-meta">${metaHTML}</div>`:`<p class="selected-edition-meta muted">${t('catalog_data_missing')}</p>`}
         ${escolha?.descricao?`<p class="selected-edition-desc">${esc(escolha.descricao)}</p>`:''}
+        ${botaoAmazon(edicaoSel.isbn)}
       </div>
     </div>`;
   clearButtonBusy(trigger);
@@ -3946,6 +3948,29 @@ async function carregarVersaoApp(){
   }catch(e){ appVersion='dev'; }
 }
 
+async function carregarConfig(){
+  try{
+    appConfig=await (await fetch('/api/config',{cache:'no-store'})).json()||{};
+  }catch(e){ appConfig={}; }
+}
+
+// Link de afiliado da Amazon a partir do ISBN. Usa a busca (mais robusta que
+// /dp/{asin}: nem todo ISBN mapeia num ASIN). '' quando não há tag ou ISBN.
+function linkAmazon(isbn){
+  const tag=(appConfig&&appConfig.amazon_tag)||'';
+  const cod=(isbn||'').toString().replace(/[^0-9Xx]/g,'');
+  if(!tag||!cod) return '';
+  return 'https://www.amazon.com.br/s?k='+encodeURIComponent(cod)+'&tag='+encodeURIComponent(tag);
+}
+
+// Botão "Comprar na Amazon" (ou '' se sem tag/ISBN). stopPropagation evita
+// disparar o onclick do <li> da edição quando o botão vive dentro dele.
+function botaoAmazon(isbn,cls){
+  const url=linkAmazon(isbn);
+  if(!url) return '';
+  return `<a class="buy-amazon ${cls||''}" href="${esc(url)}" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()">${t('buy_amazon')}</a>`;
+}
+
 async function init(){
   // servidor grátis (Render free tier) hiberna após inatividade — a primeira
   // requisição pode levar até ~30s pra "acordar". Sem isso, a tela fica em
@@ -3965,6 +3990,7 @@ async function init(){
   carregarEditorasHome();
   carregarEditorasBusca();
   await carregarVersaoApp();
+  await carregarConfig();
   try{
     const me=await (await fetch('/api/eu')).json();
     minhaConta=me||{logado:false,provedor:'anonimo'};
