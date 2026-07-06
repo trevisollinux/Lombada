@@ -33,7 +33,7 @@ defaults:
     working-directory: infra
 
 jobs:
-  # ── fmt: local, não precisa de token ──────────────────────────────────────
+  # ── fmt: local, não precisa de token. É o gate que sempre roda. ────────────
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -43,10 +43,29 @@ jobs:
           terraform_version: '1.9.8'
       - run: terraform fmt -check -recursive
 
+  # ── Terraform Cloud configurado? Gate para plan/apply. ─────────────────────
+  # secrets não podem ser lidos direto no `if:` de um job; então mapeamos a
+  # presença do token para um output booleano (sem expor o valor).
+  config:
+    runs-on: ubuntu-latest
+    outputs:
+      tfc_ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+        run: |
+          if [ -n "$TF_API_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Terraform Cloud não configurado::plan/apply pulados até cadastrar o secret TF_API_TOKEN e a organização real em versions.tf."
+          fi
+
   # ── plan remoto em PR ─────────────────────────────────────────────────────
   plan:
-    if: github.event_name == 'pull_request'
-    needs: fmt
+    if: github.event_name == 'pull_request' && needs.config.outputs.tfc_ready == 'true'
+    needs: [fmt, config]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,8 +96,8 @@ jobs:
 
   # ── apply remoto na main / manual ─────────────────────────────────────────
   apply:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: fmt
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && needs.config.outputs.tfc_ready == 'true'
+    needs: [fmt, config]
     runs-on: ubuntu-latest
     environment: production # exige aprovação se o environment estiver protegido
     steps:

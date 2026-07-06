@@ -72,6 +72,11 @@ Depois de importado, o CI cuida do resto.
 - **PR** que toca `infra/**` → `fmt` + `validate` + `plan` remoto (comentado no PR).
 - **push na main** → `apply` remoto, protegido pelo environment `production`.
 
+O `fmt` é o gate que **sempre** roda. `plan`/`apply` só rodam quando o secret
+`TF_API_TOKEN` existir — enquanto o Terraform Cloud não estiver configurado,
+esses jobs são **pulados** (não falham), então a `main` fica verde. Assim que
+você cadastrar o token e a organização real em `versions.tf`, o pipeline liga.
+
 ### Segredo do GitHub Actions
 
 Repo → Settings → Secrets and variables → Actions → **Secrets**:
