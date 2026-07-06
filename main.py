@@ -35,7 +35,8 @@ from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canoni
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
-from landing import render_landing
+from landing import render_landing, render_quem_somos, render_blog_index, render_blog_post
+import blog as blog_mod
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
@@ -2980,6 +2981,26 @@ def sobre():
         instagram_url=INSTAGRAM_URL,
         blog_url=BLOG_URL,
     ))
+
+
+@app.get("/quem-somos")
+def quem_somos():
+    return HTMLResponse(render_quem_somos(app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/blog")
+def blog_index():
+    return HTMLResponse(render_blog_index(blog_mod.listar_posts(), app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/blog/{slug}")
+def blog_post(slug: str):
+    post = blog_mod.carregar_post(slug)
+    if not post:
+        return HTMLResponse(_pagina("post não encontrado · Lombada",
+                                    '<p class="empty">Esse post não existe (ou saiu do ar). '
+                                    '<a href="/blog">Ver todos os posts</a>.</p>'), status_code=404)
+    return HTMLResponse(render_blog_post(post, app_url="/", instagram_url=INSTAGRAM_URL))
 
 
 @app.get("/")

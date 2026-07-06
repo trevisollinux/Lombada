@@ -5,3 +5,4 @@ httpx
 bcrypt
 itsdangerous
 psycopg2-binary
+markdown
