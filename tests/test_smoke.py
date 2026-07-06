@@ -40,6 +40,15 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("Lombada", r.text)
 
+    def test_landing_page_loads(self):
+        r = self.client.get("/sobre")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Lombada", r.text)
+        self.assertIn("abrir o app", r.text)
+        # sem env vars de apoio/Play, os botões correspondentes não aparecem
+        self.assertNotIn("apoiar ☕", r.text)
+        self.assertNotIn("instalar no Android", r.text)
+
     def test_search_validates_query(self):
         r = self.client.get("/api/buscar", params={"q": "x"})
         self.assertEqual(r.status_code, 422)
