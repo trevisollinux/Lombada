@@ -45,6 +45,7 @@ RECON_TOKEN = os.getenv("RECON_TOKEN", "")
 APOIO_URL = os.getenv("APOIO_URL", "").strip()          # ex.: https://apoia.se/lombada
 PLAY_STORE_URL = os.getenv("PLAY_STORE_URL", "").strip()  # preencher quando publicar na Play
 INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "").strip()
+BLOG_URL = os.getenv("BLOG_URL", "").strip()             # link "blog" no menu (some se vazio)
 logger = logging.getLogger(__name__)
 
 
@@ -2977,6 +2978,7 @@ def sobre():
         play_store_url=PLAY_STORE_URL,
         apoio_url=APOIO_URL,
         instagram_url=INSTAGRAM_URL,
+        blog_url=BLOG_URL,
     ))
 
 
