@@ -35,6 +35,20 @@ class SmokeTest(unittest.TestCase):
         except OSError:
             pass
 
+    def test_healthz_responde(self):
+        r = self.client.get("/healthz")
+        self.assertEqual(r.status_code, 200)
+
+    def test_api_buscar_crime_nao_quebra(self):
+        r = self.client.get("/api/buscar", params={"q": "crime"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIsInstance(r.json(), list)
+
+    def test_busca_catalogo_local_retorna_lista(self):
+        with main.Session(main.engine) as s:
+            docs = main._buscar_catalogo_local("crime", s)
+        self.assertIsInstance(docs, list)
+
     def test_home_page_loads(self):
         r = self.client.get("/")
         self.assertEqual(r.status_code, 200)

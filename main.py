@@ -24,7 +24,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, or_, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
@@ -60,6 +60,18 @@ CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip()
 ANDROID_PACKAGE_NAME = os.getenv("ANDROID_PACKAGE_NAME", "").strip()
 ANDROID_CERT_SHA256 = os.getenv("ANDROID_CERT_SHA256", "").strip()
 logger = logging.getLogger(__name__)
+
+
+def _rss_mb() -> float | None:
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    kb = int(line.split()[1])
+                    return round(kb / 1024, 1)
+    except Exception:
+        return None
+    return None
 
 
 DEMO_CONTENT = [
@@ -318,6 +330,8 @@ def proxy_capa(url: str) -> Response:
     ct = r.headers.get("content-type", "")
     if not ct.startswith("image/"):
         raise HTTPException(415, "isso não é uma imagem")
+    # TODO: trocar por download em streaming para rejeitar capas grandes antes de
+    # carregar todo o corpo em memória. Mantido simples neste PR conservador.
     if len(r.content) > 6 * 1024 * 1024:
         raise HTTPException(413, "capa grande demais")
     return Response(content=r.content, media_type=ct,
@@ -675,7 +689,45 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
     if not q_norm and not editora_norm:
         return []
 
-    rows = s.exec(select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id).limit(5000)).all()
+    candidato_limit = 500
+    stmt = select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id)
+
+    filtros = []
+    if isbn:
+        # Filtro simples no banco antes do refinamento em Python. Não tenta
+        # normalizar pontuação do ISBN no SQL para manter compatibilidade SQLite/Postgres.
+        filtros.append(func.lower(Edicao.isbn).like(f"%{isbn.lower()}%"))
+    elif q_norm:
+        like = f"%{q_norm.lower()}%"
+        filtros.append(
+            func.lower(Obra.titulo).like(like)
+            | func.lower(Obra.autor).like(like)
+            | func.lower(Edicao.editora).like(like)
+            | func.lower(Edicao.tradutor).like(like)
+            | func.lower(Edicao.isbn).like(like)
+        )
+    if editora_norm:
+        filtros.append(func.lower(Edicao.editora).like(f"%{editora_norm.lower()}%"))
+    if literatura:
+        paises = [p.lower() for p in (literatura.get("paises") or []) if p]
+        regioes = [r.lower() for r in (literatura.get("regioes") or []) if r]
+        lit_filtros = []
+        if paises:
+            lit_filtros.append(func.lower(Obra.literatura_pais).in_(paises))
+            lit_filtros.append(func.lower(Obra.autor_pais).in_(paises))
+        if regioes:
+            lit_filtros.append(func.lower(Obra.literatura_regiao).in_(regioes))
+        if lit_filtros:
+            sem_origem_catalogada = and_(
+                or_(Obra.literatura_pais.is_(None), Obra.literatura_pais == ""),
+                or_(Obra.literatura_regiao.is_(None), Obra.literatura_regiao == ""),
+                or_(Obra.autor_pais.is_(None), Obra.autor_pais == ""),
+            )
+            filtros.append(or_(*lit_filtros, sem_origem_catalogada))
+    for filtro in filtros:
+        stmt = stmt.where(filtro)
+    stmt = stmt.order_by(Edicao.id.desc()).limit(candidato_limit)
+    rows = s.exec(stmt).all()
     ed_ids = [ed.id for _, ed in rows if ed.id is not None]
     social_por_edicao: dict[int, dict] = {}
     if ed_ids:
@@ -1350,7 +1402,8 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
            com_capa: bool = Query(False), com_isbn: bool = Query(False),
            idioma: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
-    logger.info("search_started", extra={"query_len": len(q)})
+    rss_inicio = _rss_mb()
+    logger.info("search_started", extra={"query_len": len(q), "rss_mb": rss_inicio})
     editora_norm = _normalizar_busca(editora)
     genero_canonico = normalizar_genero(genero)
     lit = normalizar_literatura(literatura)
@@ -1362,7 +1415,7 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
         docs = consolidar_resultados_busca_final(q, locais + externos_filtrados)
         docs = _aplicar_filtros_extras(docs, com_criticas=com_criticas, lendo_agora=lendo_agora,
                                        com_capa=com_capa, com_isbn=com_isbn, idioma_pt=bool(idioma_pt))
-        return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit))
+        return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit))[:30]
 
     isbn = normalizar_isbn(q)
     if isbn:
@@ -1372,13 +1425,13 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
             logger.warning("external_search_failed", extra={"provider": "isbn"}, exc_info=True)
             achado = None
         externos = [achado] if achado else []
-        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(externos), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(externos), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
         return _resposta_final(externos)
 
     cache = _cache_get(q, s)
     if cache:
         resposta = _resposta_final(cache)
-        logger.info("search_cache_hit", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(cache), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        logger.info("search_cache_hit", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(cache), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
         return resposta
 
     try:
@@ -1388,14 +1441,14 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
             docs = consolidar_resultados_busca_final(q, docs)
             _cache_set(q, docs, s)
             resposta = _resposta_final(docs)
-            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
             return resposta
         logger.info("external_search_started", extra={"provider": "open_library", "query_len": len(q)})
         docs = ol_buscar(q)
         docs = consolidar_resultados_busca_final(q, docs)
         _cache_set(q, docs, s)
         resposta = _resposta_final(docs)
-        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
         return resposta
     except Exception:
         logger.warning("external_search_failed", extra={"provider": "google_books", "query_len": len(q)}, exc_info=True)
@@ -1405,7 +1458,7 @@ def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: 
             docs = consolidar_resultados_busca_final(q, docs)
             _cache_set(q, docs, s)
             resposta = _resposta_final(docs)
-            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000)})
+            logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": len(docs), "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
             return resposta
         except Exception:
             logger.error("external_search_failed", extra={"provider": "open_library", "query_len": len(q)}, exc_info=True)
