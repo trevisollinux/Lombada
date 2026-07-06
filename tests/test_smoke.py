@@ -54,6 +54,23 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("projeto independente", r.text)
 
+    def test_privacidade_page_loads(self):
+        r = self.client.get("/privacidade")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Política de Privacidade", r.text)
+
+    def test_manifest_tem_icones_png(self):
+        r = self.client.get("/manifest.json")
+        self.assertEqual(r.status_code, 200)
+        tipos = {i["type"] for i in r.json()["icons"]}
+        self.assertIn("image/png", tipos)  # Play Store exige PNG
+
+    def test_assetlinks_vazio_por_padrao(self):
+        r = self.client.get("/.well-known/assetlinks.json")
+        self.assertEqual(r.status_code, 200)
+        # sem ANDROID_PACKAGE_NAME/CERT configurados, lista vazia mas JSON válido
+        self.assertEqual(r.json(), [])
+
     def test_blog_index_loads(self):
         r = self.client.get("/blog")
         self.assertEqual(r.status_code, 200)

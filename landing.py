@@ -121,6 +121,7 @@ def _footer(app_url: str, instagram_url: str = "") -> str:
         '<a href="/quem-somos">quem somos</a>',
         '<a href="/blog">blog</a>',
         '<a href="/sobre#contribua">contribua</a>',
+        '<a href="/privacidade">privacidade</a>',
     ]
     if instagram_url:
         links.append(f'<a href="{_esc(instagram_url)}" rel="noopener" target="_blank">instagram</a>')
@@ -335,3 +336,87 @@ def render_blog_post(post: dict, app_url: str = "/", instagram_url: str = "") ->
           "description": post.get("resumo", "")}
     return _shell(f'{post["titulo"]} — Lombada', inner, og, app_url, instagram_url,
                   description=post.get("resumo", ""))
+
+
+# ─────────────────────────── /privacidade ───────────────────────────
+def render_privacidade(app_url: str = "/", instagram_url: str = "",
+                       contact_email: str = "", atualizado_em: str = "") -> str:
+    """Política de privacidade (exigida pra publicar na Play Store)."""
+    contato = (
+        f'<p>Dúvidas ou pedidos sobre seus dados? Escreva para '
+        f'<a href="mailto:{_esc(contact_email)}">{_esc(contact_email)}</a>.</p>'
+        if contact_email else
+        '<p>Para dúvidas ou pedidos sobre seus dados, entre em contato pelo perfil '
+        'do Lombada nas redes ou pelo canal informado na loja de aplicativos.</p>'
+    )
+    data_html = f'<p class="lp-date">Última atualização: {_esc(atualizado_em)}</p>' if atualizado_em else ""
+    inner = (
+        '<header class="lp-page-head"><span class="label">privacidade</span>'
+        f'<h1>Política de Privacidade</h1>{data_html}</header>'
+        '<div class="lp-prose">'
+        '<p>Esta política explica quais dados o Lombada coleta, como usa e quais '
+        'são suas opções. Em resumo: coletamos o mínimo pra o app funcionar, '
+        '<strong>não vendemos seus dados</strong> e não exibimos anúncios.</p>'
+
+        '<h2>Dados que coletamos</h2>'
+        '<ul>'
+        '<li><strong>Sessão anônima:</strong> ao abrir o app, criamos um usuário '
+        'anônimo com um cookie de sessão, pra você registrar leituras sem precisar '
+        'de conta.</li>'
+        '<li><strong>Login com Google (opcional):</strong> se você entrar com o '
+        'Google, recebemos seu nome, e-mail e foto de perfil pra identificar sua '
+        'conta. Não temos acesso à sua senha.</li>'
+        '<li><strong>Conteúdo que você cria:</strong> livros, edições, notas, '
+        'críticas, status de leitura, progresso e quem você segue.</li>'
+        '<li><strong>Dados técnicos:</strong> registros básicos de acesso '
+        '(como endereço IP e tipo de dispositivo) gerados pelo servidor, usados '
+        'pra segurança e diagnóstico.</li>'
+        '</ul>'
+
+        '<h2>Como usamos</h2>'
+        '<ul>'
+        '<li>Manter sua estante, seu perfil e o funcionamento social do app '
+        '(seguir, feed, críticas públicas).</li>'
+        '<li>O que você marca como público (críticas, estante) fica visível na sua '
+        'página pública; o que é privado permanece só pra você.</li>'
+        '<li>Melhorar o catálogo e a experiência de uso.</li>'
+        '</ul>'
+
+        '<h2>Compartilhamento com terceiros</h2>'
+        '<p>Usamos serviços de terceiros apenas pra operar o Lombada:</p>'
+        '<ul>'
+        '<li><strong>Google</strong> — autenticação (login opcional).</li>'
+        '<li><strong>Hospedagem e banco de dados</strong> — para rodar o app e '
+        'guardar seus registros.</li>'
+        '<li><strong>Amazon</strong> — alguns links de compra são de afiliado. Se '
+        'você clicar e comprar, podemos receber uma comissão, sem custo extra pra '
+        'você. A Amazon trata esses acessos conforme a política dela.</li>'
+        '</ul>'
+        '<p>Não vendemos nem alugamos seus dados pessoais a ninguém.</p>'
+
+        '<h2>Cookies</h2>'
+        '<p>Usamos um cookie de sessão essencial pra manter você conectado (anônimo '
+        'ou via Google). Sem ele, o app não consegue lembrar da sua estante.</p>'
+
+        '<h2>Seus direitos</h2>'
+        '<p>Você pode pedir acesso, correção ou exclusão dos seus dados, incluindo '
+        'apagar sua conta e o conteúdo associado. Ao excluir a conta, removemos '
+        'seus dados pessoais, salvo o que a lei exigir manter.</p>'
+
+        '<h2>Crianças</h2>'
+        '<p>O Lombada não é direcionado a menores de 13 anos e não coleta '
+        'intencionalmente dados dessas crianças.</p>'
+
+        '<h2>Alterações</h2>'
+        '<p>Podemos atualizar esta política. Mudanças relevantes serão sinalizadas '
+        'nesta página, com a data de atualização acima.</p>'
+
+        '<h2>Contato</h2>'
+        f'{contato}'
+        '</div>'
+        '<a class="lp-back" href="/sobre">← voltar pra apresentação</a>'
+    )
+    og = {"title": "Política de Privacidade — Lombada", "type": "website",
+          "description": "Como o Lombada coleta, usa e protege seus dados."}
+    return _shell("Política de Privacidade — Lombada", inner, og, app_url, instagram_url,
+                  description="Como o Lombada coleta, usa e protege seus dados.")
