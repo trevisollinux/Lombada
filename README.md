@@ -57,7 +57,8 @@ paralelo** aos outros (concurrency groups distintos no Actions):
 
 | grupo | workflow | cron | fontes |
 |---|---|---|---|
-| `principal` | `sync-publishers.yml` | `:13` | Cia das Letras, Editora 34, Record, Intrínseca, Todavia, Sextante, Autêntica |
+| `principal` | `sync-publishers.yml` | `:13` | Editora 34, Record, Intrínseca, Todavia, Sextante, Autêntica |
+| `cia` | `sync-publishers-cia.yml` | `:51 a cada 2h` | Companhia das Letras (isolada: a coleta via `categoria_json` varre ~218 categorias × ~16 páginas e demora mais que as outras — ver abaixo) |
 | `expansao` | `sync-publishers-expansao.yml` | `:29` | Rocco, Arqueiro, Aleph, DarkSide, Boitempo, Ubu, Antofágica, Carambaia, Alta Books, L&PM |
 | `universitaria` | `sync-publishers-universitarias.yml` | `:43` | Edusp, Unesp, Unicamp, UFMG, EDUFBA, UFSC, EDIPUCRS, UnB |
 
@@ -96,18 +97,31 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
 
 | slug | método | observações |
 |---|---|---|
-| `cia_das_letras` | `["sitemap","categoria_json","html"]` | Sem sitemap → categoria via API JSON (ver "Status atual"), com fallback pro crawl HTML. |
 | `editora_34` | `id_range` 1–3000 | ~800 livros. Sem JSON-LD/meta; autor e sinopse ficam no bloco do `<h1>` (extrator dedicado `autor_editora34()`). |
 | `record`, `sextante` | `auto` → Shopify | **Resolvido:** ISBN vinha vazio (`record` só tinha 19/3920 promovidos; `sextante` 1/732). `collect_via_shopify` cai em cascata: `barcode` → `sku` da variante → varredura da descrição → endpoint de produto único (`/products/{handle}.json` — algumas lojas, ex. sextante, omitem `barcode` da listagem em lote mas incluem no produto único) → ISBN embutido na URL. |
 | `todavia`, `autentica` | `auto` → sitemap | Boa cobertura, com ISBN. |
 | `intrinseca` | `auto` | Boa cobertura (~1370 registros, ~98% com ISBN) — a nota antiga de "coleta 0" está desatualizada. |
+
+#### Grupo cia — status
+
+| slug | método | observações |
+|---|---|---|
+| `cia_das_letras` | `["sitemap","categoria_json","html"]` | Sem sitemap → categoria via API JSON (ver "Status atual"), com fallback pro crawl HTML. **Isolada** no `sync-publishers-cia.yml` (cron a cada 2h) porque a varredura de categorias é lenta e segurava o principal. |
 
 ## Workflows (aba Actions)
 
 - **Sync publisher source records** (`.github/workflows/sync-publishers.yml`):
   raspa → `source_records` e promove. Inputs: `dry_run`, `diagnose`, `dump_url`,
   `max_urls`, `offset`, `slugs`, `sleep_seconds`. Tem **cron horário** e um
-  **concurrency group `sync-publishers`**. Cobre só o grupo `principal`.
+  **concurrency group `sync-publishers`**. Cobre só o grupo `principal`. Não
+  instala Chromium (nenhuma fonte deste grupo usa Playwright).
+- **Sync publishers (Companhia das Letras)** (`sync-publishers-cia.yml`): só a
+  Cia das Letras (grupo `cia`). Foi separada do principal porque a coleta via
+  `categoria_json` varre todo o menu de categorias a cada execução e demora bem
+  mais que as demais — assim o principal termina rápido sem esperar por ela. Tem
+  **cron a cada 2 horas** (`:51`, contra os horários dos outros) já que a
+  ingestão é incremental e não compensa rodá-la de hora em hora. Mantém o passo
+  de Chromium (só pro input `debug_categoria_paginacao`).
 - **Sync publishers (expansão)** (`sync-publishers-expansao.yml`) e
   **Sync publishers (universitárias)** (`sync-publishers-universitarias.yml`):
   mesmos inputs e pipeline, cada um cobrindo seu grupo de fontes, com
@@ -151,7 +165,7 @@ Promote source records to catalog → dry_run=false, limit=5000
 - **Concurrency do Actions:** cada workflow de sync tem seu grupo e mantém só
   **1 run pending**; disparar outro do MESMO workflow **cancela o pending
   anterior**. Dispare **um run por workflow** e espere terminar. Workflows
-  diferentes (principal/expansão/universitárias/promote) rodam em paralelo
+  diferentes (principal/cia/expansão/universitárias/promote) rodam em paralelo
   entre si numa boa — o promote é protegido por advisory lock no Postgres.
 - **Timing de merge:** o merge de um PR é um snapshot; commits empurrados
   **depois** do merge ficam de fora. Após mergear, **confirme que entrou na
