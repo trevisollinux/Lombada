@@ -82,6 +82,10 @@ LISTING_TERMS = (
     "colecoes", "genero", "generos", "assunto", "assuntos", "autor", "autores",
     "lancamento", "lancamentos", "mais-vendidos", "selo", "selos", "tema", "temas",
     "novidades", "ficcao", "infantil", "produtos",
+    # "livraria": seção de categorias da Ubu Editora (/livraria/literatura.html
+    # etc.) — sem este termo o crawler nem enfileirava essas páginas de listagem
+    # (não batia em nenhum LISTING_TERM nem em BOOK_SEGMENTS).
+    "livraria",
 )
 # No crawl de HTML, não vale a pena seguir (não listam livros): conta, busca, blog...
 CRAWL_SKIP_TERMS = (
@@ -1858,19 +1862,25 @@ def dump_url(url: str) -> None:
             print(f"    txt~{label}: {text[idx:idx+80]!r}")
     # hrefs crus (sem os filtros de CRAWL_SKIP_TERMS/harvest_links) — revela para
     # onde apontam menus de categoria que o crawl normal pode estar descartando.
+    host = urlparse(url).netloc.replace("www.", "")
     hrefs = []
     for a in soup.find_all("a", href=True):
         full = urljoin(url, a["href"]).split("#", 1)[0]
         if full not in hrefs:
             hrefs.append(full)
-    print(f"    hrefs brutos: {len(hrefs)} únicos")
-    nao_busca = [h for h in hrefs if "/busca" not in h.lower() and looks_like_book_url(h) is False]
+    internos = [h for h in hrefs if urlparse(h).netloc.replace("www.", "") == host]
+    print(f"    hrefs brutos: {len(hrefs)} únicos ({len(internos)} do mesmo domínio)")
+    bookish = [h for h in internos if looks_like_book_url(h)]
+    nao_busca = [h for h in internos if "/busca" not in h.lower() and h not in bookish]
     selo = [h for h in nao_busca if re.search(r"selo", h, re.I)]
     outros_padroes = [h for h in nao_busca if h not in selo and not re.search(r"login|carrinho|valepresente|^https://www\.companhiadasletras\.com\.br/$", h, re.I)]
+    print(f"    hrefs internos que PARECEM livro (looks_like_book_url): {len(bookish)}")
+    for h in bookish[:40]:
+        print(f"      [livro?] {h}")
     print(f"    hrefs SEM /busca, não-livro: {len(nao_busca)} (selo={len(selo)})")
     for h in selo[:20]:
         print(f"      [selo] {h}")
-    for h in outros_padroes[:25]:
+    for h in outros_padroes[:150]:
         print(f"      [outro] {h}")
 
 
