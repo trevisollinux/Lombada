@@ -150,6 +150,12 @@ SOURCES = [
         # Faixa ampla: ~40% dos ids são páginas mortas (puladas de graça), então o
         # teto efetivo de livros reais fica bem abaixo do fim da faixa.
         "id_end": 3000,
+        # group próprio (sync-publishers-editora34.yml): a faixa está esgotada
+        # (~800 livros reais em 1–3000), então sem o cache de mortos ela re-baixava
+        # ~2200 páginas mortas TODA execução (~37 min) — segurava o principal.
+        # Isolada num cron espaçado; o cache de ids mortos (publisher_dead_ids)
+        # faz as próximas execuções pularem tudo de graça.
+        "group": "editora34",
     },
     {
         "slug": "record",
@@ -408,6 +414,19 @@ def ensure_connection(conn):
 FETCH_FAILURE_COUNTS: dict[str, int] = {}
 FETCH_FAILURE_SAMPLES: dict[str, list[str]] = {}
 
+# Status HTTP da ÚLTIMA chamada de fetch_url (0 = exceção de rede). Serve pro
+# id_range distinguir uma página comprovadamente sem livro (200 soft-404 ou
+# 404/410 → morto, dá pra nunca mais baixar) de uma falha transitória
+# (403/429/5xx/timeout → NÃO marca morto, senão perderíamos um id bom numa
+# oscilação do site).
+LAST_FETCH_STATUS: int = 0
+
+# IDs comprovadamente sem livro descobertos NESTA execução, por fonte
+# (source -> {external_id}). Preenchido por collect_via_id_range e persistido
+# por main() na tabela publisher_dead_ids, pra serem pulados de graça (igual ao
+# `seen`) nas próximas execuções.
+NEWLY_DEAD_IDS: dict[str, set[str]] = {}
+
 
 def reset_fetch_diagnostics() -> None:
     FETCH_FAILURE_COUNTS.clear()
@@ -431,6 +450,7 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
         # Mantém a preferência (json/xml) mas aceita qualquer coisa: alguns servidores
         # (ex.: IIS) devolvem 404/406 a um Accept restritivo e escondem o sitemap.
         headers["Accept"] = f"{accept}, */*;q=0.1"
+    global LAST_FETCH_STATUS
     for attempt in range(MAX_RETRIES):
         try:
             response = SESSION.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
@@ -439,10 +459,12 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
             # acumular minutos de tempo morto × várias URLs por editora).
             print(f"Aviso: falha ao acessar {url}: {exc}", file=sys.stderr)
             _record_fetch_failure(f"exception:{type(exc).__name__}", url)
+            LAST_FETCH_STATUS = 0  # exceção de rede = transitório
             return None
         if response.status_code in RETRYABLE_STATUS and attempt < MAX_RETRIES - 1:
             time.sleep(2 ** attempt)
             continue
+        LAST_FETCH_STATUS = response.status_code
         if response.status_code >= 400:
             _record_fetch_failure(f"status:{response.status_code}", url)
             return None
@@ -1110,7 +1132,10 @@ def collect_via_id_range(
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     """Enumera URLs numéricas configuradas em id_template/id_start/id_end.
 
-    Em modo incremental, IDs já vistos em source_records são pulados sem download.
+    Em modo incremental, IDs já vistos em source_records (ou já marcados como
+    mortos em publisher_dead_ids — ambos chegam em `seen`) são pulados sem
+    download; os que baixarem e não tiverem livro entram na lista de mortos
+    novos (NEWLY_DEAD_IDS) pra nunca mais serem baixados.
     Em modo faixa, offset é a posição zero-based dentro da faixa configurada.
     """
     seen = seen or set()
@@ -1125,11 +1150,18 @@ def collect_via_id_range(
         print(f"  [id_range] faixa inválida para {publisher['slug']}: {id_start}–{id_end}")
         return []
 
+    # id_range varre MUITOS ids numa fonte só (não é crawl de páginas de um
+    # catálogo grande), então uma pausa menor acelera bastante a varredura sem
+    # martelar o site — cap de 0.3s por padrão, editora pode sobrescrever com
+    # id_sleep_seconds, e nunca ultrapassa o sleep global pedido.
+    id_sleep = float(publisher.get("id_sleep_seconds", min(sleep_seconds, 0.3)))
+
     records: list[tuple[dict[str, Any], dict[str, Any]]] = []
     attempted = 0
     valid_pages = 0
     with_isbn = 0
     with_author = 0
+    dead_new: set[str] = set()  # ids que baixaram e comprovadamente não têm livro
 
     if offset is not None:
         first_id = id_start + offset
@@ -1155,13 +1187,24 @@ def collect_via_id_range(
             with_isbn += 1 if normalized["isbn"] else 0
             with_author += 1 if normalized["author"] else 0
             records.append((normalized, raw))
-        if sleep_seconds:
-            time.sleep(sleep_seconds)
+        elif offset is None and (LAST_FETCH_STATUS == 200 or LAST_FETCH_STATUS in (404, 410)):
+            # Baixou (200 sem livro) ou 404/410 (não existe): id morto de verdade.
+            # 403/429/5xx/timeout NÃO entram aqui (poderia ser oscilação do site).
+            # Só no modo incremental — o modo faixa é re-scrape manual e ignora
+            # o cache de mortos de propósito (é a via de recuperação se um id bom
+            # for marcado morto por engano).
+            dead_new.add(external_id)
+        if id_sleep:
+            time.sleep(id_sleep)
+
+    if dead_new:
+        NEWLY_DEAD_IDS[f"publisher:{publisher['slug']}"] = dead_new
 
     print(
         "  [id_range] "
         f"ids_tentados={attempted} paginas_validas={valid_pages} "
-        f"isbn={with_isbn}/{valid_pages} autor={with_author}/{valid_pages}"
+        f"isbn={with_isbn}/{valid_pages} autor={with_author}/{valid_pages} "
+        f"mortos_novos={len(dead_new)}"
     )
     return records
 
@@ -1668,6 +1711,51 @@ def load_seen_external_ids(conn, source: str) -> set[str]:
         return {row[0] for row in cur.fetchall()}
 
 
+def ensure_dead_ids_table(conn) -> None:
+    """Cache de IDs comprovadamente sem livro (só do id_range), owned por este
+    script — não passa pelo migrar() do app. Evita re-baixar toda execução as
+    páginas mortas de uma faixa numérica esgotada (ex.: editora_34, ~2200 ids
+    mortos em 1–3000). Só cria se ainda não existe."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS publisher_dead_ids (
+                source text NOT NULL,
+                external_id text NOT NULL,
+                first_seen_at timestamptz NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (source, external_id)
+            )
+            """
+        )
+    conn.commit()
+
+
+def load_dead_external_ids(conn, source: str) -> set[str]:
+    """external_ids já marcados como mortos p/ esta fonte — pulados de graça,
+    somados ao `seen`. Tolera a tabela ainda não existir (1ª execução)."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT external_id FROM publisher_dead_ids WHERE source = %s", (source,))
+            return {row[0] for row in cur.fetchall()}
+    except psycopg2.Error:
+        conn.rollback()
+        return set()
+
+
+def upsert_dead_ids(conn, source: str, dead: set[str]) -> int:
+    """Grava os IDs mortos novos (ON CONFLICT DO NOTHING: idempotente)."""
+    if not dead:
+        return 0
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO publisher_dead_ids (source, external_id) VALUES (%s, %s) "
+            "ON CONFLICT (source, external_id) DO NOTHING",
+            [(source, external_id) for external_id in dead],
+        )
+    conn.commit()
+    return len(dead)
+
+
 def upsert_records(conn, records: list[tuple[dict[str, Any], dict[str, Any]]]) -> int:
     sql = """
         INSERT INTO source_records (
@@ -1939,6 +2027,7 @@ def main() -> int:
     conn = None
     if os.getenv("DATABASE_URL", "").strip():
         conn = connect_database()
+        ensure_dead_ids_table(conn)  # cache de ids mortos do id_range (idempotente)
 
     total_written = 0
     total_collected = 0
@@ -1955,6 +2044,10 @@ def main() -> int:
                 if conn is not None and offset is None:
                     conn = ensure_connection(conn)
                     seen = load_seen_external_ids(conn, source)
+                    dead = load_dead_external_ids(conn, source)
+                    if dead:
+                        print(f"  ids mortos conhecidos: {len(dead)} (pulados de graça)")
+                    seen = seen | dead  # ambos são pulados sem download
                 else:
                     seen = set()
                 if seen:
@@ -1976,6 +2069,15 @@ def main() -> int:
                     written = upsert_records(conn, records)
                     total_written += written
                     print(f"  gravados: {written}")
+                # Persiste os ids mortos descobertos (fora do dry_run: é escrita no
+                # banco). Roda mesmo com records vazio — numa faixa esgotada o
+                # resultado ÚTIL é justamente marcar os mortos pra próxima execução
+                # pular tudo de graça.
+                dead_new = NEWLY_DEAD_IDS.pop(source, set())
+                if dead_new and not dry_run and conn is not None:
+                    conn = ensure_connection(conn)
+                    marked = upsert_dead_ids(conn, source, dead_new)
+                    print(f"  ids mortos novos registrados: {marked}")
             except Exception as exc:  # noqa: BLE001 — isola a falha de UMA editora
                 print(f"  ERRO em {publisher['slug']}: {exc!r}", file=sys.stderr)
                 failures.append(publisher["slug"])
