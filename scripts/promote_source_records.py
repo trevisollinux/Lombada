@@ -244,7 +244,13 @@ def main() -> int:
                 WHERE title <> '' AND isbn <> ''
                   AND confidence_score >= %s
                   AND status = ANY(%s)
-                ORDER BY confidence_score DESC, last_seen_at DESC
+                -- Pendentes sempre antes de aprovados: aprovados nunca saem do pool
+                -- (status permanece 'approved' pra sempre) e, sem isso, editoras com
+                -- confidence_score mais baixo (ex.: sitemap sem thumbnail/autor) ficam
+                -- pra sempre atrás dos aprovados de score maior no LIMIT, e nunca são
+                -- promovidas (visto em Alta Books/L&PM/Boitempo/Edusp: 0 promovidos
+                -- mesmo com boa cobertura de ISBN).
+                ORDER BY (status = 'pending') DESC, confidence_score DESC, last_seen_at DESC
                 LIMIT %s
                 """,
                 (min_conf, statuses, limite),

@@ -50,6 +50,24 @@ BOOK_SEGMENTS = {
     "livro", "livros", "produto", "produtos", "product", "products",
     "obra", "obras", "book", "books", "detalhe", "p",
 }
+# Extensão de asset estático (imagem/css/js/fonte/doc): Magento e afins guardam esses
+# arquivos sob caminhos como /pub/media/catalog/product/cache/.../capa.jpg, que TEM o
+# segmento "product" mas não é página de livro nenhuma — sem este filtro, o crawler
+# (ubu, e qualquer loja Magento) enche o candidato de imagens, extrai 0 título de cada
+# uma e nunca sobra orçamento (max_urls/max_attempts) pra achar a página de produto real.
+_ASSET_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp",
+    ".css", ".js", ".json", ".xml", ".woff", ".woff2", ".ttf", ".eot",
+    ".pdf", ".zip", ".mp4", ".mp3",
+}
+
+
+def _is_static_asset(path: str) -> bool:
+    dot = path.rfind(".")
+    slash = path.rfind("/")
+    if dot <= slash:
+        return False
+    return path[dot:] in _ASSET_EXTENSIONS
 # Links de paginação (?page=2, /pagina/3 ...): sempre tratados como listagem a seguir.
 PAGINATION_RE = re.compile(r"[?&](?:page|pagina|pg|start|offset)=\d+|/(?:page|pagina)/\d+", re.I)
 # Caminhos que parecem livro mas são editorial/institucional (geram registros-lixo
@@ -437,11 +455,15 @@ def discover_sitemaps_from_robots(base_url: str) -> list[str]:
     response = fetch_url(urljoin(base_url, "/robots.txt"), accept="text/plain")
     if response is None:
         return []
+    host = urlparse(base_url).netloc.replace("www.", "")
     sitemaps: list[str] = []
     for line in response.text.splitlines():
         if line.lower().startswith("sitemap:"):
             url = line.split(":", 1)[1].strip()
-            if url:
+            # Só sitemap do MESMO domínio: alguns robots.txt (ex.: edufba.ufba.br)
+            # anunciam o sitemap do site institucional pai (ufba.br), que não lista
+            # os livros da editora e ainda pode falhar por certificado TLS distinto.
+            if url and urlparse(url).netloc.replace("www.", "") == host:
                 sitemaps.append(url)
     return sitemaps
 
@@ -493,7 +515,7 @@ def collect_sitemap_urls(base_url: str) -> list[str]:
 
 def looks_like_book_url(url: str) -> bool:
     path = urlparse(url).path.lower()
-    if any(term in path for term in EXCLUDE_PATH_TERMS):
+    if _is_static_asset(path) or any(term in path for term in EXCLUDE_PATH_TERMS):
         return False
     segments = [seg for seg in path.split("/") if seg]
     # Livro = segmento conhecido (livro/produto/...) seguido de outro segmento (slug/id).
@@ -1206,6 +1228,8 @@ def collect_via_sitemap(
 
 def _is_book_path(path: str) -> bool:
     """Página de produto: segmento singular conhecido seguido de slug/id."""
+    if _is_static_asset(path):
+        return False
     segments = [seg for seg in path.split("/") if seg]
     return any(
         seg in BOOK_SINGULAR_SEGMENTS and index < len(segments) - 1
