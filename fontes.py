@@ -361,13 +361,13 @@ def _gbooks_params(params: dict) -> dict:
     return p
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=128)
 def _gbooks_capa(isbn: str) -> str:
     info = _gbooks_info(isbn)
     return _limpa_capa_gb(info.get("capa", "")) if info else ""
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=128)
 def _gbooks_info(isbn: str) -> dict:
     if not isbn:
         return {}
@@ -394,7 +394,7 @@ def _gbooks_info(isbn: str) -> dict:
         return {}
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=128)
 def paginas_por_isbn(isbn: str) -> int | None:
     """Total de páginas de uma edição pelo ISBN: Open Library primeiro
     (number_of_pages), Google Books como fallback (pageCount)."""
@@ -521,7 +521,7 @@ def gbooks_buscar(q: str, limite: int = 18) -> list:
 
 
 # ─── MercadoEditorial (PRESERVADO, desativado por ME_ATIVO) ───
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=128)
 def _me_full(isbn: str) -> dict:
     if not ME_ATIVO or not isbn:
         return {}
@@ -608,7 +608,7 @@ def me_buscar(titulo: str, limite: int = 12) -> list:
 
 
 # ─── Open Library ──────────────────────────────────────────
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=64)
 def _melhor_edicao_pt(work_key: str) -> tuple[str, str]:
     if not work_key or not work_key.startswith("/works/"):
         return ("", "")
@@ -688,7 +688,7 @@ def ol_buscar(q: str, limite: int = 10) -> list:
             titulo_pt, capa_br = _melhor_edicao_pt(out[i]["work_key"])
             if titulo_pt: out[i]["titulo"]   = titulo_pt
             if capa_br:   out[i]["capa_url"] = capa_br
-        with _fut.ThreadPoolExecutor(max_workers=8) as ex:
+        with _fut.ThreadPoolExecutor(max_workers=2) as ex:
             list(ex.map(_br, pt_idx))
 
     for o in out:
@@ -741,12 +741,12 @@ def ol_edicoes(work_key: str, limite: int = 20) -> list:
             capa = _gbooks_capa(e["isbn"])
             if capa: e["capa_url"] = capa
             return e
-        with _fut.ThreadPoolExecutor(max_workers=6) as ex:
+        with _fut.ThreadPoolExecutor(max_workers=2) as ex:
             list(ex.map(_enriquecer, alvo))
     return out
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=64)
 def ol_table_of_contents(ol_edition_key: str) -> list[dict]:
     """Sumário publicado pela Open Library pra uma edição, quando existe
     (campo table_of_contents é raro — a maioria das edições, sobretudo em
@@ -775,7 +775,7 @@ def ol_table_of_contents(ol_edition_key: str) -> list[dict]:
     return out
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=64)
 def _ol_isbn(isbn: str) -> dict:
     if not isbn: return {}
     try:
@@ -806,7 +806,7 @@ def _ol_isbn(isbn: str) -> dict:
 
 
 # ─── Wikidata (preservado, fora do hot path) ───────────────
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=64)
 def wikidata_buscar_obra(q: str) -> dict:
     if not q: return {}
     try:
