@@ -1,9 +1,16 @@
-name: Sync publisher source records
+name: Sync publishers (Companhia das Letras)
 
-# Raspa catálogos de editoras -> source_records e (quando não é dry-run) promove
-# para o catálogo que a busca do app lê. A ingestão é INCREMENTAL: cada execução
-# pula os livros já gravados e avança pelos próximos, então rodando aos poucos
-# (via cron) a base cresce sozinha, sem ser agressivo.
+# Mesmo pipeline do sync-publishers.yml, mas cobrindo SÓ a Companhia das Letras
+# (group "cia" do SOURCES). Foi separada do grupo principal porque a coleta dela
+# (collect_via_categoria_json) varre ~218 categorias × ~16 páginas com pausa
+# entre elas a cada execução — leva bem mais tempo que as demais editoras do
+# principal (Shopify/sitemap/id_range, que pulam o já-visto de graça). Isolando-a
+# num workflow próprio, o principal termina rápido sem esperar por ela.
+#
+# Cron a cada 2 HORAS (metade da frequência dos outros syncs, que são horários):
+# como a Cia demora e a ingestão é incremental, não há ganho em rodá-la de hora
+# em hora. Roda em PARALELO aos outros syncs (concurrency group próprio); o
+# promote é serializado entre workflows por advisory lock no Postgres.
 #
 # Dispare pela aba Actions (funciona do celular):
 #   dry_run=true  -> só coleta e mostra amostra/cobertura (não grava, não promove)
@@ -31,7 +38,7 @@ on:
         required: false
         default: ''
       slugs:
-        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo cia)'
         required: false
         default: ''
       sleep_seconds:
@@ -42,23 +49,22 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
+      debug_categoria_paginacao:
+        description: 'true = investiga se rolar/paginar 1 página de categoria (Cia das Letras) traz mais livros, e sai'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
   schedule:
-    # De hora em hora, no minuto 13, em lotes moderados, evitando o pico do minuto zero do GitHub Actions.
-    # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
-    - cron: "13 * * * *"
+    # A cada 2 horas, no minuto 51 (defasado dos outros syncs: :13 principal,
+    # :29 expansão, :43 universitárias) só pra espalhar a carga no Neon.
+    - cron: "51 */2 * * *"
 
-# Garante um run POR WORKFLOW por vez: se um ainda está rodando, o próximo espera
-# (não atropela nem duplica trabalho). O limite é deste grupo, não do GitHub —
-# sync-publishers-expansao.yml, sync-publishers-universitarias.yml e
-# sync-publishers-cia.yml têm grupos próprios e rodam em PARALELO a este (cada um
-# cobre um PUBLISHER_GROUP distinto; o promote é serializado entre eles por
-# advisory lock no Postgres).
 concurrency:
-  group: sync-publishers
+  group: sync-publishers-cia
   cancel-in-progress: false
 
 jobs:
-  sync-publishers:
+  sync-publishers-cia:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -72,11 +78,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
-      # Sem passo de Playwright: as fontes deste grupo usam platform=auto/id_range
-      # (shopify/vtex/sitemap/html via requests). O Chromium só era necessário pro
-      # debug de paginação da Cia das Letras, que agora vive no sync-publishers-cia.yml.
+      - name: Install Playwright browser (Chromium)
+        # A coleta real da Cia das Letras não usa mais Playwright (foi trocada
+        # por collect_via_categoria_json, que fala direto com a API JSON via
+        # requests). Isto fica só pra debug_categoria_paginacao=true, que
+        # inspeciona chamadas xhr/fetch com o Chromium headless.
+        run: playwright install --with-deps chromium
 
-      - name: Sync publisher source records
+      - name: Sync publisher source records (grupo cia)
         run: |
           # pipefail + status: sem isto, o `| tee` engolia o código de saída e o job
           # ficava VERDE mesmo quando o script morria no meio (ex.: SSL caído).
@@ -84,7 +93,7 @@ jobs:
           status=0
           python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
           {
-            echo '### Sync de editoras -> source_records'
+            echo '### Sync Companhia das Letras -> source_records'
             echo ''
             echo '```'
             cat sync_resultado.txt
@@ -96,20 +105,18 @@ jobs:
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
+          PUBLISHER_DEBUG_CATEGORIA_PAGINACAO: ${{ inputs.debug_categoria_paginacao || 'false' }}
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
-          # Este workflow cobre só as fontes do grupo "principal"; as demais
-          # ficam com os workflows paralelos (expansao/universitarias/cia).
-          # PUBLISHER_SLUGS explícito vence o grupo (dá pra testar qualquer uma).
-          PUBLISHER_GROUP: 'principal'
+          PUBLISHER_GROUP: 'cia'
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
 
       - name: Promote new records to catalog
         # Só promove em ingestão real (não em dry-run nem diagnose/dump). `always()`
         # garante que promovemos o que JÁ foi coletado mesmo se uma editora falhou e
         # o passo anterior saiu vermelho — o trabalho salvo não fica esperando.
-        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' && (inputs.debug_categoria_paginacao || 'false') != 'true' }}
         run: |
           set -o pipefail
           status=0

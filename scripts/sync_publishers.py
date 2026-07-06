@@ -133,6 +133,12 @@ SOURCES = [
         "name": "Companhia das Letras",
         "base_url": "https://www.companhiadasletras.com.br",
         "platforms": ["sitemap", "categoria_json", "html"],
+        # group próprio (sync-publishers-cia.yml): a coleta via categoria_json
+        # varre ~218 categorias × ~16 páginas com sleep entre elas, o que leva
+        # bem mais tempo que as demais do principal (Shopify/sitemap/id_range,
+        # que pulam o já-visto de graça). Isolada num workflow com cron a cada
+        # 2h pra não segurar as editoras rápidas do principal.
+        "group": "cia",
     },
     {
         "slug": "editora_34",
