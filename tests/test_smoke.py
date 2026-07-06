@@ -285,6 +285,11 @@ class SmokeTest(unittest.TestCase):
         r = self.client.get("/api/version")
         self.assertEqual(r.status_code, 200)
 
+    def test_config_endpoint_expone_amazon_tag(self):
+        r = self.client.get("/api/config")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("amazon_tag", r.json())  # vazio por padrão (sem env var)
+
     def test_eu_endpoint_anonymous(self):
         r = self.client.get("/api/eu")
         self.assertEqual(r.status_code, 200)

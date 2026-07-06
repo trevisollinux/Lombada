@@ -165,6 +165,12 @@ input,textarea,select{font:inherit;color:inherit}
 .edition .tr .none{color:var(--dim);font-style:italic;border:0}
 .edition .ln{margin-top:6px}
 .edition-action{display:inline-flex;margin-top:10px;background:var(--ink);color:var(--paper);padding:8px 10px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.edition-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.edition-actions .edition-action{margin-top:0}
+.buy-amazon{display:inline-flex;align-items:center;margin-top:10px;background:transparent;color:var(--gold);padding:8px 12px;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--gold)}
+.buy-amazon:hover{background:var(--gold);color:var(--paper)}
+.edition-actions .buy-amazon{margin-top:0}
+.selected-edition-copy .buy-amazon{margin-top:.85rem;font-size:10px;padding:10px 14px}
 
 /* ---------- registrar ---------- */
 .card-form{margin-top:8px;border:1px solid var(--rule);background:var(--paper-2);padding:16px}

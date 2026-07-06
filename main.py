@@ -47,6 +47,9 @@ APOIO_URL = os.getenv("APOIO_URL", "").strip()          # ex.: https://apoia.se/
 PLAY_STORE_URL = os.getenv("PLAY_STORE_URL", "").strip()  # preencher quando publicar na Play
 INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "").strip()
 BLOG_URL = os.getenv("BLOG_URL", "").strip()             # link "blog" no menu (some se vazio)
+# Amazon Associados: tag de afiliado (ex.: "lombada-20"). Vazio → botão de
+# compra some. O link usa a busca por ISBN (mais robusto que /dp/{asin}).
+AMAZON_ASSOC_TAG = os.getenv("AMAZON_ASSOC_TAG", "").strip()
 logger = logging.getLogger(__name__)
 
 
@@ -268,6 +271,13 @@ def readyz():
 @app.get("/api/version")
 def api_version():
     return {"version": APP_VERSION, "app": "Lombada"}
+
+
+@app.get("/api/config")
+def api_config():
+    # config pública consumida pelo frontend. Campos vazios → recurso desligado
+    # (ex.: sem tag da Amazon, o botão "Comprar" não é renderizado).
+    return {"amazon_tag": AMAZON_ASSOC_TAG}
 
 
 # ─── proxy de capa (anti-SSRF) ────────────────────────────

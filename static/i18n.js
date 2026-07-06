@@ -235,6 +235,7 @@ const I18N = {
 
     back: '‹ voltar',
     isbn: 'ISBN',
+    buy_amazon: 'Comprar na Amazon',
     language_field: 'idioma',
     publisher_abbr: 'ed.',
     translator_abbr: 'trad.',
@@ -622,6 +623,7 @@ const I18N = {
     "private_review": "private review",
     "back": "‹ back",
     "isbn": "ISBN",
+    "buy_amazon": "Buy on Amazon",
     "language_field": "language",
     "publisher_abbr": "pub.",
     "translator_abbr": "trans.",
@@ -988,6 +990,7 @@ const I18N = {
     "private_review": "reseña privada",
     "back": "‹ volver",
     "isbn": "ISBN",
+    "buy_amazon": "Comprar en Amazon",
     "language_field": "idioma",
     "publisher_abbr": "ed.",
     "translator_abbr": "trad.",
