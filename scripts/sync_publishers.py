@@ -82,6 +82,10 @@ LISTING_TERMS = (
     "colecoes", "genero", "generos", "assunto", "assuntos", "autor", "autores",
     "lancamento", "lancamentos", "mais-vendidos", "selo", "selos", "tema", "temas",
     "novidades", "ficcao", "infantil", "produtos",
+    # "livraria": seção de categorias da Ubu Editora (/livraria/literatura.html
+    # etc.) — sem este termo o crawler nem enfileirava essas páginas de listagem
+    # (não batia em nenhum LISTING_TERM nem em BOOK_SEGMENTS).
+    "livraria",
 )
 # No crawl de HTML, não vale a pena seguir (não listam livros): conta, busca, blog...
 CRAWL_SKIP_TERMS = (
