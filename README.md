@@ -57,8 +57,9 @@ paralelo** aos outros (concurrency groups distintos no Actions):
 
 | grupo | workflow | cron | fontes |
 |---|---|---|---|
-| `principal` | `sync-publishers.yml` | `:13` | Editora 34, Record, Intrínseca, Todavia, Sextante, Autêntica |
+| `principal` | `sync-publishers.yml` | `:13` | Record, Intrínseca, Todavia, Sextante, Autêntica |
 | `cia` | `sync-publishers-cia.yml` | `:51 a cada 2h` | Companhia das Letras (isolada: a coleta via `categoria_json` varre ~218 categorias × ~16 páginas e demora mais que as outras — ver abaixo) |
+| `editora34` | `sync-publishers-editora34.yml` | `:37 a cada 6h` | Editora 34 (isolada: `id_range` numa faixa esgotada — sem o cache de mortos re-baixava ~2200 páginas mortas/execução, ~37 min — ver abaixo) |
 | `expansao` | `sync-publishers-expansao.yml` | `:29` | Rocco, Arqueiro, Aleph, DarkSide, Boitempo, Ubu, Antofágica, Carambaia, Alta Books, L&PM |
 | `universitaria` | `sync-publishers-universitarias.yml` | `:43` | Edusp, Unesp, Unicamp, UFMG, EDUFBA, UFSC, EDIPUCRS, UnB |
 
@@ -97,7 +98,6 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
 
 | slug | método | observações |
 |---|---|---|
-| `editora_34` | `id_range` 1–3000 | ~800 livros. Sem JSON-LD/meta; autor e sinopse ficam no bloco do `<h1>` (extrator dedicado `autor_editora34()`). |
 | `record`, `sextante` | `auto` → Shopify | **Resolvido:** ISBN vinha vazio (`record` só tinha 19/3920 promovidos; `sextante` 1/732). `collect_via_shopify` cai em cascata: `barcode` → `sku` da variante → varredura da descrição → endpoint de produto único (`/products/{handle}.json` — algumas lojas, ex. sextante, omitem `barcode` da listagem em lote mas incluem no produto único) → ISBN embutido na URL. |
 | `todavia`, `autentica` | `auto` → sitemap | Boa cobertura, com ISBN. |
 | `intrinseca` | `auto` | Boa cobertura (~1370 registros, ~98% com ISBN) — a nota antiga de "coleta 0" está desatualizada. |
@@ -107,6 +107,12 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
 | slug | método | observações |
 |---|---|---|
 | `cia_das_letras` | `["sitemap","categoria_json","html"]` | Sem sitemap → categoria via API JSON (ver "Status atual"), com fallback pro crawl HTML. **Isolada** no `sync-publishers-cia.yml` (cron a cada 2h) porque a varredura de categorias é lenta e segurava o principal. |
+
+#### Grupo editora34 — status
+
+| slug | método | observações |
+|---|---|---|
+| `editora_34` | `id_range` 1–3000 | ~800 livros. Sem JSON-LD/meta; autor e sinopse ficam no bloco do `<h1>` (extrator dedicado `autor_editora34()`). **Isolada** no `sync-publishers-editora34.yml` (cron a cada 6h): a faixa está esgotada, então sem o **cache de ids mortos** (`publisher_dead_ids`, ver "Robustez do sync") ela re-baixava ~2200 páginas mortas por execução (~37 min). Com o cache, as próximas execuções pulam os mortos de graça. `id_range` usa `sleep` menor (cap 0.3s) que o padrão. |
 
 ## Workflows (aba Actions)
 
@@ -122,6 +128,11 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
   **cron a cada 2 horas** (`:51`, contra os horários dos outros) já que a
   ingestão é incremental e não compensa rodá-la de hora em hora. Mantém o passo
   de Chromium (só pro input `debug_categoria_paginacao`).
+- **Sync publishers (Editora 34)** (`sync-publishers-editora34.yml`): só a
+  Editora 34 (grupo `editora34`). Separada do principal porque o `id_range` de
+  uma faixa esgotada re-baixava ~2200 páginas mortas por execução (~37 min).
+  Tem **cron a cada 6 horas** (`:37`) e **não instala Chromium**. Apoia-se no
+  cache de ids mortos (`publisher_dead_ids`) pra pular os mortos de graça.
 - **Sync publishers (expansão)** (`sync-publishers-expansao.yml`) e
   **Sync publishers (universitárias)** (`sync-publishers-universitarias.yml`):
   mesmos inputs e pipeline, cada um cobrindo seu grupo de fontes, com
@@ -165,8 +176,8 @@ Promote source records to catalog → dry_run=false, limit=5000
 - **Concurrency do Actions:** cada workflow de sync tem seu grupo e mantém só
   **1 run pending**; disparar outro do MESMO workflow **cancela o pending
   anterior**. Dispare **um run por workflow** e espere terminar. Workflows
-  diferentes (principal/cia/expansão/universitárias/promote) rodam em paralelo
-  entre si numa boa — o promote é protegido por advisory lock no Postgres.
+  diferentes (principal/cia/editora34/expansão/universitárias/promote) rodam em
+  paralelo entre si numa boa — o promote é protegido por advisory lock no Postgres.
 - **Timing de merge:** o merge de um PR é um snapshot; commits empurrados
   **depois** do merge ficam de fora. Após mergear, **confirme que entrou na
   `main`** antes de agir (`git fetch origin main && git grep …`).
@@ -178,6 +189,17 @@ Promote source records to catalog → dry_run=false, limit=5000
   conexão Postgres é reaberta antes de cada operação de banco (o Neon derruba
   conexões ociosas durante os minutos de scraping); os steps usam `pipefail` para
   não mascarar erro.
+- **Cache de ids mortos (`publisher_dead_ids`):** só o `id_range`. Numa faixa
+  numérica esgotada (ex.: editora_34, ~2200 ids sem livro em 1–3000) o script
+  re-baixava todos os mortos a cada execução. Agora, quando um id baixa e **não
+  tem livro** (200 soft-404, ou 404/410), ele é gravado nessa tabela e nas
+  próximas execuções é pulado de graça, junto com o `seen`. Só marca morto em
+  resposta **definitiva** — `403/429/5xx/timeout` não entram (poderia ser
+  oscilação do site). A tabela é criada pelo próprio `sync_publishers.py`
+  (`CREATE TABLE IF NOT EXISTS`), **não** pelo `migrar()` do app. Só popula com
+  `dry_run=false` (dry-run não grava). Recuperação de um id marcado morto por
+  engano: rode em **modo faixa** (`offset` preenchido) — ele ignora o cache de
+  propósito.
 - Rede do ambiente de dev pode **bloquear os sites das editoras** — inspecione
   páginas via `dump_url` no workflow, não localmente.
 

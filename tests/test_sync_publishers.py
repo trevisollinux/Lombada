@@ -168,5 +168,79 @@ class MontaRegistroCategoriaJsonTest(unittest.TestCase):
         self.assertIsNone(sp._monta_registro_categoria_json({"titulo": "Sem link"}, self.publisher, "Ficção"))
 
 
+class IdRangeDeadCacheTest(unittest.TestCase):
+    """Cache de ids mortos do id_range: uma página que baixa e não tem livro
+    (200 soft-404 ou 404/410) vira "morto" e é pulada de graça na próxima
+    execução; falha transitória (403/429/5xx/timeout) NÃO marca morto."""
+
+    def setUp(self):
+        self.publisher = {
+            "slug": "editora_teste",
+            "name": "Editora Teste",
+            "base_url": "https://x",
+            "platform": "id_range",
+            "id_template": "https://x/livro/{id}",
+            "id_start": 1,
+            "id_end": 6,
+        }
+        # id -> (status HTTP, tem_livro). 1 é livro; 2/6 soft-404; 3 é 404;
+        # 4 é 5xx (transitório); 5 é exceção de rede (status 0).
+        self.behav = {1: (200, True), 2: (200, False), 3: (404, False),
+                      4: (503, False), 5: (0, False), 6: (200, False)}
+        self._orig_extract = sp.extract_page
+        self._orig_sleep = sp.time.sleep
+        sp.time.sleep = lambda *_: None
+        sp.NEWLY_DEAD_IDS.clear()
+
+    def tearDown(self):
+        sp.extract_page = self._orig_extract
+        sp.time.sleep = self._orig_sleep
+        sp.NEWLY_DEAD_IDS.clear()
+
+    def _fake_extract(self, calls=None):
+        def _inner(url, publisher):
+            nid = int(url.rsplit("/", 1)[1])
+            if calls is not None:
+                calls.append(nid)
+            status, has_book = self.behav[nid]
+            sp.LAST_FETCH_STATUS = status
+            if has_book:
+                return ({"title": f"Livro {nid}", "author": "A", "isbn": "", "permalink": url}, {})
+            return None
+        return _inner
+
+    def _eid(self, nid):
+        return sp.stable_external_id(f"https://x/livro/{nid}")
+
+    def test_marks_only_definitive_dead_ids(self):
+        sp.extract_page = self._fake_extract()
+        recs = sp.collect_via_id_range(self.publisher, max_urls=100, sleep_seconds=1.0, seen=set(), offset=None)
+        dead = sp.NEWLY_DEAD_IDS.get("publisher:editora_teste", set())
+        self.assertEqual(len(recs), 1)  # só o id 1 é livro
+        self.assertEqual(sorted(int(d.split(":")[-1]) for d in dead), [2, 3, 6])
+        self.assertNotIn(self._eid(4), dead)  # 5xx não marca morto
+        self.assertNotIn(self._eid(5), dead)  # exceção não marca morto
+
+    def test_dead_ids_in_seen_are_skipped(self):
+        calls = []
+        sp.extract_page = self._fake_extract(calls)
+        seen = {self._eid(1), self._eid(2), self._eid(3), self._eid(6)}  # livro + mortos conhecidos
+        sp.collect_via_id_range(self.publisher, max_urls=100, sleep_seconds=1.0, seen=seen, offset=None)
+        self.assertEqual(sorted(calls), [4, 5])  # só re-baixa os transitórios
+
+    def test_range_mode_ignores_dead_cache(self):
+        # modo faixa (offset preenchido) não marca morto — é a via de recuperação.
+        sp.extract_page = self._fake_extract()
+        sp.collect_via_id_range(self.publisher, max_urls=100, sleep_seconds=1.0, seen=set(), offset=0)
+        self.assertNotIn("publisher:editora_teste", sp.NEWLY_DEAD_IDS)
+
+    def test_id_sleep_caps_below_global_sleep(self):
+        slept = []
+        sp.time.sleep = lambda s: slept.append(s)
+        sp.extract_page = self._fake_extract()
+        sp.collect_via_id_range(self.publisher, max_urls=100, sleep_seconds=1.0, seen=set(), offset=None)
+        self.assertTrue(slept and all(s == 0.3 for s in slept))  # cap 0.3s, não o 1.0 global
+
+
 if __name__ == "__main__":
     unittest.main()
