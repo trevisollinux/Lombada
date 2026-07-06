@@ -35,11 +35,16 @@ from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canoni
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
+from landing import render_landing
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 RECON_TOKEN = os.getenv("RECON_TOKEN", "")
+# Links externos da landing (/sobre). Vazios → botão/link some.
+APOIO_URL = os.getenv("APOIO_URL", "").strip()          # ex.: https://apoia.se/lombada
+PLAY_STORE_URL = os.getenv("PLAY_STORE_URL", "").strip()  # preencher quando publicar na Play
+INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "").strip()
 logger = logging.getLogger(__name__)
 
 
@@ -2964,6 +2969,16 @@ def admin_review(suggestion_id: int, action: str, request: Request, s: Session =
     else:
         raise HTTPException(404, "ação inválida")
     return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
+
+@app.get("/sobre")
+def sobre():
+    return HTMLResponse(render_landing(
+        app_url="/",
+        play_store_url=PLAY_STORE_URL,
+        apoio_url=APOIO_URL,
+        instagram_url=INSTAGRAM_URL,
+    ))
+
 
 @app.get("/")
 def home():
