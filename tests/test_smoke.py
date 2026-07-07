@@ -106,9 +106,10 @@ class SmokeTest(unittest.TestCase):
         r = self.client.get("/blog/..%2fmain")
         self.assertEqual(r.status_code, 404)
 
-    def test_search_validates_query(self):
+    def test_search_curta_sem_filtros_retorna_lista_vazia(self):
         r = self.client.get("/api/buscar", params={"q": "x"})
-        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), [])
 
     def test_public_profile_not_found(self):
         r = self.client.get("/u/handle-que-nao-existe-123456")
@@ -249,6 +250,14 @@ class SmokeTest(unittest.TestCase):
                                nota=4.5, relato="Crítica pública dos filtros", publico=True))
             s.add(main.Leitura(edicao_id=ed_br.id, usuario_id=leitor.id, status="Lendo"))
             s.commit()
+
+    def test_buscar_permite_filtro_sem_texto(self):
+        self._semear_obras_filtros()
+        r = self.client.get("/api/buscar", params={"literatura": "brasileira", "idioma": "pt", "com_capa": "true"})
+        self.assertEqual(r.status_code, 200)
+        docs = r.json()
+        self.assertEqual([d["titulo"] for d in docs], ["Mar de Ipanema"])
+        self.assertEqual(docs[0]["capa_url"], "https://exemplo.com/capa.jpg")
 
     def test_buscar_filtro_literatura_prioriza_sem_esconder_obras_sem_metadado(self):
         self._semear_obras_filtros()
