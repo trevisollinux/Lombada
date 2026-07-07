@@ -1,6 +1,16 @@
 const $ = s => document.querySelector(s);
 const esc = s => (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const capaProxy = u => u ? '/api/capa?url='+encodeURIComponent(u) : '';
+const capaSrc = u => u || '';
+function handleCoverError(img){
+  const original=img?.dataset?.coverOriginal||'';
+  const proxied=capaProxy(original);
+  if(original && proxied && img.src!==new URL(proxied, location.href).href){
+    img.src=proxied;
+    return;
+  }
+  trocarParaCapaArte(img);
+}
 function slugEditora(nome){
   const semAcento=String(nome||'').normalize('NFKD').replace(new RegExp('[̀-ͯ]','g'),'').toLowerCase().trim();
   return semAcento.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'editora';
@@ -550,7 +560,7 @@ function coverHTML(titulo,autor,capa,extra){
   const cover=getSafeCoverUrl({capa_url:capa});
   if(cover){
     return `<div class="cover">
-      <img src="${esc(capaProxy(cover))}" alt="" loading="lazy" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="trocarParaCapaArte(this)" onload="if(this.naturalWidth<3)trocarParaCapaArte(this)">
+      <img src="${esc(capaSrc(cover))}" alt="" loading="lazy" decoding="async" data-cover-original="${esc(cover)}" data-title="${esc(titulo)}" data-author="${esc(autor)}" onerror="handleCoverError(this)" onload="if(this.naturalWidth<3)trocarParaCapaArte(this)">
       ${extra||''}</div>`;
   }
   return coverFallbackHTML(titulo,autor,extra);
@@ -1300,7 +1310,7 @@ function storiesHTML(){
     const d=capaArteDados(it.titulo||'?',it.autor||'');
     const inicial=esc((it.titulo||'?').trim().charAt(0).toUpperCase());
     const fbVisivel=cap?'display:none;':'';
-    const img=cap?`<img src="${esc(capaProxy(cap))}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">`:'';
+    const img=cap?`<img src="${esc(capaSrc(cap))}" alt="" loading="lazy" decoding="async" data-cover-original="${esc(cap)}" onerror="const p=capaProxy(this.dataset.coverOriginal||''); if(p && this.src!==new URL(p, location.href).href){this.src=p}else{this.style.display='none';this.nextElementSibling.style.display='grid'}">`:'';
     const fb=`<span class="story-fb" style="${fbVisivel}background:${d.papel};color:${d.tinta}">${inicial}</span>`;
     return `<button type="button" class="story" onclick="abrirPerfilPublico('${esc(it.handle).replace(/'/g,"\\'")}')" title="${esc(it.nome||'@'+it.handle)} · ${esc(it.titulo)}">
     <span class="story-ring">${img}${fb}</span>
