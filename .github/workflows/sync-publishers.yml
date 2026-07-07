@@ -43,9 +43,9 @@ on:
         required: false
         default: ''
   schedule:
-    # De hora em hora, no minuto 13, em lotes moderados, evitando o pico do minuto zero do GitHub Actions.
+    # A cada 3 horas, no minuto 13, em lotes moderados, evitando o pico do minuto zero do GitHub Actions.
     # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
-    - cron: "13 * * * *"
+    - cron: "13 */3 * * *"
 
 # Garante um run POR WORKFLOW por vez: se um ainda está rodando, o próximo espera
 # (não atropela nem duplica trabalho). O limite é deste grupo, não do GitHub —

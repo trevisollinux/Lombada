@@ -43,10 +43,10 @@ on:
         required: false
         default: ''
   schedule:
-    # De hora em hora, defasado do sync principal (:13) e do universitário (:43)
+    # A cada 3 horas, no minuto 29, defasado do sync principal (:13) e do universitário (:43)
     # só pra espalhar a carga no Neon — a concorrência entre workflows é
     # permitida (grupos distintos); dentro DESTE workflow continua 1 run por vez.
-    - cron: "29 * * * *"
+    - cron: "29 */3 * * *"
 
 concurrency:
   group: sync-publishers-expansao
