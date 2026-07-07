@@ -43,9 +43,9 @@ on:
         required: false
         default: ''
   schedule:
-    # De hora em hora, defasado dos outros syncs (:13 principal, :29 expansão)
+    # A cada 3 horas, no minuto 43, defasado dos outros syncs (:13 principal, :29 expansão)
     # só pra espalhar a carga no Neon.
-    - cron: "43 * * * *"
+    - cron: "43 */3 * * *"
 
 concurrency:
   group: sync-publishers-universitarias

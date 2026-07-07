@@ -7,9 +7,9 @@ name: Sync publishers (Companhia das Letras)
 # principal (Shopify/sitemap/id_range, que pulam o já-visto de graça). Isolando-a
 # num workflow próprio, o principal termina rápido sem esperar por ela.
 #
-# Cron a cada 2 HORAS (metade da frequência dos outros syncs, que são horários):
-# como a Cia demora e a ingestão é incremental, não há ganho em rodá-la de hora
-# em hora. Roda em PARALELO aos outros syncs (concurrency group próprio); o
+# Cron a cada 3 HORAS: como a Cia demora e a ingestão é incremental, não há
+# ganho em rodá-la de hora em hora. Roda em PARALELO aos outros syncs
+# (concurrency group próprio); o
 # promote é serializado entre workflows por advisory lock no Postgres.
 #
 # Dispare pela aba Actions (funciona do celular):
@@ -55,9 +55,9 @@ on:
         options: ['false', 'true']
         default: 'false'
   schedule:
-    # A cada 2 horas, no minuto 51 (defasado dos outros syncs: :13 principal,
+    # A cada 3 horas, no minuto 51 (defasado dos outros syncs: :13 principal,
     # :29 expansão, :43 universitárias) só pra espalhar a carga no Neon.
-    - cron: "51 */2 * * *"
+    - cron: "51 */3 * * *"
 
 concurrency:
   group: sync-publishers-cia
