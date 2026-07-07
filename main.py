@@ -254,11 +254,23 @@ SENSITIVE_NO_STORE_PREFIXES = (
 
 @app.middleware("http")
 async def no_store_sensitive_routes(request: Request, call_next):
+    rss_inicio = _rss_mb() if request.url.path == "/api/capa" else None
+    started = time.monotonic()
     response = await call_next(request)
     if request.url.path.startswith(SENSITIVE_NO_STORE_PREFIXES):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    if request.url.path == "/api/capa":
+        logger.info(
+            "cover_proxy_request_finished",
+            extra={
+                "status_code": response.status_code,
+                "elapsed_ms": int((time.monotonic() - started) * 1000),
+                "rss_start_mb": rss_inicio,
+                "rss_end_mb": _rss_mb(),
+            },
+        )
     return response
 
 
@@ -302,6 +314,13 @@ def api_config():
 
 
 # ─── proxy de capa (anti-SSRF) ────────────────────────────
+CAPA_MAX_BYTES = 5 * 1024 * 1024
+CAPA_TIMEOUT = httpx.Timeout(4.0, connect=2.0, read=3.0, write=3.0, pool=2.0)
+CAPA_CHUNK_SIZE = 64 * 1024
+CAPA_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+CAPA_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"}
+
+
 def _host_publico(host: str) -> bool:
     if not host:
         return False
@@ -320,22 +339,57 @@ def _host_publico(host: str) -> bool:
     return True
 
 
-def proxy_capa(url: str) -> Response:
+async def proxy_capa(url: str) -> Response:
     p = urlparse(url or "")
-    if p.scheme != "https" or not _host_publico(p.hostname):
+    hostname = p.hostname
+    if p.scheme != "https" or not _host_publico(hostname):
+        logger.warning("cover_proxy_invalid_url", extra={"scheme": p.scheme, "host": hostname or ""})
         raise HTTPException(400, "url de capa inválida")
-    with httpx.Client(timeout=TIMEOUT, headers=_UA, follow_redirects=True) as c:
-        r = c.get(url)
-        r.raise_for_status()
-    ct = r.headers.get("content-type", "")
-    if not ct.startswith("image/"):
-        raise HTTPException(415, "isso não é uma imagem")
-    # TODO: trocar por download em streaming para rejeitar capas grandes antes de
-    # carregar todo o corpo em memória. Mantido simples neste PR conservador.
-    if len(r.content) > 6 * 1024 * 1024:
-        raise HTTPException(413, "capa grande demais")
-    return Response(content=r.content, media_type=ct,
-                    headers={"Cache-Control": "public, max-age=86400"})
+
+    bytes_read = 0
+    chunks: list[bytes] = []
+    try:
+        async with httpx.AsyncClient(timeout=CAPA_TIMEOUT, headers=_UA, follow_redirects=True) as c:
+            async with c.stream("GET", url) as r:
+                if r.status_code >= 400:
+                    logger.warning("cover_proxy_upstream_status", extra={"host": hostname, "status_code": r.status_code})
+                    raise HTTPException(502, "capa indisponível")
+
+                raw_ct = r.headers.get("content-type", "")
+                media_type = raw_ct.split(";", 1)[0].strip().lower()
+                if media_type not in CAPA_CONTENT_TYPES:
+                    logger.warning("cover_proxy_invalid_content_type", extra={"host": hostname, "content_type": media_type or "missing"})
+                    raise HTTPException(415, "isso não é uma imagem")
+
+                content_length = r.headers.get("content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > CAPA_MAX_BYTES:
+                            logger.warning("cover_proxy_content_length_too_large", extra={"host": hostname, "content_length": int(content_length), "limit": CAPA_MAX_BYTES})
+                            raise HTTPException(413, "capa grande demais")
+                    except ValueError:
+                        logger.info("cover_proxy_invalid_content_length", extra={"host": hostname})
+
+                async for chunk in r.aiter_bytes(CAPA_CHUNK_SIZE):
+                    if not chunk:
+                        continue
+                    bytes_read += len(chunk)
+                    if bytes_read > CAPA_MAX_BYTES:
+                        logger.warning("cover_proxy_stream_too_large", extra={"host": hostname, "bytes_read": bytes_read, "limit": CAPA_MAX_BYTES})
+                        raise HTTPException(413, "capa grande demais")
+                    chunks.append(chunk)
+    except HTTPException:
+        raise
+    except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPError) as e:
+        logger.warning("cover_proxy_upstream_error", extra={"host": hostname, "error": e.__class__.__name__})
+        raise HTTPException(502, "capa indisponível")
+
+    logger.info("cover_proxy_ok", extra={"host": hostname, "content_type": media_type, "bytes_read": bytes_read})
+    return Response(
+        content=b"".join(chunks),
+        media_type=media_type,
+        headers={"Cache-Control": CAPA_CACHE_CONTROL},
+    )
 
 
 
@@ -1489,13 +1543,14 @@ def edicoes(work_key: str = Query(..., min_length=1)):
 
 
 @app.get("/api/capa")
-def capa(url: str = Query(..., min_length=8)):
+async def capa(url: str = Query(..., min_length=8)):
     try:
-        return proxy_capa(url)
+        return await proxy_capa(url)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(502, f"capa indisponível: {e}")
+        logger.warning("cover_proxy_unexpected_error", extra={"error": e.__class__.__name__})
+        raise HTTPException(502, "capa indisponível")
 
 
 def _obra_social_payload(obra: Obra, s: Session, usuario_id: int | None = None):
