@@ -1635,7 +1635,7 @@ async function buscar(event){
   if(event?.preventDefault) event.preventDefault();
   const q=$('#q').value.trim();
   if(q.length<2){
-    $('#resultados').innerHTML=`<div class="empty">${t('empty_search_hint')}</div>${manualCtaHTML(false)}`;
+    $('#resultados').innerHTML=`<div class="empty">${t('empty_search_hint')}</div>`;
     mostrarBusca('resultados');
     return;
   }
@@ -3862,10 +3862,6 @@ function registrarLeituraRapida(){
   irPara('buscar');
   setTimeout(()=>{ $('#q')?.focus(); },120);
 }
-function cadastrarManualRapido(event){
-  fecharAcoesLeitura();
-  abrirManual(event);
-}
 function atualizarProgressoRapido(idx=null){
   const lendo=leiturasEmAndamento();
   const alvo=Number.isInteger(idx)?idx:(lendo.length===1?lendo[0].idx:null);
@@ -3876,13 +3872,17 @@ function atualizarProgressoRapido(idx=null){
 function renderAcoesLeitura(mostrarAviso=false){
   const body=$('#quickActionsBody'); if(!body) return;
   const lendo=leiturasEmAndamento();
+  const hint=$('#quickActionsHint');
+  if(hint) hint.textContent=t(lendo.length?'quick_actions_hint_active':'quick_actions_hint_empty');
   const lista=lendo.slice(0,4).map(({l,idx})=>`<button class="quick-reading-row" type="button" onclick="atualizarProgressoRapido(${idx})"><span>${esc(l.titulo)}</span><small>${esc(l.autor||'')}</small></button>`).join('');
   const progresso=lendo.length===0
-    ? `<button class="quick-action primary" type="button" disabled><strong>${t('update_progress')}</strong><span>${t('quick_no_reading')}</span></button>`
+    ? ''
     : lendo.length===1
-      ? `<button class="quick-action primary" type="button" onclick="atualizarProgressoRapido()"><strong>${t('update_progress')}</strong><span>${esc(lendo[0].l.titulo)}</span></button>`
-      : `<div class="quick-action-group primary"><div class="quick-action-title">${t('update_progress')}</div><div class="quick-action-sub">${t('quick_choose_reading')}</div><div class="quick-reading-list">${lista}</div></div>`;
-  body.innerHTML=`${progresso}${mostrarAviso?`<p class="quick-actions-note">${t('quick_no_reading')}</p>`:''}<button class="quick-action" type="button" onclick="registrarLeituraRapida()"><strong>${t('quick_register_reading')}</strong><span>${t('quick_register_hint')}</span></button><button class="quick-action" type="button" onclick="cadastrarManualRapido(event)"><strong>${t('quick_manual')}</strong><span>${t('quick_manual_hint')}</span></button>`;
+      ? `<button class="quick-action primary" type="button" onclick="atualizarProgressoRapido()"><strong>${t('update_progress')}</strong><span>${t('quick_update_hint')}</span></button>`
+      : `<div class="quick-action-group primary"><div class="quick-action-title">${t('update_progress')}</div><div class="quick-action-sub">${t('quick_update_hint')}</div><div class="quick-reading-list">${lista}</div></div>`;
+  const registrarLabel=lendo.length?t('quick_register_new_reading'):t('quick_register_reading');
+  const registrarHint=lendo.length?t('quick_register_new_hint'):t('quick_register_hint_empty');
+  body.innerHTML=`${progresso}${mostrarAviso?`<p class="quick-actions-note">${t('quick_no_reading')}</p>`:''}<button class="quick-action" type="button" onclick="registrarLeituraRapida()"><strong>${registrarLabel}</strong><span>${registrarHint}</span></button>`;
 }
 function abrirAcoesLeitura(){
   renderAcoesLeitura();
