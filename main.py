@@ -740,7 +740,7 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
     editora_norm = _normalizar_busca(editora)
     isbn = normalizar_isbn(q or "")
     genero = normalizar_genero(genero)
-    if not q_norm and not editora_norm:
+    if not q_norm and not editora_norm and not genero and not literatura:
         return []
 
     candidato_limit = 500
@@ -1450,26 +1450,37 @@ def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: 
 
 
 @app.get("/api/buscar")
-def buscar(q: str = Query(..., min_length=2), editora: str = Query(""), genero: str = Query(""),
+def buscar(q: str = Query(""), editora: str = Query(""), genero: str = Query(""),
            literatura: str = Query(""), ordenar: str = Query(""),
            com_criticas: bool = Query(False), lendo_agora: bool = Query(False),
            com_capa: bool = Query(False), com_isbn: bool = Query(False),
            idioma: str = Query(""), s: Session = Depends(get_session)):
     inicio = datetime.utcnow()
     rss_inicio = _rss_mb()
+    q = (q or "").strip()
+    q_valido = len(q) >= 2
     logger.info("search_started", extra={"query_len": len(q), "rss_mb": rss_inicio})
     editora_norm = _normalizar_busca(editora)
     genero_canonico = normalizar_genero(genero)
     lit = normalizar_literatura(literatura)
     ordenar = ordenar if ordenar in ORDENACOES_BUSCA else ""
     idioma_pt = _idioma_portugues(idioma)
-    locais = _buscar_catalogo_local(q, s, editora=editora, genero=genero_canonico, literatura=lit)
+    filtros_ativos = bool(editora_norm or genero_canonico or lit or com_criticas or lendo_agora or com_capa or com_isbn or idioma_pt)
+    if not q_valido and not filtros_ativos:
+        return []
+    termo_busca = q if q_valido else ""
+    locais = _buscar_catalogo_local(termo_busca, s, editora=editora, genero=genero_canonico, literatura=lit)
     def _resposta_final(externos: list[dict]) -> list[dict]:
         externos_filtrados = [d for d in (externos or []) if _doc_tem_editora(d, editora_norm) and (not genero_canonico or _doc_compativel_genero(d, genero_canonico)) and _doc_compativel_literatura(d, lit)]
-        docs = consolidar_resultados_busca_final(q, locais + externos_filtrados)
+        docs = consolidar_resultados_busca_final(termo_busca, locais + externos_filtrados)
         docs = _aplicar_filtros_extras(docs, com_criticas=com_criticas, lendo_agora=lendo_agora,
                                        com_capa=com_capa, com_isbn=com_isbn, idioma_pt=bool(idioma_pt))
         return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit))[:30]
+
+    if not q_valido:
+        resposta = _resposta_final([])
+        logger.info("search_finished", extra={"query_len": len(q), "locais_count": len(locais), "externos_count": 0, "elapsed_ms": int((datetime.utcnow() - inicio).total_seconds() * 1000), "rss_mb": _rss_mb()})
+        return resposta
 
     isbn = normalizar_isbn(q)
     if isbn:

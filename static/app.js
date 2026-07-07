@@ -817,6 +817,9 @@ function filtrosBuscaAtivos(){
 function assinaturaFiltrosBusca(){
   return JSON.stringify([filtroEditoraBusca,filtroGeneroBusca,filtroLiteraturaBusca,ordenacaoBusca,filtrosSociaisBusca]);
 }
+function filtrosPesquisaAtivos(){
+  return !!(filtroEditoraBusca || filtroGeneroBusca || filtroLiteraturaBusca || Object.values(filtrosSociaisBusca).some(Boolean));
+}
 function renderFiltrosBusca(){
   const ativos=filtrosBuscaAtivos();
   const active=$('#activeSearchFilters');
@@ -910,7 +913,9 @@ function fecharFiltrosBusca(){
   if(filtrosBuscaDirty){ filtrosBuscaDirty=false; refazerBuscaComFiltros(); }
 }
 function refazerBuscaComFiltros(){
-  if(($('#q')?.value.trim()||'').length>=2) buscar();
+  const q=($('#q')?.value.trim()||'');
+  if(q.length>=2 || filtrosPesquisaAtivos()) buscar();
+  else if($('#resultados')) $('#resultados').innerHTML=`<div class="empty">${t('empty_search_hint')}</div>`;
 }
 function aplicarMudancaFiltro(){
   filtrosBuscaDirty=true;
@@ -1617,14 +1622,15 @@ function agruparResultadosPorObra(docs,q,opcoes={}){
 
 /* busca */
 function buscarTermo(t){$('#q').value=t;buscar();}
-function renderBuscaSkeleton(){
+function renderBuscaSkeleton(mensagem=''){
   const item=()=>`<div class="book busca-skeleton-item" aria-hidden="true">
     <div class="cover busca-skeleton-cover"></div>
     <div class="busca-skeleton-line title"></div>
     <div class="busca-skeleton-line author"></div>
     <div class="busca-skeleton-line meta-line"></div>
   </div>`;
-  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('searching')}</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
+  const aviso=mensagem?`<div class="empty search-filter-status">${esc(mensagem)}</div>`:'';
+  $('#resultados').innerHTML=`${aviso}<div class="section-head"><h2 class="h-section">${t('searching')}</h2></div><div class="wall busca-skeleton">${Array.from({length:4},item).join('')}</div>`;
 }
 function manualCtaHTML(destaque=false){
   return destaque
@@ -1634,15 +1640,16 @@ function manualCtaHTML(destaque=false){
 async function buscar(event){
   if(event?.preventDefault) event.preventDefault();
   const q=$('#q').value.trim();
-  if(q.length<2){
+  const temFiltroPesquisa=filtrosPesquisaAtivos();
+  if(q.length<2 && !temFiltroPesquisa){
     $('#resultados').innerHTML=`<div class="empty">${t('empty_search_hint')}</div>`;
     mostrarBusca('resultados');
     return;
   }
-  lembrarBuscaRecente(q);
+  if(q.length>=2) lembrarBuscaRecente(q);
   const suggestBox=$('#searchSuggest'); if(suggestBox) suggestBox.hidden=true;
   $('#edicoes').innerHTML=''; $('#form').innerHTML='';
-  renderBuscaSkeleton();
+  renderBuscaSkeleton(q.length<2 && temFiltroPesquisa ? t('searching_with_filters') : '');
   mostrarBusca('resultados');
   const avisoBusca=setTimeout(()=>{
     const resultados=$('#resultados');
@@ -1653,7 +1660,8 @@ async function buscar(event){
   },4000);
   let docs;
   try{
-    const params=new URLSearchParams({q});
+    const params=new URLSearchParams();
+    if(q.length>=2) params.set('q', q);
     if(filtroEditoraBusca) params.set('editora', filtroEditoraBusca);
     if(filtroGeneroBusca) params.set('genero', filtroGeneroBusca);
     if(filtroLiteraturaBusca) params.set('literatura', filtroLiteraturaBusca);
