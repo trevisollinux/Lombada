@@ -12,6 +12,7 @@ MercadoEditorial: PRESERVADO, desativado (virou pago, jun/2026).
 
 Wikidata / Hardcover: presentes mas fora do hot path.
 """
+import os
 import re
 import unicodedata
 import concurrent.futures as _fut
@@ -29,7 +30,21 @@ GBOOKS            = "https://www.googleapis.com/books/v1/volumes"
 MERCADOEDITORIAL  = "https://api.mercadoeditorial.org/api/v1.2/book"
 WIKIDATA_SEARCH   = "https://www.wikidata.org/w/api.php"
 HARDCOVER_API_URL = "https://api.hardcover.app/v1/graphql"
-TIMEOUT = 12.0
+
+
+def _timeout_env(padrao: float = 5.0) -> float:
+    try:
+        return max(1.0, float(os.getenv("FONTES_TIMEOUT", str(padrao))))
+    except ValueError:
+        return padrao
+
+
+# Timeout curto e explícito das fontes externas. O valor antigo (12s) fazia cada
+# busca não-cacheada segurar a thread por até ~24s (Google Books + Open Library),
+# empilhando buscas lentas simultâneas que estouravam a memória do worker (OOM).
+# Conexão falha rápido; a leitura não prende a thread por muito tempo. Env: FONTES_TIMEOUT.
+_TIMEOUT_S = _timeout_env(5.0)
+TIMEOUT = httpx.Timeout(_TIMEOUT_S, connect=min(3.0, _TIMEOUT_S))
 _UA = {"User-Agent": "Lombada/2.0 (diario de leitura; github.com/trevisollinux/lombada)"}
 
 LANG = {
