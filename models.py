@@ -13,7 +13,23 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lombada.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 _args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, echo=False, connect_args=_args)
+# Pool enxuto e saudável no Postgres do Render: conexões ociosas são recicladas
+# (o Render derruba conexões paradas) e o tamanho fica alinhado ao teto de
+# concorrência do app, pra não acumular conexões e memória num worker de 512 MB.
+_engine_kwargs: dict = {"echo": False, "connect_args": _args}
+if not DATABASE_URL.startswith("sqlite"):
+    def _int_env(nome: str, padrao: int) -> int:
+        try:
+            return max(1, int(os.getenv(nome, str(padrao))))
+        except ValueError:
+            return padrao
+    _engine_kwargs.update(
+        pool_size=_int_env("DB_POOL_SIZE", 5),
+        max_overflow=_int_env("DB_MAX_OVERFLOW", 5),
+        pool_recycle=_int_env("DB_POOL_RECYCLE", 300),
+        pool_pre_ping=True,
+    )
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 
 SECRET_KEY          = os.getenv("SECRET_KEY", "troque-isto-em-producao")
 GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "")

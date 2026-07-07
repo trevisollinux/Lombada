@@ -282,6 +282,39 @@ class SmokeTest(unittest.TestCase):
         self.assertIn("Mar de Ipanema", titulos)
         self.assertNotIn("Neve de Moscou", titulos)
 
+    def test_buscar_filtro_pais_nao_vaza_a_regiao_inteira(self):
+        # Navegação só por filtro "argentina": deve trazer só obras argentinas.
+        # Antes, o filtro por país casava a região inteira (América Latina),
+        # então um vizinho da mesma região aparecia sob "Argentina" — e obra sem
+        # origem entrava junto, poluindo a vitrine.
+        with main.Session(main.engine) as s:
+            if not s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "arg-borges")).first():
+                arg = main.Obra(ol_work_key="arg-borges", titulo="Ficciones Teste", autor="Autorpais Borges",
+                                literatura_pais="Argentina", literatura_regiao="América Latina", autor_pais="Argentina")
+                vizinho = main.Obra(ol_work_key="arg-vizinho", titulo="Vizinho Teste", autor="Autorpais Onetti",
+                                    literatura_pais="Uruguai", literatura_regiao="América Latina", autor_pais="Uruguai")
+                sem = main.Obra(ol_work_key="arg-sem", titulo="Anonimo Teste", autor="Autorpais Souza")
+                for o in (arg, vizinho, sem):
+                    s.add(o)
+                s.commit()
+                for o in (arg, vizinho, sem):
+                    s.refresh(o)
+                for o, capa in ((arg, "https://x/arg.jpg"), (vizinho, "https://x/uy.jpg"), (sem, "")):
+                    s.add(main.Edicao(obra_id=o.id, editora="Editora Pais", capa_url=capa))
+                s.commit()
+
+        r = self.client.get("/api/buscar", params={"literatura": "argentina"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertIn("Ficciones Teste", titulos)
+        self.assertNotIn("Vizinho Teste", titulos)     # vizinho da mesma região não vaza
+        self.assertNotIn("Anonimo Teste", titulos)     # sem origem não entra na vitrine
+
+        # com_capa aplicado por cima continua funcionando
+        r2 = self.client.get("/api/buscar", params={"literatura": "argentina", "com_capa": "true"})
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual([d["titulo"] for d in r2.json()], ["Ficciones Teste"])
+
     def test_buscar_filtros_sociais_e_de_qualidade(self):
         self._semear_obras_filtros()
         r = self.client.get("/api/buscar", params={"q": "autorfiltro", "com_capa": "true", "com_isbn": "true"})

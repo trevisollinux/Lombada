@@ -224,9 +224,25 @@ def seed_catalog_content() -> None:
     )
 
 
+# Teto de handlers síncronos rodando ao mesmo tempo. FastAPI executa cada rota
+# `def` num pool de threads (padrão 40). Num único worker em 512 MB, 40 buscas/
+# proxies simultâneos (crawler + usuários) somam picos de memória e conexões que
+# derrubam o processo por OOM. Serializar um pouco troca latência por sobreviver.
+try:
+    MAX_SYNC_CONCURRENCY = max(1, int(os.getenv("MAX_SYNC_CONCURRENCY", "12")))
+except ValueError:
+    MAX_SYNC_CONCURRENCY = 12
+
+
 # ─── lifespan ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app):
+    try:
+        import anyio
+        anyio.to_thread.current_default_thread_limiter().total_tokens = MAX_SYNC_CONCURRENCY
+        logger.info("sync_concurrency_limit_set", extra={"tokens": MAX_SYNC_CONCURRENCY})
+    except Exception:
+        logger.warning("sync_concurrency_limit_failed", exc_info=True)
     SQLModel.metadata.create_all(engine)
     migrar()
     seed_demo_content()
@@ -587,6 +603,28 @@ def _literatura_paises(lit: dict) -> set[str]:
         return {_normalizar_busca(lit["pais"])}
     return {_normalizar_busca(l["pais"]) for l in LITERATURAS_CANONICAS if l["pais"] and l["regiao"] == lit["regiao"]}
 
+
+def _formas_texto_sql(valores) -> set[str]:
+    """Formas equivalentes de um texto pra casar no banco sem depender de acento.
+    Devolve a versão minúscula com acento E a sem acento — o prefiltro SQL é só
+    um funil (o julgamento final é do _compat_literatura, insensível a acento),
+    então incluir as duas formas evita falso-negativo qualquer que seja o formato
+    gravado no catálogo."""
+    formas: set[str] = set()
+    for valor in valores:
+        texto = (valor or "").strip()
+        if not texto:
+            continue
+        formas.add(texto.lower())
+        formas.add(_normalizar_busca(texto))
+    return {f for f in formas if f}
+
+
+def _literatura_paises_raw(lit: dict) -> list[str]:
+    if lit.get("pais"):
+        return [lit["pais"]]
+    return [l["pais"] for l in LITERATURAS_CANONICAS if l["pais"] and l["regiao"] == lit.get("regiao")]
+
 def _compat_literatura(lit: dict, pais: str, regiao: str, autor_pais: str = "") -> bool | None:
     """True/False quando a obra tem metadado de origem; None quando não tem
     (obra sem o dado não pode ser julgada — quem decide o que fazer é quem filtra)."""
@@ -594,7 +632,10 @@ def _compat_literatura(lit: dict, pais: str, regiao: str, autor_pais: str = "") 
     if not (pais_n or regiao_n or autor_n):
         return None
     paises = _literatura_paises(lit)
-    regiao_alvo = _normalizar_busca(lit.get("regiao") or "")
+    # Filtro por país (ex.: argentina) casa só a obra daquele país. A região só
+    # é critério quando o filtro é regional (ex.: latino-americana, sem país) —
+    # senão "argentina" acabava trazendo todo livro marcado "América Latina".
+    regiao_alvo = _normalizar_busca(lit.get("regiao") or "") if not lit.get("pais") else ""
     if pais_n and pais_n in paises:
         return True
     if autor_n and autor_n in paises:
@@ -743,6 +784,11 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
     if not q_norm and not editora_norm and not genero and not literatura:
         return []
 
+    # Numa busca por texto/ISBN a origem é só um refino: não escondemos obras
+    # sem metadado de origem (o catálogo ainda tem poucos países preenchidos).
+    # Numa navegação só por filtro (ex.: "livros da Argentina") o filtro é
+    # soberano — obra sem origem não entra e obra de outro país fica de fora.
+    busca_textual = bool(q_norm or isbn)
     candidato_limit = 500
     stmt = select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id)
 
@@ -763,21 +809,28 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
     if editora_norm:
         filtros.append(func.lower(Edicao.editora).like(f"%{editora_norm.lower()}%"))
     if literatura:
-        paises = [p.lower() for p in (literatura.get("paises") or []) if p]
-        regioes = [r.lower() for r in (literatura.get("regioes") or []) if r]
+        # O dict canônico usa "pais"/"regiao" (singular). Filtro por país afunila
+        # pelo país (literatura_pais/autor_pais); filtro regional (sem país, ex.:
+        # latino-americana) afunila pela região e pelos países dela.
+        formas_pais = _formas_texto_sql(_literatura_paises_raw(literatura))
+        regiao_raw = literatura.get("regiao") if not literatura.get("pais") else ""
+        formas_regiao = _formas_texto_sql([regiao_raw]) if regiao_raw else set()
         lit_filtros = []
-        if paises:
-            lit_filtros.append(func.lower(Obra.literatura_pais).in_(paises))
-            lit_filtros.append(func.lower(Obra.autor_pais).in_(paises))
-        if regioes:
-            lit_filtros.append(func.lower(Obra.literatura_regiao).in_(regioes))
+        if formas_pais:
+            lit_filtros.append(func.lower(Obra.literatura_pais).in_(formas_pais))
+            lit_filtros.append(func.lower(Obra.autor_pais).in_(formas_pais))
+        if formas_regiao:
+            lit_filtros.append(func.lower(Obra.literatura_regiao).in_(formas_regiao))
         if lit_filtros:
-            sem_origem_catalogada = and_(
-                or_(Obra.literatura_pais.is_(None), Obra.literatura_pais == ""),
-                or_(Obra.literatura_regiao.is_(None), Obra.literatura_regiao == ""),
-                or_(Obra.autor_pais.is_(None), Obra.autor_pais == ""),
-            )
-            filtros.append(or_(*lit_filtros, sem_origem_catalogada))
+            cond = or_(*lit_filtros)
+            if busca_textual:
+                sem_origem_catalogada = and_(
+                    or_(Obra.literatura_pais.is_(None), Obra.literatura_pais == ""),
+                    or_(Obra.literatura_regiao.is_(None), Obra.literatura_regiao == ""),
+                    or_(Obra.autor_pais.is_(None), Obra.autor_pais == ""),
+                )
+                cond = or_(cond, sem_origem_catalogada)
+            filtros.append(cond)
     for filtro in filtros:
         stmt = stmt.where(filtro)
     stmt = stmt.order_by(Edicao.id.desc()).limit(candidato_limit)
@@ -819,9 +872,12 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
                 getattr(obra, "literatura_regiao", "") or "",
                 getattr(obra, "autor_pais", "") or "",
             )
-            # obra com origem catalogada incompatível sai; sem metadado fica
-            # (o catálogo ainda tem pouca origem preenchida — não sumir com tudo)
+            # obra com origem catalogada incompatível sai sempre. Obra sem
+            # metadado fica na busca por texto (não sumir com tudo), mas cai na
+            # navegação só por filtro — ali o país é o próprio pedido.
             if lit_compat is False:
+                continue
+            if lit_compat is None and not busca_textual:
                 continue
             if lit_compat:
                 score += 40
@@ -922,7 +978,10 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
         if literatura:
             doc["_literatura_match"] = bucket["literatura_match"]
         docs.append(doc)
-    return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:10]
+    # Busca por texto entrega o topo (mistura com resultados externos depois).
+    # Navegação só por filtro é uma vitrine do catálogo — devolve mais itens.
+    limite_local = 30 if not busca_textual else 10
+    return sorted(docs, key=lambda d: (d.get("_ranking_score") or 0, d.get("edicao_isbn", {}).get("leituras_count") or 0), reverse=True)[:limite_local]
 
 
 def _follow_counts(s: Session, usuario_id: int) -> dict:
