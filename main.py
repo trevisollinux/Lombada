@@ -31,12 +31,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ProfileReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
 from auth import usuario_sessao, router as auth_router
+from api_publica import router as public_api_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
 from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
 from landing import (render_landing, render_quem_somos, render_blog_index,
-                     render_blog_post, render_privacidade)
+                     render_blog_post, render_privacidade, render_api_docs)
 import blog as blog_mod
 
 AQUI = Path(__file__).resolve().parent
@@ -292,6 +293,7 @@ async def no_store_sensitive_routes(request: Request, call_next):
 
 app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 app.include_router(auth_router)
+app.include_router(public_api_router)
 
 @app.exception_handler(Exception)
 async def friendly_unhandled_error_handler(request: Request, exc: Exception):
@@ -3169,6 +3171,11 @@ def admin_review(suggestion_id: int, action: str, request: Request, s: Session =
     else:
         raise HTTPException(404, "ação inválida")
     return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
+
+@app.get("/api-docs")
+def api_docs(request: Request):
+    return HTMLResponse(render_api_docs(base_url=str(request.base_url).rstrip("/"), app_url="/", instagram_url=INSTAGRAM_URL))
+
 
 @app.get("/sobre")
 def sobre():
