@@ -6,7 +6,7 @@ raspagem de sites de editoras brasileiras.
 
 - **Produção:** [lombada.onrender.com](https://lombada.onrender.com) — deploy
   automático no Render **a cada merge na `main`**.
-- **Stack:** FastAPI + SQLModel, Postgres/Neon, frontend SPA sem build
+- **Stack:** FastAPI + SQLModel, PostgreSQL (Railway em produção), frontend SPA sem build
   (`static/app.js` + `static/app.css` + `index.html`).
 
 ---
@@ -161,13 +161,49 @@ dump_url=https://www.editora34.com.br/livro/1000   (dry_run=true)
 Promote source records to catalog → dry_run=false, limit=5000
 ```
 
+## Banco de dados (Railway PostgreSQL)
+
+O app usa **FastAPI + SQLModel/SQLAlchemy**. Não há Alembic neste repositório; as tabelas são declaradas em `models.py` e o boot do app executa `SQLModel.metadata.create_all(engine)` seguido de `migrar()`, que aplica DDLs idempotentes. Para preparar um banco PostgreSQL novo do Railway sem depender do Neon e sem apagar dados existentes, use sempre a `DATABASE_URL` fornecida pelo ambiente.
+
+### Inicializar tabelas/migrações
+
+```bash
+DATABASE_URL="$DATABASE_URL" python scripts/init_db.py
+```
+
+Esse comando:
+- exige `DATABASE_URL` no ambiente;
+- aceita URLs `postgres://...` e normaliza para SQLAlchemy como `postgresql://...`;
+- cria apenas tabelas/índices ausentes (`create_all` + DDLs `IF NOT EXISTS`/checagens de coluna);
+- não executa `DROP`, não trunca tabelas e não contém senha/URL real no código.
+
+### Seed/importação do catálogo inicial
+
+Existe um seed versionado em `data/catalog_seed.json` com obras, autores, edições e editoras. Para importar no banco configurado por `DATABASE_URL`:
+
+```bash
+DATABASE_URL="$DATABASE_URL" python scripts/seed_catalog.py
+```
+
+O seed é idempotente: reaproveita obras por `work_key` ou título+autor e edições por `ol_edition_key`, ISBN ou combinação obra/editora/tradutor/ano. O boot do app também pode executar esse seed se `CATALOG_SEED_ENABLED=1`, mas o comando acima é o caminho explícito para preparar o banco novo.
+
+### Verificações pós-deploy
+
+Depois de configurar `DATABASE_URL` no serviço Railway e subir o app, verifique:
+
+```bash
+curl -fsS https://SEU-DOMINIO/healthz
+curl -fsS https://SEU-DOMINIO/api/version
+curl -fsS https://SEU-DOMINIO/api/editoras
+curl -fsS https://SEU-DOMINIO/editora/companhia-das-letras
+```
+
 ## Desenvolvimento
 
 - **Testes locais precisam de Python 3.12+** (`publica.py` usa f-string com `\`,
   só válido em 3.12+). Dependências: `fastapi sqlmodel psycopg2-binary
   beautifulsoup4 requests`. O runner do Actions usa 3.11, mas o app roda 3.12+.
-- Sem `DATABASE_URL`, o app usa SQLite (`sqlite:///lombada.db`) — bom para testar
-  modelo/migração/lógica local.
+- Em desenvolvimento local, se `DATABASE_URL` não estiver definido, o app usa SQLite (`sqlite:///lombada.db`) para testes rápidos. Em Railway/produção, configure sempre `DATABASE_URL` como variável de ambiente; os scripts operacionais recusam rodar sem ela.
 - Muita coisa da lógica de scraping/promote é testável offline com HTML fake e
   cursores fake (ver histórico de commits de `sync_publishers.py`/`promote_*`).
 
@@ -187,7 +223,7 @@ Promote source records to catalog → dry_run=false, limit=5000
   coluna: merge → esperar deploy (~2-4 min) → rodar promote/backfill.
 - **Robustez do sync:** cada editora é isolada (uma falha não derruba o run); a
   conexão Postgres é reaberta antes de cada operação de banco (o Neon derruba
-  conexões ociosas durante os minutos de scraping); os steps usam `pipefail` para
+  conexões ociosas durante os minutos de scraping; em Railway, use a URL PostgreSQL do próprio serviço de banco); os steps usam `pipefail` para
   não mascarar erro.
 - **Cache de ids mortos (`publisher_dead_ids`):** só o `id_range`. Numa faixa
   numérica esgotada (ex.: editora_34, ~2200 ids sem livro em 1–3000) o script
