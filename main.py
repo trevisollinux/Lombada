@@ -2826,7 +2826,7 @@ def indice_editoras(s: Session = Depends(get_session)):
 
 
 @app.get("/editora/{slug}")
-def pagina_editora(slug: str, s: Session = Depends(get_session)):
+def pagina_editora(slug: str, page: int = Query(1, ge=1), per_page: int = Query(20), view: str = Query("grade"), s: Session = Depends(get_session)):
     dados = dados_editora(s, slug.lower().strip())
     if not dados:
         corpo = (
@@ -2835,7 +2835,9 @@ def pagina_editora(slug: str, s: Session = Depends(get_session)):
             '<a class="cta" href="/editoras">ver todas as editoras →</a>'
         )
         return HTMLResponse(_pagina("editora não encontrada · Lombada", corpo), status_code=404)
-    return HTMLResponse(render_pagina_editora(dados))
+    per_page = per_page if per_page in {10, 20, 50} else 20
+    view = "lista" if (view or "").lower().strip() == "lista" else "grade"
+    return HTMLResponse(render_pagina_editora(dados, page=page, per_page=per_page, view=view))
 
 
 

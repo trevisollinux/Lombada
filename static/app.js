@@ -65,6 +65,8 @@ let ultimoLivroSalvo=null;
 let cardOpener=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
+let visualizacaoBusca=localStorage.getItem('lombada_view_busca')==='lista'?'lista':'grade';
+let paginaBusca=1, porPaginaBusca=20;
 let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
 const LOGIN_HINT_KEY='lombada_login_hint_dismissed';
@@ -1631,6 +1633,73 @@ function agruparResultadosPorObra(docs,q,opcoes={}){
   return grupos.sort((a,b)=>(b.score_obra-a.score_obra)||(b.edicoes_encontradas-a.edicoes_encontradas));
 }
 
+
+function normalizarRespostaBusca(payload){
+  if(Array.isArray(payload)) return payload;
+  if(payload && Array.isArray(payload.items)) return payload.items;
+  if(payload && Array.isArray(payload.resultados)) return payload.resultados;
+  return [];
+}
+function mudarVisualizacaoBusca(modo){
+  visualizacaoBusca=modo==='lista'?'lista':'grade';
+  localStorage.setItem('lombada_view_busca',visualizacaoBusca);
+  paginaBusca=1;
+  renderResultadosBusca();
+}
+function mudarPorPaginaBusca(n){
+  porPaginaBusca=[10,20,30].includes(Number(n))?Number(n):20;
+  paginaBusca=1;
+  renderResultadosBusca();
+}
+function mudarPaginaBusca(delta){
+  const totalPages=Math.max(1,Math.ceil((obrasAgrupadas.length||0)/porPaginaBusca));
+  paginaBusca=Math.min(totalPages,Math.max(1,paginaBusca+delta));
+  renderResultadosBusca();
+}
+function controlesBusca(totalPages){
+  const total=obrasAgrupadas.length||0;
+  return `<div class="search-controls">
+    <div class="view-toggle" aria-label="visualização da busca">
+      <button class="${visualizacaoBusca==='grade'?'active':''}" type="button" onclick="mudarVisualizacaoBusca('grade')">grade</button>
+      <button class="${visualizacaoBusca==='lista'?'active':''}" type="button" onclick="mudarVisualizacaoBusca('lista')">lista</button>
+    </div>
+    <div class="per-page-select" aria-label="resultados por página"><span>por página</span>${[10,20,30].map(n=>`<button class="${porPaginaBusca===n?'active':''}" type="button" onclick="mudarPorPaginaBusca(${n})">${n}</button>`).join('')}</div>
+    <div class="pager" aria-label="paginação da busca">
+      <button type="button" ${paginaBusca<=1?'disabled':''} onclick="mudarPaginaBusca(-1)">← anterior</button>
+      <span>página ${paginaBusca} de ${totalPages}</span>
+      <button type="button" ${paginaBusca>=totalPages?'disabled':''} onclick="mudarPaginaBusca(1)">próximo →</button>
+    </div>
+    <div class="search-total">${total} ${total===1?'resultado':'resultados'}</div>
+  </div>`;
+}
+function cardResultadoBusca(d,i){
+  return `<div class="book work-card" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">
+    ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
+    <div class="t">${esc(d.titulo)}</div>
+    <div class="a">${esc(d.autor)}</div>
+    <div class="yr">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')}</div>
+    <div class="e">${t('see_editions')}</div></div>`;
+}
+function linhaResultadoBusca(d,i){
+  const cap=coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'').replace('class="cover','class="search-list-cover');
+  return `<div class="search-result-row" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">${cap}<div class="search-result-body">
+    <div class="search-result-title">${esc(d.titulo)}</div><div class="search-result-author">${esc(d.autor)}</div>
+    <div class="search-result-meta">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')} · ${t('see_editions')}</div>
+  </div></div>`;
+}
+function renderResultadosBusca(extraHTML=''){
+  const totalPages=Math.max(1,Math.ceil((obrasAgrupadas.length||0)/porPaginaBusca));
+  paginaBusca=Math.min(Math.max(1,paginaBusca),totalPages);
+  const inicio=(paginaBusca-1)*porPaginaBusca;
+  const itens=obrasAgrupadas.slice(inicio,inicio+porPaginaBusca);
+  const lista=visualizacaoBusca==='lista'
+    ? `<div class="search-result-list">${itens.map((d,idx)=>linhaResultadoBusca(d,inicio+idx)).join('')}</div>`
+    : `<div class="wall">${itens.map((d,idx)=>cardResultadoBusca(d,inicio+idx)).join('')}</div>`;
+  const melhorScore=resultadosArr.length?Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,ultimaBuscaQ))):100;
+  const precisaDestaque=melhorScore<40;
+  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div>`+extraHTML+controlesBusca(totalPages)+lista+controlesBusca(totalPages)+manualCtaHTML(precisaDestaque);
+}
+
 /* busca */
 function buscarTermo(t){$('#q').value=t;buscar();}
 function renderBuscaSkeleton(mensagem=''){
@@ -1684,7 +1753,7 @@ async function buscar(event){
     if(filtrosSociaisBusca.idioma_pt) params.set('idioma','pt');
     const res=await fetch('/api/buscar?'+params.toString());
     if(!res.ok) throw new Error(`search http ${res.status}`);
-    try{ docs=await res.json(); }catch(err){ throw new Error('search invalid json'); }
+    try{ docs=normalizarRespostaBusca(await res.json()); }catch(err){ throw new Error('search invalid json'); }
   }
   catch(err){
     console.warn('search failed', {query_len:q.length}, err);
@@ -1698,6 +1767,7 @@ async function buscar(event){
   $('#resultados').dataset.filtros=assinaturaFiltrosBusca();
   // com ordenação/literatura ativa o servidor já decidiu a ordem — não re-ranquear no cliente
   const manterOrdemServidor=!!(ordenacaoBusca||filtroLiteraturaBusca);
+  docs=normalizarRespostaBusca(docs);
   resultadosArr=manterOrdemServidor?(docs||[]):ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q, {manterOrdem:manterOrdemServidor});
   if(!obrasAgrupadas.length){
@@ -1706,17 +1776,10 @@ async function buscar(event){
     $('#resultados').innerHTML=msg ? msg+manualCtaHTML(false) : manualCtaHTML(true);
     return;
   }
-  const melhorScore=Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,q)));
-  const precisaDestaque=melhorScore<40;
+  paginaBusca=1;
   const avisoLiteratura=(filtroLiteraturaBusca && !resultadosArr.some(d=>d._literatura_match))
     ? `<div class="empty literatura-fallback-note">${t('literature_no_metadata_note',{literature:esc(literaturaLabelBusca(filtroLiteraturaBusca))})}</div>` : '';
-  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div>`+avisoLiteratura+`<div class="wall">`+
-    obrasAgrupadas.map((d,i)=>`<div class="book work-card" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">
-      ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
-      <div class="t">${esc(d.titulo)}</div>
-      <div class="a">${esc(d.autor)}</div>
-      <div class="yr">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')}</div>
-      <div class="e">${t('see_editions')}</div></div>`).join('')+'</div>'+manualCtaHTML(precisaDestaque);
+  renderResultadosBusca(avisoLiteratura);
 }
 
 /* edições */
