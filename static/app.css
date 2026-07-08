@@ -28,6 +28,7 @@ input,textarea,select{font:inherit;color:inherit}
 .brand{display:flex;align-items:center;gap:11px}
 .seal{width:42px;height:42px;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;
   font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:24px;box-shadow:var(--shadow-sm);background:var(--paper-2)}
+.seal svg{height:62%;width:auto;fill:currentColor;display:block}
 .wordmark{font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:23px;letter-spacing:.01em}
 .wordmark .dot{color:var(--gold)}
 .crumb{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;color:var(--dim);text-align:right;opacity:0;transition:opacity .3s}
