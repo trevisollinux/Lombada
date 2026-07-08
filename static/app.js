@@ -136,6 +136,7 @@ function setupGlobalKeyboard(){
   document.addEventListener('keydown', event => {
     if(event.key==='Escape' && $('#filterSheet') && !$('#filterSheet').hidden){ event.preventDefault(); fecharFiltrosBusca(); return; }
     if(event.key==='Escape' && $('#quickActions') && !$('#quickActions').hidden){ event.preventDefault(); fecharAcoesLeitura(); return; }
+    if(event.key==='Escape' && posLeituraAberto()){ event.preventDefault(); fecharPosLeitura(); return; }
     if(event.key==='Escape' && $('#activityModal')?.classList.contains('open')){ event.preventDefault(); fecharAtividade(); return; }
     if(event.key==='Escape' && $('#readerModal')?.classList.contains('open')){ event.preventDefault(); fecharLeitor(); return; }
     if(event.key==='Escape' && modalAberto()){ event.preventDefault(); fecharModal(); return; }
@@ -2549,7 +2550,7 @@ async function concluirLeitura(idx,el=null){
     if(!r.ok) throw new Error('patch status '+r.status);
   }catch(e){ if(el) el.disabled=false; toast(t('edit_save_error')); return; }
   await carregarPrateleira();
-  toast(t('reading_completed_toast'));
+  abrirPosLeitura(leituraPosAcao(l));
 }
 function progressoDetalhado(l){
   if(!l) return null;
@@ -3384,6 +3385,55 @@ async function compartilharEstante(){
   await compartilharPerfil();
 }
 
+function posLeituraAberto(){
+  return $('#postReadModal')?.classList.contains('open');
+}
+function leituraPosAcao(l){
+  if(!l) return null;
+  return prateleira.find(x=>x.leitura_id===l.leitura_id) || prateleira.find(x=>chaveLivro(x)===chaveLivro(l)) || l;
+}
+function fecharPosLeitura(){
+  $('#postReadModal')?.classList.remove('open');
+}
+function abrirPosLeitura(livro){
+  const modal=$('#postReadModal');
+  const body=$('#postReadBody');
+  if(!modal||!body||!livro) return;
+  body.innerHTML=`
+    <div class="post-read-kicker">${t('post_read_kicker')}</div>
+    <h2 id="postReadTitle">${t('post_read_title')}</h2>
+    <p>${t('post_read_message',{title:esc(livro.titulo||t('untitled_book'))})}</p>
+    <div class="post-read-actions">
+      <button type="button" class="post-read-primary" onclick="compartilharLeituraRegistrada()">${t('post_read_share')}</button>
+      <button type="button" class="post-read-secondary" onclick="escreverDiarioLeituraRegistrada()">${t('post_read_diary')}</button>
+      <button type="button" class="post-read-secondary" onclick="verEstanteLidos()">${t('post_read_shelf')}</button>
+    </div>
+    <button type="button" class="post-read-later" onclick="fecharPosLeitura()">${t('post_read_later')}</button>`;
+  modal.dataset.leituraId=livro.leitura_id||'';
+  modal.classList.add('open');
+  requestAnimationFrame(()=>modal.querySelector('.post-read-primary')?.focus());
+}
+function livroPosLeituraAtual(){
+  const id=Number($('#postReadModal')?.dataset?.leituraId||0);
+  return prateleira.find(l=>Number(l.leitura_id)===id) || null;
+}
+async function compartilharLeituraRegistrada(){
+  await compartilharEstante();
+}
+function escreverDiarioLeituraRegistrada(){
+  const livro=livroPosLeituraAtual();
+  fecharPosLeitura();
+  const idx=prateleira.findIndex(l=>l.leitura_id===livro?.leitura_id);
+  if(idx>=0) abrirDiarioLeitura(idx);
+  else irPara('estante',{subaba:'diario'});
+}
+function verEstanteLidos(){
+  fecharPosLeitura();
+  filtroEstante='Lido';
+  irPara('estante',{subaba:'shelf',recarregar:false});
+  renderPrateleira();
+}
+
 /* ---------- card / modal ---------- */
 
 function nomeCapaCard(){
@@ -3866,11 +3916,17 @@ function abrirEditar(){
   p.scrollIntoView({behavior:'smooth',block:'center'});
 }
 async function salvarEdicao(){
+  const statusAnterior=cardAtual?.status;
   const body={ status:$('#e_status').value, nota:notaEdit||null,
     relato:$('#e_relato').value.trim(), publico:$('#e_publico').checked, spoiler:$('#e_spoiler').checked, data:$('#e_data').value.trim() };
-  try{ await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  const leituraEditada=cardAtual ? {...cardAtual,status:body.status} : null;
+  try{
+    const r=await fetch('/api/prateleira/'+cardAtual.leitura_id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('patch status '+r.status);
+  }
   catch(e){ toast(t('edit_save_error')); return; }
   fecharModalParaNavegacao(); await carregarPrateleira();
+  if(statusAnterior!=='Lido' && body.status==='Lido') abrirPosLeitura(leituraPosAcao(leituraEditada));
 }
 async function removerLeitura(el=null){
   const botao=el||document.querySelector('.btn-danger[onclick^="removerLeitura"]');

@@ -150,6 +150,14 @@
   </section>
 </div>
 
+<div class="post-read-backdrop" id="postReadModal" onclick="if(event.target===this)fecharPosLeitura()">
+  <section class="post-read-sheet" role="dialog" aria-modal="false" aria-labelledby="postReadTitle">
+    <div class="post-read-handle" aria-hidden="true"></div>
+    <button class="post-read-close" type="button" onclick="fecharPosLeitura()" aria-label="fechar">×</button>
+    <div id="postReadBody"></div>
+  </section>
+</div>
+
 <div class="publisher-sheet-backdrop" id="filterSheet" hidden onclick="if(event.target===this)fecharFiltrosBusca()">
   <section class="publisher-sheet filter-sheet" role="dialog" aria-modal="true" aria-labelledby="filterSheetTitle">
     <div class="publisher-sheet-handle" aria-hidden="true"></div>
