@@ -263,6 +263,10 @@ def render_landing(
         '<section class="lp-section"><span class="label">por que</span>'
         '<h2>O que muda no Lombada</h2>'
         f'<div class="lp-feats">{feats}</div></section>'
+        '<section class="lp-section"><span class="label">dados abertos</span>'
+        '<h2>Dados abertos do catálogo</h2>'
+        '<div class="lp-support"><p>O Lombada também disponibiliza uma API pública para consulta de livros, edições, editoras, traduções e ISBNs catalogados. Ela é gratuita, somente leitura e pensada para pesquisadores, leitores, projetos independentes e desenvolvedores.</p>'
+        '<a class="lp-btn ghost" href="/api-docs">Ver documentação da API</a></div></section>'
         f'{contribua}'
     )
 
@@ -277,6 +281,41 @@ def render_landing(
         description="Rede social de livros e a fonte mais completa pra pesquisar livros publicados no Brasil. Registre o que leu, com qual edição e tradução.",
     )
 
+
+
+def render_api_docs(base_url: str = "", app_url: str = "/", instagram_url: str = "") -> str:
+    base = (base_url.rstrip("/") if base_url else "") + "/api/public/v1"
+    example = '{\n  "ok": true,\n  "service": "lombada-public-api",\n  "version": "v1"\n}'
+    books = '{\n  "data": [\n    {\n      "id": 1,\n      "work_key": "...",\n      "title": "Dom Casmurro",\n      "author": "Machado de Assis",\n      "year": 1899,\n      "original_language": "pt",\n      "description": "",\n      "genres": [],\n      "editions": []\n    }\n  ],\n  "pagination": {"page": 1, "limit": 20, "total": 1, "pages": 1}\n}'
+    endpoints = [
+        ("GET /health", "Status simples da API pública."),
+        ("GET /books?q=machado&limit=20", "Lista obras com filtros por título, autor, editora, tradutor, ISBN, idioma, ano e presença de capa."),
+        ("GET /books/{book_id}", "Detalha uma obra e todas as edições locais relacionadas."),
+        ("GET /editions/{edition_id}", "Detalha uma edição e a obra associada."),
+        ("GET /publishers?q=companhia", "Lista editoras do catálogo com contagem de edições."),
+        ("GET /literatures", "Lista origens/literaturas catalogadas quando houver dados locais."),
+    ]
+    endpoint_html = "".join(
+        f'<h3>{_esc(name)}</h3><p>{_esc(desc)}</p>' for name, desc in endpoints
+    )
+    inner = (
+        '<header class="lp-page-head"><span class="label">desenvolvedores</span>'
+        '<h1>API pública do Lombada</h1></header>'
+        '<div class="lp-prose">'
+        '<p>API gratuita e somente leitura para consultar metadados de livros, edições, editoras, traduções e ISBNs catalogados pelo Lombada.</p>'
+        f'<h2>Base URL</h2><pre><code>{_esc(base)}</code></pre>'
+        '<p><strong>Importante:</strong> a API retorna metadados catalográficos, não conteúdo integral de livros. Os dados estão sujeitos a correções, enriquecimento e mudanças de cobertura.</p>'
+        '<h2>Endpoints</h2>'
+        f'{endpoint_html}'
+        '<h2>Exemplos em curl</h2>'
+        f'<pre><code>curl {_esc(base)}/health\ncurl "{_esc(base)}/books?q=machado&amp;limit=5"\ncurl {_esc(base)}/publishers</code></pre>'
+        '<h2>Exemplo de resposta JSON</h2>'
+        f'<pre><code>{_esc(example)}\n\n{_esc(books)}</code></pre>'
+        '<h2>Boas práticas</h2>'
+        '<ul><li>Use paginação: <code>page</code> começa em 1 e <code>limit</code> vai até 50.</li><li>Cacheie respostas sempre que possível; as respostas públicas têm cache curto.</li><li>Identifique o Lombada como fonte dos metadados quando reutilizar os dados.</li></ul>'
+        '</div><a class="lp-back" href="/sobre">← voltar para /sobre</a>'
+    )
+    return _shell("API pública do Lombada", inner, {"title": "API pública do Lombada", "type": "website"}, app_url, instagram_url, description="Documentação da API pública somente leitura do catálogo do Lombada.")
 
 # ─────────────────────────── /quem-somos ───────────────────────────
 def render_quem_somos(app_url: str = "/", instagram_url: str = "") -> str:

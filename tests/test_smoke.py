@@ -59,9 +59,16 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("Lombada", r.text)
         self.assertIn("abrir o app", r.text)
+        self.assertIn("/api-docs", r.text)
         # sem env vars de apoio/Play, os botões correspondentes não aparecem
         self.assertNotIn("apoiar ☕", r.text)
         self.assertNotIn("instalar no Android", r.text)
+
+    def test_api_docs_page_loads(self):
+        r = self.client.get("/api-docs")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("API pública do Lombada", r.text)
+        self.assertIn("/api/public/v1", r.text)
 
     def test_quem_somos_page_loads(self):
         r = self.client.get("/quem-somos")
@@ -209,6 +216,38 @@ class SmokeTest(unittest.TestCase):
             self.assertEqual(moved_entry.usuario_id, google.id)
             self.assertEqual(moved_entry.leitura_id, moved_leitura.id)
             self.assertEqual(moved_leitura.usuario_id, google.id)
+
+    def test_public_api_catalog_endpoints(self):
+        self._semear_obras_filtros()
+        health = self.client.get("/api/public/v1/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json()["service"], "lombada-public-api")
+        self.assertIn("public, max-age=300", health.headers.get("cache-control", ""))
+
+        books = self.client.get("/api/public/v1/books", params={"q": "autorfiltro", "limit": 2})
+        self.assertEqual(books.status_code, 200)
+        payload = books.json()
+        self.assertGreaterEqual(payload["pagination"]["total"], 3)
+        self.assertLessEqual(len(payload["data"]), 2)
+        self.assertIn("editions", payload["data"][0])
+
+        publisher = self.client.get("/api/public/v1/books", params={"publisher": "editora filtros"})
+        self.assertEqual(publisher.status_code, 200)
+        self.assertGreaterEqual(publisher.json()["pagination"]["total"], 3)
+
+        book_id = payload["data"][0]["id"]
+        detail = self.client.get(f"/api/public/v1/books/{book_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["id"], book_id)
+
+        edition_id = detail.json()["editions"][0]["id"]
+        edition = self.client.get(f"/api/public/v1/editions/{edition_id}")
+        self.assertEqual(edition.status_code, 200)
+        self.assertEqual(edition.json()["book"]["id"], book_id)
+
+        publishers = self.client.get("/api/public/v1/publishers", params={"q": "Filtros"})
+        self.assertEqual(publishers.status_code, 200)
+        self.assertTrue(any(item["name"] == "Editora Filtros" for item in publishers.json()["data"]))
 
     def test_literaturas_endpoint_lista_canonica(self):
         r = self.client.get("/api/literaturas")
