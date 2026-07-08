@@ -2045,15 +2045,27 @@ body.theme-dark .publisher-sheet-backdrop{background:rgba(0,0,0,.62)}
 .search-filter-clear-all:hover{color:var(--ink)}
 .literatura-fallback-note{margin:0 0 14px;text-align:left;font-size:13px;padding:12px 14px;border:1px dashed var(--rule);border-radius:14px}
 
-/* BrandLogo lockup — símbolo separado + wordmark textual, sem substituir o L */
+/* BrandLogo variants: wordmark = monograma como L inicial; lockup = símbolo + texto; mark = só símbolo */
 .brand-logo{display:flex;align-items:center;gap:12px;min-width:0;color:var(--ink)}
 .brand-logo__mark{flex:0 0 auto;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--paper-2);border:1px solid var(--rule);box-shadow:none;color:var(--ink)}
 .brand-logo__mark svg{width:auto;height:64%;display:block;fill:currentColor}
 .brand-logo__word{flex:0 1 auto;min-width:0;font-family:"Fraunces",serif;font-style:normal;font-weight:650;font-size:26px;line-height:1;letter-spacing:-.055em;color:var(--ink);white-space:nowrap}
 .brand-logo__word::before{content:none!important;display:none!important}
 .brand-logo__word .dot{color:var(--wine)}
-.topbar .brand-logo{gap:11px;max-width:100%}
-.topbar .brand-logo__mark{width:38px;height:38px;border-radius:10px}
+.brand-logo--mark{display:inline-flex;gap:0}
+.brand-logo--mark .brand-logo__word{display:none}
+.brand-logo--lockup{gap:12px}
+.brand-logo--wordmark{gap:2px;align-items:baseline}
+.brand-logo--wordmark .brand-logo__mark{width:auto;height:.92em;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;align-self:baseline;transform:translateY(.075em)}
+.brand-logo--wordmark .brand-logo__mark svg{height:100%;width:auto;overflow:visible}
+.brand-logo--wordmark .brand-logo__word{line-height:.92}
+.brand-logo--wordmark .brand-logo__rest{margin-left:-.015em}
+.topbar .brand-logo{max-width:100%}
+.topbar .brand-logo--lockup{gap:11px}
+.topbar .brand-logo--lockup .brand-logo__mark,.topbar .brand-logo--mark .brand-logo__mark{width:38px;height:38px;border-radius:10px}
 .topbar .brand-logo__word{font-size:24px;line-height:1}
-@media(max-width:420px){.topbar .brand-logo{gap:10px}.topbar .brand-logo__mark{width:38px;height:38px}.topbar .brand-logo__word{font-size:23px}}
-@media(max-width:340px){.topbar .brand-logo{gap:9px}.topbar .brand-logo__mark{width:36px;height:36px}.topbar .brand-logo__word{font-size:21px}}
+.topbar .brand-logo--wordmark{gap:1px}
+.topbar .brand-logo--wordmark .brand-logo__mark{height:23px}
+.topbar .brand-logo--wordmark .brand-logo__word{font-size:24px;line-height:.92}
+@media(max-width:420px){.topbar .brand-logo--lockup{gap:10px}.topbar .brand-logo--lockup .brand-logo__mark,.topbar .brand-logo--mark .brand-logo__mark{width:38px;height:38px}.topbar .brand-logo__word{font-size:23px}.topbar .brand-logo--wordmark{gap:1px}.topbar .brand-logo--wordmark .brand-logo__mark{height:22px}.topbar .brand-logo--wordmark .brand-logo__word{font-size:23px}}
+@media(max-width:340px){.topbar .brand-logo--lockup{gap:9px}.topbar .brand-logo--lockup .brand-logo__mark,.topbar .brand-logo--mark .brand-logo__mark{width:36px;height:36px}.topbar .brand-logo__word{font-size:21px}.topbar .brand-logo--wordmark .brand-logo__mark{height:20px}.topbar .brand-logo--wordmark .brand-logo__word{font-size:21px}}
