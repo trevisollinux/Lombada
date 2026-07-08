@@ -3174,9 +3174,22 @@ def admin_review(suggestion_id: int, action: str, request: Request, s: Session =
         raise HTTPException(404, "ação inválida")
     return HTMLResponse('<meta http-equiv="refresh" content="0; url=/admin">')
 
+def _public_base_url(request: Request) -> str:
+    configured = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if configured:
+        return configured
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    proto = proto.split(",", 1)[0].strip() or "https"
+    host = host.split(",", 1)[0].strip()
+    if proto == "http" and host.endswith(".railway.app"):
+        proto = "https"
+    return f"{proto}://{host}".rstrip("/")
+
+
 @app.get("/api-docs")
 def api_docs(request: Request):
-    return HTMLResponse(render_api_docs(base_url=str(request.base_url).rstrip("/"), app_url="/", instagram_url=INSTAGRAM_URL))
+    return HTMLResponse(render_api_docs(base_url=_public_base_url(request), app_url="/", instagram_url=INSTAGRAM_URL))
 
 
 @app.get("/sobre")
