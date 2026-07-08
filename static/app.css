@@ -1631,6 +1631,9 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 .cold-start-spin{width:16px;height:16px;flex:0 0 16px;border-radius:50%;border:2px solid rgba(244,239,230,.35);border-top-color:#F4EFE6;animation:cold-start-spin .8s linear infinite}
 @keyframes cold-start-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.cold-start-spin{animation:none}}
+.cold-start-notice.cold-start-error{justify-content:space-between;background:#7f1d1d}
+.cold-start-reload{border:1px solid rgba(244,239,230,.8);background:#F4EFE6;color:#1A1714;border-radius:999px;padding:8px 12px;font:700 10px "Space Mono",monospace;text-transform:uppercase;letter-spacing:.1em;cursor:pointer}
+
 
 /* ── lado social: pessoas com rosto e nome ── */
 .avatar-chip{width:36px;height:36px;flex:0 0 36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:hsl(var(--av-h) 30% 38%);color:#F4EFE6;font-family:"Fraunces",serif;font-weight:600;font-size:16px;line-height:1;user-select:none}
