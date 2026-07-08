@@ -234,6 +234,7 @@ function deveMostrarConviteLogin(){
   return !minhaConta.logado && prateleira.length > 0 && !loginHintDispensado();
 }
 function conectarGoogle(){
+  try{ sessionStorage.setItem('lombada_after_google_login','perfil'); }catch(e){}
   location.href='/api/auth/google/login';
 }
 function continuarSemConta(){
@@ -457,7 +458,16 @@ async function payloadErro(r){
 function tratarMensagemConta(){
   const params=new URLSearchParams(location.search);
   const conta=params.get('conta');
-  if(conta==='ok') toast(t('account_connected_success'));
+  if(conta==='ok'){
+    toast(t('account_connected_success'));
+    try{
+      if(sessionStorage.getItem('lombada_after_google_login')==='perfil'){
+        sessionStorage.removeItem('lombada_after_google_login');
+        const abaAtual=params.get('aba');
+        if(!abaAtual) params.set('aba','perfil');
+      }
+    }catch(e){}
+  }
   if(conta==='erro') toast(t('account_connected_error'));
   if(conta==='state_expirado') toast(t('account_state_expired'));
   if(conta){
@@ -2443,7 +2453,7 @@ function renderPrateleira(){
   if(!prateleira.length){
     $('#prateleira').innerHTML=`<div class="empty-rich"><div class="ei">📚</div>
       <h3>${t('empty_shelf_title')}</h3><p>${t('empty_shelf_hint')}</p>
-      <button class="btn-cta" onclick="irPara('buscar')">${t('search_button')}</button></div>`;
+      <div class="empty-actions"><button class="btn-cta" onclick="irPara('buscar')">${t('search_button')}</button>${!minhaConta.logado?`<button class="btn-secondary" onclick="conectarGoogle()">${t('profile_login_cta_button')}</button>`:''}</div></div>`;
     return;
   }
   const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
@@ -3010,9 +3020,18 @@ function abrirMinhaEstantePerfil(){
   filtroEstante='Todos';
   irPara('estante',{subaba:'shelf'});
 }
+function perfilLoginCTAHTML(extraClass=''){
+  if(minhaConta.logado) return '';
+  return `<section class="account-box profile-login-cta ${extraClass}" aria-labelledby="profileLoginCtaTitle">
+    <div class="label">${t('account')}</div>
+    <h3 id="profileLoginCtaTitle">${t('profile_login_cta_title')}</h3>
+    <p>${t('profile_login_cta_text')}</p>
+    <button class="pbtn solid" type="button" onclick="conectarGoogle()">${t('profile_login_cta_button')}</button>
+  </section>`;
+}
 function estatisticasPerfilHTML(total,lendo,lidos,quero){
   if(!total){
-    return `<section class="account-box profile-stats-box profile-stats-empty"><div class="label">${t('your_lombada')}</div><p>${t('profile_shelf_empty')}</p><button class="pbtn solid" type="button" onclick="irPara('buscar')">${t('search_books')}</button></section>`;
+    return `<section class="account-box profile-stats-box profile-stats-empty"><div class="label">${t('your_lombada')}</div><p>${t('profile_shelf_empty')}</p><div class="profile-empty-actions"><button class="pbtn solid" type="button" onclick="irPara('buscar')">${t('search_books')}</button>${!minhaConta.logado?`<button class="pbtn" type="button" onclick="conectarGoogle()">${t('profile_login_cta_button')}</button>`:''}</div></section>`;
   }
   const stats=[
     [total,t('profile_stat_readings'),'Todos'],
@@ -3111,7 +3130,7 @@ function renderPerfil(){
         <div class="label">${t('account')}</div>
         <p>${t('account_anon')}</p>
         <p class="muted">${t('account_login_hint')}</p>
-        <a class="pbtn solid" href="/api/auth/google/login">${t('login_google')}</a>
+        <button class="pbtn solid" type="button" onclick="conectarGoogle()">${t('login_google')}</button>
       </div>`;
   const editarPerfilHTML=logado?`
       <form id="profileEditForm" class="account-box profile-edit-form" onsubmit="event.preventDefault();salvarPerfil(this.querySelector('button[type=submit]'))">
@@ -3167,6 +3186,7 @@ function renderPerfil(){
       </div>
       <div class="profile-metrics"><button type="button" class="metric-link" onclick="abrirEstanteFiltrada('Lido')"><strong>${lidos}</strong><span>${t('status_read')}</span></button><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
       ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
+      ${!logado?perfilLoginCTAHTML():''}
       ${n?grelhaPerfilHTML():estatisticasPerfilHTML(0,0,0,0)}
       <div id="profileSettings" class="profile-settings" hidden>
       <div class="label settings-title">${t('profile_settings')}</div>
@@ -3994,10 +4014,10 @@ async function init(){
   // requisição pode levar até ~30s pra "acordar". Sem isso, a tela fica em
   // branco tempo suficiente pra parecer que o app quebrou.
   const coldStartTimer=setTimeout(()=>{ $('#coldStartNotice')?.removeAttribute('hidden'); },2500);
+  tratarMensagemConta();
   const abaDeepLink=extrairAbaDeepLink();
   const estadoInicial=abaDeepLink?estadoNav(abaDeepLink,'home'):(lerEstadoNavSalvo() || estadoNav('buscar','home'));
   history.replaceState(estadoInicial,'');
-  tratarMensagemConta();
   const buscaDeepLink=extrairBuscaDeepLink();
   const obraDeepLink=extrairObraDeepLink();
   renderChips();
