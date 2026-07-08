@@ -784,10 +784,12 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
     if not q_norm and not editora_norm and not genero and not literatura:
         return []
 
-    # Numa busca por texto/ISBN a origem é só um refino: não escondemos obras
-    # sem metadado de origem (o catálogo ainda tem poucos países preenchidos).
-    # Numa navegação só por filtro (ex.: "livros da Argentina") o filtro é
-    # soberano — obra sem origem não entra e obra de outro país fica de fora.
+    # A origem é sempre um refino tolerante — tanto na busca por texto quanto na
+    # navegação só por filtro (ex.: "livros da Argentina"): obra de outro país
+    # catalogado fica de fora, mas obra sem metadado de origem continua na
+    # vitrine (o catálogo ainda tem poucos países preenchidos, e escondê-la
+    # deixava o filtro-só sem nenhum resultado). A origem confirmada ganha bônus
+    # de score e sobe no ranking; o front avisa quando mostra obras sem o dado.
     busca_textual = bool(q_norm or isbn)
     candidato_limit = 500
     stmt = select(Obra, Edicao).join(Edicao, Edicao.obra_id == Obra.id)
@@ -822,15 +824,14 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
         if formas_regiao:
             lit_filtros.append(func.lower(Obra.literatura_regiao).in_(formas_regiao))
         if lit_filtros:
-            cond = or_(*lit_filtros)
-            if busca_textual:
-                sem_origem_catalogada = and_(
-                    or_(Obra.literatura_pais.is_(None), Obra.literatura_pais == ""),
-                    or_(Obra.literatura_regiao.is_(None), Obra.literatura_regiao == ""),
-                    or_(Obra.autor_pais.is_(None), Obra.autor_pais == ""),
-                )
-                cond = or_(cond, sem_origem_catalogada)
-            filtros.append(cond)
+            # Obra sem origem catalogada entra no funil tanto na busca por texto
+            # quanto na navegação só por filtro — senão o filtro-só voltava vazio.
+            sem_origem_catalogada = and_(
+                or_(Obra.literatura_pais.is_(None), Obra.literatura_pais == ""),
+                or_(Obra.literatura_regiao.is_(None), Obra.literatura_regiao == ""),
+                or_(Obra.autor_pais.is_(None), Obra.autor_pais == ""),
+            )
+            filtros.append(or_(or_(*lit_filtros), sem_origem_catalogada))
     for filtro in filtros:
         stmt = stmt.where(filtro)
     stmt = stmt.order_by(Edicao.id.desc()).limit(candidato_limit)
@@ -873,11 +874,11 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
                 getattr(obra, "autor_pais", "") or "",
             )
             # obra com origem catalogada incompatível sai sempre. Obra sem
-            # metadado fica na busca por texto (não sumir com tudo), mas cai na
-            # navegação só por filtro — ali o país é o próprio pedido.
+            # metadado permanece (na busca por texto e no filtro-só): o catálogo
+            # tem poucos países preenchidos e escondê-la deixava o filtro vazio.
+            # A origem confirmada ganha bônus e sobe no ranking; o front avisa.
+            # (obra sem nenhum sinal de qualidade ainda cai no piso `score <= 0`.)
             if lit_compat is False:
-                continue
-            if lit_compat is None and not busca_textual:
                 continue
             if lit_compat:
                 score += 40

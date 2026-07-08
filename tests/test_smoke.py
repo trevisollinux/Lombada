@@ -283,10 +283,10 @@ class SmokeTest(unittest.TestCase):
         self.assertNotIn("Neve de Moscou", titulos)
 
     def test_buscar_filtro_pais_nao_vaza_a_regiao_inteira(self):
-        # Navegação só por filtro "argentina": deve trazer só obras argentinas.
-        # Antes, o filtro por país casava a região inteira (América Latina),
-        # então um vizinho da mesma região aparecia sob "Argentina" — e obra sem
-        # origem entrava junto, poluindo a vitrine.
+        # Navegação só por filtro "argentina": um vizinho de OUTRO país catalogado
+        # (Uruguai/América Latina) não pode vazar sob "Argentina". Obra sem origem
+        # e sem nenhum sinal de qualidade (sem capa/ISBN) também não entra — cai no
+        # piso `score <= 0`. A origem argentina confirmada vem no topo.
         with main.Session(main.engine) as s:
             if not s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "arg-borges")).first():
                 arg = main.Obra(ol_work_key="arg-borges", titulo="Ficciones Teste", autor="Autorpais Borges",
@@ -307,13 +307,39 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         titulos = [d["titulo"] for d in r.json()]
         self.assertIn("Ficciones Teste", titulos)
-        self.assertNotIn("Vizinho Teste", titulos)     # vizinho da mesma região não vaza
-        self.assertNotIn("Anonimo Teste", titulos)     # sem origem não entra na vitrine
+        self.assertEqual(titulos[0], "Ficciones Teste")  # origem confirmada vem primeiro
+        self.assertNotIn("Vizinho Teste", titulos)     # país catalogado diferente não vaza
+        self.assertNotIn("Anonimo Teste", titulos)     # sem origem e sem capa/ISBN cai no piso
 
         # com_capa aplicado por cima continua funcionando
         r2 = self.client.get("/api/buscar", params={"literatura": "argentina", "com_capa": "true"})
         self.assertEqual(r2.status_code, 200)
         self.assertEqual([d["titulo"] for d in r2.json()], ["Ficciones Teste"])
+
+    def test_buscar_filtro_so_traz_obra_sem_origem_com_capa(self):
+        # Regressão: navegação só por filtro (sem texto digitado) deve funcionar
+        # como nome+filtro — obra sem país catalogado, mas com capa, aparece na
+        # vitrine (o catálogo tem poucos países preenchidos). A obra brasileira
+        # confirmada vem primeiro; a sem origem entra logo atrás.
+        self._semear_obras_filtros()   # garante "Mar de Ipanema" (Brasil, com capa)
+        with main.Session(main.engine) as s:
+            if not s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "solo-sem-origem")).first():
+                obra = main.Obra(ol_work_key="solo-sem-origem", titulo="Sertao Sem Origem", autor="Autorsolo Ramos")
+                s.add(obra)
+                s.commit()
+                s.refresh(obra)
+                # idioma não-pt de propósito: mantém esta obra fora de outros
+                # testes que filtram por idioma=pt e exigem igualdade exata.
+                s.add(main.Edicao(obra_id=obra.id, editora="Editora Solo", idioma="en",
+                                  capa_url="https://x/solo.jpg", isbn="9788599999999"))
+                s.commit()
+
+        r = self.client.get("/api/buscar", params={"literatura": "brasileira", "com_capa": "true"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertIn("Sertao Sem Origem", titulos)     # sem origem, mas com capa: entra no filtro-só
+        self.assertIn("Mar de Ipanema", titulos)        # origem brasileira confirmada também
+        self.assertEqual(titulos[0], "Mar de Ipanema")  # match confirmado no topo
 
     def test_buscar_filtros_sociais_e_de_qualidade(self):
         self._semear_obras_filtros()
