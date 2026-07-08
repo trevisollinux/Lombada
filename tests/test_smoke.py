@@ -490,5 +490,69 @@ class SmokeTest(unittest.TestCase):
             self.assertEqual(mapa.get(3), 50)
 
 
+class NationalityInferenceTest(unittest.TestCase):
+    """Valida o parsing/mapa do script de inferência de nacionalidade sem rede
+    (a Wikidata é mockada por um client fake)."""
+
+    @classmethod
+    def setUpClass(cls):
+        from scripts import infer_author_nationality as ni
+        cls.ni = ni
+
+    def _humano(self, *, pais_qid=None, ocupacao_qid=None, instancia_qid="Q5"):
+        def snak(qid):
+            return {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": qid}}}}
+        claims = {"P31": [snak(instancia_qid)]}
+        if pais_qid:
+            claims["P27"] = [snak(pais_qid)]
+        if ocupacao_qid:
+            claims["P106"] = [snak(ocupacao_qid)]
+        return claims
+
+    def _fake_client(self, qid, claims):
+        ni = self.ni
+        class _Resp:
+            def __init__(self, p): self._p = p
+            def raise_for_status(self): pass
+            def json(self): return self._p
+        class _Client:
+            def get(self, url, params=None):
+                if params.get("action") == "wbsearchentities":
+                    return _Resp({"search": [{"id": qid}]})
+                return _Resp({"entities": {qid: {"claims": claims}}})
+        return _Client()
+
+    def test_claim_qids_ignora_snak_sem_valor(self):
+        claims = {"P27": [
+            {"mainsnak": {"snaktype": "value", "datavalue": {"value": {"id": "Q155"}}}},
+            {"mainsnak": {"snaktype": "novalue"}},
+        ]}
+        self.assertEqual(self.ni._claim_qids(claims, "P27"), ["Q155"])
+
+    def test_escritor_com_pais_canonico_resolve(self):
+        # Q155 = Brasil, Q36180 = writer
+        c = self._fake_client("Q311145", self._humano(pais_qid="Q155", ocupacao_qid="Q36180"))
+        self.assertEqual(self.ni._pais_do_autor(c, "Machado de Assis", ["pt"]), "Brasil")
+
+    def test_estado_historico_mapeia_para_pais_moderno(self):
+        # Q34266 = Império Russo → Rússia
+        c = self._fake_client("Q991", self._humano(pais_qid="Q34266", ocupacao_qid="Q6625963"))
+        self.assertEqual(self.ni._pais_do_autor(c, "Dostoievski", ["pt"]), "Rússia")
+
+    def test_entidade_nao_humana_nao_resolve(self):
+        # Q571 = livro (não é Q5/humano)
+        c = self._fake_client("Q42", self._humano(pais_qid="Q155", instancia_qid="Q571"))
+        self.assertEqual(self.ni._pais_do_autor(c, "Algum Livro", ["pt"]), "")
+
+    def test_pais_fora_das_literaturas_canonicas_nao_resolve(self):
+        c = self._fake_client("Q999", self._humano(pais_qid="Q1000"))  # país não mapeado
+        self.assertEqual(self.ni._pais_do_autor(c, "Autor Estrangeiro", ["pt"]), "")
+
+    def test_regiao_e_label_derivados_da_lista_canonica(self):
+        self.assertEqual(self.ni._PAIS_REGIAO.get("Brasil"), "América Latina")
+        self.assertEqual(self.ni._PAIS_REGIAO.get("Rússia"), "")
+        self.assertEqual(self.ni._PAIS_LABEL.get("Brasil"), "brasileira")
+
+
 if __name__ == "__main__":
     unittest.main()
