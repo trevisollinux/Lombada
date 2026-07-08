@@ -16,9 +16,10 @@ from publica import _esc, _FONTES, _CSS
 
 
 # logo (mesmo desenho de static/icons/icon.svg), inline pra não depender de rede
-def _logo(cls: str = "lp-logo") -> str:
+def _logo(cls: str = "lp-logo", decorative: bool = False) -> str:
+    aria = 'aria-hidden="true"' if decorative else 'role="img" aria-label="Lombada"'
     return (
-        f'<svg class="{cls}" viewBox="0 0 512 512" role="img" aria-label="Lombada">'
+        f'<svg class="{cls}" viewBox="0 0 512 512" {aria}>'
         '<rect width="512" height="512" rx="96" fill="#ECE4D4"/>'
         '<rect x="52" y="52" width="408" height="408" rx="62" fill="none" '
         'stroke="#973E2B" stroke-width="24"/>'
@@ -26,19 +27,32 @@ def _logo(cls: str = "lp-logo") -> str:
     )
 
 
+def _brand_logo(cls: str = "lp-brand", mark_cls: str = "lp-brand-mark") -> str:
+    return (
+        f'<span class="{cls}">'
+        f'{_logo(mark_cls, decorative=True)}'
+        '<span class="lp-brand-word">Lombada<span class="dot">.</span></span>'
+        '</span>'
+    )
+
+
 _LANDING_CSS = """
 html{scroll-behavior:smooth}
 .lp-nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 0;margin-bottom:8px;background:var(--paper);border-bottom:1px solid var(--rule)}
-.lp-brand{display:flex;align-items:center;gap:9px;font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:19px}
-.lp-brand .dot{color:var(--gold)}
-.lp-brand svg{width:26px;height:26px;border-radius:7px}
+.lp-brand-link{display:inline-flex;align-items:center;color:inherit;text-decoration:none}
+.lp-brand,.lp-hero-brand{display:inline-flex;align-items:center;gap:11px;min-width:0;font-family:"Fraunces",serif;font-style:normal;font-weight:650;letter-spacing:-.055em}
+.lp-brand{font-size:21px;line-height:1}.lp-brand .dot,.lp-hero-brand .dot{color:var(--gold)}
+.lp-brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:block}
+.lp-brand-word{white-space:nowrap}
 .lp-nav-links{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lp-nav-links a{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 8px}
 .lp-nav-links a:hover{color:var(--ink)}
 .lp-nav-links a.lp-nav-cta{color:var(--paper);background:var(--ink);border:1px solid var(--ink)}
 .lp{max-width:720px;margin:0 auto}
 .lp-hero{text-align:center;padding:26px 0 8px}
-.lp-logo{width:72px;height:72px;border-radius:20px;box-shadow:var(--shadow);display:inline-block}
+.lp-logo{width:72px;height:72px;border-radius:20px;box-shadow:var(--shadow);display:inline-block;flex:0 0 auto}
+.lp-hero-brand{font-size:clamp(38px,9vw,58px);line-height:.95;gap:14px;justify-content:center}
+.lp-hero-brand .lp-logo{width:clamp(62px,16vw,82px);height:clamp(62px,16vw,82px)}
 .lp-tag{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-top:16px}
 .lp-hero h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:36px;line-height:1.08;margin:14px auto 0;max-width:18ch}
 .lp-hero h1 em{font-style:normal;color:var(--gold)}
@@ -109,7 +123,7 @@ def _nav(app_url: str) -> str:
     )
     return (
         '<nav class="lp-nav">'
-        f'<a class="lp-brand" href="/sobre">{_logo("")}Lombada<span class="dot">.</span></a>'
+        f'<a class="lp-brand-link" href="/sobre">{_brand_logo()}</a>'
         f'<div class="lp-nav-links">{links}</div>'
         '</nav>'
     )
@@ -233,7 +247,7 @@ def render_landing(
 
     inner = (
         '<section class="lp-hero">'
-        f'{_logo()}'
+        f'{_brand_logo("lp-hero-brand", "lp-logo")}'
         '<div class="lp-tag">tipo Letterboxd, mas pra livros</div>'
         '<h1>Uma rede social de livros. E a fonte mais completa pra '
         '<em>pesquisar livros</em> no Brasil.</h1>'
