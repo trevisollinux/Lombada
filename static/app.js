@@ -75,7 +75,10 @@ const NAV_STATE_KEY='lombada_nav_state';
 const ONBOARDING_KEY='lombada_onboarding';
 const DEBUG = localStorage.getItem('lombada_debug') === '1';
 function debugLog(...args){ if(DEBUG) console.log(...args); }
-let appVersion='dev';
+const APP_JS_VERSION = new URL(document.currentScript?.src || location.href, location.href).searchParams.get('v') || 'dev';
+let appVersion=APP_JS_VERSION || 'dev';
+let activeSwCache='unknown';
+let coldStartContentWatcher=null;
 const INSTALL_DISMISSED_KEY='lombada_install_dismissed_at';
 let deferredInstallPrompt=null;
 let installPromptConsumed=false;
@@ -203,6 +206,7 @@ function mudarIdioma(locale){
   if(navAtual.aba==='buscar' && navAtual.busca==='manual') abrirManual();
   if(cardAtual) renderDetalheLivro(cardAtual);
   if(navAtual.aba==='buscar' && navAtual.busca==='edicoes' && obraSocial) renderEdicoes();
+  if(hasRenderedContent()) hideColdStartNotice();
   if($('#secPerfil')?.style.display!=='none') renderPerfil();
   if($('#secFeed')?.style.display!=='none') renderFeed();
 }
@@ -214,6 +218,49 @@ function statusLabel(status){
   return status;
 }
 aplicarTema(temaInicial());
+
+
+function hasRenderedContent(){
+  return !!(
+    document.querySelector('#populares .book, #lendoAgora .book, #editorasHome .publisher-card, #prateleira .book, #diario .diary-entry, #feed .feed-card, #resultados .book, #perfil .pcard')
+  );
+}
+function hideColdStartNotice(){
+  const notice=$('#coldStartNotice');
+  if(!notice) return;
+  notice.hidden=true;
+  notice.classList.remove('cold-start-error');
+  if(coldStartContentWatcher){ clearInterval(coldStartContentWatcher); coldStartContentWatcher=null; }
+}
+function showColdStartNotice(){
+  if(hasRenderedContent()){ hideColdStartNotice(); return; }
+  $('#coldStartNotice')?.removeAttribute('hidden');
+  if(!coldStartContentWatcher){
+    coldStartContentWatcher=setInterval(()=>{ if(hasRenderedContent()) hideColdStartNotice(); },1000);
+  }
+}
+function showColdStartFailure(message){
+  if(hasRenderedContent()){ hideColdStartNotice(); return; }
+  const notice=$('#coldStartNotice');
+  if(!notice) return;
+  notice.classList.add('cold-start-error');
+  notice.removeAttribute('hidden');
+  notice.innerHTML=`<div><strong>${esc(message||'Não consegui carregar agora.')}</strong><span>Tentar novamente</span></div><button type="button" class="cold-start-reload" onclick="location.reload()">recarregar</button>`;
+}
+function handleGlobalJsError(label,error){
+  console.error(label,error);
+  showColdStartFailure('Não consegui carregar agora.');
+}
+window.addEventListener('error', event => handleGlobalJsError('erro global de JavaScript', event.error || event.message));
+window.addEventListener('unhandledrejection', event => handleGlobalJsError('promessa rejeitada sem tratamento', event.reason));
+async function carregarDiagnosticoSw(){
+  if(!('caches' in window)) return;
+  try{
+    const keys=await caches.keys();
+    activeSwCache=keys.filter(k=>k.startsWith('lombada-shell-')).sort().pop() || 'none';
+    if(DEBUG) console.info('lombada_debug',{APP_VERSION:appVersion,APP_JS_VERSION,service_worker_cache:activeSwCache});
+  }catch(e){ activeSwCache='unavailable'; debugLog('sw_cache_diag_error',e); }
+}
 
 let conviteLoginPendente=false;
 
@@ -3305,6 +3352,7 @@ function renderPerfil(){
       ${contaHTML}
       ${installCtaHTML()}
       ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
+      ${DEBUG?`<div class="app-version">APP_VERSION ${esc(appVersion)} · app.js ${esc(APP_JS_VERSION)} · cache ${esc(activeSwCache)}</div>`:''}
       </div>
     </div>`;
 }
@@ -4126,9 +4174,9 @@ async function carregarVersaoApp(){
   try{
     const res=await fetch('/api/version',{cache:'no-store'});
     const body=await res.json().catch(()=>({}));
-    appVersion=(body.version||'dev').toString();
-    debugLog('app_version_loaded',{app:body.app,version_len:appVersion.length});
-  }catch(e){ appVersion='dev'; }
+    appVersion=(body.version||APP_JS_VERSION||'dev').toString();
+    debugLog('app_version_loaded',{app:body.app,version:appVersion,APP_JS_VERSION});
+  }catch(e){ appVersion=APP_JS_VERSION||'dev'; }
 }
 
 async function carregarConfig(){
@@ -4158,7 +4206,8 @@ async function init(){
   // servidor grátis (Render free tier) hiberna após inatividade — a primeira
   // requisição pode levar até ~30s pra "acordar". Sem isso, a tela fica em
   // branco tempo suficiente pra parecer que o app quebrou.
-  const coldStartTimer=setTimeout(()=>{ $('#coldStartNotice')?.removeAttribute('hidden'); },2500);
+  const coldStartTimer=setTimeout(showColdStartNotice,2500);
+  const coldStartMaxTimer=setTimeout(()=>showColdStartFailure('Não consegui carregar agora.'),40000);
   tratarMensagemConta();
   const abaDeepLink=extrairAbaDeepLink();
   const estadoInicial=abaDeepLink?estadoNav(abaDeepLink,'home'):(lerEstadoNavSalvo() || estadoNav('buscar','home'));
@@ -4173,6 +4222,7 @@ async function init(){
   carregarEditorasHome();
   carregarEditorasBusca();
   await carregarVersaoApp();
+  await carregarDiagnosticoSw();
   await carregarConfig();
   try{
     const me=await (await fetch('/api/eu')).json();
@@ -4184,7 +4234,8 @@ async function init(){
   }catch(e){}
   await carregarPrateleira();
   clearTimeout(coldStartTimer);
-  $('#coldStartNotice')?.setAttribute('hidden','');
+  clearTimeout(coldStartMaxTimer);
+  hideColdStartNotice();
   aplicarHistorico(estadoInicial);
   if(buscaDeepLink){ $('#q').value=buscaDeepLink; buscar(); }
   atualizarToggleHomePopulares();
