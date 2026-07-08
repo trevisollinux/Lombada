@@ -1,7 +1,7 @@
 """API pública somente leitura do catálogo do Lombada."""
 import json
 import math
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import distinct, or_
@@ -77,7 +77,7 @@ def _book_summary(obra: Obra) -> dict:
     }
 
 
-def _filtered_books_query(
+def _book_filters(
     q: str = "",
     title: str = "",
     author: str = "",
@@ -87,9 +87,8 @@ def _filtered_books_query(
     language: str = "",
     year: Optional[int] = None,
     has_cover: Optional[bool] = None,
-):
-    stmt = select(Obra.id).join(Edicao, isouter=True)
-    filters = []
+) -> list[Any]:
+    filters: list[Any] = []
     if q:
         pattern = _like(q)
         filters.append(or_(
@@ -117,9 +116,11 @@ def _filtered_books_query(
         filters.append(Edicao.capa_url != "")
     elif has_cover is False:
         filters.append(or_(Edicao.capa_url == "", Edicao.capa_url.is_(None)))
-    for item in filters:
-        stmt = stmt.where(item)
-    return stmt
+    return filters
+
+
+def _filtered_books_query(*filters: Any):
+    return select(Obra.id).join(Edicao, isouter=True).where(*filters)
 
 
 @router.get("/health")
@@ -146,9 +147,17 @@ def list_books(
 ):
     _cache(response)
     params = {k: _clean(v) for k, v in {"q": q, "title": title, "author": author, "publisher": publisher, "translator": translator, "isbn": isbn, "language": language}.items()}
-    base = _filtered_books_query(**params, year=year, has_cover=has_cover)
-    total = s.exec(select(func.count(distinct(Obra.id))).select_from(Obra).join(Edicao, isouter=True).where(*base._where_criteria)).one()
-    ids = s.exec(base.distinct().order_by(Obra.titulo, Obra.autor).offset((page - 1) * limit).limit(limit)).all()
+    filters = _book_filters(**params, year=year, has_cover=has_cover)
+    base = _filtered_books_query(*filters)
+    total = s.exec(select(func.count(distinct(Obra.id))).select_from(Obra).join(Edicao, isouter=True).where(*filters)).one()
+    ids_stmt = (
+        base
+        .group_by(Obra.id, Obra.titulo, Obra.autor)
+        .order_by(Obra.titulo, Obra.autor, Obra.id)
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    ids = s.exec(ids_stmt).all()
     obras = s.exec(select(Obra).where(Obra.id.in_(ids)).order_by(Obra.titulo, Obra.autor)).all() if ids else []
     edicoes = s.exec(select(Edicao).where(Edicao.obra_id.in_(ids)).order_by(Edicao.ano, Edicao.editora, Edicao.id)).all() if ids else []
     por_obra: dict[int, list[Edicao]] = {}
