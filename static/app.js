@@ -65,7 +65,8 @@ let ultimoLivroSalvo=null;
 let cardOpener=null;
 let timerDestaqueLivro=null;
 let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
-let visualizacaoBusca=localStorage.getItem('lombada_view_busca')==='lista'?'lista':'grade';
+let visualizacaoBusca=localStorage.getItem('lombada_view_busca')==='grade'?'grade':'lista';
+let visualizacaoHomePopulares=localStorage.getItem('lombada_view_home_populares')==='lista'?'lista':'grade';
 let paginaBusca=1, porPaginaBusca=20;
 let navAtual={aba:'buscar',busca:'home',estanteSub:'shelf'};
 let restaurandoHistorico=false;
@@ -1046,6 +1047,17 @@ async function carregarEditorasHome(){
 }
 
 /* feed da home — obras populares como mini estante */
+
+function viewIconHTML(modo){
+  return modo==='lista'
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>';
+}
+function viewToggleButtonHTML(contexto,modo,ativo,onClick){
+  const aria=modo==='lista'?'visualização em lista':'visualização em grade';
+  return `<button class="view-toggle-btn ${ativo?'active':''}" type="button" aria-label="${aria}" title="${aria}" onclick="${onClick}">${viewIconHTML(modo)}</button>`;
+}
+
 function normalizarObraPopular(o){
   return typeof o==='string' ? {titulo:o,autor:''} : (o||{});
 }
@@ -1053,11 +1065,26 @@ function renderObrasPopulares(obras){
   const box=$('#populares');
   if(!box) return;
   const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular);
-  box.innerHTML=lista.map((o,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}">
+  const itens=visualizacaoHomePopulares==='lista'
+    ? `<div class="catalog-list home-popular-list">${lista.map((o,i)=>`<div class="catalog-list-item" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}"><div class="catalog-list-title">${esc(o.titulo)}</div>${o.autor?`<div class="catalog-list-author">${esc(o.autor)}</div>`:''}</div>`).join('')}</div>`
+    : lista.map((o,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}">
     ${coverHTML(o.titulo,o.autor,o.capa_url,'')}
     <div class="t">${esc(o.titulo)}</div>
     ${o.autor?`<div class="a">${esc(o.autor)}</div>`:''}</div>`).join('');
+  box.classList.toggle('catalog-list-host',visualizacaoHomePopulares==='lista');
+  box.innerHTML=itens;
   box._obrasPopulares=lista;
+}
+function mudarVisualizacaoHomePopulares(modo){
+  visualizacaoHomePopulares=modo==='lista'?'lista':'grade';
+  localStorage.setItem('lombada_view_home_populares',visualizacaoHomePopulares);
+  renderObrasPopulares($('#populares')?._obrasPopulares||SUGESTOES);
+  atualizarToggleHomePopulares();
+}
+function atualizarToggleHomePopulares(){
+  const box=$('#homePopularViewToggle');
+  if(!box) return;
+  box.innerHTML=viewToggleButtonHTML('home','grade',visualizacaoHomePopulares==='grade',"mudarVisualizacaoHomePopulares('grade')")+viewToggleButtonHTML('home','lista',visualizacaoHomePopulares==='lista',"mudarVisualizacaoHomePopulares('lista')");
 }
 function renderChips(){
   const hint=$('#searchHint');
@@ -1647,7 +1674,7 @@ function mudarVisualizacaoBusca(modo){
   renderResultadosBusca();
 }
 function mudarPorPaginaBusca(n){
-  porPaginaBusca=[10,20,30].includes(Number(n))?Number(n):20;
+  porPaginaBusca=[10,20,50].includes(Number(n))?Number(n):20;
   paginaBusca=1;
   renderResultadosBusca();
 }
@@ -1660,10 +1687,10 @@ function controlesBusca(totalPages){
   const total=obrasAgrupadas.length||0;
   return `<div class="search-controls">
     <div class="view-toggle" aria-label="visualização da busca">
-      <button class="${visualizacaoBusca==='grade'?'active':''}" type="button" onclick="mudarVisualizacaoBusca('grade')">grade</button>
-      <button class="${visualizacaoBusca==='lista'?'active':''}" type="button" onclick="mudarVisualizacaoBusca('lista')">lista</button>
+      ${viewToggleButtonHTML('busca','grade',visualizacaoBusca==='grade',"mudarVisualizacaoBusca('grade')")}
+      ${viewToggleButtonHTML('busca','lista',visualizacaoBusca==='lista',"mudarVisualizacaoBusca('lista')")}
     </div>
-    <div class="per-page-select" aria-label="resultados por página"><span>por página</span>${[10,20,30].map(n=>`<button class="${porPaginaBusca===n?'active':''}" type="button" onclick="mudarPorPaginaBusca(${n})">${n}</button>`).join('')}</div>
+    <div class="per-page-select" aria-label="resultados por página"><span>por página</span>${[10,20,50].map(n=>`<button class="${porPaginaBusca===n?'active':''}" type="button" onclick="mudarPorPaginaBusca(${n})">${n}</button>`).join('')}</div>
     <div class="pager" aria-label="paginação da busca">
       <button type="button" ${paginaBusca<=1?'disabled':''} onclick="mudarPaginaBusca(-1)">← anterior</button>
       <span>página ${paginaBusca} de ${totalPages}</span>
@@ -1681,10 +1708,9 @@ function cardResultadoBusca(d,i){
     <div class="e">${t('see_editions')}</div></div>`;
 }
 function linhaResultadoBusca(d,i){
-  const cap=coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'').replace('class="cover','class="search-list-cover');
-  return `<div class="search-result-row" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">${cap}<div class="search-result-body">
-    <div class="search-result-title">${esc(d.titulo)}</div><div class="search-result-author">${esc(d.autor)}</div>
-    <div class="search-result-meta">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')} · ${t('see_editions')}</div>
+  return `<div class="catalog-list-item search-result-row" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}"><div class="search-result-body">
+    <div class="catalog-list-title search-result-title">${esc(d.titulo)}</div><div class="catalog-list-author search-result-author">${esc(d.autor)}</div>
+    <div class="catalog-list-meta search-result-meta">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')} · ${t('see_editions')}</div>
   </div></div>`;
 }
 function renderResultadosBusca(extraHTML=''){
@@ -1693,7 +1719,7 @@ function renderResultadosBusca(extraHTML=''){
   const inicio=(paginaBusca-1)*porPaginaBusca;
   const itens=obrasAgrupadas.slice(inicio,inicio+porPaginaBusca);
   const lista=visualizacaoBusca==='lista'
-    ? `<div class="search-result-list">${itens.map((d,idx)=>linhaResultadoBusca(d,inicio+idx)).join('')}</div>`
+    ? `<div class="catalog-list search-result-list">${itens.map((d,idx)=>linhaResultadoBusca(d,inicio+idx)).join('')}</div>`
     : `<div class="wall">${itens.map((d,idx)=>cardResultadoBusca(d,inicio+idx)).join('')}</div>`;
   const melhorScore=resultadosArr.length?Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,ultimaBuscaQ))):100;
   const precisaDestaque=melhorScore<40;
@@ -4161,6 +4187,7 @@ async function init(){
   $('#coldStartNotice')?.setAttribute('hidden','');
   aplicarHistorico(estadoInicial);
   if(buscaDeepLink){ $('#q').value=buscaDeepLink; buscar(); }
+  atualizarToggleHomePopulares();
   if(obraDeepLink){ irPara('buscar',{resetBusca:false,registrar:false}); await abrirPaginaObra(obraDeepLink); }
 }
 init();

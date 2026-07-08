@@ -128,20 +128,17 @@ def _link_pagina(slug: str, page: int, per_page: int, view: str) -> str:
 
 
 def _linha_obra(o: dict) -> str:
-    cap = o.get("capa_url") or ""
     t = _esc(o.get("titulo"))
     a = _esc(o.get("autor"))
     href = _esc(_href_obra(o))
-    if cap:
-        cover = (
-            f'<div class="cover"><img src="{_esc(cap)}" alt="" loading="lazy" '
-            "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\">"
-            f'<div class="fb" style="display:none">{t}</div></div>'
-        )
-    else:
-        cover = f'<div class="cover"><div class="fb">{t}</div></div>'
-    return f'<a class="pub-book-row" href="{href}">{cover}<span><strong>{t}</strong><small>{a}</small></span></a>'
+    return f'<a class="catalog-list-item pub-book-row" href="{href}"><span><strong class="catalog-list-title">{t}</strong><small class="catalog-list-author">{a}</small></span></a>'
 
+
+
+def _icone_visualizacao(view: str) -> str:
+    if view == "lista":
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"/><path d="M5 12h14"/><path d="M5 17h14"/></svg>'
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>'
 
 def _controles_editora(slug: str, page: int, per_page: int, view: str, total_pages: int, has_prev: bool, has_next: bool) -> str:
     prev = f'<a href="{_link_pagina(slug, page - 1, per_page, view)}">← anterior</a>' if has_prev else '<span class="disabled">← anterior</span>'
@@ -161,8 +158,8 @@ def _controles_editora(slug: str, page: int, per_page: int, view: str, total_pag
       <div class="pager-tools">
         <div class="per-page-select" aria-label="obras por página"><span>por página</span>{per_opts}</div>
         <div class="view-toggle" aria-label="visualização">
-          <a class="{grade_active}" href="{_link_pagina(slug, page, per_page, "grade")}">grade</a>
-          <a class="{lista_active}" href="{_link_pagina(slug, page, per_page, "lista")}">lista</a>
+          <a class="view-toggle-btn {grade_active}" href="{_link_pagina(slug, page, per_page, "grade")}" aria-label="visualização em grade" title="visualização em grade">{_icone_visualizacao("grade")}</a>
+          <a class="view-toggle-btn {lista_active}" href="{_link_pagina(slug, page, per_page, "lista")}" aria-label="visualização em lista" title="visualização em lista">{_icone_visualizacao("lista")}</a>
         </div>
       </div>
     </nav>'''
@@ -189,7 +186,7 @@ def render_pagina_editora(dados: dict, page: int = 1, per_page: int = 20, view: 
     if not obras:
         miolo = '<div class="empty">nenhuma obra encontrada.</div>'
     elif view == "lista":
-        miolo = '<div class="pub-book-list">' + "".join(_linha_obra(o) for o in obras_pagina) + '</div>'
+        miolo = '<div class="catalog-list pub-book-list">' + "".join(_linha_obra(o) for o in obras_pagina) + '</div>'
     else:
         miolo = '<div class="wall">' + "".join(_card_obra(o) for o in obras_pagina) + '</div>'
     corpo = header + f'<section class="section">{controles}{miolo}{controles}</section>' + '<a class="cta" href="/">explorar na Lombada →</a>'
@@ -207,9 +204,8 @@ def _linha_editora(e: dict) -> str:
 
 _CSS_EXTRA = """
 
-.pager{display:grid;gap:12px;border:1px solid var(--rule);background:rgba(255,255,255,.12);padding:12px;margin:0 0 18px}
-.pager:last-child{margin:18px 0 0}.pager-arrows,.pager-tools,.view-toggle,.per-page-select{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pager-arrows{justify-content:space-between}.pager a,.pager .disabled,.pager-current,.per-page-select span{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}.pager a,.view-toggle a,.per-page-option{border:1px solid var(--rule);padding:7px 9px;background:rgba(255,255,255,.10)}.pager a.active,.view-toggle a.active,.per-page-option.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}.pager .disabled{color:var(--dim);opacity:.55}.pager-current{color:var(--ink-2)}.pub-book-list{display:grid;gap:10px}.pub-book-row{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center;border-top:1px solid var(--rule);padding-top:10px}.pub-book-row:first-child{border-top:0;padding-top:0}.pub-book-row .cover{width:48px;box-shadow:3px 4px 0 rgba(26,23,20,.10),1px 1px 0 rgba(26,23,20,.22)}.pub-book-row strong{display:block;font-family:"Fraunces",serif;font-style:italic;font-size:16px;line-height:1.15}.pub-book-row small{display:block;color:var(--dim);font-size:12px;margin-top:3px}
-@media(min-width:520px){.pager{grid-template-columns:1fr auto}.pager-tools{justify-content:flex-end}.pager:last-child{grid-template-columns:1fr}.pager:last-child .pager-tools{justify-content:flex-start}.pub-book-row{grid-template-columns:56px 1fr}.pub-book-row .cover{width:56px}}
+.pager{display:grid;gap:10px;border:1px solid var(--rule);background:rgba(255,255,255,.12);padding:10px;margin:0 0 18px}.pager:last-child{margin:18px 0 0}.pager-arrows,.pager-tools,.view-toggle,.per-page-select{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.pager-arrows{justify-content:space-between}.pager-tools{justify-content:space-between}.pager a,.pager .disabled,.pager-current,.per-page-select span{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase}.pager a,.per-page-option{border:1px solid var(--rule);padding:7px 9px;background:rgba(255,255,255,.10)}.pager a.active,.per-page-option.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}.pager .disabled{color:var(--dim);opacity:.55}.pager-current{color:var(--ink-2)}.view-toggle-btn{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--rule);color:var(--ink);background:rgba(255,255,255,.10)}.view-toggle-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.view-toggle-btn.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}.catalog-list{display:grid}.catalog-list-item{display:block;border-top:1px solid var(--rule);padding:9px 0;text-decoration:none;color:inherit}.catalog-list-item:first-child{border-top:0}.catalog-list-title{display:block;font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:17px;line-height:1.12}.catalog-list-author{display:block;color:var(--dim);font-size:12px;line-height:1.2;margin-top:2px}.catalog-list-meta{margin-top:4px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}.pub-book-row{min-height:46px}
+@media(min-width:520px){.pager{grid-template-columns:1fr auto;align-items:center}.pager-tools{justify-content:flex-end}.pager:last-child{grid-template-columns:1fr}.pager:last-child .pager-tools{justify-content:flex-start}.catalog-list-item{padding:10px 0}}
 .pub-row{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--rule);padding:12px 0;gap:12px}
 .pub-row:first-child{border-top:0}
 .pub-name{font-family:"Fraunces",serif;font-style:italic;font-size:17px}
