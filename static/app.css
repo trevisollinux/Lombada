@@ -2069,3 +2069,13 @@ body.theme-dark .publisher-sheet-backdrop{background:rgba(0,0,0,.62)}
 .topbar .brand-logo--wordmark .brand-logo__word{font-size:24px;line-height:.92}
 @media(max-width:420px){.topbar .brand-logo--lockup{gap:10px}.topbar .brand-logo--lockup .brand-logo__mark,.topbar .brand-logo--mark .brand-logo__mark{width:38px;height:38px}.topbar .brand-logo__word{font-size:23px}.topbar .brand-logo--wordmark{gap:1px}.topbar .brand-logo--wordmark .brand-logo__mark{height:22px}.topbar .brand-logo--wordmark .brand-logo__word{font-size:23px}}
 @media(max-width:340px){.topbar .brand-logo--lockup{gap:9px}.topbar .brand-logo--lockup .brand-logo__mark,.topbar .brand-logo--mark .brand-logo__mark{width:36px;height:36px}.topbar .brand-logo__word{font-size:21px}.topbar .brand-logo--wordmark .brand-logo__mark{height:20px}.topbar .brand-logo--wordmark .brand-logo__word{font-size:21px}}
+
+/* chamada clara para login no perfil anônimo */
+.profile-login-cta{margin-top:18px;padding:18px;text-align:left}
+.profile-login-cta h3{margin:8px 0 6px;font-family:"Fraunces",serif;font-size:24px;line-height:1.05;color:var(--text)}
+.profile-login-cta p{margin:0 0 14px;color:var(--text-secondary);font-size:15px;line-height:1.45}
+.profile-login-cta .pbtn{display:block;width:100%;text-align:center}
+.profile-empty-actions,.empty-actions{display:grid;gap:8px;margin-top:14px}
+.profile-stats-empty .profile-empty-actions .pbtn{margin-top:0;text-align:center}
+@media(min-width:560px){.profile-empty-actions,.empty-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-login-cta .pbtn{width:auto;display:inline-block}}
+@media(min-width:920px){.pcard>.profile-login-cta{grid-column:1}.profile-shelf+.profile-login-cta{grid-column:2}}
