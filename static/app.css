@@ -406,7 +406,7 @@ body.theme-dark::before{opacity:.28;mix-blend-mode:screen;background-image:radia
 .app{padding:34px 28px 112px}
 .topbar{padding:76px 0 22px;margin-bottom:28px}.brand{gap:9px}.seal{display:none}
 .wordmark{font-size:54px;line-height:.9;font-style:normal;letter-spacing:-.06em}
-.wordmark::before{content:"";display:inline-block;width:4px;height:.74em;background:var(--wine);margin-right:12px;vertical-align:-.05em;border-radius:2px}.wordmark .dot{color:var(--wine)}
+.wordmark::before{content:"";display:none;width:4px;height:.74em;background:var(--wine);margin-right:12px;vertical-align:-.05em;border-radius:2px}.wordmark .dot{color:var(--wine)}
 .top-actions{display:flex;align-items:center;gap:12px}.crumb{opacity:1;text-transform:uppercase;letter-spacing:.42em;font-size:12px;white-space:nowrap}
 .theme-toggle{width:50px;height:50px;border:1px solid var(--rule);border-radius:50%;background:var(--paper-2);color:var(--muted);font-size:24px;display:grid;place-items:center}
 .h-display,.h-section{font-style:normal;font-weight:650;letter-spacing:-.055em}.h-display{font-size:44px}.h-section{font-size:52px}
@@ -1749,7 +1749,7 @@ body.theme-dark .diary-form .visibility-box{background:color-mix(in srgb,var(--p
 /* topo: barra compacta e fixa, só marca + sino */
 .topbar{position:sticky;top:0;z-index:9;margin:-16px -16px 12px;padding:10px 16px;background:color-mix(in srgb,var(--bg),transparent 6%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--rule)}
 .topbar .brand{flex:1;gap:9px}
-.topbar .seal{width:30px;height:30px;font-size:17px;box-shadow:none;border-width:1px;border-radius:8px}
+.topbar .seal{width:30px;height:30px;font-size:17px;box-shadow:none;border-width:1px;border-radius:8px;display:flex}
 .topbar .wordmark{font-size:21px}
 .topbar .lang-switch{display:none} /* idioma já vive nas configurações do perfil */
 .topbar .top-actions{display:none}
