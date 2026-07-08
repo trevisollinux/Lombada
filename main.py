@@ -3249,9 +3249,24 @@ def assetlinks():
     return JSONResponse(statements, media_type="application/json")
 
 
+def render_index() -> HTMLResponse:
+    html = (AQUI / "index.html").read_text(encoding="utf-8")
+    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260708e"
+    html = html.replace("{{APP_VERSION}}", asset_version)
+    return HTMLResponse(
+        html,
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+    )
+
+
 @app.get("/")
 def home():
-    return FileResponse(AQUI / "index.html")
+    return render_index()
+
+
+@app.get("/index.html")
+def index_html():
+    return render_index()
 
 
 @app.get("/sw.js")

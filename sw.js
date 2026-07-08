@@ -2,10 +2,11 @@
    Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v7';
+const CACHE_NAME = 'lombada-shell-v8';
 
 const APP_SHELL = [
   '/',
+  '/index.html',
   '/static/app.css',
   '/static/i18n.js',
   '/static/app.js',
@@ -30,7 +31,7 @@ self.addEventListener('activate', event => {
 
     await Promise.all(
       keys
-        .filter(key => key.toLowerCase().includes('lombada') && key !== CACHE_NAME)
+        .filter(key => key.startsWith('lombada-shell-') && key !== CACHE_NAME)
         .map(key => caches.delete(key))
     );
 
@@ -60,12 +61,12 @@ self.addEventListener('fetch', event => {
 
   if (path.startsWith('/api/')) return;
 
-  const isRootNavigation = request.mode === 'navigate' && path === '/';
+  const isHtmlNavigation = request.mode === 'navigate' || path === '/' || path === '/index.html';
   const isCriticalAsset = CRITICAL_ASSETS.has(path);
   const isShellAsset = APP_SHELL.includes(path);
 
-  if (isRootNavigation) {
-    event.respondWith(networkFirstWithTimeout(request));
+  if (isHtmlNavigation) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
