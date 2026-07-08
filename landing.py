@@ -110,6 +110,27 @@ html[data-theme="dark"] .lp-support{background:rgba(243,235,221,.05)}
 .lp-foot{margin-top:52px;border-top:1px solid var(--rule);padding:24px 0 40px;text-align:center;font-family:"Space Mono",monospace;font-size:11px;color:var(--dim);letter-spacing:.06em}
 .lp-foot a{border-bottom:1px solid var(--rule);padding-bottom:1px}
 .lp-foot .sep{margin:0 8px;opacity:.5}
+
+.lp-code{display:block;max-width:100%;box-sizing:border-box;background:#14110f;color:#f3ebdd;border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;font-family:"Space Mono",monospace;font-size:12px;line-height:1.55;white-space:pre;border-radius:10px;-webkit-overflow-scrolling:touch}
+.lp-code code{font:inherit;color:inherit;background:transparent;padding:0;border:0;white-space:inherit}
+.lp-inline-code,.lp-prose code{font-family:"Space Mono",monospace;font-size:.92em;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:5px;color:var(--ink)}
+html[data-theme="dark"] .lp-inline-code,html[data-theme="dark"] .lp-prose code{background:rgba(255,255,255,.08);color:var(--paper)}
+.api-notice{border:1px solid var(--rule);background:rgba(151,62,43,.08);padding:18px 20px;border-radius:14px;color:var(--ink-2);margin:22px 0 24px;font-size:15px;line-height:1.5}
+html[data-theme="dark"] .api-notice{background:rgba(243,235,221,.05)}
+.api-kicker{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:30px 0 10px}
+.api-endpoints{display:grid;gap:14px;margin-top:16px}
+.api-card{border:1px solid var(--rule);background:rgba(255,255,255,.10);border-radius:16px;padding:18px;min-width:0}
+html[data-theme="dark"] .api-card{background:rgba(243,235,221,.05)}
+.api-card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.api-method{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.12em;color:var(--paper);background:var(--ink);border:1px solid var(--ink);border-radius:999px;padding:4px 8px;line-height:1}
+.api-route{font-family:"Space Mono",monospace;font-size:15px;color:var(--ink);overflow-wrap:anywhere}
+.api-desc{font-size:15px;line-height:1.5;color:var(--ink-2);margin:0 0 12px}
+.api-params{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.api-param{font-family:"Space Mono",monospace;font-size:11px;color:var(--ink);background:rgba(0,0,0,.06);border:1px solid var(--rule);border-radius:999px;padding:4px 8px}
+html[data-theme="dark"] .api-param{background:rgba(255,255,255,.08)}
+.api-example{font-size:13px;line-height:1.45;color:var(--dim);margin-top:12px;overflow-wrap:anywhere}
+.api-example .lp-inline-code{font-size:11px}
+@media(max-width:520px){.lp-code{font-size:11px;padding:12px 13px}.api-card{padding:16px 14px;border-radius:13px}.api-route{font-size:13px}.api-param{font-size:10px}.api-notice{padding:16px}}
 """
 
 
@@ -118,6 +139,7 @@ def _nav(app_url: str) -> str:
     links = (
         '<a href="/quem-somos">quem somos</a>'
         '<a href="/blog">blog</a>'
+        '<a href="/api-docs">API</a>'
         '<a href="/sobre#contribua">contribua</a>'
         f'<a class="lp-nav-cta" href="{_esc(app_url)}">abrir o app</a>'
     )
@@ -134,6 +156,7 @@ def _footer(app_url: str, instagram_url: str = "") -> str:
         f'<a href="{_esc(app_url)}">abrir o app</a>',
         '<a href="/quem-somos">quem somos</a>',
         '<a href="/blog">blog</a>',
+        '<a href="/api-docs">API</a>',
         '<a href="/sobre#contribua">contribua</a>',
         '<a href="/privacidade">privacidade</a>',
     ]
@@ -284,33 +307,56 @@ def render_landing(
 
 
 def render_api_docs(base_url: str = "", app_url: str = "/", instagram_url: str = "") -> str:
-    base = (base_url.rstrip("/") if base_url else "") + "/api/public/v1"
-    example = '{\n  "ok": true,\n  "service": "lombada-public-api",\n  "version": "v1"\n}'
-    books = '{\n  "data": [\n    {\n      "id": 1,\n      "work_key": "...",\n      "title": "Dom Casmurro",\n      "author": "Machado de Assis",\n      "year": 1899,\n      "original_language": "pt",\n      "description": "",\n      "genres": [],\n      "editions": []\n    }\n  ],\n  "pagination": {"page": 1, "limit": 20, "total": 1, "pages": 1}\n}'
-    endpoints = [
-        ("GET /health", "Status simples da API pública."),
-        ("GET /books?q=machado&limit=20", "Lista obras com filtros por título, autor, editora, tradutor, ISBN, idioma, ano e presença de capa."),
-        ("GET /books/{book_id}", "Detalha uma obra e todas as edições locais relacionadas."),
-        ("GET /editions/{edition_id}", "Detalha uma edição e a obra associada."),
-        ("GET /publishers?q=companhia", "Lista editoras do catálogo com contagem de edições."),
-        ("GET /literatures", "Lista origens/literaturas catalogadas quando houver dados locais."),
-    ]
-    endpoint_html = "".join(
-        f'<h3>{_esc(name)}</h3><p>{_esc(desc)}</p>' for name, desc in endpoints
-    )
+    base = (base_url.rstrip("/") if base_url else "https://lombada-production.up.railway.app") + "/api/public/v1"
+    health_json = '{\n  "ok": true,\n  "service": "lombada-public-api",\n  "version": "v1"\n}'
+    books_json = '{\n  "data": [\n    {\n      "id": 1,\n      "work_key": "machado-de-assis-dom-casmurro",\n      "title": "Dom Casmurro",\n      "author": "Machado de Assis",\n      "year": 1899,\n      "original_language": "pt",\n      "description": "",\n      "genres": [],\n      "editions": []\n    }\n  ],\n  "pagination": {\n    "page": 1,\n    "limit": 20,\n    "total": 1,\n    "pages": 1\n  }\n}'
+
+    def endpoint_card(route: str, desc: str, params: list[str] | None = None, example_path: str = "") -> str:
+        params_html = ""
+        if params:
+            params_html = '<div class="api-params" aria-label="Parâmetros">' + "".join(
+                f'<span class="api-param">{_esc(param)}</span>' for param in params
+            ) + '</div>'
+        example_html = (
+            f'<div class="api-example">Exemplo: <code class="lp-inline-code">{_esc(example_path)}</code></div>'
+            if example_path else ""
+        )
+        return (
+            '<article class="api-card">'
+            '<div class="api-card-head"><span class="api-method">GET</span>'
+            f'<span class="api-route">{_esc(route)}</span></div>'
+            f'<p class="api-desc">{_esc(desc)}</p>{params_html}{example_html}'
+            '</article>'
+        )
+
+    endpoint_html = "".join([
+        endpoint_card("/health", "Status simples da API pública.", example_path="/api/public/v1/health"),
+        endpoint_card(
+            "/books",
+            "Lista obras do catálogo local com paginação e filtros.",
+            ["q", "title", "author", "publisher", "translator", "isbn", "language", "year", "has_cover", "page", "limit"],
+            "/api/public/v1/books?q=machado&limit=5",
+        ),
+        endpoint_card("/books/{book_id}", "Detalha uma obra e todas as edições locais relacionadas.", example_path="/api/public/v1/books/1"),
+        endpoint_card("/editions/{edition_id}", "Detalha uma edição e a obra associada.", example_path="/api/public/v1/editions/1"),
+        endpoint_card("/publishers", "Lista editoras do catálogo com contagem de edições.", ["q", "page", "limit"], "/api/public/v1/publishers?q=companhia"),
+        endpoint_card("/literatures", "Lista origens e literaturas catalogadas quando houver dados locais.", example_path="/api/public/v1/literatures"),
+    ])
+
     inner = (
         '<header class="lp-page-head"><span class="label">desenvolvedores</span>'
         '<h1>API pública do Lombada</h1></header>'
         '<div class="lp-prose">'
-        '<p>API gratuita e somente leitura para consultar metadados de livros, edições, editoras, traduções e ISBNs catalogados pelo Lombada.</p>'
-        f'<h2>Base URL</h2><pre><code>{_esc(base)}</code></pre>'
-        '<p><strong>Importante:</strong> a API retorna metadados catalográficos, não conteúdo integral de livros. Os dados estão sujeitos a correções, enriquecimento e mudanças de cobertura.</p>'
+        '<p>Consulte metadados catalográficos de livros, edições, editoras, traduções e ISBNs do catálogo Lombada.</p>'
+        '<div class="api-notice"><strong>A API retorna apenas metadados catalográficos.</strong> Não inclui conteúdo integral de livros nem dados de usuários.</div>'
+        '<h2>Base URL</h2>'
+        f'<pre class="lp-code"><code>{_esc(base)}</code></pre>'
+        '<h2>Quickstart</h2>'
+        f'<pre class="lp-code"><code>curl {_esc(base)}/health\ncurl "{_esc(base)}/books?q=machado&amp;limit=5"\ncurl "{_esc(base)}/publishers?q=companhia"</code></pre>'
         '<h2>Endpoints</h2>'
-        f'{endpoint_html}'
-        '<h2>Exemplos em curl</h2>'
-        f'<pre><code>curl {_esc(base)}/health\ncurl "{_esc(base)}/books?q=machado&amp;limit=5"\ncurl {_esc(base)}/publishers</code></pre>'
-        '<h2>Exemplo de resposta JSON</h2>'
-        f'<pre><code>{_esc(example)}\n\n{_esc(books)}</code></pre>'
+        f'<div class="api-endpoints">{endpoint_html}</div>'
+        '<h2>Exemplo de resposta</h2>'
+        f'<pre class="lp-code"><code>{_esc(health_json)}\n\n{_esc(books_json)}</code></pre>'
         '<h2>Boas práticas</h2>'
         '<ul><li>Use paginação: <code>page</code> começa em 1 e <code>limit</code> vai até 50.</li><li>Cacheie respostas sempre que possível; as respostas públicas têm cache curto.</li><li>Identifique o Lombada como fonte dos metadados quando reutilizar os dados.</li></ul>'
         '</div><a class="lp-back" href="/sobre">← voltar para /sobre</a>'
