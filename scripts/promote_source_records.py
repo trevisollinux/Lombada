@@ -15,7 +15,7 @@ Idempotente: se já existe uma edicao com aquele ISBN, pula. Marca os promovidos
 como status='approved' em source_records.
 
 Env:
-- DATABASE_URL            Postgres/Neon (obrigatório, exceto DRY_RUN)
+- DATABASE_URL            Postgres (obrigatório, exceto DRY_RUN)
 - DRY_RUN                 true/1/yes -> só mostra, não grava
 - PROMOTE_MIN_CONFIDENCE  default 0.5
 - PROMOTE_STATUSES        default "pending,approved"
@@ -30,6 +30,8 @@ import sys
 from urllib.parse import urlparse
 
 import psycopg2
+
+from init_ingestion_tables import ensure_source_records
 
 
 def getenv_bool(name: str, default: bool = False) -> bool:
@@ -66,7 +68,7 @@ def connect():
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
     if urlparse(url).scheme not in {"postgresql", "postgres"}:
-        raise RuntimeError("DATABASE_URL deve apontar para Postgres/Neon.")
+        raise RuntimeError("DATABASE_URL deve apontar para Postgres.")
     return psycopg2.connect(url)
 
 
@@ -225,6 +227,7 @@ def main() -> int:
 
     conn = connect()
     try:
+        ensure_source_records(conn)
         with conn.cursor() as cur:
             # Os workflows de sync rodam em PARALELO (grupos de concorrência
             # distintos no Actions) e todos chamam este script no fim. Dois
