@@ -3188,8 +3188,20 @@ def _public_base_url(request: Request) -> str:
 
 
 @app.get("/api-docs")
+@app.get("/api")
 def api_docs(request: Request):
     return HTMLResponse(render_api_docs(base_url=_public_base_url(request), app_url="/", instagram_url=INSTAGRAM_URL))
+
+
+@app.get("/contribua")
+def contribua():
+    return HTMLResponse(render_landing(
+        app_url="/",
+        play_store_url=PLAY_STORE_URL,
+        apoio_url=APOIO_URL,
+        instagram_url=INSTAGRAM_URL,
+        blog_url=BLOG_URL,
+    ))
 
 
 @app.get("/sobre")
