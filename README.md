@@ -182,10 +182,10 @@ Esse comando:
 Existe um seed versionado em `data/catalog_seed.json` com obras, autores, edições e editoras. Para importar no banco configurado por `DATABASE_URL`:
 
 ```bash
-DATABASE_URL="$DATABASE_URL" python scripts/seed_catalog.py
+DATABASE_URL="$DATABASE_URL" python scripts/import_catalog.py
 ```
 
-O seed é idempotente: reaproveita obras por `work_key` ou título+autor e edições por `ol_edition_key`, ISBN ou combinação obra/editora/tradutor/ano. O boot do app também pode executar esse seed se `CATALOG_SEED_ENABLED=1`, mas o comando acima é o caminho explícito para preparar o banco novo.
+O import é idempotente: reaproveita obras por `work_key` ou título+autor e edições por `ol_edition_key`, ISBN ou combinação obra/editora/tradutor/ano. Antes de importar, ele cria/migra tabelas ausentes com segurança, imprime a existência/contagem das tabelas principais e, ao final, mostra totais de obras, edições, editoras e autores, além de quantos registros foram criados ou já existiam. Ele usa somente `DATABASE_URL`, não apaga usuários/dados existentes e não depende do Neon. O boot do app também pode executar o seed legado se `CATALOG_SEED_ENABLED=1`, mas o comando acima é o caminho explícito para preparar o banco novo no Railway.
 
 ### Verificações pós-deploy
 
@@ -196,6 +196,7 @@ curl -fsS https://SEU-DOMINIO/healthz
 curl -fsS https://SEU-DOMINIO/api/version
 curl -fsS https://SEU-DOMINIO/api/editoras
 curl -fsS https://SEU-DOMINIO/editora/companhia-das-letras
+curl -fsS "https://SEU-DOMINIO/api/buscar?q=Capitães%20da%20Areia"
 ```
 
 ## Desenvolvimento
