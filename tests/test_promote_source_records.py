@@ -79,5 +79,71 @@ class BackfillSourceRecordAuthorsTest(unittest.TestCase):
         self.assertTrue(conn.committed)  # commit acontece mesmo sem updates, é barato e idempotente
 
 
+class PromoteInsertDefaultsTest(unittest.TestCase):
+    class Cursor:
+        def __init__(self):
+            self.executed = []
+            self.rowcount = 0
+            self._last_sql = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, sql, params=None):
+            self._last_sql = " ".join(sql.split())
+            self.executed.append((self._last_sql, params))
+            self.rowcount = 0
+
+        def fetchone(self):
+            if "information_schema.columns" in self._last_sql:
+                return (1,)
+            if self._last_sql.startswith("SELECT id, obra_id FROM edicao"):
+                return None
+            if self._last_sql.startswith("SELECT id FROM obra"):
+                return None
+            if self._last_sql.startswith("INSERT INTO obra"):
+                return (42,)
+            return None
+
+    class Conn:
+        def __init__(self):
+            self.cur = PromoteInsertDefaultsTest.Cursor()
+            self.committed = False
+
+        def cursor(self):
+            return self.cur
+
+        def commit(self):
+            self.committed = True
+
+    def test_new_obra_insert_includes_required_text_defaults_and_description(self):
+        conn = self.Conn()
+        rows = [(7, "A sociedade desigual", "Mario Theodoro", "9786555252279", "Editora 34", 2025, "", "x" * 2505)]
+
+        stats = psr.promote(conn, rows, dry_run=False)
+
+        obra_insert = next(call for call in conn.cur.executed if call[0].startswith("INSERT INTO obra"))
+        self.assertIn("descricao", obra_insert[0])
+        self.assertIn("generos_json", obra_insert[0])
+        self.assertEqual(len(obra_insert[1][5]), 2000)
+        self.assertEqual(obra_insert[1][6:], ("", "", "", "", ""))
+        self.assertEqual(stats["obras_criadas"], 1)
+        self.assertEqual(stats["promovidos"], 1)
+        self.assertTrue(conn.committed)
+
+
+class SafeDescricaoTest(unittest.TestCase):
+    def test_uses_empty_string_for_missing_description(self):
+        self.assertEqual(psr._safe_descricao(None), "")
+        self.assertEqual(psr._safe_descricao(""), "")
+
+    def test_trims_and_limits_description_to_2000_chars(self):
+        self.assertEqual(psr._safe_descricao("  resumo  "), "resumo")
+        self.assertEqual(len(psr._safe_descricao("x" * 2500)), 2000)
+
+
 if __name__ == "__main__":
     unittest.main()
