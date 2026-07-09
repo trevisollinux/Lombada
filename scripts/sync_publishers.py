@@ -16,7 +16,7 @@ Para escapar de bloqueio de bot (403/429) usamos User-Agent de navegador e
 retry com backoff exponencial.
 
 Configuração por variáveis de ambiente:
-- DATABASE_URL: conexão Postgres/Neon obrigatória.
+- DATABASE_URL: conexão Postgres obrigatória.
 - PUBLISHER_MAX_URLS: máximo de livros por editora (default: 20).
 - PUBLISHER_SLEEP_SECONDS: pausa entre páginas HTML (default: 1.0).
 - PUBLISHER_SLUGS: lista separada por vírgula para filtrar editoras (default: todas).
@@ -38,6 +38,8 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import psycopg2
 from psycopg2.extras import Json
+
+from init_ingestion_tables import ensure_publisher_dead_ids, ensure_source_records
 import requests
 from bs4 import BeautifulSoup
 
@@ -364,7 +366,7 @@ def connect_database():
     normalized_url = normalize_database_url(database_url)
     parsed = urlparse(normalized_url)
     if parsed.scheme not in {"postgresql", "postgres"}:
-        raise RuntimeError("DATABASE_URL deve apontar para Postgres/Neon.")
+        raise RuntimeError("DATABASE_URL deve apontar para Postgres.")
     return psycopg2.connect(normalized_url)
 
 
@@ -2027,7 +2029,8 @@ def main() -> int:
     conn = None
     if os.getenv("DATABASE_URL", "").strip():
         conn = connect_database()
-        ensure_dead_ids_table(conn)  # cache de ids mortos do id_range (idempotente)
+        ensure_source_records(conn)
+        ensure_publisher_dead_ids(conn)  # cache de ids mortos do id_range (idempotente)
 
     total_written = 0
     total_collected = 0

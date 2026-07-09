@@ -73,6 +73,7 @@ jobs:
         run: |
           set -o pipefail
           status=0
+          python scripts/init_ingestion_tables.py
           python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
           {
             echo '### Sync de editoras universitárias -> source_records'
@@ -98,6 +99,7 @@ jobs:
         run: |
           set -o pipefail
           status=0
+          python scripts/init_ingestion_tables.py
           python scripts/promote_source_records.py | tee promote_resultado.txt || status=$?
           {
             echo '### Promoção source_records -> catálogo'
