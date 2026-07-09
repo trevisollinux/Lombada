@@ -19,3 +19,6 @@ Use quando quiser promover pendências de `source_records` para `obra`/`edicao`.
 ## Seed demo users
 Dados demo.
 Use para limpar atividade do usuário alvo e criar usuários fake de teste.
+
+## Render keep-alive
+Workflow removido. O CI não executa mais ping periódico para manter o serviço do Render ativo.
