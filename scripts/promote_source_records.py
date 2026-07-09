@@ -98,6 +98,38 @@ def _tem_coluna(cur, tabela: str, coluna: str) -> bool:
     return cur.fetchone() is not None
 
 
+_OBRA_TEXT_DEFAULT_COLUMNS = (
+    "descricao",
+    "generos_json",
+    "autor_pais",
+    "autor_nacionalidade",
+    "literatura_pais",
+    "literatura_regiao",
+)
+
+
+def _safe_descricao(descricao: str) -> str:
+    return (descricao or "").strip()[:2000]
+
+
+def ensure_catalog_schema(conn, dry_run: bool = False) -> None:
+    """Normaliza colunas textuais obrigatórias de obra para o promote cru.
+
+    O model SQLModel usa defaults Python, mas este script faz INSERT SQL direto.
+    Bancos já criados podem ter as colunas NOT NULL sem server default; portanto
+    backfillamos NULLs existentes e instalamos DEFAULT '' de forma idempotente.
+    """
+    with conn.cursor() as cur:
+        for coluna in _OBRA_TEXT_DEFAULT_COLUMNS:
+            if not _tem_coluna(cur, "obra", coluna):
+                continue
+            if dry_run:
+                continue
+            cur.execute(f"UPDATE obra SET {coluna}='' WHERE {coluna} IS NULL")
+            cur.execute(f"ALTER TABLE obra ALTER COLUMN {coluna} SET DEFAULT ''")
+    if not dry_run:
+        conn.commit()
+
 _AUTOR_LABEL_RE = re.compile(r"Autor(?:\(a\)|es)?\s*[:\-]\s*([A-ZÀ-Ý][^\n|·•]{2,60})")
 
 
@@ -192,9 +224,14 @@ def promote(conn, rows, dry_run: bool) -> dict:
             obra_id = find_obra(cur, titulo, autor)
             if obra_id is None:
                 cur.execute(
-                    "INSERT INTO obra (ol_work_key, titulo, autor, idioma_original, ano) "
-                    "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                    (work_key(titulo, autor), titulo, autor, "", ano),
+                    "INSERT INTO obra ("
+                    "ol_work_key, titulo, autor, idioma_original, ano, descricao, "
+                    "generos_json, autor_pais, autor_nacionalidade, literatura_pais, literatura_regiao"
+                    ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (
+                        work_key(titulo, autor), titulo, autor, "", ano,
+                        _safe_descricao(descricao), "", "", "", "", "",
+                    ),
                 )
                 obra_id = cur.fetchone()[0]
                 stats["obras_criadas"] += 1
@@ -228,6 +265,7 @@ def main() -> int:
     conn = connect()
     try:
         ensure_source_records(conn)
+        ensure_catalog_schema(conn, dry_run)
         with conn.cursor() as cur:
             # Os workflows de sync rodam em PARALELO (grupos de concorrência
             # distintos no Actions) e todos chamam este script no fim. Dois
