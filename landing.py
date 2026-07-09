@@ -15,23 +15,22 @@ preenchida. O blog agora é interno (/blog), sempre no menu.
 from publica import _esc, _FONTES, _CSS
 
 
-# logo (mesmo desenho de static/icons/icon.svg), inline pra não depender de rede
-def _logo(cls: str = "lp-logo", decorative: bool = False) -> str:
-    aria = 'aria-hidden="true"' if decorative else 'role="img" aria-label="Lombada"'
+# Logo público compartilhado com o app (mesmo desenho do header da SPA).
+def _logo_mark(mark_cls: str = "brand-logo__mark") -> str:
     return (
-        f'<svg class="{cls}" viewBox="0 0 512 512" {aria}>'
-        '<rect width="512" height="512" rx="96" fill="#ECE4D4"/>'
-        '<rect x="52" y="52" width="408" height="408" rx="62" fill="none" '
-        'stroke="#973E2B" stroke-width="24"/>'
-        '<path d="M168 126h70v204h132v64H168z" fill="#1A1714"/></svg>'
+        f'<span class="{mark_cls}" aria-hidden="true">'
+        '<svg viewBox="448 397 183 293" aria-hidden="true" focusable="false">'
+        '<path fill="currentColor" d="M448 397.7c0 .5 2.7 2 5.9 3.5 10.5 4.9 9.6-9.2 9.9 141L464 673l4.3-.6c3.6-.4 5.5.2 13.2 4l9 4.5-14.8.1c-13.5 0-15.2.2-17.8 2.1-1.6 1.1-4.5 2.5-6.5 3.1-2 .5-3.4 1.4-3.1 2.1.3.9 22.3 1.3 91.5 1.5l91.2.2v-29c0-15.9-.4-29-.8-29s-1.8 3.2-3.1 7c-5.2 16.2-10.7 24.9-20.3 32.3-11.6 8.8-13.5 9.1-57.3 9.5-37.9.3-38 .3-42.4-2-5.3-2.7-7.9-6-9.1-11.4-.6-2.2-1-60.8-1-137.2V397h-24.5c-13.5 0-24.5.3-24.5.7"/>'
+        '<path fill="currentColor" d="M511.5 399.2c-.3 1.3-.4 61.6-.3 134.1.3 115.8.5 131.9 1.8 132.7.8.5 3.9 1 6.8 1h5.2V538.1c0-110.2.2-129 1.4-130 .8-.7 3.6-1.1 6.3-.9l4.8.3.5 129.2c.3 71 .7 129.4 1 129.6.6.6 6.3 1.1 10.2.8l2.8-.1.2-129.8c.3-123 .4-129.9 2.1-132.5 1-1.5 3.4-3.5 5.2-4.4 1.9-.9 3.5-2 3.5-2.5 0-.4-11.5-.8-25.5-.8H512z"/>'
+        '</svg></span>'
     )
 
 
-def _brand_logo(cls: str = "lp-brand", mark_cls: str = "lp-brand-mark") -> str:
+def _brand_logo(cls: str = "lp-brand brand-logo brand-logo--wordmark", mark_cls: str = "brand-logo__mark") -> str:
     return (
-        f'<span class="{cls}">'
-        f'{_logo(mark_cls, decorative=True)}'
-        '<span class="lp-brand-word">Lombada<span class="dot">.</span></span>'
+        f'<span class="{cls}" role="img" aria-label="Lombada">'
+        f'{_logo_mark(mark_cls)}'
+        '<span class="lp-brand-word brand-logo__word"><span class="brand-logo__rest">ombada</span><span class="dot">.</span></span>'
         '</span>'
     )
 
@@ -40,9 +39,10 @@ _LANDING_CSS = """
 html{scroll-behavior:smooth}
 .lp-nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 0;margin-bottom:8px;background:var(--paper);border-bottom:1px solid var(--rule)}
 .lp-brand-link{display:inline-flex;align-items:center;color:inherit;text-decoration:none}
-.lp-brand,.lp-hero-brand{display:inline-flex;align-items:center;gap:11px;min-width:0;font-family:"Fraunces",serif;font-style:normal;font-weight:650;letter-spacing:-.055em}
+.lp-brand,.lp-hero-brand{display:inline-flex;align-items:center;gap:2px;min-width:0;font-family:"Fraunces",serif;font-style:normal;font-weight:650;letter-spacing:-.055em;color:var(--ink)}
 .lp-brand{font-size:21px;line-height:1}.lp-brand .dot,.lp-hero-brand .dot{color:var(--gold)}
-.lp-brand-mark{flex:0 0 auto;width:34px;height:34px;border-radius:9px;display:block}
+.brand-logo__mark{flex:0 0 auto;width:auto;height:.92em;padding:0;border:0;border-radius:0;background:transparent;color:var(--ink);align-self:baseline;transform:translateY(.075em);display:inline-flex;align-items:center;justify-content:center}
+.brand-logo__mark svg{height:100%;width:auto;display:block;fill:currentColor;overflow:visible}
 .lp-brand-word{white-space:nowrap}
 .lp-nav-links{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lp-nav-links a{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:6px 8px}
@@ -51,8 +51,8 @@ html{scroll-behavior:smooth}
 .lp{max-width:720px;margin:0 auto}
 .lp-hero{text-align:center;padding:26px 0 8px}
 .lp-logo{width:72px;height:72px;border-radius:20px;box-shadow:var(--shadow);display:inline-block;flex:0 0 auto}
-.lp-hero-brand{font-size:clamp(38px,9vw,58px);line-height:.95;gap:14px;justify-content:center}
-.lp-hero-brand .lp-logo{width:clamp(62px,16vw,82px);height:clamp(62px,16vw,82px)}
+.lp-hero-brand{font-size:clamp(38px,9vw,58px);line-height:.95;gap:2px;justify-content:center}
+.lp-hero-brand .brand-logo__mark{height:.92em}
 .lp-tag{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-top:16px}
 .lp-hero h1{font-family:"Fraunces",serif;font-style:italic;font-weight:400;font-size:36px;line-height:1.08;margin:14px auto 0;max-width:18ch}
 .lp-hero h1 em{font-style:normal;color:var(--gold)}
@@ -111,8 +111,14 @@ html[data-theme="dark"] .lp-support{background:rgba(243,235,221,.05)}
 .lp-foot a{border-bottom:1px solid var(--rule);padding-bottom:1px}
 .lp-foot .sep{margin:0 8px;opacity:.5}
 
-.lp-code{display:block;max-width:100%;box-sizing:border-box;background:#14110f;color:#f3ebdd;border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;font-family:"Space Mono",monospace;font-size:12px;line-height:1.55;white-space:pre;border-radius:10px;-webkit-overflow-scrolling:touch}
-.lp-code code{font:inherit;color:inherit;background:transparent;padding:0;border:0;white-space:inherit}
+.lp-code{display:block;max-width:100%;box-sizing:border-box;background:var(--paper-3);color:var(--ink);border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;font-family:"Space Mono",monospace;font-size:12px;line-height:1.55;white-space:pre;border-radius:10px;-webkit-overflow-scrolling:touch;opacity:1;scrollbar-color:var(--gold) var(--paper-3);scrollbar-width:thin}
+.lp-code code,.lp-code pre{font:inherit;color:var(--ink);background:transparent;padding:0;border:0;white-space:inherit;opacity:1}
+.lp-code::-webkit-scrollbar{height:10px}.lp-code::-webkit-scrollbar-track{background:var(--paper-3)}.lp-code::-webkit-scrollbar-thumb{background:var(--gold);border-radius:999px}
+.lp-prose input,.lp-prose textarea,.api-card input,.api-card textarea{background:var(--paper-3);color:var(--ink);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;opacity:1;-webkit-text-fill-color:var(--ink)}
+.lp-prose input::placeholder,.lp-prose textarea::placeholder,.api-card input::placeholder,.api-card textarea::placeholder{color:var(--dim);opacity:1}
+html[data-theme="dark"] .lp-code,html[data-theme="dark"] .lp-code code,html[data-theme="dark"] .lp-code pre{background:#171310;color:#F3EBDD}
+html[data-theme="dark"] .lp-prose input,html[data-theme="dark"] .lp-prose textarea,html[data-theme="dark"] .api-card input,html[data-theme="dark"] .api-card textarea{background:#171310;color:#F3EBDD;-webkit-text-fill-color:#F3EBDD}
+html[data-theme="dark"] .lp-prose input::placeholder,html[data-theme="dark"] .lp-prose textarea::placeholder,html[data-theme="dark"] .api-card input::placeholder,html[data-theme="dark"] .api-card textarea::placeholder{color:#CABEAA;opacity:1}
 .lp-inline-code,.lp-prose code{font-family:"Space Mono",monospace;font-size:.92em;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:5px;color:var(--ink)}
 html[data-theme="dark"] .lp-inline-code,html[data-theme="dark"] .lp-prose code{background:rgba(255,255,255,.08);color:var(--paper)}
 .api-notice{border:1px solid var(--rule);background:rgba(151,62,43,.08);padding:18px 20px;border-radius:14px;color:var(--ink-2);margin:22px 0 24px;font-size:15px;line-height:1.5}
@@ -130,6 +136,15 @@ html[data-theme="dark"] .api-card{background:rgba(243,235,221,.05)}
 html[data-theme="dark"] .api-param{background:rgba(255,255,255,.08)}
 .api-example{font-size:13px;line-height:1.45;color:var(--dim);margin-top:12px;overflow-wrap:anywhere}
 .api-example .lp-inline-code{font-size:11px}
+.lp-theme{border:1px solid var(--rule);background:rgba(255,255,255,.10);border-radius:16px;padding:20px;margin-top:14px}
+html[data-theme="dark"] .lp-theme{background:rgba(243,235,221,.05)}
+.lp-theme p{font-size:15px;line-height:1.5;color:var(--ink-2);margin:0 0 14px}
+.lp-theme-options{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.lp-theme-option{min-width:0;cursor:pointer}.lp-theme-option input{position:absolute;opacity:0;pointer-events:none}
+.lp-theme-option span{display:block;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--ink);font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.12em;text-align:center;text-transform:uppercase;padding:11px 10px;transition:background .16s ease,color .16s ease,border-color .16s ease;opacity:1}
+.lp-theme-option input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.lp-theme-option input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
+html[data-theme="dark"] .lp-theme-option input:checked+span{background:var(--paper-3);border-color:var(--rule);color:var(--ink)}
 @media(max-width:520px){.lp-code{font-size:11px;padding:12px 13px}.api-card{padding:16px 14px;border-radius:13px}.api-route{font-size:13px}.api-param{font-size:10px}.api-notice{padding:16px}}
 """
 
@@ -190,7 +205,7 @@ def _shell(title: str, inner: str, og: dict | None = None,
         f'<style>{_CSS}</style><style>{_LANDING_CSS}</style></head>'
         '<body><div class="wrap">'
         f'{_nav(app_url)}<main class="lp">{inner}</main>{_footer(app_url, instagram_url)}'
-        '</div></body></html>'
+        '</div><script>(function(){var KEY="lombada_theme";function apply(t){t=t==="dark"?"dark":"light";document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem(KEY,t)}catch(e){};document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t});var m=document.querySelector("meta[name=theme-color]");if(m)m.content=t==="dark"?"#0E0D0B":"#ECE4D4"}window.definirTemaPublico=apply;document.addEventListener("DOMContentLoaded",function(){var t=document.documentElement.getAttribute("data-theme")||"light";document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t})})})()</script></body></html>'
     )
 
 
@@ -258,6 +273,17 @@ def render_landing(
         f'<a class="lp-btn primary" href="{_esc(apoio_url)}" rel="noopener" target="_blank">apoiar ☕</a>'
         if apoio_url else ''
     )
+    tema = (
+        '<section class="lp-section" id="tema"><span class="label">aparência</span>'
+        '<h2>Tema</h2>'
+        '<div class="lp-theme">'
+        '<p>Escolha o tema do Lombada neste navegador. A preferência é salva no mesmo local do app e vale para o site inteiro.</p>'
+        '<div class="lp-theme-options" role="radiogroup" aria-label="Tema">'
+        '<label class="lp-theme-option"><input type="radio" name="publicThemeChoice" value="light" onchange="definirTemaPublico(this.value)"><span>Claro</span></label>'
+        '<label class="lp-theme-option"><input type="radio" name="publicThemeChoice" value="dark" onchange="definirTemaPublico(this.value)"><span>Escuro</span></label>'
+        '</div></div></section>'
+    )
+
     contribua = (
         '<section class="lp-section" id="contribua"><span class="label">contribua</span>'
         '<h2>Ajude o Lombada a crescer</h2>'
@@ -270,7 +296,7 @@ def render_landing(
 
     inner = (
         '<section class="lp-hero">'
-        f'{_brand_logo("lp-hero-brand", "lp-logo")}'
+        f'{_brand_logo("lp-hero-brand", "brand-logo__mark")}'
         '<div class="lp-tag">tipo Letterboxd, mas pra livros</div>'
         '<h1>Uma rede social de livros. E a fonte mais completa pra '
         '<em>pesquisar livros</em> no Brasil.</h1>'
@@ -290,6 +316,7 @@ def render_landing(
         '<h2>Dados abertos do catálogo</h2>'
         '<div class="lp-support"><p>O Lombada também disponibiliza uma API pública para consulta de livros, edições, editoras, traduções e ISBNs catalogados. Ela é gratuita, somente leitura e pensada para pesquisadores, leitores, projetos independentes e desenvolvedores.</p>'
         '<a class="lp-btn ghost" href="/api-docs">Ver documentação da API</a></div></section>'
+        f'{tema}'
         f'{contribua}'
     )
 
