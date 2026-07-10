@@ -1,0 +1,49 @@
+/* Ajuste do botão central de registro no layout desktop.
+   No mobile ele continua como FAB circular; na barra lateral passa a ser um CTA completo. */
+@media (min-width: 900px) {
+  .tabs .tab-add {
+    width: 100%;
+    height: auto;
+    min-height: 48px;
+    margin: 8px 0;
+    padding: 12px 14px;
+    align-self: stretch;
+    justify-self: stretch;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--primary-text);
+    box-shadow: none;
+  }
+
+  .tabs .tab-add::after {
+    content: attr(aria-label);
+    display: inline;
+    position: static;
+    width: auto;
+    height: auto;
+    font-family: "Space Mono", monospace;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: inherit;
+  }
+
+  .tabs .tab-add:hover {
+    border-color: transparent;
+    background: var(--primary);
+    color: var(--primary-text);
+    filter: brightness(1.06);
+  }
+
+  .tabs .tab-add:active,
+  .tabs .tab-add[aria-expanded="true"] {
+    transform: translateY(1px);
+  }
+}
