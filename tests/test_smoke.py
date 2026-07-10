@@ -411,6 +411,50 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()[0]["titulo"], "Mar de Ipanema")
 
+    def test_buscar_filtro_estilo_tolerante_como_literatura(self):
+        # Regressão do "estilo: romance + literatura: brasileira" sem texto:
+        # o filtro de estilo era estrito e, como quase nenhuma obra tem gênero
+        # catalogado, zerava a busca. Agora segue o contrato do filtro de
+        # literatura: gênero catalogado incompatível sai, obra sem o metadado
+        # permanece e o match confirmado sobe pro topo.
+        self._semear_obras_filtros()
+        with main.Session(main.engine) as s:
+            if not s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "estilo-romance")).first():
+                romance = main.Obra(ol_work_key="estilo-romance", titulo="Romance Catalogado", autor="Autorestilo Lima",
+                                    generos_json='["romance"]',
+                                    literatura_pais="Brasil", literatura_regiao="América Latina", autor_pais="Brasil")
+                poesia = main.Obra(ol_work_key="estilo-poesia", titulo="Poemas Catalogados", autor="Autorestilo Prado",
+                                   generos_json='["poesia"]',
+                                   literatura_pais="Brasil", literatura_regiao="América Latina", autor_pais="Brasil")
+                for o in (romance, poesia):
+                    s.add(o)
+                s.commit()
+                for o in (romance, poesia):
+                    s.refresh(o)
+                    # sem capa/ISBN de propósito: mantém estas obras fora dos
+                    # testes que filtram por com_capa e exigem lista exata.
+                    s.add(main.Edicao(obra_id=o.id, editora="Editora Estilo", idioma="Português",
+                                      capa_url="", isbn=""))
+                s.commit()
+
+        r = self.client.get("/api/buscar", params={"genero": "romance", "literatura": "brasileira"})
+        self.assertEqual(r.status_code, 200)
+        docs = r.json()
+        titulos = [d["titulo"] for d in docs]
+        self.assertIn("Romance Catalogado", titulos)     # estilo confirmado entra
+        self.assertNotIn("Poemas Catalogados", titulos)  # estilo catalogado diferente sai
+        self.assertIn("Mar de Ipanema", titulos)         # sem estilo catalogado não some
+        self.assertEqual(titulos[0], "Romance Catalogado")  # match confirmado no topo
+        doc_romance = next(d for d in docs if d["titulo"] == "Romance Catalogado")
+        self.assertTrue(doc_romance.get("_genero_match"))
+
+        # estilo sozinho também funciona (era o filtro que voltava vazio)
+        r2 = self.client.get("/api/buscar", params={"genero": "romance"})
+        self.assertEqual(r2.status_code, 200)
+        titulos2 = [d["titulo"] for d in r2.json()]
+        self.assertEqual(titulos2[0], "Romance Catalogado")
+        self.assertNotIn("Poemas Catalogados", titulos2)
+
     def test_buscar_sem_filtros_continua_igual(self):
         self._semear_obras_filtros()
         r = self.client.get("/api/buscar", params={"q": "autorfiltro"})

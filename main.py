@@ -598,6 +598,7 @@ def _doc_compativel_genero(doc: dict, genero: str) -> bool:
     generos = _doc_generos(doc)
     if generos:
         doc["generos"] = generos
+        doc["_genero_match"] = genero in generos
         return genero in generos
     return True
 
@@ -902,8 +903,18 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
             continue
         if editora_norm and editora_norm not in _normalizar_busca(ed.editora):
             continue
-        if genero and genero not in generos_obra(obra):
-            continue
+        genero_compat = None
+        if genero:
+            # Mesmo contrato do filtro de literatura: obra com estilo catalogado
+            # incompatível sai sempre; obra sem o metadado permanece (o catálogo
+            # ainda tem poucos gêneros preenchidos e escondê-la zerava o filtro).
+            # O estilo confirmado ganha bônus e sobe no ranking; o front avisa.
+            generos_da_obra = generos_obra(obra)
+            genero_compat = (genero in generos_da_obra) if generos_da_obra else None
+            if genero_compat is False:
+                continue
+            if genero_compat:
+                score += 40
         lit_compat = None
         if literatura:
             lit_compat = _compat_literatura(
@@ -924,11 +935,12 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
         if score <= 0:
             continue
         chave = _chave_canonica_obra_busca(obra)
-        bucket = por_obra.setdefault(chave, {"obras": {}, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}, "literatura_match": False})
+        bucket = por_obra.setdefault(chave, {"obras": {}, "items": [], "score": 0, "match": {"titulo": False, "autor": False, "editora": False, "isbn": False}, "literatura_match": False, "genero_match": False})
         bucket["obras"][obra.id] = obra
         bucket["items"].append((score, leituras_count, obra, ed, match))
         bucket["score"] = max(bucket["score"], score)
         bucket["literatura_match"] = bucket["literatura_match"] or bool(lit_compat)
+        bucket["genero_match"] = bucket["genero_match"] or bool(genero_compat)
         for key, value in match.items():
             bucket["match"][key] = bucket["match"][key] or value
 
@@ -1017,6 +1029,8 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
                 doc[campo] = valor
         if literatura:
             doc["_literatura_match"] = bucket["literatura_match"]
+        if genero:
+            doc["_genero_match"] = bucket["genero_match"]
         docs.append(doc)
     # Busca por texto entrega o topo (mistura com resultados externos depois).
     # Navegação só por filtro é uma vitrine do catálogo — devolve mais itens.
@@ -1534,7 +1548,8 @@ def _aplicar_filtros_extras(docs: list[dict], *, com_criticas: bool, lendo_agora
     return saida
 
 
-def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: bool) -> list[dict]:
+def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: bool,
+                              genero_ativo: bool = False) -> list[dict]:
     # sorts estáveis: a ordenação escolhida decide, quality_score desempata
     if ordenar == "popular":
         docs.sort(key=lambda d: (d.get("leituras_count") or 0), reverse=True)
@@ -1542,6 +1557,9 @@ def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: 
         docs.sort(key=lambda d: (d.get("nota_media") is not None, d.get("nota_media") or 0), reverse=True)
     elif ordenar == "recentes":
         docs.sort(key=lambda d: _doc_ano_recente(d), reverse=True)
+    if genero_ativo:
+        # prioriza obras com estilo compatível confirmado, sem excluir as demais
+        docs.sort(key=lambda d: 0 if d.get("_genero_match") else 1)
     if literatura_ativa:
         # prioriza obras com origem compatível confirmada, sem excluir as demais
         docs.sort(key=lambda d: 0 if d.get("_literatura_match") else 1)
@@ -1574,7 +1592,8 @@ def buscar(q: str = Query(""), editora: str = Query(""), genero: str = Query("")
         docs = consolidar_resultados_busca_final(termo_busca, locais + externos_filtrados)
         docs = _aplicar_filtros_extras(docs, com_criticas=com_criticas, lendo_agora=lendo_agora,
                                        com_capa=com_capa, com_isbn=com_isbn, idioma_pt=bool(idioma_pt))
-        return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit))[:30]
+        return _ordenar_resultados_busca(docs, ordenar, literatura_ativa=bool(lit),
+                                         genero_ativo=bool(genero_canonico))[:30]
 
     if not q_valido:
         resposta = _resposta_final([])
@@ -3300,7 +3319,7 @@ def assetlinks():
 
 def render_index() -> HTMLResponse:
     html = (AQUI / "index.html").read_text(encoding="utf-8")
-    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260710a"
+    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260710b"
     html = html.replace("{{APP_VERSION}}", asset_version)
     return HTMLResponse(
         html,

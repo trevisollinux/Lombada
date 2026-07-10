@@ -1610,6 +1610,7 @@ Object.assign(I18N['pt-BR'], {
   clear_genre_filter: 'limpar filtro de estilo',
   close_genre_filter: 'fechar filtro de estilo',
   no_results_in_genre: 'Não houve resultados nesse estilo: {genre}.',
+  genre_no_metadata_note: 'Poucas obras têm estilo catalogado por enquanto — mostrando também resultados sem esse dado para o estilo {genre}.',
 });
 Object.assign(I18N['en'], {
   search_filters: 'filters',
@@ -1626,6 +1627,7 @@ Object.assign(I18N['en'], {
   clear_genre_filter: 'clear style filter',
   close_genre_filter: 'close style filter',
   no_results_in_genre: 'No results found for this style: {genre}.',
+  genre_no_metadata_note: 'Few works have a cataloged style yet — also showing results without that data for the {genre} style.',
 });
 Object.assign(I18N['es'], {
   search_filters: 'filtros',
@@ -1642,6 +1644,7 @@ Object.assign(I18N['es'], {
   clear_genre_filter: 'quitar filtro de estilo',
   close_genre_filter: 'cerrar filtro de estilo',
   no_results_in_genre: 'No hubo resultados en este estilo: {genre}.',
+  genre_no_metadata_note: 'Pocas obras tienen estilo catalogado por ahora — mostrando también resultados sin ese dato para el estilo {genre}.',
 });
 Object.assign(I18N['pt-BR'], {
   publisher_filter_hint: 'Escolha uma editora para refinar a busca.',
