@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import socket
+import threading
 import unicodedata
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -236,6 +237,32 @@ except ValueError:
 
 
 # ─── lifespan ─────────────────────────────────────────────
+def _preparar_banco():
+    # A preparação do banco não pode derrubar nem travar o processo: se o banco
+    # estiver indisponível no boot, o app ainda precisa subir e responder
+    # /healthz para o deploy ficar saudável. Fazemos um preflight único — assim
+    # não gastamos minutos em timeouts de connect encadeados dentro de migrar()
+    # — e só rodamos create_all/migração/seed quando o banco responde.
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("startup_db_unreachable_skipping_setup")
+        return
+
+    for etapa, acao in (
+        ("create_all", lambda: SQLModel.metadata.create_all(engine)),
+        ("migrar", migrar),
+        ("seed_demo_content", seed_demo_content),
+        ("seed_catalog_content", seed_catalog_content),
+    ):
+        try:
+            acao()
+        except Exception:
+            logger.exception("startup_step_failed", extra={"step": etapa})
+    logger.info("startup_db_setup_finished")
+
+
 @asynccontextmanager
 async def lifespan(app):
     try:
@@ -245,30 +272,18 @@ async def lifespan(app):
     except Exception:
         logger.warning("sync_concurrency_limit_failed", exc_info=True)
 
-    # A preparação do banco não pode derrubar nem travar o processo: se o banco
-    # estiver indisponível no boot, o app ainda precisa subir e responder
-    # /healthz para o deploy ficar saudável. Fazemos um preflight único — assim
-    # não gastamos minutos em timeouts de connect encadeados dentro de migrar()
-    # — e só rodamos create_all/migração/seed quando o banco responde.
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        banco_ok = True
-    except Exception:
-        banco_ok = False
-        logger.exception("startup_db_unreachable_skipping_setup")
-
-    if banco_ok:
-        for etapa, acao in (
-            ("create_all", lambda: SQLModel.metadata.create_all(engine)),
-            ("migrar", migrar),
-            ("seed_demo_content", seed_demo_content),
-            ("seed_catalog_content", seed_catalog_content),
-        ):
-            try:
-                acao()
-            except Exception:
-                logger.exception("startup_step_failed", extra={"step": etapa})
+    # O setup do banco roda fora do caminho do boot quando o banco é remoto:
+    # tudo que acontece antes do yield segura o uvicorn de aceitar conexões, e
+    # com Postgres as dezenas de round-trips de migrar()/seeds já estouraram o
+    # healthcheck do deploy (300s) em dias de rede lenta. Numa thread, o
+    # /healthz responde em segundos e as migrações terminam em paralelo —
+    # servir antes do setup completo já era um estado aceito (banco fora no
+    # boot pula o setup todo). Com SQLite (testes, dev local) não há rede e o
+    # setup é imediato, então roda síncrono pra manter o boot determinístico.
+    if engine.dialect.name == "sqlite":
+        _preparar_banco()
+    else:
+        threading.Thread(target=_preparar_banco, name="db-setup", daemon=True).start()
 
     yield
 
