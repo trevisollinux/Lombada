@@ -1,0 +1,74 @@
+name: Apply share card branding fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/share-card-branding'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-sync.txt
+
+      - name: Apply card footer patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('static/app.js')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  "ctx.fillText(col,110,yc);ctx.fillText('@'+(meuHandle||''),110,yc+44);\n  ctx.fillStyle=p.gold;ctx.font=\"600 italic 40px Fraunces, serif\";ctx.fillText('lombada.',110,yc+98);",
+                  "ctx.fillText(col,110,yc);\n  ctx.fillStyle=p.gold;ctx.font=\"600 italic 40px Fraunces, serif\";ctx.textAlign='right';ctx.fillText('lombada.app',W-110,yc+76);ctx.textAlign='left';",
+              ),
+              (
+                  "ctx.fillStyle=p.muted;ctx.font=\"400 24px 'Space Mono', monospace\";ctx.fillText('@'+(meuHandle||''),x,H-94);\n  ctx.fillStyle=p.gold;ctx.font=\"600 italic 36px Fraunces, serif\";ctx.fillText('lombada.',x,H-48);",
+                  "ctx.fillStyle=p.gold;ctx.font=\"600 italic 36px Fraunces, serif\";ctx.textAlign='right';ctx.fillText('lombada.app',W-x,H-48);ctx.textAlign='left';",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count < 1:
+                  raise SystemExit(f'marker not found: {old[:80]}')
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+
+          test = Path('tests/test_share_card_branding.py')
+          test.write_text('''import pathlib\nimport unittest\n\n\nclass ShareCardBrandingTest(unittest.TestCase):\n    @classmethod\n    def setUpClass(cls):\n        cls.app = pathlib.Path("static/app.js").read_text(encoding="utf-8")\n\n    def test_domain_is_rendered_on_cards(self):\n        self.assertGreaterEqual(self.app.count("lombada.app"), 3)\n\n    def test_share_cards_do_not_render_random_handle(self):\n        self.assertNotIn("ctx.fillText('@'+(meuHandle||''),110,yc+44)", self.app)\n        self.assertNotIn("ctx.fillText('@'+(meuHandle||''),x,H-94)", self.app)\n\n    def test_domain_is_right_aligned(self):\n        self.assertIn("ctx.textAlign='right';ctx.fillText('lombada.app',W-110,yc+76)", self.app)\n        self.assertIn("ctx.textAlign='right';ctx.fillText('lombada.app',W-x,H-48)", self.app)\n\n\nif __name__ == "__main__":\n    unittest.main()\n''', encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-sync.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Commit tested fix
+        shell: bash
+        run: |
+          rm -f .github/workflows/apply-share-card-branding.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/app.js tests/test_share_card_branding.py .github/workflows/apply-share-card-branding.yml
+          git commit -m "fix: clean up share card branding"
+          git push origin HEAD:fix/share-card-branding
