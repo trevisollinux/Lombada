@@ -21,7 +21,7 @@ variable "railway_workspace_id" {
 
 variable "railway_project_name" {
   type        = string
-  default     = "Lombada"
+  default     = "authentic-joy"
   description = "Nome do projeto existente no Railway."
 }
 
