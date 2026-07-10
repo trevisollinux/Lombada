@@ -1,20 +1,33 @@
 name: Terraform
 
 # Migração segura para Railway + Cloudflare.
-# O workflow executa fmt, validate e plan remoto no HCP Terraform.
-# Não existe job de apply durante a adoção dos recursos existentes.
+# Pull requests executam apenas plan. Apply só pode ser iniciado manualmente,
+# com confirmação explícita, e nunca roda em push ou merge.
 
 on:
   pull_request:
     paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operação Terraform'
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      confirmation:
+        description: 'Para aplicar, digite exatamente APPLY_LOMBADA_APP'
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
   group: terraform-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   TF_IN_AUTOMATION: 'true'
@@ -25,6 +38,7 @@ defaults:
 
 jobs:
   plan:
+    if: github.event_name == 'pull_request' || inputs.operation == 'plan'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,5 +72,26 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # Segurança: não adicionar terraform apply enquanto o plan mostrar
-      # qualquer destroy ou substituição dos recursos existentes.
+  apply:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.operation == 'apply' &&
+      inputs.confirmation == 'APPLY_LOMBADA_APP'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Init HCP Terraform
+        run: terraform init -input=false
+
+      - name: Validar plan final
+        run: terraform plan -input=false -no-color
+
+      - name: Aplicar Railway e Cloudflare
+        run: terraform apply -input=false -auto-approve
