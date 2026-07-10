@@ -4,8 +4,8 @@ output "railway_project_id" {
 }
 
 output "railway_service_id" {
-  value       = railway_service.app.id
-  description = "ID do serviço web no Railway."
+  value       = var.railway_service_id
+  description = "ID do serviço web existente no Railway."
 }
 
 output "web_service_url" {
