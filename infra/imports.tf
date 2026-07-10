@@ -1,14 +1,10 @@
-# ─── Adoção dos recursos EXISTENTES no Railway ────────────────────────────
+# ─── Adoção do projeto EXISTENTE no Railway ────────────────────────────────
 #
-# Os IDs entram como Terraform variables no workspace HCP Terraform. O plan
-# deve mostrar apenas import/adoption, nunca destruição ou recriação.
+# O ID entra como Terraform variable no workspace HCP Terraform. O serviço web
+# deixa de ser gerenciado pelo provider comunitário por causa do bug ao remover
+# config_path; seu ID continua sendo usado diretamente pelos demais recursos.
 
 import {
   to = railway_project.lombada
   id = var.railway_project_id
-}
-
-import {
-  to = railway_service.app
-  id = var.railway_service_id
 }
