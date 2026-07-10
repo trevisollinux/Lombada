@@ -1,29 +1,24 @@
 name: Terraform
 
-# Infra do Lombada como código (diretório infra/), com state e execução remota
-# no Terraform Cloud (HCP Terraform).
-#   - PR que toca infra/**  -> fmt + plan remoto (comentado no PR)
-#   - push na main          -> apply remoto (protegido pelo environment "production")
-#   - workflow_dispatch      -> apply manual (aba Actions)
-#
-# Os segredos da aplicação (render_api_key, database_url, etc.) NÃO ficam aqui:
-# são variáveis do workspace no Terraform Cloud (marcadas sensitive). O único
-# segredo do GitHub é o token da API do TFC.
-#
-# Segredo necessário (Settings > Secrets and variables > Actions):
-#   TF_API_TOKEN  -> token de usuário/equipe do Terraform Cloud
+# Migração segura para Railway + Cloudflare.
+# Enquanto projeto/serviço existentes não forem importados e o plan não estiver
+# limpo, este workflow executa apenas fmt e validate. O apply automático fica
+# deliberadamente desabilitado.
 
 on:
   pull_request:
-    paths: ['infra/**', '.github/workflows/terraform.yml']
+    paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
   push:
     branches: [main]
-    paths: ['infra/**', '.github/workflows/terraform.yml']
+    paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   TF_IN_AUTOMATION: 'true'
@@ -33,61 +28,24 @@ defaults:
     working-directory: infra
 
 jobs:
-  # ── fmt: local, não precisa de token ──────────────────────────────────────
-  fmt:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
-      - run: terraform fmt -check -recursive
-
-  # ── plan remoto em PR ─────────────────────────────────────────────────────
-  plan:
-    if: github.event_name == 'pull_request'
-    needs: fmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.9.8'
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      - name: Init
-        run: terraform init -input=false
+      - name: Format
+        run: terraform fmt -check -recursive
+      - name: Init sem backend remoto
+        run: terraform init -backend=false -input=false
       - name: Validate
         run: terraform validate
-      - name: Plan
-        id: plan
-        run: terraform plan -input=false -no-color
-      - name: Comentar plan no PR
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const out = `${{ steps.plan.outputs.stdout }}`;
-            const body = `#### Terraform Plan \`${{ steps.plan.outcome }}\`\n<details><summary>ver plan (executado no Terraform Cloud)</summary>\n\n\`\`\`\n${out}\n\`\`\`\n</details>`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body.slice(0, 65000)
-            });
 
-  # ── apply remoto na main / manual ─────────────────────────────────────────
-  apply:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: fmt
-    runs-on: ubuntu-latest
-    environment: production # exige aprovação se o environment estiver protegido
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.9.8'
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      - name: Init
-        run: terraform init -input=false
-      - name: Apply
-        run: terraform apply -input=false -auto-approve
+  # O plan remoto será reativado depois que:
+  # 1. a organização/workspace existirem no HCP Terraform;
+  # 2. RAILWAY_TOKEN e CLOUDFLARE_API_TOKEN estiverem configurados lá;
+  # 3. railway_project_id, railway_service_id e cloudflare_zone_id estiverem definidos;
+  # 4. o primeiro import puder ser revisado sem destruição/recriação.
+  #
+  # Nenhum job de apply deve ser adicionado antes de um plan de adoção limpo.
