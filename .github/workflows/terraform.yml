@@ -1,15 +1,11 @@
 name: Terraform
 
 # Migração segura para Railway + Cloudflare.
-# Enquanto projeto/serviço existentes não forem importados e o plan não estiver
-# limpo, este workflow executa apenas fmt e validate. O apply automático fica
-# deliberadamente desabilitado.
+# O workflow executa fmt, validate e plan remoto no HCP Terraform.
+# Não existe job de apply durante a adoção dos recursos existentes.
 
 on:
   pull_request:
-    paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
-  push:
-    branches: [main]
     paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
   workflow_dispatch:
 
@@ -28,24 +24,27 @@ defaults:
     working-directory: infra
 
 jobs:
-  validate:
+  plan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
       - name: Format
         run: terraform fmt -check -recursive
-      - name: Init sem backend remoto
-        run: terraform init -backend=false -input=false
+
+      - name: Init HCP Terraform
+        run: terraform init -input=false
+
       - name: Validate
         run: terraform validate
 
-  # O plan remoto será reativado depois que:
-  # 1. a organização/workspace existirem no HCP Terraform;
-  # 2. RAILWAY_TOKEN e CLOUDFLARE_API_TOKEN estiverem configurados lá;
-  # 3. railway_project_id, railway_service_id e cloudflare_zone_id estiverem definidos;
-  # 4. o primeiro import puder ser revisado sem destruição/recriação.
-  #
-  # Nenhum job de apply deve ser adicionado antes de um plan de adoção limpo.
+      - name: Plan de adoção
+        run: terraform plan -input=false -no-color
+
+      # Segurança: não adicionar terraform apply enquanto o plan mostrar
+      # qualquer destroy ou substituição dos recursos existentes.
