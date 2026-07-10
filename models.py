@@ -12,17 +12,24 @@ from sqlmodel import SQLModel, Field, UniqueConstraint, CheckConstraint, create_
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lombada.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+def _int_env(nome: str, padrao: int) -> int:
+    try:
+        return max(1, int(os.getenv(nome, str(padrao))))
+    except ValueError:
+        return padrao
+
+if DATABASE_URL.startswith("sqlite"):
+    _args = {"check_same_thread": False}
+else:
+    # connect_timeout evita que o processo fique pendurado indefinidamente no
+    # connect TCP quando o Postgres está inacessível: o connect falha rápido,
+    # o startup segue e o app ainda sobe pra responder /healthz.
+    _args = {"connect_timeout": _int_env("DB_CONNECT_TIMEOUT", 10)}
 # Pool enxuto e saudável no Postgres do Render: conexões ociosas são recicladas
 # (o Render derruba conexões paradas) e o tamanho fica alinhado ao teto de
 # concorrência do app, pra não acumular conexões e memória num worker de 512 MB.
 _engine_kwargs: dict = {"echo": False, "connect_args": _args}
 if not DATABASE_URL.startswith("sqlite"):
-    def _int_env(nome: str, padrao: int) -> int:
-        try:
-            return max(1, int(os.getenv(nome, str(padrao))))
-        except ValueError:
-            return padrao
     _engine_kwargs.update(
         pool_size=_int_env("DB_POOL_SIZE", 5),
         max_overflow=_int_env("DB_MAX_OVERFLOW", 5),
