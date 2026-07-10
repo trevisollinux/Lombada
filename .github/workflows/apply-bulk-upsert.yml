@@ -1,0 +1,183 @@
+name: Apply bulk upsert patch
+
+on:
+  push:
+    branches: [perf/bulk-upsert-source-records]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'perf: batch source record upserts'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/bulk-upsert-source-records
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply focused patch and tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/sync_publishers.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'from psycopg2.extras import Json',
+              'from psycopg2.extras import Json, execute_batch',
+              1,
+          )
+
+          old = '''    written = 0
+              with conn.cursor() as cur:
+                  for normalized, raw in records:
+                      params = dict(normalized)
+                      params["normalized_json"] = Json(normalized)
+                      params["raw_json"] = Json(raw)
+                      cur.execute(sql, params)
+                      written += 1
+              conn.commit()
+              return written
+          '''
+          new = '''    if not records:
+                  return 0
+
+              params_list = []
+              for normalized, raw in records:
+                  params = dict(normalized)
+                  params["normalized_json"] = Json(normalized)
+                  params["raw_json"] = Json(raw)
+                  params_list.append(params)
+
+              with conn.cursor() as cur:
+                  execute_batch(cur, sql, params_list, page_size=250)
+              conn.commit()
+              return len(params_list)
+          '''
+          if old not in text:
+              raise SystemExit('bloco antigo de upsert_records não encontrado')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test = Path('tests/test_sync_publishers_upsert.py')
+          test.write_text('''"""Testes do lote de persistência dos registros coletados."""
+          import os
+          import sys
+          import unittest
+          from unittest.mock import patch
+
+          sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+
+          import sync_publishers as sp  # noqa: E402
+
+
+          class FakeCursor:
+              def __enter__(self):
+                  return self
+
+              def __exit__(self, exc_type, exc, traceback):
+                  return False
+
+
+          class FakeConnection:
+              def __init__(self):
+                  self.cursor_calls = 0
+                  self.commit_calls = 0
+
+              def cursor(self):
+                  self.cursor_calls += 1
+                  return FakeCursor()
+
+              def commit(self):
+                  self.commit_calls += 1
+
+
+          def record(external_id, title):
+              normalized = {
+                  "source": "publisher:teste",
+                  "external_id": external_id,
+                  "status": "pending",
+                  "title": title,
+                  "author": "Autor",
+                  "isbn": "9788535947847",
+                  "publisher": "Editora Teste",
+                  "publication_year": 2026,
+                  "price": None,
+                  "currency_id": "BRL",
+                  "permalink": f"https://example.test/{external_id}",
+                  "thumbnail": "",
+                  "category_id": "",
+                  "search_term": "",
+                  "confidence_score": 0.9,
+              }
+              raw = {"id": external_id, "name": title}
+              return normalized, raw
+
+
+          class UpsertRecordsBatchTest(unittest.TestCase):
+              def test_writes_all_records_in_one_batch_and_one_commit(self):
+                  conn = FakeConnection()
+                  records = [record("1", "Livro 1"), record("2", "Livro 2")]
+                  captured = {}
+
+                  def fake_execute_batch(cursor, sql, params, page_size):
+                      captured["cursor"] = cursor
+                      captured["sql"] = sql
+                      captured["params"] = params
+                      captured["page_size"] = page_size
+
+                  with patch.object(sp, "execute_batch", side_effect=fake_execute_batch) as batch:
+                      written = sp.upsert_records(conn, records)
+
+                  self.assertEqual(written, 2)
+                  self.assertEqual(conn.cursor_calls, 1)
+                  self.assertEqual(conn.commit_calls, 1)
+                  batch.assert_called_once()
+                  self.assertEqual(captured["page_size"], 250)
+                  self.assertEqual(len(captured["params"]), 2)
+                  self.assertIn("ON CONFLICT (source, external_id)", captured["sql"])
+                  self.assertIn("status = 'pending'", captured["sql"])
+                  self.assertEqual(captured["params"][0]["external_id"], "1")
+                  self.assertEqual(
+                      captured["params"][0]["normalized_json"].adapted,
+                      records[0][0],
+                  )
+                  self.assertEqual(
+                      captured["params"][0]["raw_json"].adapted,
+                      records[0][1],
+                  )
+
+              def test_empty_batch_does_not_open_transaction(self):
+                  conn = FakeConnection()
+
+                  with patch.object(sp, "execute_batch") as batch:
+                      written = sp.upsert_records(conn, [])
+
+                  self.assertEqual(written, 0)
+                  self.assertEqual(conn.cursor_calls, 0)
+                  self.assertEqual(conn.commit_calls, 0)
+                  batch.assert_not_called()
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          ''', encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-sync.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/sync_publishers.py tests/test_sync_publishers_upsert.py
+          git commit -m 'perf: batch source record upserts'
+          git push origin HEAD:perf/bulk-upsert-source-records
