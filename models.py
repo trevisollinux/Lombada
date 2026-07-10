@@ -76,11 +76,85 @@ class Obra(SQLModel, table=True):
     literatura_regiao:   str = ""
 
 
+class PublisherGroup(SQLModel, table=True):
+    """Grupo empresarial que pode reunir várias editoras."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    slug: str = Field(index=True, unique=True)
+    website_url: str = ""
+    country_code: str = Field(default="BR", index=True)
+    active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Publisher(SQLModel, table=True):
+    """Editora editorial; pode pertencer a um grupo empresarial."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    group_id: Optional[int] = Field(default=None, foreign_key="publishergroup.id", index=True)
+    name: str
+    normalized_name: str = Field(index=True)
+    slug: str = Field(index=True, unique=True)
+    website_url: str = ""
+    country_code: str = Field(default="BR", index=True)
+    active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Imprint(SQLModel, table=True):
+    """Selo editorial pertencente a uma editora."""
+    __table_args__ = (
+        UniqueConstraint("publisher_id", "normalized_name", name="uq_imprint_publisher_name"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    publisher_id: int = Field(foreign_key="publisher.id", index=True)
+    name: str
+    normalized_name: str = Field(index=True)
+    slug: str = Field(index=True)
+    website_url: str = ""
+    active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PublisherAlias(SQLModel, table=True):
+    """Grafia alternativa encontrada em APIs, sites ou registros antigos."""
+    __table_args__ = (
+        UniqueConstraint("normalized_alias", name="uq_publisheralias_normalized"),
+        CheckConstraint(
+            "(publisher_id IS NOT NULL) <> (imprint_id IS NOT NULL)",
+            name="ck_publisheralias_one_target",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    alias: str
+    normalized_alias: str = Field(index=True)
+    publisher_id: Optional[int] = Field(default=None, foreign_key="publisher.id", index=True)
+    imprint_id: Optional[int] = Field(default=None, foreign_key="imprint.id", index=True)
+    source: str = Field(default="manual", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PublisherSource(SQLModel, table=True):
+    """Liga um slug de coleta à editora e, opcionalmente, a um selo."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source: str = Field(index=True, unique=True)
+    publisher_id: int = Field(foreign_key="publisher.id", index=True)
+    imprint_id: Optional[int] = Field(default=None, foreign_key="imprint.id", index=True)
+    base_url: str = ""
+    platform: str = ""
+    active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Edicao(SQLModel, table=True):
     id:              Optional[int] = Field(default=None, primary_key=True)
     obra_id:         int           = Field(foreign_key="obra.id", index=True)
     ol_edition_key:  Optional[str] = Field(default=None, index=True)
-    editora:         str           = ""
+    editora:         str           = ""  # compatibilidade/exibição atual
+    editora_raw:     str           = ""  # valor original recebido da fonte
+    publisher_id:    Optional[int] = Field(default=None, foreign_key="publisher.id", index=True)
+    imprint_id:      Optional[int] = Field(default=None, foreign_key="imprint.id", index=True)
     tradutor:        str           = ""
     isbn:            str           = ""
     idioma:          str           = ""
@@ -311,6 +385,13 @@ def migrar():
     _add_column_if_missing("obra", "literatura_regiao", "ALTER TABLE obra ADD COLUMN literatura_regiao VARCHAR DEFAULT ''")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
     _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
+    _add_column_if_missing("edicao", "editora_raw", "ALTER TABLE edicao ADD COLUMN editora_raw VARCHAR DEFAULT ''")
+    _add_column_if_missing("edicao", "publisher_id", "ALTER TABLE edicao ADD COLUMN publisher_id INTEGER")
+    _add_column_if_missing("edicao", "imprint_id", "ALTER TABLE edicao ADD COLUMN imprint_id INTEGER")
+    _run_ddl(
+        "backfill edicao.editora_raw",
+        "UPDATE edicao SET editora_raw = editora WHERE (editora_raw IS NULL OR editora_raw = '') AND editora IS NOT NULL",
+    )
     _add_column_if_missing("edicaocapitulo", "pagina_inicio", "ALTER TABLE edicaocapitulo ADD COLUMN pagina_inicio INTEGER")
 
     _add_column_if_missing("usuario", "handle", "ALTER TABLE usuario ADD COLUMN handle VARCHAR")
@@ -359,6 +440,14 @@ def migrar():
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_useredition_pair ON useredition (usuario_id, edicao_id)",
         "CREATE INDEX IF NOT EXISTS ix_useredition_usuario_id ON useredition (usuario_id)",
         "CREATE INDEX IF NOT EXISTS ix_useredition_edicao_id ON useredition (edicao_id)",
+        "CREATE INDEX IF NOT EXISTS ix_publisher_group_id ON publisher (group_id)",
+        "CREATE INDEX IF NOT EXISTS ix_imprint_publisher_id ON imprint (publisher_id)",
+        "CREATE INDEX IF NOT EXISTS ix_publisheralias_publisher_id ON publisheralias (publisher_id)",
+        "CREATE INDEX IF NOT EXISTS ix_publisheralias_imprint_id ON publisheralias (imprint_id)",
+        "CREATE INDEX IF NOT EXISTS ix_publishersource_publisher_id ON publishersource (publisher_id)",
+        "CREATE INDEX IF NOT EXISTS ix_publishersource_imprint_id ON publishersource (imprint_id)",
+        "CREATE INDEX IF NOT EXISTS ix_edicao_publisher_id ON edicao (publisher_id)",
+        "CREATE INDEX IF NOT EXISTS ix_edicao_imprint_id ON edicao (imprint_id)",
         "CREATE INDEX IF NOT EXISTS ix_reviewreport_status ON reviewreport (status)",
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_leitura_id ON readingjournalentry (leitura_id)",
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_usuario_id ON readingjournalentry (usuario_id)",
@@ -377,7 +466,8 @@ def migrar():
         # idempotente e não toca tabelas já saudáveis.
         core_tables = ("usuario", "obra", "edicao", "leitura", "buscacache")
         social_tables = ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry")
-        for table in core_tables + social_tables:
+        catalog_tables = ("publishergroup", "publisher", "imprint", "publisheralias", "publishersource")
+        for table in core_tables + social_tables + catalog_tables:
             _run_ddl(
                 f"{table}.id identity",
                 f"""
