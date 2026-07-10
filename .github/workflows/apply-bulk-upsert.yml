@@ -1,20 +1,20 @@
 name: Apply bulk upsert patch
 
 on:
-  push:
-    branches: [perf/bulk-upsert-source-records]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.head_commit.message != 'perf: batch source record upserts'
+    if: github.head_ref == 'perf/bulk-upsert-source-records'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: perf/bulk-upsert-source-records
+          ref: ${{ github.head_ref }}
 
       - uses: actions/setup-python@v5
         with:
@@ -27,11 +27,12 @@ jobs:
 
           path = Path('scripts/sync_publishers.py')
           text = path.read_text(encoding='utf-8')
-          text = text.replace(
-              'from psycopg2.extras import Json',
-              'from psycopg2.extras import Json, execute_batch',
-              1,
-          )
+          old_import = 'from psycopg2.extras import Json'
+          new_import = 'from psycopg2.extras import Json, execute_batch'
+          if new_import not in text:
+              if old_import not in text:
+                  raise SystemExit('import de psycopg2.extras não encontrado')
+              text = text.replace(old_import, new_import, 1)
 
           old = '''    written = 0
               with conn.cursor() as cur:
@@ -59,9 +60,11 @@ jobs:
               conn.commit()
               return len(params_list)
           '''
-          if old not in text:
-              raise SystemExit('bloco antigo de upsert_records não encontrado')
-          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('bloco de upsert_records não encontrado')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
 
           test = Path('tests/test_sync_publishers_upsert.py')
           test.write_text('''"""Testes do lote de persistência dos registros coletados."""
@@ -179,5 +182,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/sync_publishers.py tests/test_sync_publishers_upsert.py
+          if git diff --cached --quiet; then
+            echo 'Patch já aplicado; nada para commitar.'
+            exit 0
+          fi
           git commit -m 'perf: batch source record upserts'
-          git push origin HEAD:perf/bulk-upsert-source-records
+          git push origin HEAD:${{ github.head_ref }}
