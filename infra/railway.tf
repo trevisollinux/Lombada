@@ -3,9 +3,8 @@ locals {
 }
 
 resource "railway_project" "lombada" {
-  name        = var.railway_project_name
-  description = "Lombada — rede social de livros e catálogo brasileiro"
-  private     = true
+  name    = var.railway_project_name
+  private = true
 
   workspace_id = local.railway_workspace_id != "" ? local.railway_workspace_id : null
 }
@@ -17,6 +16,14 @@ resource "railway_service" "app" {
   source_repo_branch = var.repo_branch
   config_path        = "railway.toml"
 
-  # Demais opções de build/deploy ficam no railway.toml, como recomendado pelo
-  # provider. Não gerenciamos banco nem env vars nesta primeira adoção.
+  # Preserva a região e a quantidade de réplicas já existentes durante o import.
+  regions = [
+    {
+      region       = "sfo"
+      num_replicas = 1
+    }
+  ]
+
+  # Demais opções de build/deploy ficam no railway.toml. Banco e env vars da
+  # aplicação não são gerenciados nesta primeira adoção.
 }
