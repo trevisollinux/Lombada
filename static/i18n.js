@@ -1283,7 +1283,8 @@ Object.assign(I18N['pt-BR'], {
   onboarding_step2_title: 'Atualizar seu progresso',
   onboarding_step2_hint: 'toque no livro pra marcar onde parou',
   onboarding_step3_title: 'Conhecer seu perfil',
-  onboarding_step3_hint: 'é onde suas leituras viram estante pública'
+  onboarding_step3_hint: 'é onde suas leituras viram estante pública',
+  onboarding_dismiss: 'fechar primeiros passos'
 });
 Object.assign(I18N['en'], {
   search_placeholder: 'what book are you reading right now?',
@@ -1300,7 +1301,8 @@ Object.assign(I18N['en'], {
   onboarding_step2_title: 'Update your progress',
   onboarding_step2_hint: 'tap the book to mark where you stopped',
   onboarding_step3_title: 'Get to know your profile',
-  onboarding_step3_hint: 'that is where your readings become a public shelf'
+  onboarding_step3_hint: 'that is where your readings become a public shelf',
+  onboarding_dismiss: 'dismiss first steps'
 });
 Object.assign(I18N['es'], {
   search_placeholder: '¿qué libro estás leyendo ahora?',
@@ -1317,7 +1319,8 @@ Object.assign(I18N['es'], {
   onboarding_step2_title: 'Actualizar tu progreso',
   onboarding_step2_hint: 'toca el libro para marcar dónde quedaste',
   onboarding_step3_title: 'Conocer tu perfil',
-  onboarding_step3_hint: 'ahí es donde tus lecturas se vuelven estantería pública'
+  onboarding_step3_hint: 'ahí es donde tus lecturas se vuelven estantería pública',
+  onboarding_dismiss: 'cerrar primeros pasos'
 });
 Object.assign(I18N['pt-BR'], {
   diary_delta_since: '+{count} páginas desde {date}',
