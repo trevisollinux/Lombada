@@ -4,9 +4,9 @@ App de catálogo e registro de leituras — descobrir edições, registrar o que
 (status, nota, crítica) e montar uma estante. Catálogo próprio, alimentado por
 raspagem de sites de editoras brasileiras.
 
-- **Produção:** [lombada.onrender.com](https://lombada.onrender.com) — deploy
-  automático no Render **a cada merge na `main`**.
-- **Stack:** FastAPI + SQLModel, PostgreSQL (Railway em produção), frontend SPA sem build
+- **Produção:** [lombada-production.up.railway.app](https://lombada-production.up.railway.app) — deploy
+  automático no Railway **a cada merge na `main`**.
+- **Stack:** FastAPI + SQLModel, aplicação e PostgreSQL no Railway, frontend SPA sem build
   (`static/app.js` + `static/app.css` + `index.html`).
 
 ---
@@ -89,8 +89,8 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
 | `editora_unesp` | IIS soft-200 | só 2 links de livro na home — cobertura deve sair fraca |
 | `editora_unicamp` | custom | 0 links de livro na home — vai precisar de extrator dedicado |
 | `editora_ufmg` | SPA (JS) | paths devolvem 500 JSON; home sem links no HTML bruto |
-| `edufba` | custom | 12 links de livro na home → crawl HTML |
-| `editora_ufsc` | WordPress (sem sitemap) | 17 links de livro na home → crawl HTML |
+| `edufba` | custom | 12 links `/livros/…` na home → crawl HTML |
+| `editora_ufsc` | WordPress (sem sitemap) | 17 links de livro na home |
 | `edipucrs` | ? | origem fora do ar no diagnose (Cloudflare 522) — re-testar |
 | `editora_unb` | WordPress | `wp-sitemap.xml` 200 |
 
@@ -223,9 +223,9 @@ curl -fsS "https://SEU-DOMINIO/api/buscar?q=Capitães%20da%20Areia"
   **tolerar coluna ausente** (padrão `_tem_coluna`). Sequência ao adicionar
   coluna: merge → esperar deploy (~2-4 min) → rodar promote/backfill.
 - **Robustez do sync:** cada editora é isolada (uma falha não derruba o run); a
-  conexão Postgres é reaberta antes de cada operação de banco (o Neon derruba
-  conexões ociosas durante os minutos de scraping; em Railway, use a URL PostgreSQL do próprio serviço de banco); os steps usam `pipefail` para
-  não mascarar erro.
+  conexão Postgres é reaberta antes de cada operação de banco para não manter
+  conexões ociosas durante os minutos de scraping; no Railway, use a URL PostgreSQL
+  do próprio serviço de banco. Os steps usam `pipefail` para não mascarar erro.
 - **Cache de ids mortos (`publisher_dead_ids`):** só o `id_range`. Numa faixa
   numérica esgotada (ex.: editora_34, ~2200 ids sem livro em 1–3000) o script
   re-baixava todos os mortos a cada execução. Agora, quando um id baixa e **não
@@ -254,9 +254,6 @@ curl -fsS "https://SEU-DOMINIO/api/buscar?q=Capitães%20da%20Areia"
 
 ## Próximos passos possíveis
 
-- **Record/Sextante (Shopify):** achar o ISBN em outro campo (tags/metafields/
-  página do produto) — hoje entram sem ISBN e o `promote` os ignora.
-- **Intrínseca:** descobrir por que a coleta retorna 0.
 - **Companhia das Letras — diagnóstico do platô (~255), feito via `dump_url`
   no workflow (rede aberta; o sandbox de dev bloqueia o site):**
   - "Communiplex" é só a agência que hospeda/desenvolve o site (aparece num
