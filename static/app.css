@@ -1585,7 +1585,10 @@ body.theme-dark .diary-group{background:var(--surface);border-color:rgba(247,240
 .onboarding-example-track span{display:block;height:100%;width:33%;background:var(--wine);border-radius:inherit}
 .onboarding-example-copy p{font-size:12.5px;color:var(--muted);font-style:italic;line-height:1.4}
 .onboarding-checklist-wrap{border:1px solid var(--rule);border-radius:16px;background:var(--surface);padding:18px 18px 6px;margin:18px 0 16px}
+.onboarding-checklist-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
 .onboarding-progress{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.onboarding-checklist-head .onboarding-progress{margin-bottom:0}
+.onboarding-close{width:32px;height:32px;min-width:32px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--muted);font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer;margin:-6px -6px 0 0}
 .onboarding-check-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--rule)}
 .onboarding-check-item:first-child{border-top:0}
 .onboarding-check-mark{width:20px;height:20px;flex:0 0 20px;border-radius:50%;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px;color:var(--muted)}

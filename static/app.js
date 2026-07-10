@@ -1228,6 +1228,10 @@ function marcarPerfilVisitado(){
   salvarEstadoOnboarding({perfilVisitado:true});
   renderOnboarding();
 }
+function dispensarOnboarding(){
+  salvarEstadoOnboarding({concluido:true});
+  renderOnboarding();
+}
 function focarBuscaHero(){
   const input=$('#q');
   if(!input) return;
@@ -1259,7 +1263,10 @@ function onboardingChecklistHTML(passos){
   const doneCount=[registrou,atualizouProgresso,conheceuPerfil].filter(Boolean).length;
   const item=(done,titulo,dica)=>`<div class="onboarding-check-item ${done?'done':''}"><div class="onboarding-check-mark">${done?'✓':''}</div><div class="onboarding-check-copy"><b>${esc(titulo)}</b>${dica?`<span>${esc(dica)}</span>`:''}</div></div>`;
   return `<div class="onboarding-checklist-wrap">
-    <div class="onboarding-progress">${t('onboarding_step_progress',{done:doneCount})}</div>
+    <div class="onboarding-checklist-head">
+      <div class="onboarding-progress">${t('onboarding_step_progress',{done:doneCount})}</div>
+      <button type="button" class="onboarding-close" onclick="dispensarOnboarding()" title="${esc(t('onboarding_dismiss'))}" aria-label="${esc(t('onboarding_dismiss'))}">&times;</button>
+    </div>
     <div class="onboarding-checklist">
       ${item(registrou,t('onboarding_step1_title'))}
       ${item(atualizouProgresso,t('onboarding_step2_title'),atualizouProgresso?'':t('onboarding_step2_hint'))}
