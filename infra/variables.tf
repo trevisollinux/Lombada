@@ -3,6 +3,16 @@
 # Banco e variáveis da aplicação continuam gerenciados pelo dashboard até o
 # primeiro plan/import ficar completamente limpo.
 
+variable "railway_project_id" {
+  type        = string
+  description = "ID do projeto Railway existente, usado pelo bloco import."
+}
+
+variable "railway_service_id" {
+  type        = string
+  description = "ID do serviço web Railway existente, usado pelo bloco import."
+}
+
 variable "railway_workspace_id" {
   type        = string
   default     = ""
