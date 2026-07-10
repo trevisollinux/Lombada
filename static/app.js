@@ -1111,7 +1111,7 @@ function normalizarObraPopular(o){
 function renderObrasPopulares(obras){
   const box=$('#populares');
   if(!box) return;
-  const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular);
+  const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular).slice(0,8);
   const itens=visualizacaoHomePopulares==='lista'
     ? `<div class="catalog-list home-popular-list">${lista.map((o,i)=>`<div class="catalog-list-item" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}"><div class="catalog-list-title">${esc(o.titulo)}</div>${o.autor?`<div class="catalog-list-author">${esc(o.autor)}</div>`:''}</div>`).join('')}</div>`
     : lista.map((o,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}">
@@ -1200,9 +1200,11 @@ function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
 function renderLendoAgora(){
   const lendo = prateleira.filter(l=>l.status==='Lendo');
   const box=$('#lendoAgora');
+  const home=$('#homeFeed');
+  home?.classList.toggle('has-current-reading',lendo.length>0);
   if(!lendo.length){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
-  box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><span class="more" onclick="irPara('estante')">${t('see_shelf')}</span></div>${lendoAgoraCard(l,idx,false,false)}`;
+  box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><button type="button" class="more home-more-button" onclick="irPara('estante')">${t('see_shelf')}</button></div>${lendoAgoraCard(l,idx,false,false)}`;
 }
 
 /* onboarding: primeira visita, primeiros passos — some pra sempre depois de completar as 3 ações */
@@ -1261,20 +1263,25 @@ function onboardingChecklistHTML(passos){
 function renderOnboarding(){
   const box=$('#onboardingBox');
   if(!box) return;
+  const home=$('#homeFeed');
   const est=estadoOnboarding();
-  if(est.concluido){ box.innerHTML=''; return; }
+  if(est.concluido){
+    box.innerHTML='';
+    home?.classList.remove('has-onboarding');
+    return;
+  }
+  home?.classList.add('has-onboarding');
   const registrou=prateleira.length>0;
   const atualizouProgresso=diarioEntradas.length>0;
   const conheceuPerfil=!!est.perfilVisitado;
   if(registrou&&atualizouProgresso&&conheceuPerfil){
     salvarEstadoOnboarding({concluido:true});
     box.innerHTML='';
+    home?.classList.remove('has-onboarding');
     return;
   }
   box.innerHTML=registrou?onboardingChecklistHTML({registrou,atualizouProgresso,conheceuPerfil}):onboardingHeroHTML();
 }
-
-
 
 function handleLinkHTML(handle, cls='feed-user') {
   const h=esc(handle||'leitor');

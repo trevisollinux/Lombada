@@ -65,19 +65,27 @@
     <div id="searchSuggest" class="search-suggest" hidden></div>
 
     <!-- TELA: home (some quando há busca) -->
-    <div id="homeFeed">
-      <div class="hero-extra">
+    <div id="homeFeed" class="home-feed">
+      <div class="hero-extra home-intro">
         <div class="label" data-i18n="home_label">um diário de leituras</div>
         <h1 class="h-display" data-i18n="home_title_html">o que você<br>está lendo<span class="q">?</span></h1>
       </div>
-      <div id="onboardingBox"></div>
-      <div id="lendoAgora"></div>
-      <div id="editorasHome"></div>
-      <div class="section-head popular-section-head"><div class="label" data-i18n="popular_works_label">explore · obras populares</div><div class="view-toggle" id="homePopularViewToggle" aria-label="visualização de obras populares"></div></div>
-      <div class="wall wall-mini" id="populares"></div>
+
+      <section id="lendoAgora" class="home-primary" aria-live="polite"></section>
+      <section id="onboardingBox" class="home-onboarding" aria-live="polite"></section>
+
+      <section class="home-discovery" aria-labelledby="homePopularLabel">
+        <div class="section-head popular-section-head">
+          <div class="label" id="homePopularLabel" data-i18n="popular_works_label">explore · obras populares</div>
+          <div class="view-toggle" id="homePopularViewToggle" aria-label="visualização de obras populares"></div>
+        </div>
+        <div class="wall wall-mini" id="populares"></div>
+      </section>
+
+      <section id="editorasHome" class="home-publishers" aria-live="polite"></section>
     </div>
 
-    <!-- TELA: resultados de busca -->
+<!-- TELA: resultados de busca -->
     <div id="resultados" style="display:none"></div>
     <!-- TELA: edições da obra -->
     <div id="edicoes" style="display:none"></div>
