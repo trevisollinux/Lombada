@@ -200,6 +200,7 @@ function mudarIdioma(locale){
   renderPrateleira();
   renderDiario();
   renderOnboarding();
+  aplicarSubabaEstante(navAtual.estanteSub||'shelf');
   renderFiltroEditoraBusca();
   if(navAtual.aba==='buscar' && navAtual.busca==='edicoes') renderEdicoes();
   if(navAtual.aba==='buscar' && navAtual.busca==='form' && edicaoSel) escolherEdicao(edicoesAtual.indexOf(edicaoSel));
@@ -670,10 +671,12 @@ function registrarHistorico(aba,busca,replace=false,estanteSub=navAtual.estanteS
 function aplicarSubabaEstante(subaba=navAtual.estanteSub||'shelf'){
   const ativa=subaba==='diario'?'diario':'shelf';
   navAtual.estanteSub=ativa;
-  const prateleiraEl=$('#prateleira');
+  const shelfEl=$('#shelfView');
   const diarioEl=$('#diario');
-  if(prateleiraEl) prateleiraEl.style.display=ativa==='shelf'?'':'none';
+  if(shelfEl) shelfEl.style.display=ativa==='shelf'?'':'none';
   if(diarioEl) diarioEl.style.display=ativa==='diario'?'':'none';
+  const titleEl=$('#shelfPageTitle');
+  if(titleEl) titleEl.textContent=ativa==='diario'?t('diary'):t('shelf');
   $('#subtabShelf')?.classList.toggle('active',ativa==='shelf');
   $('#subtabDiario')?.classList.toggle('active',ativa==='diario');
   $('#subtabShelf')?.setAttribute('aria-selected',ativa==='shelf'?'true':'false');
@@ -1201,8 +1204,9 @@ function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
   </div>`;
 }
 function renderLendoAgora(){
-  const lendo = prateleira.filter(l=>l.status==='Lendo');
   const box=$('#lendoAgora');
+  if(!box) return;
+  const lendo = prateleira.filter(l=>l.status==='Lendo');
   const home=$('#homeFeed');
   home?.classList.toggle('has-current-reading',lendo.length>0);
   if(!lendo.length){ box.innerHTML=''; return; }
@@ -4237,7 +4241,7 @@ async function init(){
   const coldStartMaxTimer=setTimeout(()=>showColdStartFailure('Não consegui carregar agora.'),40000);
   tratarMensagemConta();
   const abaDeepLink=extrairAbaDeepLink();
-  const estadoInicial=abaDeepLink?estadoNav(abaDeepLink,'home'):(lerEstadoNavSalvo() || estadoNav('buscar','home'));
+  const estadoInicial=abaDeepLink?estadoNav(abaDeepLink,'home'):(lerEstadoNavSalvo() || estadoNav('estante','home'));
   history.replaceState(estadoInicial,'');
   const buscaDeepLink=extrairBuscaDeepLink();
   const obraDeepLink=extrairObraDeepLink();
