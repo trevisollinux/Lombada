@@ -244,10 +244,32 @@ async def lifespan(app):
         logger.info("sync_concurrency_limit_set", extra={"tokens": MAX_SYNC_CONCURRENCY})
     except Exception:
         logger.warning("sync_concurrency_limit_failed", exc_info=True)
-    SQLModel.metadata.create_all(engine)
-    migrar()
-    seed_demo_content()
-    seed_catalog_content()
+
+    # A preparação do banco não pode derrubar nem travar o processo: se o banco
+    # estiver indisponível no boot, o app ainda precisa subir e responder
+    # /healthz para o deploy ficar saudável. Fazemos um preflight único — assim
+    # não gastamos minutos em timeouts de connect encadeados dentro de migrar()
+    # — e só rodamos create_all/migração/seed quando o banco responde.
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        banco_ok = True
+    except Exception:
+        banco_ok = False
+        logger.exception("startup_db_unreachable_skipping_setup")
+
+    if banco_ok:
+        for etapa, acao in (
+            ("create_all", lambda: SQLModel.metadata.create_all(engine)),
+            ("migrar", migrar),
+            ("seed_demo_content", seed_demo_content),
+            ("seed_catalog_content", seed_catalog_content),
+        ):
+            try:
+                acao()
+            except Exception:
+                logger.exception("startup_step_failed", extra={"step": etapa})
+
     yield
 
 
