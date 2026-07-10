@@ -14,7 +14,6 @@ resource "railway_service" "app" {
   project_id         = railway_project.lombada.id
   source_repo        = var.repo_url
   source_repo_branch = var.repo_branch
-  config_path        = "railway.toml"
 
   # Preserva a região e a quantidade de réplicas já existentes durante o import.
   regions = [
@@ -24,6 +23,6 @@ resource "railway_service" "app" {
     }
   ]
 
-  # O Railpack detecta Python e instala requirements.txt automaticamente.
-  # Banco e env vars da aplicação não são gerenciados nesta primeira adoção.
+  # Build, start command e demais opções de deploy permanecem no painel do
+  # Railway. Banco e env vars da aplicação também não são gerenciados aqui.
 }
