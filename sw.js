@@ -2,7 +2,7 @@
    Estratégia: navegação network-first com timeout curto; assets críticos sem timeout.
    Evita cache-first puro para não prender JS/CSS antigo. */
 
-const CACHE_NAME = 'lombada-shell-v8';
+const CACHE_NAME = 'lombada-shell-v9';
 
 const APP_SHELL = [
   '/',
@@ -10,13 +10,14 @@ const APP_SHELL = [
   '/static/app.css',
   '/static/i18n.js',
   '/static/app.js',
+  '/static/ux-fixes.js',
   '/static/icons/icon.svg',
   '/static/icons/icon-maskable.svg',
   '/manifest.json'
 ];
 
 const NETWORK_TIMEOUT_MS = 1800;
-const CRITICAL_ASSETS = new Set(['/static/app.js', '/static/app.css', '/static/i18n.js']);
+const CRITICAL_ASSETS = new Set(['/static/app.js', '/static/app.css', '/static/i18n.js', '/static/ux-fixes.js']);
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
