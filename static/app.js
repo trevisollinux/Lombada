@@ -19,6 +19,28 @@ function linkEditoraHTML(nome){
   if(!(nome||'').trim()) return esc(nome);
   return `<a class="publisher-link" href="/editora/${slugEditora(nome)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(nome)}</a>`;
 }
+/* autor clicável: leva à busca por tudo que o autor tem na base.
+   O href (/?q=…) mantém "abrir em nova aba" funcionando via deep link. */
+function linkAutorHTML(autores){
+  const texto=String(autores||'').trim();
+  if(!texto||texto==='—') return esc(autores);
+  const partes=texto.split(/[,;]/).map(p=>p.trim()).filter(Boolean);
+  if(!partes.length) return esc(autores);
+  return partes.map(nome=>`<a class="author-link" href="/?q=${encodeURIComponent(nome)}" data-autor="${esc(nome)}" title="${esc(t('search_by_author',{author:nome}))}" aria-label="${esc(t('search_by_author',{author:nome}))}" onclick="return clicarLinkAutor(event,this)">${esc(nome)}</a>`).join(', ');
+}
+function clicarLinkAutor(event,el){
+  event.preventDefault();
+  event.stopPropagation();
+  buscarPorAutor(el?.dataset?.autor||'');
+  return false;
+}
+function buscarPorAutor(nome){
+  nome=(nome||'').trim();
+  if(!nome) return;
+  if(navAtual.aba!=='buscar') irPara('buscar',{resetBusca:false});
+  limparTodosFiltrosBusca(false);
+  buscarTermo(nome);
+}
 
 const SUGESTOES = [
   {titulo:'Crime e Castigo',autor:'Fiódor Dostoiévski'},
@@ -1116,11 +1138,11 @@ function renderObrasPopulares(obras){
   if(!box) return;
   const lista=(obras&&obras.length?obras:SUGESTOES).map(normalizarObraPopular).slice(0,8);
   const itens=visualizacaoHomePopulares==='lista'
-    ? `<div class="catalog-list home-popular-list">${lista.map((o,i)=>`<div class="catalog-list-item" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}"><div class="catalog-list-title">${esc(o.titulo)}</div>${o.autor?`<div class="catalog-list-author">${esc(o.autor)}</div>`:''}</div>`).join('')}</div>`
+    ? `<div class="catalog-list home-popular-list">${lista.map((o,i)=>`<div class="catalog-list-item" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}"><div class="catalog-list-title">${esc(o.titulo)}</div>${o.autor?`<div class="catalog-list-author">${linkAutorHTML(o.autor)}</div>`:''}</div>`).join('')}</div>`
     : lista.map((o,i)=>`<div class="book" role="button" tabindex="0" onclick="abrirObraPopular(${i})" aria-label="${esc(o.titulo)}">
     ${coverHTML(o.titulo,o.autor,o.capa_url,'')}
     <div class="t">${esc(o.titulo)}</div>
-    ${o.autor?`<div class="a">${esc(o.autor)}</div>`:''}</div>`).join('');
+    ${o.autor?`<div class="a">${linkAutorHTML(o.autor)}</div>`:''}</div>`).join('');
   box.classList.toggle('catalog-list-host',visualizacaoHomePopulares==='lista');
   box.innerHTML=itens;
   box._obrasPopulares=lista;
@@ -1771,13 +1793,13 @@ function cardResultadoBusca(d,i){
   return `<div class="book work-card" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}">
     ${coverHTML(d.titulo,d.autor,d.capa_url,d.tem_pt?'<span class="pt">PT</span>':'')}
     <div class="t">${esc(d.titulo)}</div>
-    <div class="a">${esc(d.autor)}</div>
+    <div class="a">${linkAutorHTML(d.autor)}</div>
     <div class="yr">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')}</div>
     <div class="e">${t('see_editions')}</div></div>`;
 }
 function linhaResultadoBusca(d,i){
   return `<div class="catalog-list-item search-result-row" role="button" tabindex="0" onclick="verEdicoes(${i})" aria-label="${esc(d.titulo)}"><div class="search-result-body">
-    <div class="catalog-list-title search-result-title">${esc(d.titulo)}</div><div class="catalog-list-author search-result-author">${esc(d.autor)}</div>
+    <div class="catalog-list-title search-result-title">${esc(d.titulo)}</div><div class="catalog-list-author search-result-author">${linkAutorHTML(d.autor)}</div>
     <div class="catalog-list-meta search-result-meta">${plural(contagemEdicoesResultadoBusca(d,1),'edition_found_one','edition_found_many')} · ${t('see_editions')}</div>
   </div></div>`;
 }
@@ -2250,7 +2272,7 @@ function renderEdicoes(){
     : `<button class="primary" type="button" data-work-action="register-reading">${t('register_reading')}</button>`;
   const cab=`<div class="work-head social-work-head work-hero">${coverHTML(escolha.titulo,escolha.autor,escolha.capa_url,'')}
     <div class="wmeta"><div class="label">${t('work_page')}</div><h2>${esc(escolha.titulo)}</h2>
-      ${escolha.autor?`<div class="a">${esc(escolha.autor)}</div>`:''}
+      ${escolha.autor?`<div class="a">${linkAutorHTML(escolha.autor)}</div>`:''}
       ${anoIdioma?`<div class="y">${anoIdioma}</div>`:''}
       <div class="community-score"><strong>${media}</strong><span>${plural(leituras,'reading_one','reading_many')} · ${plural(criticas,'review_one','review_many')}</span></div>
       <div class="work-actions">${acaoPrincipal}<button class="secondary" type="button" data-work-action="see-editions">${t('see_editions')}</button></div>
@@ -3689,7 +3711,7 @@ function renderDetalheLivro(l){
       <div class="detail-titleblock">
         <div class="label">${t('book_detail')}</div>
         <h2 id="bookDetailTitle">${esc(l.titulo)}</h2>
-        <p class="detail-author">${esc(l.autor)}</p>
+        <p class="detail-author">${linkAutorHTML(l.autor)}</p>
         <span class="status-tag">${esc(statusLabel(l.status||'Lido'))}</span>
       </div>
     </section>

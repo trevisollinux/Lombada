@@ -1764,3 +1764,13 @@ Object.assign(I18N['es'], {
   see_results: 'ver resultados',
   no_results_with_filters: 'No se encontró nada con estos filtros.',
 });
+
+Object.assign(I18N['pt-BR'], {
+  search_by_author: 'ver tudo de {author} na base',
+});
+Object.assign(I18N['en'], {
+  search_by_author: 'see everything by {author}',
+});
+Object.assign(I18N['es'], {
+  search_by_author: 'ver todo de {author}',
+});
