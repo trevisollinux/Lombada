@@ -24,6 +24,6 @@ resource "railway_service" "app" {
     }
   ]
 
-  # Demais opções de build/deploy ficam no railway.toml. Banco e env vars da
-  # aplicação não são gerenciados nesta primeira adoção.
+  # O Railpack detecta Python e instala requirements.txt automaticamente.
+  # Banco e env vars da aplicação não são gerenciados nesta primeira adoção.
 }
