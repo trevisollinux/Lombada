@@ -1,15 +1,14 @@
-# Contorno temporário para um bug do provider Railway 0.6.x:
-# ao remover config_path, o provider omite o campo em vez de enviar null.
-# O Railway mantém railway.toml e o apply termina inconsistente.
+# Limpeza final da configuração de build persistida no Railway.
 #
-# Este recurso executa uma única limpeza direta pela API na instância real do
-# ambiente padrão (production) antes da atualização do railway_service.
+# O railway.toml foi removido do repositório e o serviço deixou de ser gerenciado
+# pelo provider comunitário. Esta execução limpa a instância production uma
+# última vez sem que o provider tente reler config_path em seguida.
 
 resource "terraform_data" "reset_railway_build_config" {
   triggers_replace = [
     var.railway_service_id,
     railway_project.lombada.default_environment.id,
-    "2026-07-10-reset-build-v2-production",
+    "2026-07-10-reset-build-v3-final",
   ]
 
   provisioner "local-exec" {
