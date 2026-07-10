@@ -8,7 +8,7 @@
 resource "railway_custom_domain" "app" {
   domain         = var.app_domain
   environment_id = railway_project.lombada.default_environment.id
-  service_id     = railway_service.app.id
+  service_id     = var.railway_service_id
 }
 
 resource "cloudflare_record" "app" {
