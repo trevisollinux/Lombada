@@ -1,12 +1,14 @@
+# O startCommand aqui tem precedência sobre o valor preso na configuração do
+# serviço (que um script de recovery antigo gravou como
+# "uvicorn ... --port $PORT" e que o Railway passa como argv, sem shell — o
+# "$PORT" chegava literal e derrubava o container). "python start.py" não tem
+# variável de shell para expandir: o entrypoint lê PORT do ambiente no Python.
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
-# Sem startCommand aqui de propósito: o Railway passa o startCommand do
-# railway.toml como argv sem shell, então "$PORT" chegava literal ao uvicorn
-# ("Invalid value for '--port': '$PORT'") e o container entrava em crash-loop.
-# O CMD do Dockerfile roda via `sh -c` e expande ${PORT:-8000} corretamente.
 [deploy]
+startCommand = "python start.py"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
