@@ -2,9 +2,12 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# Sem startCommand aqui de propósito: o Railway passa o startCommand do
+# railway.toml como argv sem shell, então "$PORT" chegava literal ao uvicorn
+# ("Invalid value for '--port': '$PORT'") e o container entrava em crash-loop.
+# O CMD do Dockerfile roda via `sh -c` e expande ${PORT:-8000} corretamente.
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/healthz"
-healthcheckTimeout = 120
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
