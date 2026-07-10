@@ -41,7 +41,12 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import psycopg2
 from psycopg2.extras import Json, execute_batch
 
-from init_ingestion_tables import ensure_publisher_dead_ids, ensure_source_records
+from init_ingestion_tables import (
+    ensure_publisher_dead_ids,
+    ensure_publisher_sync_state,
+    ensure_source_records,
+)
+from publisher_sync_state import mark_sync_failed, mark_sync_finished, mark_sync_started
 import requests
 from bs4 import BeautifulSoup
 
@@ -1746,12 +1751,25 @@ def collect_publisher(
             records = collector(publisher, max_urls, sleep_seconds, seen, offset)
         except Exception as exc:  # noqa: BLE001 — uma plataforma falhar não derruba as outras
             print(f"  [{name}] erro: {exc!r}", file=sys.stderr)
+            _record_fetch_failure(f"collector:{name}:{type(exc).__name__}")
             continue
         if records:
             print(f"  método={name} registros={len(records)}")
             return records
     print(f"  nenhum método retornou registros para {publisher['slug']}.")
     return []
+
+
+def publisher_platform_label(publisher: dict[str, Any]) -> str:
+    platforms = publisher.get("platforms")
+    if isinstance(platforms, (list, tuple)) and platforms:
+        return " -> ".join(str(item) for item in platforms)
+    return str(publisher.get("platform") or "auto")
+
+
+def sync_state_status(fetch_failures: dict[str, int]) -> str:
+    """Execução concluída com falhas de rede/coletor é parcial, não sucesso silencioso."""
+    return "partial" if fetch_failures else "success"
 
 
 def load_seen_external_ids(conn, source: str) -> set[str]:
@@ -2083,6 +2101,7 @@ def main() -> int:
         conn = connect_database()
         ensure_source_records(conn)
         ensure_publisher_dead_ids(conn)  # cache de ids mortos do id_range (idempotente)
+        ensure_publisher_sync_state(conn)
 
     total_written = 0
     total_collected = 0
@@ -2092,9 +2111,31 @@ def main() -> int:
             print("=" * 60)
             print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
             source = f"publisher:{publisher['slug']}"
+            reset_fetch_diagnostics()
+            sync_started_at = time.monotonic()
+            sync_state_started = False
+            written = 0
+            with_isbn = 0
+            with_author = 0
+            sync_metadata = {
+                "max_urls": max_urls,
+                "offset": offset,
+                "incremental": offset is None,
+                "fetch_concurrency": fetch_concurrency(),
+            }
             # Uma editora que falha (queda de socket, erro de parsing) NÃO derruba o
             # run inteiro: registramos a falha e seguimos para a próxima.
             try:
+                if conn is not None and not dry_run:
+                    conn = ensure_connection(conn)
+                    mark_sync_started(
+                        conn,
+                        source,
+                        platform=publisher_platform_label(publisher),
+                        metadata=sync_metadata,
+                    )
+                    sync_state_started = True
+
                 # No modo faixa não pulamos por "seen" (o usuário escolheu a fatia exata).
                 if conn is not None and offset is None:
                     conn = ensure_connection(conn)
@@ -2133,6 +2174,21 @@ def main() -> int:
                     conn = ensure_connection(conn)
                     marked = upsert_dead_ids(conn, source, dead_new)
                     print(f"  ids mortos novos registrados: {marked}")
+
+                if sync_state_started and conn is not None:
+                    conn = ensure_connection(conn)
+                    mark_sync_finished(
+                        conn,
+                        source,
+                        status=sync_state_status(FETCH_FAILURE_COUNTS),
+                        duration_ms=round((time.monotonic() - sync_started_at) * 1000),
+                        records_collected=len(records),
+                        records_written=written,
+                        isbn_count=with_isbn,
+                        author_count=with_author,
+                        request_failures=dict(FETCH_FAILURE_COUNTS),
+                        metadata=sync_metadata,
+                    )
             except Exception as exc:  # noqa: BLE001 — isola a falha de UMA editora
                 print(f"  ERRO em {publisher['slug']}: {exc!r}", file=sys.stderr)
                 failures.append(publisher["slug"])
@@ -2140,8 +2196,17 @@ def main() -> int:
                 if conn is not None:
                     try:
                         conn = ensure_connection(conn)
+                        if sync_state_started:
+                            mark_sync_failed(
+                                conn,
+                                source,
+                                duration_ms=round((time.monotonic() - sync_started_at) * 1000),
+                                error=exc,
+                                request_failures=dict(FETCH_FAILURE_COUNTS),
+                                metadata=sync_metadata,
+                            )
                     except Exception as reconnect_exc:  # noqa: BLE001
-                        print(f"  reconexão falhou: {reconnect_exc!r}", file=sys.stderr)
+                        print(f"  reconexão/estado falhou: {reconnect_exc!r}", file=sys.stderr)
                         conn = None
             print()
     finally:

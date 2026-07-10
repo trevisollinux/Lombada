@@ -1,0 +1,335 @@
+name: Apply sync metrics integration
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'feat/integrate-publisher-sync-metrics'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Integrate metrics in publisher loop
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/sync_publishers.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_import = 'from init_ingestion_tables import ensure_publisher_dead_ids, ensure_source_records\n'
+          new_import = '''from init_ingestion_tables import (
+              ensure_publisher_dead_ids,
+              ensure_publisher_sync_state,
+              ensure_source_records,
+          )
+          from publisher_sync_state import mark_sync_failed, mark_sync_finished, mark_sync_started
+          '''
+          if new_import not in text:
+              if old_import not in text:
+                  raise SystemExit('import de tabelas de ingestão não encontrado')
+              text = text.replace(old_import, new_import, 1)
+
+          old_collector_error = '''        except Exception as exc:  # noqa: BLE001 — uma plataforma falhar não derruba as outras
+                      print(f"  [{name}] erro: {exc!r}", file=sys.stderr)
+                      continue
+          '''
+          new_collector_error = '''        except Exception as exc:  # noqa: BLE001 — uma plataforma falhar não derruba as outras
+                      print(f"  [{name}] erro: {exc!r}", file=sys.stderr)
+                      _record_fetch_failure(f"collector:{name}:{type(exc).__name__}")
+                      continue
+          '''
+          if new_collector_error not in text:
+              if old_collector_error not in text:
+                  raise SystemExit('tratamento de erro dos collectors não encontrado')
+              text = text.replace(old_collector_error, new_collector_error, 1)
+
+          helper_marker = '\n\ndef load_seen_external_ids(conn, source: str) -> set[str]:\n'
+          helpers = '''
+
+          def publisher_platform_label(publisher: dict[str, Any]) -> str:
+              platforms = publisher.get("platforms")
+              if isinstance(platforms, (list, tuple)) and platforms:
+                  return " -> ".join(str(item) for item in platforms)
+              return str(publisher.get("platform") or "auto")
+
+
+          def sync_state_status(fetch_failures: dict[str, int]) -> str:
+              """Execução concluída com falhas de rede/coletor é parcial, não sucesso silencioso."""
+              return "partial" if fetch_failures else "success"
+          '''
+          if 'def publisher_platform_label(' not in text:
+              if helper_marker not in text:
+                  raise SystemExit('marcador para helpers de métricas não encontrado')
+              text = text.replace(helper_marker, helpers + helper_marker, 1)
+
+          ensure_old = '''        ensure_source_records(conn)
+                  ensure_publisher_dead_ids(conn)  # cache de ids mortos do id_range (idempotente)
+          '''
+          ensure_new = '''        ensure_source_records(conn)
+                  ensure_publisher_dead_ids(conn)  # cache de ids mortos do id_range (idempotente)
+                  ensure_publisher_sync_state(conn)
+          '''
+          if ensure_new not in text:
+              if ensure_old not in text:
+                  raise SystemExit('inicialização de tabelas não encontrada')
+              text = text.replace(ensure_old, ensure_new, 1)
+
+          loop_start = text.index('        for publisher in sources:\n', text.index('def main() -> int:'))
+          loop_end = text.index('            print()\n', loop_start) + len('            print()\n')
+          new_loop = '''        for publisher in sources:
+                      print("=" * 60)
+                      print(f"{publisher['slug']} — {publisher['name']} ({publisher['base_url']})")
+                      source = f"publisher:{publisher['slug']}"
+                      reset_fetch_diagnostics()
+                      sync_started_at = time.monotonic()
+                      sync_state_started = False
+                      written = 0
+                      with_isbn = 0
+                      with_author = 0
+                      sync_metadata = {
+                          "max_urls": max_urls,
+                          "offset": offset,
+                          "incremental": offset is None,
+                          "fetch_concurrency": fetch_concurrency(),
+                      }
+                      # Uma editora que falha (queda de socket, erro de parsing) NÃO derruba o
+                      # run inteiro: registramos a falha e seguimos para a próxima.
+                      try:
+                          if conn is not None and not dry_run:
+                              conn = ensure_connection(conn)
+                              mark_sync_started(
+                                  conn,
+                                  source,
+                                  platform=publisher_platform_label(publisher),
+                                  metadata=sync_metadata,
+                              )
+                              sync_state_started = True
+
+                          # No modo faixa não pulamos por "seen" (o usuário escolheu a fatia exata).
+                          if conn is not None and offset is None:
+                              conn = ensure_connection(conn)
+                              seen = load_seen_external_ids(conn, source)
+                              dead = load_dead_external_ids(conn, source)
+                              if dead:
+                                  print(f"  ids mortos conhecidos: {len(dead)} (pulados de graça)")
+                              seen = seen | dead  # ambos são pulados sem download
+                          else:
+                              seen = set()
+                          if seen:
+                              print(f"  já no banco: {len(seen)} (serão pulados)")
+                          records = collect_publisher(publisher, max_urls, sleep_seconds, seen, offset)
+                          with_isbn = sum(1 for normalized, _ in records if normalized["isbn"])
+                          with_author = sum(1 for normalized, _ in records if normalized["author"])
+                          print(f"  cobertura: ISBN {with_isbn}/{len(records)} · autor {with_author}/{len(records)}")
+                          for normalized, _ in records[:5]:
+                              print(
+                                  f"   - {normalized['title'][:44]:44} | {normalized['author'][:20]:20} "
+                                  f"| isbn={normalized['isbn'] or '-'}"
+                              )
+                          total_collected += len(records)
+                          if records and not dry_run and conn is not None:
+                              # Reabre a conexão (ela ficou ociosa durante o scraping) ANTES de
+                              # gravar, para o lote não se perder por SSL caído.
+                              conn = ensure_connection(conn)
+                              written = upsert_records(conn, records)
+                              total_written += written
+                              print(f"  gravados: {written}")
+                          # Persiste os ids mortos descobertos (fora do dry_run: é escrita no
+                          # banco). Roda mesmo com records vazio — numa faixa esgotada o
+                          # resultado ÚTIL é justamente marcar os mortos pra próxima execução
+                          # pular tudo de graça.
+                          dead_new = NEWLY_DEAD_IDS.pop(source, set())
+                          if dead_new and not dry_run and conn is not None:
+                              conn = ensure_connection(conn)
+                              marked = upsert_dead_ids(conn, source, dead_new)
+                              print(f"  ids mortos novos registrados: {marked}")
+
+                          if sync_state_started and conn is not None:
+                              conn = ensure_connection(conn)
+                              mark_sync_finished(
+                                  conn,
+                                  source,
+                                  status=sync_state_status(FETCH_FAILURE_COUNTS),
+                                  duration_ms=round((time.monotonic() - sync_started_at) * 1000),
+                                  records_collected=len(records),
+                                  records_written=written,
+                                  isbn_count=with_isbn,
+                                  author_count=with_author,
+                                  request_failures=dict(FETCH_FAILURE_COUNTS),
+                                  metadata=sync_metadata,
+                              )
+                      except Exception as exc:  # noqa: BLE001 — isola a falha de UMA editora
+                          print(f"  ERRO em {publisher['slug']}: {exc!r}", file=sys.stderr)
+                          failures.append(publisher["slug"])
+                          # Reabre a conexão para a próxima editora não herdar um socket morto.
+                          if conn is not None:
+                              try:
+                                  conn = ensure_connection(conn)
+                                  if sync_state_started:
+                                      mark_sync_failed(
+                                          conn,
+                                          source,
+                                          duration_ms=round((time.monotonic() - sync_started_at) * 1000),
+                                          error=exc,
+                                          request_failures=dict(FETCH_FAILURE_COUNTS),
+                                          metadata=sync_metadata,
+                                      )
+                              except Exception as reconnect_exc:  # noqa: BLE001
+                                  print(f"  reconexão/estado falhou: {reconnect_exc!r}", file=sys.stderr)
+                                  conn = None
+                      print()
+          '''
+          text = text[:loop_start] + new_loop + text[loop_end:]
+          path.write_text(text, encoding='utf-8')
+
+          Path('tests/test_sync_publishers_metrics_integration.py').write_text('''"""Testes da integração do estado operacional no loop dos scrapers."""
+          import os
+          import sys
+          import unittest
+          from unittest.mock import patch
+
+          sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+
+          import sync_publishers as sp  # noqa: E402
+
+
+          class FakeConnection:
+              def __init__(self):
+                  self.closed = 0
+
+              def close(self):
+                  self.closed = 1
+
+
+          PUBLISHER = {
+              "slug": "todavia",
+              "name": "Todavia",
+              "base_url": "https://todavialivros.com.br",
+              "platforms": ["sitemap", "html"],
+          }
+
+
+          def record():
+              return ({
+                  "title": "Livro",
+                  "author": "Autora",
+                  "isbn": "9788535947847",
+              }, {"raw": True})
+
+
+          class SyncMetricsHelpersTest(unittest.TestCase):
+              def test_platform_label_preserves_fallback_order(self):
+                  self.assertEqual(
+                      sp.publisher_platform_label(PUBLISHER),
+                      "sitemap -> html",
+                  )
+                  self.assertEqual(
+                      sp.publisher_platform_label({"platform": "shopify"}),
+                      "shopify",
+                  )
+
+              def test_status_is_partial_when_any_fetch_failure_was_recorded(self):
+                  self.assertEqual(sp.sync_state_status({}), "success")
+                  self.assertEqual(
+                      sp.sync_state_status({"status:503": 2}),
+                      "partial",
+                  )
+
+
+          class SyncMetricsMainTest(unittest.TestCase):
+              def base_patches(self, conn):
+                  return (
+                      patch.dict(os.environ, {
+                          "DATABASE_URL": "postgresql://test",
+                          "PUBLISHER_SLUGS": "todavia",
+                          "PUBLISHER_MAX_URLS": "5",
+                          "PUBLISHER_SLEEP_SECONDS": "0",
+                          "PUBLISHER_DRY_RUN": "false",
+                      }, clear=False),
+                      patch.object(sp, "select_sources", return_value=[PUBLISHER]),
+                      patch.object(sp, "connect_database", return_value=conn),
+                      patch.object(sp, "ensure_connection", side_effect=lambda value: value),
+                      patch.object(sp, "ensure_source_records"),
+                      patch.object(sp, "ensure_publisher_dead_ids"),
+                      patch.object(sp, "ensure_publisher_sync_state"),
+                      patch.object(sp, "load_seen_external_ids", return_value=set()),
+                      patch.object(sp, "load_dead_external_ids", return_value=set()),
+                  )
+
+              def test_success_records_counts_and_duration(self):
+                  conn = FakeConnection()
+                  patches = self.base_patches(conn)
+                  with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patch.object(
+                      sp, "collect_publisher", return_value=[record()]
+                  ), patch.object(sp, "upsert_records", return_value=1), patch.object(
+                      sp, "mark_sync_started"
+                  ) as started, patch.object(sp, "mark_sync_finished") as finished, patch.object(
+                      sp, "mark_sync_failed"
+                  ) as failed:
+                      result = sp.main()
+
+                  self.assertEqual(result, 0)
+                  started.assert_called_once()
+                  finished.assert_called_once()
+                  failed.assert_not_called()
+                  kwargs = finished.call_args.kwargs
+                  self.assertEqual(kwargs["status"], "success")
+                  self.assertEqual(kwargs["records_collected"], 1)
+                  self.assertEqual(kwargs["records_written"], 1)
+                  self.assertEqual(kwargs["isbn_count"], 1)
+                  self.assertEqual(kwargs["author_count"], 1)
+                  self.assertGreaterEqual(kwargs["duration_ms"], 0)
+
+              def test_failure_marks_source_failed_and_continues_to_summary(self):
+                  conn = FakeConnection()
+                  patches = self.base_patches(conn)
+                  with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patch.object(
+                      sp, "collect_publisher", side_effect=RuntimeError("site indisponível")
+                  ), patch.object(sp, "mark_sync_started"), patch.object(
+                      sp, "mark_sync_finished"
+                  ) as finished, patch.object(sp, "mark_sync_failed") as failed:
+                      result = sp.main()
+
+                  self.assertEqual(result, 1)
+                  finished.assert_not_called()
+                  failed.assert_called_once()
+                  self.assertEqual(
+                      str(failed.call_args.kwargs["error"]),
+                      "site indisponível",
+                  )
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          ''', encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-sync.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/sync_publishers.py tests/test_sync_publishers_metrics_integration.py
+          if git diff --cached --quiet; then
+            echo 'Integração já aplicada; nada para commitar.'
+            exit 0
+          fi
+          git commit -m 'feat: record publisher sync metrics in collection loop'
+          git push origin HEAD:${{ github.head_ref }}
