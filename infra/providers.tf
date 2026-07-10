@@ -4,7 +4,7 @@ provider "railway" {
   # como Sensitive. Use um Account/Workspace token para permitir imports.
 }
 
-# Habilite junto com o provider em versions.tf ao migrar o domínio.
-# provider "cloudflare" {
-#   api_token = var.cloudflare_api_token
-# }
+provider "cloudflare" {
+  # O provider lê CLOUDFLARE_API_TOKEN do ambiente.
+  # No HCP Terraform, crie essa Environment variable como Sensitive.
+}
