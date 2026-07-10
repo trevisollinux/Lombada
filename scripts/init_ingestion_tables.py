@@ -2,7 +2,7 @@
 """Inicializa tabelas de ingestão usadas pelos syncs de catálogo.
 
 Idempotente e seguro para bancos novos: executa o DDL existente de
-sql/001_source_records.sql e cria o cache publisher_dead_ids sem apagar dados.
+sql/001_source_records.sql e cria as tabelas auxiliares sem apagar dados.
 Usa somente DATABASE_URL.
 """
 from __future__ import annotations
@@ -16,6 +16,28 @@ import psycopg2
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_RECORDS_SQL = ROOT / "sql" / "001_source_records.sql"
+
+
+PUBLISHER_SYNC_STATE_SQL = """
+CREATE TABLE IF NOT EXISTS publisher_sync_state (
+    source text PRIMARY KEY,
+    platform text,
+    status text NOT NULL DEFAULT 'idle',
+    started_at timestamptz,
+    finished_at timestamptz,
+    duration_ms bigint,
+    records_collected integer NOT NULL DEFAULT 0,
+    records_written integer NOT NULL DEFAULT 0,
+    isbn_count integer NOT NULL DEFAULT 0,
+    author_count integer NOT NULL DEFAULT 0,
+    request_failures jsonb NOT NULL DEFAULT '{}'::jsonb,
+    error_message text,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    updated_at timestamptz NOT NULL DEFAULT NOW(),
+    CONSTRAINT publisher_sync_state_status_check
+        CHECK (status IN ('idle', 'running', 'success', 'partial', 'failed'))
+)
+"""
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -71,11 +93,21 @@ def ensure_publisher_dead_ids(conn) -> None:
     print(f"publisher_dead_ids {'já existia' if existed else 'criada'}")
 
 
+def ensure_publisher_sync_state(conn) -> None:
+    """Cria o resumo operacional mais recente de cada fonte/editora."""
+    with conn.cursor() as cur:
+        existed = _relation_exists(cur, "publisher_sync_state")
+        cur.execute(PUBLISHER_SYNC_STATE_SQL)
+    conn.commit()
+    print(f"publisher_sync_state {'já existia' if existed else 'criada'}")
+
+
 def init_ingestion_tables() -> None:
     conn = connect_database()
     try:
         ensure_source_records(conn)
         ensure_publisher_dead_ids(conn)
+        ensure_publisher_sync_state(conn)
     finally:
         conn.close()
 
