@@ -2121,3 +2121,30 @@ body.theme-dark .view-toggle-btn.active{background:var(--paper-2);border-color:v
 .search-result-list{display:grid;gap:0}.search-result-row{cursor:pointer}.search-result-title{font-size:17px}.search-result-author{font-size:13px}.search-result-meta{margin-top:5px}
 @media(min-width:700px){.search-controls{grid-template-columns:auto auto 1fr auto;align-items:center}.search-controls .pager{justify-content:flex-end}}
 @media(max-width:420px){.search-controls{grid-template-columns:1fr auto;padding:9px;gap:8px}.search-controls .pager{grid-column:1/-1;justify-content:space-between}.search-controls .per-page-select{grid-column:1;grid-row:2}.search-controls .view-toggle{grid-column:2;grid-row:2;justify-content:flex-end}.search-total{grid-column:1/-1}.per-page-select button,.pager button{font-size:10px;padding:7px 9px}.search-result-title{font-size:16px}}
+
+
+/* Home hierarchy: prioritize the current reading and progressive discovery. */
+.home-feed{display:flex;flex-direction:column;gap:28px}
+.home-feed .hero-extra{margin-bottom:0}
+.home-primary:empty,.home-onboarding:empty,.home-publishers:empty{display:none}
+.home-primary{order:1}
+.home-onboarding{order:2}
+.home-discovery{order:3;padding-top:8px}
+.home-publishers{order:4;padding-top:4px;border-top:1px solid var(--rule)}
+.home-feed.has-current-reading .home-intro{display:none}
+.home-feed.has-current-reading .home-primary{margin-top:2px}
+.home-feed.has-current-reading .home-onboarding .onboarding-checklist-wrap{margin-top:0}
+.home-more-button{
+  appearance:none;border:0;background:transparent;padding:8px 0 8px 12px;
+  font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;
+}
+.home-discovery .popular-section-head{margin-top:0}
+.home-discovery #populares{margin-bottom:0}
+.home-publishers .publisher-strip{margin-top:0}
+
+@media(max-width:640px){
+  .home-feed{gap:22px}
+  .home-discovery{padding-top:2px}
+  .home-publishers{padding-top:18px}
+  .home-feed:not(.has-current-reading) .home-intro{margin-bottom:-4px}
+}
