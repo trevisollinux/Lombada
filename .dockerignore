@@ -1,0 +1,15 @@
+.git
+.github
+.gitignore
+.dockerignore
+.replit
+.replipt
+.env
+__pycache__
+*.pyc
+lombada.db
+infra
+tests
+Dockerfile
+railway.toml
+README.md
