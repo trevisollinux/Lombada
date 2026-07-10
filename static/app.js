@@ -1859,8 +1859,8 @@ async function buscar(event){
   $('#resultados').dataset.editora=filtroEditoraBusca||'';
   $('#resultados').dataset.genero=filtroGeneroBusca||'';
   $('#resultados').dataset.filtros=assinaturaFiltrosBusca();
-  // com ordenação/literatura ativa o servidor já decidiu a ordem — não re-ranquear no cliente
-  const manterOrdemServidor=!!(ordenacaoBusca||filtroLiteraturaBusca);
+  // com ordenação/literatura/estilo ativo o servidor já decidiu a ordem — não re-ranquear no cliente
+  const manterOrdemServidor=!!(ordenacaoBusca||filtroLiteraturaBusca||filtroGeneroBusca);
   docs=normalizarRespostaBusca(docs);
   resultadosArr=manterOrdemServidor?(docs||[]):ordenarResultadosBusca(docs||[], q);
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q, {manterOrdem:manterOrdemServidor});
@@ -1871,9 +1871,12 @@ async function buscar(event){
     return;
   }
   paginaBusca=1;
-  const avisoLiteratura=(filtroLiteraturaBusca && !resultadosArr.some(d=>d._literatura_match))
-    ? `<div class="empty literatura-fallback-note">${t('literature_no_metadata_note',{literature:esc(literaturaLabelBusca(filtroLiteraturaBusca))})}</div>` : '';
-  renderResultadosBusca(avisoLiteratura);
+  const avisos=[];
+  if(filtroLiteraturaBusca && !resultadosArr.some(d=>d._literatura_match))
+    avisos.push(`<div class="empty literatura-fallback-note">${t('literature_no_metadata_note',{literature:esc(literaturaLabelBusca(filtroLiteraturaBusca))})}</div>`);
+  if(filtroGeneroBusca && !resultadosArr.some(d=>d._genero_match))
+    avisos.push(`<div class="empty genero-fallback-note">${t('genre_no_metadata_note',{genre:esc(filtroGeneroBusca)})}</div>`);
+  renderResultadosBusca(avisos.join(''));
 }
 
 /* edições */
