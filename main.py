@@ -849,7 +849,11 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
             | func.lower(Edicao.isbn).like(like)
         )
     if editora_norm:
-        filtros.append(func.lower(Edicao.editora).like(f"%{editora_norm.lower()}%"))
+        # Funil no banco; o julgamento final (igualdade normalizada, como a
+        # agregação do explorar) é feito em Python. Tenta a grafia recebida e a
+        # sem acento pra não depender do formato gravado no catálogo.
+        formas_editora = _formas_texto_sql([editora])
+        filtros.append(or_(*[func.lower(Edicao.editora).like(f"%{f}%") for f in formas_editora]))
     if literatura:
         # O dict canônico usa "pais"/"regiao" (singular). Filtro por país afunila
         # pelo país (literatura_pais/autor_pais); filtro regional (sem país, ex.:
@@ -901,7 +905,10 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
         searchable = " ".join([_normalizar_busca(obra.titulo), _normalizar_busca(obra.autor), _normalizar_busca(ed.isbn), _normalizar_busca(ed.editora), _normalizar_busca(ed.tradutor)])
         if q_norm and q_norm not in searchable and not (isbn and normalizar_isbn(ed.isbn or "") == isbn):
             continue
-        if editora_norm and editora_norm not in _normalizar_busca(ed.editora):
+        # Igualdade exata (normalizada) — mesma semântica da agregação do
+        # explorar. Substring deixava vazar edição de outra editora cujo campo
+        # livre só CONTÉM o nome buscado (ex.: kits/lotes vindos de sync).
+        if editora_norm and _normalizar_busca(ed.editora) != editora_norm:
             continue
         genero_compat = None
         if genero:
