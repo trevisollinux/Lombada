@@ -1,5 +1,5 @@
 # ─── Recursos existentes no Railway ───────────────────────────────────────
-# Nesta primeira etapa o Terraform adota apenas o projeto e o serviço web.
+# Nesta primeira etapa o Terraform adota o projeto e o serviço web existentes.
 # Banco e variáveis da aplicação continuam gerenciados pelo dashboard até o
 # primeiro plan/import ficar completamente limpo.
 
@@ -43,26 +43,27 @@ variable "repo_branch" {
   description = "Branch usada para deploy no Railway."
 }
 
-variable "app_base_url" {
+# ─── Domínio público / Cloudflare ─────────────────────────────────────────
+
+variable "app_domain" {
   type        = string
-  default     = "https://lombada-production.up.railway.app"
-  description = "URL pública atual da aplicação."
+  default     = "lombada.app"
+  description = "Domínio canônico da aplicação."
 }
 
-# ─── Cloudflare (comentado até o domínio existir) ─────────────────────────
-# variable "cloudflare_api_token" {
-#   type        = string
-#   sensitive   = true
-#   description = "Token da Cloudflare com permissão de editar DNS da zona."
-# }
-#
-# variable "cloudflare_zone_id" {
-#   type        = string
-#   description = "Zone id do domínio na Cloudflare."
-# }
-#
-# variable "app_domain" {
-#   type        = string
-#   default     = "lombada.app"
-#   description = "Domínio próprio final do app."
-# }
+variable "app_base_url" {
+  type        = string
+  default     = "https://lombada.app"
+  description = "URL pública canônica da aplicação."
+}
+
+variable "cloudflare_zone_id" {
+  type        = string
+  description = "Zone ID da zona lombada.app na Cloudflare."
+}
+
+variable "cloudflare_proxy_enabled" {
+  type        = bool
+  default     = false
+  description = "Ativa o proxy laranja da Cloudflare. Mantenha false até o Railway validar DNS e emitir o certificado."
+}
