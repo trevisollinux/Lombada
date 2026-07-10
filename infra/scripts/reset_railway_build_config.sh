@@ -3,9 +3,10 @@ set -euo pipefail
 
 : "${RAILWAY_TOKEN:?RAILWAY_TOKEN não está definido no ambiente do HCP Terraform}"
 : "${RAILWAY_SERVICE_ID:?RAILWAY_SERVICE_ID não foi informado}"
+: "${RAILWAY_ENVIRONMENT_ID:?RAILWAY_ENVIRONMENT_ID não foi informado}"
 
 payload="$(cat <<JSON
-{"query":"mutation ResetRailwayBuild(\$serviceId: String!, \$input: ServiceInstanceUpdateInput!) { serviceInstanceUpdate(environmentId: null, serviceId: \$serviceId, input: \$input) }","variables":{"serviceId":"${RAILWAY_SERVICE_ID}","input":{"railwayConfigFile":null,"builder":"RAILPACK","buildCommand":null,"dockerfilePath":null,"startCommand":"uvicorn main:app --host 0.0.0.0 --port \$PORT"}}}
+{"query":"mutation ResetRailwayBuild(\$environmentId: String!, \$serviceId: String!, \$input: ServiceInstanceUpdateInput!) { serviceInstanceUpdate(environmentId: \$environmentId, serviceId: \$serviceId, input: \$input) }","variables":{"environmentId":"${RAILWAY_ENVIRONMENT_ID}","serviceId":"${RAILWAY_SERVICE_ID}","input":{"railwayConfigFile":null,"builder":"RAILPACK","buildCommand":null,"dockerfilePath":null,"startCommand":"uvicorn main:app --host 0.0.0.0 --port \$PORT"}}}
 JSON
 )"
 
@@ -17,9 +18,9 @@ response="$(curl --silent --show-error --fail \
   --data "${payload}")"
 
 if ! printf '%s' "${response}" | grep -Eq '"serviceInstanceUpdate"[[:space:]]*:[[:space:]]*true'; then
-  echo "A API do Railway não confirmou a limpeza da configuração." >&2
+  echo "A API do Railway não confirmou a limpeza da configuração no ambiente ${RAILWAY_ENVIRONMENT_ID}." >&2
   printf '%s\n' "${response}" >&2
   exit 1
 fi
 
-echo "Configuração de build do Railway limpa e redefinida para Railpack."
+echo "Configuração de build do ambiente production limpa e redefinida para Railpack."
