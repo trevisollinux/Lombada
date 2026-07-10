@@ -14,7 +14,10 @@ resource "railway_service" "app" {
   project_id         = railway_project.lombada.id
   source_repo        = var.repo_url
   source_repo_branch = var.repo_branch
-  config_path        = "railway.toml"
+
+  # Garante que o campo railwayConfigFile seja apagado diretamente pela API
+  # antes de o provider reler e sincronizar o serviço.
+  depends_on = [terraform_data.reset_railway_build_config]
 
   # Preserva a região e a quantidade de réplicas já existentes durante o import.
   regions = [
@@ -24,7 +27,6 @@ resource "railway_service" "app" {
     }
   ]
 
-  # O Railway mantém este caminho no estado do serviço. O arquivo versiona
-  # apenas builder, start command, healthcheck e restart policy; dependências
-  # continuam sendo instaladas automaticamente pelo Railpack.
+  # Build, start command e demais opções de deploy permanecem no painel do
+  # Railway. Banco e env vars da aplicação também não são gerenciados aqui.
 }
