@@ -2,9 +2,8 @@ terraform {
   required_version = ">= 1.7"
 
   # State + execução remota no HCP Terraform.
-  # Antes do primeiro init, troque SEU_ORG_TFC pelo nome da organização criada.
   cloud {
-    organization = "SEU_ORG_TFC"
+    organization = "lombada"
 
     workspaces {
       name = "lombada-prod"
