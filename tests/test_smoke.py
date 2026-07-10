@@ -411,6 +411,40 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()[0]["titulo"], "Mar de Ipanema")
 
+    def test_buscar_filtro_editora_exato_como_no_explorar(self):
+        # Regressão do "editora: Companhia das Letras" trazendo mangá: o campo
+        # livre Edicao.editora de registro sincronizado às vezes só CONTÉM o
+        # nome da editora (ex.: kit/lote de outra editora). O filtro da busca
+        # casa por igualdade normalizada — a mesma semântica da agregação que
+        # monta a página da editora no explorar.
+        with main.Session(main.engine) as s:
+            if not s.exec(main.select(main.Obra).where(main.Obra.ol_work_key == "editora-exata-livro")).first():
+                livro = main.Obra(ol_work_key="editora-exata-livro", titulo="Livro Da Casa", autor="Autoreditora Alfa")
+                kit = main.Obra(ol_work_key="editora-exata-kit", titulo="Manga Vazado", autor="Autoreditora Beta")
+                acento = main.Obra(ol_work_key="editora-exata-acento", titulo="Livro Acentuado", autor="Autoreditora Gama")
+                for o in (livro, kit, acento):
+                    s.add(o)
+                s.commit()
+                for o in (livro, kit, acento):
+                    s.refresh(o)
+                # sem capa de propósito: mantém estas obras fora dos testes que
+                # filtram por com_capa e exigem lista exata (ISBN dá o score).
+                s.add(main.Edicao(obra_id=livro.id, editora="Editora Exata", isbn="9788511111111"))
+                s.add(main.Edicao(obra_id=kit.id, editora="Kit Box Editora Exata + Outra", isbn="9788522222222"))
+                s.add(main.Edicao(obra_id=acento.id, editora="Edições Exatas", isbn="9788533333333"))
+                s.commit()
+
+        r = self.client.get("/api/buscar", params={"editora": "Editora Exata"})
+        self.assertEqual(r.status_code, 200)
+        titulos = [d["titulo"] for d in r.json()]
+        self.assertIn("Livro Da Casa", titulos)
+        self.assertNotIn("Manga Vazado", titulos)   # campo que só contém o nome não vaza
+
+        # nome com acento funciona qualquer que seja a grafia gravada no catálogo
+        r2 = self.client.get("/api/buscar", params={"editora": "Edições Exatas"})
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual([d["titulo"] for d in r2.json()], ["Livro Acentuado"])
+
     def test_buscar_filtro_estilo_tolerante_como_literatura(self):
         # Regressão do "estilo: romance + literatura: brasileira" sem texto:
         # o filtro de estilo era estrito e, como quase nenhuma obra tem gênero
