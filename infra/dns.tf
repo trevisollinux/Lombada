@@ -1,28 +1,52 @@
-# ─── Cloudflare DNS — TUDO COMENTADO ──────────────────────────────────────
-# A zona ainda não existe. Ao migrar o domínio, habilite:
-#   - o provider cloudflare em versions.tf e providers.tf
-#   - as variáveis cloudflare_* em variables.tf
-#   - o render_custom_domain em render.tf
-#   - este arquivo
-#
-# Ordem de dependência: render_custom_domain -> cloudflare_record.
-# O cert do Render leva alguns minutos após o DNS propagar.
+# O domínio customizado é criado no Railway. O provider devolve os valores de
+# CNAME e TXT exigidos para validação; a Cloudflare publica ambos.
 
-# resource "cloudflare_record" "app" {
-#   zone_id = var.cloudflare_zone_id
-#   name    = "@" # apex; a Cloudflare faz CNAME flattening
-#   type    = "CNAME"
-#   content = "lombada.onrender.com"
-#   ttl     = 1
-#
-#   # GOTCHA: comece com proxied = false (DNS-only) até o Render validar o
-#   # domínio e emitir o cert. Só depois ligue o proxy — e aí use
-#   # SSL mode = Full (strict) na zona, senão dá loop de redirect / erro 525.
-#   proxied = false
-# }
-#
-# Lembretes ao trocar de domínio:
-#   - atualizar GOOGLE_REDIRECT_URI (já derivado de app_base_url aqui) E a lista
-#     de redirect URIs autorizados no Google Cloud Console (fora do TF).
-#   - decidir o domínio ANTES de gerar o .aab: o assetlinks.json fica atrelado
-#     ao domínio e o package name do app Android é imutável.
+resource "railway_custom_domain" "app" {
+  domain         = var.app_domain
+  environment_id = railway_project.lombada.default_environment.id
+  service_id     = railway_service.app.id
+}
+
+resource "cloudflare_record" "app" {
+  zone_id = var.cloudflare_zone_id
+  name    = "@"
+  type    = "CNAME"
+  content = railway_custom_domain.app.dns_record_value
+  ttl     = 1
+  proxied = var.cloudflare_proxy_enabled
+}
+
+resource "cloudflare_record" "railway_verification" {
+  zone_id = var.cloudflare_zone_id
+  name    = railway_custom_domain.app.verification_host_label
+  type    = "TXT"
+  content = railway_custom_domain.app.verification_record_value
+  ttl     = 1
+  proxied = false
+}
+
+# Compatibilidade para quem digitar www.lombada.app. O destino final continua
+# sendo servido pelo mesmo app e preserva os caminhos.
+resource "railway_custom_domain" "www" {
+  domain         = "www.${var.app_domain}"
+  environment_id = railway_project.lombada.default_environment.id
+  service_id     = railway_service.app.id
+}
+
+resource "cloudflare_record" "www" {
+  zone_id = var.cloudflare_zone_id
+  name    = "www"
+  type    = "CNAME"
+  content = railway_custom_domain.www.dns_record_value
+  ttl     = 1
+  proxied = var.cloudflare_proxy_enabled
+}
+
+resource "cloudflare_record" "www_railway_verification" {
+  zone_id = var.cloudflare_zone_id
+  name    = railway_custom_domain.www.verification_host_label
+  type    = "TXT"
+  content = railway_custom_domain.www.verification_record_value
+  ttl     = 1
+  proxied = false
+}
