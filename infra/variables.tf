@@ -1,136 +1,69 @@
-# ─── Credenciais de provider ──────────────────────────────────────────────
-# Nunca commitadas. Em CI vêm como TF_VAR_* (GitHub Actions secrets);
-# localmente, ponha em terraform.tfvars (gitignored).
+# ─── Recursos existentes no Railway ───────────────────────────────────────
+# Nesta primeira etapa o Terraform adota o projeto e o serviço web existentes.
+# Banco e variáveis da aplicação continuam gerenciados pelo dashboard até o
+# primeiro plan/import ficar completamente limpo.
 
-variable "render_api_key" {
+variable "railway_project_id" {
   type        = string
-  sensitive   = true
-  description = "API key do Render (https://dashboard.render.com/u/settings#api-keys)."
+  description = "ID do projeto Railway existente, usado pelo bloco import."
 }
 
-variable "render_owner_id" {
+variable "railway_service_id" {
   type        = string
-  description = "Owner id do Render (tea-... ou usr-...). Não é segredo, mas varia por conta."
+  description = "ID do serviço web Railway existente, usado pelo bloco import."
 }
 
-# ─── Config operacional do serviço (não-secreto) ──────────────────────────
-
-variable "render_region" {
+variable "railway_workspace_id" {
   type        = string
-  default     = "oregon"
-  description = "Região do Render onde o serviço vive."
+  default     = ""
+  description = "ID do workspace Railway. Necessário quando o token acessa mais de um workspace."
 }
 
-variable "render_plan" {
+variable "railway_project_name" {
   type        = string
-  default     = "starter"
-  description = "Plano do web service. 'free' hiberna (cold start feio na TWA); 'starter' fica de pé."
+  default     = "authentic-joy"
+  description = "Nome do projeto existente no Railway."
+}
+
+variable "railway_service_name" {
+  type        = string
+  default     = "Lombada"
+  description = "Nome do serviço web existente no Railway. Ajuste para o nome exibido no dashboard."
 }
 
 variable "repo_url" {
   type        = string
-  default     = "https://github.com/trevisollinux/lombada"
-  description = "Repositório de deploy do Render."
+  default     = "trevisollinux/Lombada"
+  description = "Repositório conectado ao serviço Railway no formato owner/repo."
 }
 
 variable "repo_branch" {
   type        = string
   default     = "main"
-  description = "Branch que o Render faz deploy."
+  description = "Branch usada para deploy no Railway."
+}
+
+# ─── Domínio público / Cloudflare ─────────────────────────────────────────
+
+variable "app_domain" {
+  type        = string
+  default     = "lombada.app"
+  description = "Domínio canônico da aplicação."
 }
 
 variable "app_base_url" {
   type        = string
-  default     = "https://lombada.onrender.com"
-  description = "URL pública base. Troque para o domínio próprio ao migrar para Cloudflare."
+  default     = "https://lombada.app"
+  description = "URL pública canônica da aplicação."
 }
 
-# ─── Segredos da aplicação ────────────────────────────────────────────────
-# Já existem no Render. Só precisam de valor aqui se você quiser que o
-# Terraform os gerencie. Veja o README (bloco 'import' + ignore_changes) para
-# adotar sem reescrever os valores.
-
-variable "database_url" {
+variable "cloudflare_zone_id" {
   type        = string
-  sensitive   = true
-  description = "String de conexão Postgres (DATABASE_URL)."
+  description = "Zone ID da zona lombada.app na Cloudflare."
 }
 
-variable "secret_key" {
-  type        = string
-  sensitive   = true
-  description = "SECRET_KEY de sessão/cookies."
+variable "cloudflare_proxy_enabled" {
+  type        = bool
+  default     = false
+  description = "Ativa o proxy laranja da Cloudflare. Mantenha false até o Railway validar DNS e emitir o certificado."
 }
-
-variable "google_client_id" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "OAuth Google (GOOGLE_CLIENT_ID)."
-}
-
-variable "google_client_secret" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "OAuth Google (GOOGLE_CLIENT_SECRET)."
-}
-
-variable "google_books_api_key" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "GOOGLE_BOOKS_API_KEY."
-}
-
-variable "hardcover_api_key" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "HARDCOVER_API_KEY."
-}
-
-variable "penguin_api_key" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "PENGUIN_API_KEY."
-}
-
-variable "me_token" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "ME_TOKEN (Mercado Livre)."
-}
-
-variable "recon_token" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "RECON_TOKEN (endpoint de diagnóstico)."
-}
-
-variable "admin_emails" {
-  type        = string
-  default     = ""
-  description = "ADMIN_EMAILS (lista separada por vírgula)."
-}
-
-# ─── Cloudflare (comentado até o domínio existir) ─────────────────────────
-# variable "cloudflare_api_token" {
-#   type        = string
-#   sensitive   = true
-#   description = "Token da Cloudflare com permissão de editar DNS da zona."
-# }
-#
-# variable "cloudflare_zone_id" {
-#   type        = string
-#   description = "Zone id do domínio na Cloudflare."
-# }
-#
-# variable "app_domain" {
-#   type        = string
-#   default     = "lombada.app"
-#   description = "Domínio próprio final do app."
-# }

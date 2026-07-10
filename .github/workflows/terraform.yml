@@ -1,29 +1,33 @@
 name: Terraform
 
-# Infra do Lombada como código (diretório infra/), com state e execução remota
-# no Terraform Cloud (HCP Terraform).
-#   - PR que toca infra/**  -> fmt + plan remoto (comentado no PR)
-#   - push na main          -> apply remoto (protegido pelo environment "production")
-#   - workflow_dispatch      -> apply manual (aba Actions)
-#
-# Os segredos da aplicação (render_api_key, database_url, etc.) NÃO ficam aqui:
-# são variáveis do workspace no Terraform Cloud (marcadas sensitive). O único
-# segredo do GitHub é o token da API do TFC.
-#
-# Segredo necessário (Settings > Secrets and variables > Actions):
-#   TF_API_TOKEN  -> token de usuário/equipe do Terraform Cloud
+# Migração segura para Railway + Cloudflare.
+# Pull requests executam apenas plan. Apply só pode ser iniciado manualmente,
+# com confirmação explícita, e nunca roda em push ou merge.
 
 on:
   pull_request:
-    paths: ['infra/**', '.github/workflows/terraform.yml']
-  push:
-    branches: [main]
-    paths: ['infra/**', '.github/workflows/terraform.yml']
+    paths: ['infra/**', 'railway.toml', '.github/workflows/terraform.yml']
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operação Terraform'
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      confirmation:
+        description: 'Para aplicar, digite exatamente APPLY_LOMBADA_APP'
+        required: false
+        type: string
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   TF_IN_AUTOMATION: 'true'
@@ -33,61 +37,61 @@ defaults:
     working-directory: infra
 
 jobs:
-  # ── fmt: local, não precisa de token ──────────────────────────────────────
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.9.8'
-      - run: terraform fmt -check -recursive
-
-  # ── plan remoto em PR ─────────────────────────────────────────────────────
   plan:
-    if: github.event_name == 'pull_request'
-    needs: fmt
+    if: github.event_name == 'pull_request' || inputs.operation == 'plan'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      - name: Init
+
+      - name: Format
+        run: terraform fmt -check -recursive
+
+      - name: Init HCP Terraform
         run: terraform init -input=false
+
       - name: Validate
         run: terraform validate
-      - name: Plan
-        id: plan
-        run: terraform plan -input=false -no-color
-      - name: Comentar plan no PR
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const out = `${{ steps.plan.outputs.stdout }}`;
-            const body = `#### Terraform Plan \`${{ steps.plan.outcome }}\`\n<details><summary>ver plan (executado no Terraform Cloud)</summary>\n\n\`\`\`\n${out}\n\`\`\`\n</details>`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body.slice(0, 65000)
-            });
 
-  # ── apply remoto na main / manual ─────────────────────────────────────────
+      - name: Plan de adoção
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform plan -input=false -no-color | tee plan.txt
+
+      - name: Salvar saída do plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: infra/plan.txt
+          if-no-files-found: error
+          retention-days: 7
+
   apply:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: fmt
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.operation == 'apply' &&
+      inputs.confirmation == 'APPLY_LOMBADA_APP'
     runs-on: ubuntu-latest
-    environment: production # exige aprovação se o environment estiver protegido
+    environment: production
     steps:
       - uses: actions/checkout@v4
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
-      - name: Init
+
+      - name: Init HCP Terraform
         run: terraform init -input=false
-      - name: Apply
+
+      - name: Validar plan final
+        run: terraform plan -input=false -no-color
+
+      - name: Aplicar Railway e Cloudflare
         run: terraform apply -input=false -auto-approve

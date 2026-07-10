@@ -1,12 +1,9 @@
 terraform {
   required_version = ">= 1.7"
 
-  # State + execução remota no Terraform Cloud (HCP Terraform).
-  # Troque a organização pela sua. O workspace é criado no primeiro `init`
-  # (ou via UI). Não pode coexistir com um bloco `backend` — por isso não há
-  # mais backend.tf.
+  # State + execução remota no HCP Terraform.
   cloud {
-    organization = "SEU_ORG_TFC"
+    organization = "lombada"
 
     workspaces {
       name = "lombada-prod"
@@ -14,16 +11,14 @@ terraform {
   }
 
   required_providers {
-    render = {
-      source  = "render-oss/render"
-      version = "~> 1.4"
+    railway = {
+      source  = "terraform-community-providers/railway"
+      version = "~> 0.6.2"
     }
 
-    # Cloudflare ainda não existe — habilite quando migrar o domínio.
-    # A major v5 mudou o schema; pinar em ~> 4.40 mantém a sintaxe deste módulo.
-    # cloudflare = {
-    #   source  = "cloudflare/cloudflare"
-    #   version = "~> 4.40"
-    # }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.40"
+    }
   }
 }
