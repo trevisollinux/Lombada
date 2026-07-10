@@ -1162,14 +1162,17 @@ function abrirObraPopular(i){
   buscarTermo(obra.titulo||'');
 }
 
-function abrirDiarioLeitura(idx){
+function abrirDiarioLeitura(idx,opcoes={}){
   if(idx<0) return;
   irPara('estante',{subaba:'diario'});
   abrirCard(idx,{registrar:false});
   setTimeout(()=>{
     const alvo=document.getElementById('diaryNewForm')||document.querySelector('[data-diary-form]');
     alvo?.scrollIntoView({behavior:'smooth',block:'start'});
-    alvo?.querySelector('input, textarea, button')?.focus?.({preventScroll:true});
+    const seletor=opcoes.foco==='nota'
+      ? '[data-diary-input="nota"], textarea'
+      : 'input, textarea, button';
+    alvo?.querySelector(seletor)?.focus?.({preventScroll:true});
   },120);
 }
 function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
@@ -4085,32 +4088,48 @@ async function removerLeitura(el=null){
 function leiturasEmAndamento(){
   return prateleira.map((l,idx)=>({l,idx})).filter(item=>item.l?.status==='Lendo');
 }
+function indiceLeituraRapida(){
+  const lendo=leiturasEmAndamento();
+  const select=$('#quickReadingSelect');
+  const selecionado=select?Number(select.value):NaN;
+  if(Number.isInteger(selecionado)&&prateleira[selecionado]?.status==='Lendo') return selecionado;
+  return lendo[0]?.idx ?? null;
+}
 function registrarLeituraRapida(){
   fecharAcoesLeitura();
   irPara('buscar');
   setTimeout(()=>{ $('#q')?.focus(); },120);
 }
-function atualizarProgressoRapido(idx=null){
-  const lendo=leiturasEmAndamento();
-  const alvo=Number.isInteger(idx)?idx:(lendo.length===1?lendo[0].idx:null);
-  if(alvo===null){ renderAcoesLeitura(true); return; }
+function atualizarProgressoRapido(){
+  const alvo=indiceLeituraRapida();
+  if(alvo===null){ registrarLeituraRapida(); return; }
   fecharAcoesLeitura();
   abrirDiarioLeitura(alvo);
 }
-function renderAcoesLeitura(mostrarAviso=false){
+function adicionarNotaRapida(){
+  const alvo=indiceLeituraRapida();
+  if(alvo===null){ registrarLeituraRapida(); return; }
+  fecharAcoesLeitura();
+  abrirDiarioLeitura(alvo,{foco:'nota'});
+}
+function seletorLeituraRapidaHTML(lendo){
+  if(lendo.length<2) return '';
+  return `<label class="quick-reading-picker"><span>${t('currently_reading')}</span><select id="quickReadingSelect" aria-label="${t('currently_reading')}">${lendo.map(({l,idx})=>`<option value="${idx}">${esc(l.titulo)}${l.autor?' — '+esc(l.autor):''}</option>`).join('')}</select></label>`;
+}
+function renderAcoesLeitura(){
   const body=$('#quickActionsBody'); if(!body) return;
   const lendo=leiturasEmAndamento();
   const hint=$('#quickActionsHint');
   if(hint) hint.textContent=t(lendo.length?'quick_actions_hint_active':'quick_actions_hint_empty');
-  const lista=lendo.slice(0,4).map(({l,idx})=>`<button class="quick-reading-row" type="button" onclick="atualizarProgressoRapido(${idx})"><span>${esc(l.titulo)}</span><small>${esc(l.autor||'')}</small></button>`).join('');
-  const progresso=lendo.length===0
-    ? ''
-    : lendo.length===1
-      ? `<button class="quick-action primary" type="button" onclick="atualizarProgressoRapido()"><strong>${t('update_progress')}</strong><span>${t('quick_update_hint')}</span></button>`
-      : `<div class="quick-action-group primary"><div class="quick-action-title">${t('update_progress')}</div><div class="quick-action-sub">${t('quick_update_hint')}</div><div class="quick-reading-list">${lista}</div></div>`;
-  const registrarLabel=lendo.length?t('quick_register_new_reading'):t('quick_register_reading');
-  const registrarHint=lendo.length?t('quick_register_new_hint'):t('quick_register_hint_empty');
-  body.innerHTML=`${progresso}${mostrarAviso?`<p class="quick-actions-note">${t('quick_no_reading')}</p>`:''}<button class="quick-action" type="button" onclick="registrarLeituraRapida()"><strong>${registrarLabel}</strong><span>${registrarHint}</span></button>`;
+  if(!lendo.length){
+    body.innerHTML=`<button class="quick-action primary" type="button" onclick="registrarLeituraRapida()"><strong>${t('quick_register_reading')}</strong><span>${t('quick_register_hint_empty')}</span></button>`;
+    return;
+  }
+  body.innerHTML=`${seletorLeituraRapidaHTML(lendo)}<div class="quick-actions-grid">
+    <button class="quick-action primary" type="button" onclick="atualizarProgressoRapido()"><strong>${t('update_progress')}</strong><span>${t('quick_update_hint')}</span></button>
+    <button class="quick-action" type="button" onclick="adicionarNotaRapida()"><strong>${t('entry_note')}</strong><span>${t('new_diary_subtitle')}</span></button>
+    <button class="quick-action" type="button" onclick="registrarLeituraRapida()"><strong>${t('quick_register_new_reading')}</strong><span>${t('quick_register_new_hint')}</span></button>
+  </div>`;
 }
 function abrirAcoesLeitura(){
   renderAcoesLeitura();
@@ -4132,6 +4151,7 @@ function abrirRegistro(event){
   const panel=$('#quickActions');
   if(panel && !panel.hidden) fecharAcoesLeitura(); else abrirAcoesLeitura();
 }
+
 
 /* swipe horizontal alterna subabas (feed: descobrir/seguindo · estante: estante/diário) */
 function configurarSwipeAbas(){
