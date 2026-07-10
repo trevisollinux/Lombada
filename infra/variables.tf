@@ -33,8 +33,8 @@ variable "railway_service_name" {
 
 variable "repo_url" {
   type        = string
-  default     = "https://github.com/trevisollinux/Lombada"
-  description = "Repositório conectado ao serviço Railway."
+  default     = "trevisollinux/Lombada"
+  description = "Repositório conectado ao serviço Railway no formato owner/repo."
 }
 
 variable "repo_branch" {
