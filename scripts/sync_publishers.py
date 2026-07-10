@@ -28,10 +28,12 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import unicodedata
 import xml.etree.ElementTree as ET
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse
@@ -118,6 +120,40 @@ HEADERS = {
 # reaproveita conexões HTTP entre as páginas de uma mesma editora.
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
+DEFAULT_FETCH_CONCURRENCY = 4
+MAX_FETCH_CONCURRENCY = 8
+_FETCH_CONTEXT = threading.local()
+_FETCH_DIAGNOSTIC_LOCK = threading.Lock()
+
+
+def fetch_concurrency() -> int:
+    """Concorrência conservadora e configurável para hidratar páginas de livro."""
+    raw = os.getenv("PUBLISHER_FETCH_CONCURRENCY", str(DEFAULT_FETCH_CONCURRENCY)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = DEFAULT_FETCH_CONCURRENCY
+    return min(MAX_FETCH_CONCURRENCY, max(1, value))
+
+
+def _session_for_fetch() -> requests.Session:
+    """Mantém SESSION no fluxo sequencial e uma Session por worker no paralelo."""
+    if not getattr(_FETCH_CONTEXT, "parallel_worker", False):
+        return SESSION
+    session = getattr(_FETCH_CONTEXT, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.headers.update(HEADERS)
+        _FETCH_CONTEXT.session = session
+    return session
+
+
+def _extract_page_parallel(url: str, publisher: dict[str, str]):
+    _FETCH_CONTEXT.parallel_worker = True
+    try:
+        return extract_page(url, publisher)
+    finally:
+        _FETCH_CONTEXT.parallel_worker = False
 # platform: "auto" tenta shopify -> vtex -> id_range -> sitemap -> html. Pode forçar uma só.
 # group: separa as fontes entre os workflows de sync que rodam em PARALELO
 # (cada workflow tem seu concurrency group próprio no Actions e filtra por
@@ -436,11 +472,12 @@ def reset_fetch_diagnostics() -> None:
 
 
 def _record_fetch_failure(reason: str, url: str = "") -> None:
-    FETCH_FAILURE_COUNTS[reason] = FETCH_FAILURE_COUNTS.get(reason, 0) + 1
-    if url:
-        samples = FETCH_FAILURE_SAMPLES.setdefault(reason, [])
-        if len(samples) < 3:
-            samples.append(url)
+    with _FETCH_DIAGNOSTIC_LOCK:
+        FETCH_FAILURE_COUNTS[reason] = FETCH_FAILURE_COUNTS.get(reason, 0) + 1
+        if url:
+            samples = FETCH_FAILURE_SAMPLES.setdefault(reason, [])
+            if len(samples) < 3:
+                samples.append(url)
 
 
 def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None) -> requests.Response | None:
@@ -455,7 +492,7 @@ def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str]
     global LAST_FETCH_STATUS
     for attempt in range(MAX_RETRIES):
         try:
-            response = SESSION.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            response = _session_for_fetch().get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
         except requests.RequestException as exc:
             # Host pendurado/inacessível não se recupera em 1s: não insiste (evita
             # acumular minutos de tempo morto × várias URLs por editora).
@@ -1219,49 +1256,60 @@ def _collect_from_urls(
     seen: set[str] | None = None,
     offset: int | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    """Baixa páginas de livro do catálogo.
+    """Baixa páginas em pequenos lotes paralelos, preservando a ordem.
 
-    - Modo FAIXA (offset != None): pega exatamente a fatia [offset : offset+max_urls]
-      da lista ordenada de candidatos. Serve p/ ir "0-100, 101-200..." na mão.
-    - Modo INCREMENTAL (offset None): pula as já ingeridas (seen) e leva as próximas
-      max_urls novas. O teto conta só downloads; pular URL conhecida é de graça.
+    O limite é por processo/editora e fica entre 1 e 8 workers. A pausa passa
+    a acontecer entre lotes, evitando uma rajada contínua contra o mesmo host.
+    O id_range continua sequencial porque usa LAST_FETCH_STATUS para classificar
+    IDs mortos; esta função atende sitemap e crawl HTML.
     """
-    if offset is not None:
-        window = book_urls[offset : offset + max_urls]
-        print(f"  faixa: {offset}–{offset + len(window) - 1} de {len(book_urls)} candidatos")
-        records: list[tuple[dict[str, Any], dict[str, Any]]] = []
-        local_seen: set[str] = set()
-        for url in window:
-            external_id = stable_external_id(url)
-            if external_id in local_seen:
-                continue
-            local_seen.add(external_id)
-            extracted = extract_page(url, publisher)
-            if extracted is not None:
-                records.append(extracted)
-            if sleep_seconds:
-                time.sleep(sleep_seconds)
-        return records
-
+    workers = fetch_concurrency()
     seen = seen or set()
-    records = []
-    local_seen = set()
-    fetched = 0
-    max_attempts = max_urls * 3
-    for url in book_urls:
-        if len(records) >= max_urls or fetched >= max_attempts:
+    local_seen: set[str] = set()
+
+    if offset is not None:
+        source_urls = book_urls[offset : offset + max_urls]
+        print(
+            f"  faixa: {offset}–{offset + len(source_urls) - 1} "
+            f"de {len(book_urls)} candidatos"
+        )
+    else:
+        source_urls = book_urls
+
+    candidates: list[str] = []
+    max_attempts = max_urls if offset is not None else max_urls * 3
+    for url in source_urls:
+        if len(candidates) >= max_attempts:
             break
         external_id = stable_external_id(url)
         if external_id in seen or external_id in local_seen:
             continue
         local_seen.add(external_id)
-        fetched += 1
-        extracted = extract_page(url, publisher)
-        if extracted is None:
-            continue
-        records.append(extracted)
-        if sleep_seconds:
-            time.sleep(sleep_seconds)
+        candidates.append(url)
+
+    if not candidates:
+        return []
+
+    records: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    pool_size = min(workers, len(candidates))
+    print(
+        f"  hidratação: candidatos={len(candidates)} "
+        f"concorrência={pool_size}"
+    )
+    with ThreadPoolExecutor(max_workers=pool_size) as executor:
+        for start_index in range(0, len(candidates), pool_size):
+            batch = candidates[start_index : start_index + pool_size]
+            extracted_batch = executor.map(
+                lambda url: _extract_page_parallel(url, publisher),
+                batch,
+            )
+            for extracted in extracted_batch:
+                if extracted is not None and len(records) < max_urls:
+                    records.append(extracted)
+            if len(records) >= max_urls:
+                break
+            if sleep_seconds and start_index + pool_size < len(candidates):
+                time.sleep(sleep_seconds)
     return records
 
 
