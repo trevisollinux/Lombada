@@ -37,7 +37,7 @@ from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import psycopg2
-from psycopg2.extras import Json
+from psycopg2.extras import Json, execute_batch
 
 from init_ingestion_tables import ensure_publisher_dead_ids, ensure_source_records
 import requests
@@ -1790,16 +1790,20 @@ def upsert_records(conn, records: list[tuple[dict[str, Any], dict[str, Any]]]) -
             last_seen_at = NOW(),
             updated_at = NOW()
     """
-    written = 0
+    if not records:
+        return 0
+
+    params_list = []
+    for normalized, raw in records:
+        params = dict(normalized)
+        params["normalized_json"] = Json(normalized)
+        params["raw_json"] = Json(raw)
+        params_list.append(params)
+
     with conn.cursor() as cur:
-        for normalized, raw in records:
-            params = dict(normalized)
-            params["normalized_json"] = Json(normalized)
-            params["raw_json"] = Json(raw)
-            cur.execute(sql, params)
-            written += 1
+        execute_batch(cur, sql, params_list, page_size=250)
     conn.commit()
-    return written
+    return len(params_list)
 
 
 def select_sources() -> list[dict[str, str]]:
