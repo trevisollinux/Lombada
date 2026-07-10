@@ -12,11 +12,6 @@ name: Sync publishers (Editora 34)
 #
 # Cron a cada 6 HORAS: a faixa está esgotada, então novos livros só aparecem de
 # vez em quando (ids novos até id_end) — não compensa rodar de hora em hora.
-#
-# Dispare pela aba Actions:
-#   dry_run=true  -> só coleta e mostra amostra/cobertura (NÃO grava, e sem gravar
-#                    não popula o cache de mortos: use dry_run=false pra acelerar)
-#   dry_run=false -> grava o lote novo, registra os ids mortos e promove
 
 on:
   workflow_dispatch:
@@ -56,6 +51,9 @@ on:
     # :29 expansão, :43 universitárias, :51 cia) só pra espalhar a carga no Neon.
     - cron: "37 */6 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: sync-publishers-editora34
   cancel-in-progress: false
@@ -65,17 +63,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
 
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
-
-      # Sem passo de Playwright: id_range coleta via requests, sem browser.
 
       - name: Sync publisher source records (grupo editora34)
         run: |

@@ -47,6 +47,9 @@ on:
     # (O GitHub pode atrasar o horário agendado em minutos sob carga — é normal.)
     - cron: "13 */3 * * *"
 
+permissions:
+  contents: read
+
 # Garante um run POR WORKFLOW por vez: se um ainda está rodando, o próximo espera
 # (não atropela nem duplica trabalho). O limite é deste grupo, não do GitHub —
 # sync-publishers-expansao.yml, sync-publishers-universitarias.yml,
@@ -62,12 +65,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
 
       - name: Install dependencies
         run: pip install -r requirements-sync.txt

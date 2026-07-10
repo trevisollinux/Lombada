@@ -9,12 +9,8 @@ name: Sync publishers (Companhia das Letras)
 #
 # Cron a cada 3 HORAS: como a Cia demora e a ingestão é incremental, não há
 # ganho em rodá-la de hora em hora. Roda em PARALELO aos outros syncs
-# (concurrency group próprio); o
-# promote é serializado entre workflows por advisory lock no Postgres.
-#
-# Dispare pela aba Actions (funciona do celular):
-#   dry_run=true  -> só coleta e mostra amostra/cobertura (não grava, não promove)
-#   dry_run=false -> grava o lote novo em source_records e promove pro catálogo
+# (concurrency group próprio); o promote é serializado entre workflows por
+# advisory lock no Postgres.
 
 on:
   workflow_dispatch:
@@ -59,6 +55,9 @@ on:
     # :29 expansão, :43 universitárias) só pra espalhar a carga no Neon.
     - cron: "51 */3 * * *"
 
+permissions:
+  contents: read
+
 concurrency:
   group: sync-publishers-cia
   cancel-in-progress: false
@@ -68,27 +67,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
 
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
       - name: Install Playwright browser (Chromium)
-        # A coleta real da Cia das Letras não usa mais Playwright (foi trocada
-        # por collect_via_categoria_json, que fala direto com a API JSON via
-        # requests). Isto fica só pra debug_categoria_paginacao=true, que
-        # inspeciona chamadas xhr/fetch com o Chromium headless.
+        # A coleta real usa a API JSON via requests. Chromium só é necessário no
+        # diagnóstico manual de paginação; não deve pesar em toda execução do cron.
+        if: ${{ (inputs.debug_categoria_paginacao || 'false') == 'true' }}
         run: playwright install --with-deps chromium
 
       - name: Sync publisher source records (grupo cia)
         run: |
-          # pipefail + status: sem isto, o `| tee` engolia o código de saída e o job
-          # ficava VERDE mesmo quando o script morria no meio (ex.: SSL caído).
           set -o pipefail
           status=0
           python scripts/init_ingestion_tables.py
@@ -114,9 +112,6 @@ jobs:
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
 
       - name: Promote new records to catalog
-        # Só promove em ingestão real (não em dry-run nem diagnose/dump). `always()`
-        # garante que promovemos o que JÁ foi coletado mesmo se uma editora falhou e
-        # o passo anterior saiu vermelho — o trabalho salvo não fica esperando.
         if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' && (inputs.debug_categoria_paginacao || 'false') != 'true' }}
         run: |
           set -o pipefail
