@@ -17,10 +17,9 @@ terraform {
       version = "~> 0.6.2"
     }
 
-    # Cloudflare ainda não existe — habilite quando migrar o domínio.
-    # cloudflare = {
-    #   source  = "cloudflare/cloudflare"
-    #   version = "~> 4.40"
-    # }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.40"
+    }
   }
 }
