@@ -24,12 +24,20 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           import textwrap
+
+
+          def replace_section(text, start_marker, end_marker, replacement):
+              start = text.index(start_marker)
+              end = text.index(end_marker, start)
+              return text[:start] + replacement + "\n\n" + text[end:]
+
 
           index = Path('index.html')
           html = index.read_text(encoding='utf-8')
-          new_home = '''      <div id="homeFeed" class="home-feed">
+          if 'id="homeFeed" class="home-feed"' not in html:
+              new_home = textwrap.dedent('''
+              <div id="homeFeed" class="home-feed">
                 <div class="hero-extra home-intro">
                   <div class="label" data-i18n="home_label">um diário de leituras</div>
                   <h1 class="h-display" data-i18n="home_title_html">o que você<br>está lendo<span class="q">?</span></h1>
@@ -47,11 +55,17 @@ jobs:
                 </section>
 
                 <section id="editorasHome" class="home-publishers" aria-live="polite"></section>
-              </div>'''
-          if 'id="homeFeed" class="home-feed"' not in html:
-              start = html.index('      <div id="homeFeed">')
-              end = html.index('\n\n    <!-- TELA: resultados de busca -->', start)
-              html = html[:start] + new_home + html[end:]
+              </div>
+              ''').strip()
+              start_marker = '<div id="homeFeed">'
+              end_marker = '<!-- TELA: resultados de busca -->'
+              start = html.index(start_marker)
+              line_start = html.rfind('\n', 0, start) + 1
+              end = html.index(end_marker, start)
+              line_end = html.rfind('\n', 0, end)
+              indent = html[line_start:start]
+              indented_home = '\n'.join(indent + line if line else '' for line in new_home.splitlines())
+              html = html[:line_start] + indented_home + '\n\n' + html[end:]
           index.write_text(html, encoding='utf-8')
 
           app = Path('static/app.js')
@@ -64,48 +78,56 @@ jobs:
                   raise SystemExit('lista de obras populares não encontrada')
               js = js.replace(old_popular, new_popular, 1)
 
-          new_reading = '''function renderLendoAgora(){
-            const lendo = prateleira.filter(l=>l.status==='Lendo');
-            const box=$('#lendoAgora');
-            const home=$('#homeFeed');
-            home?.classList.toggle('has-current-reading',lendo.length>0);
-            if(!lendo.length){ box.innerHTML=''; return; }
-            const l=lendo[0], idx=prateleira.indexOf(l);
-            box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><button type="button" class="more home-more-button" onclick="irPara('estante')">${t('see_shelf')}</button></div>${lendoAgoraCard(l,idx,false,false)}`;
-          }'''
           if "classList.toggle('has-current-reading'" not in js:
-              pattern = r"function renderLendoAgora\(\)\{.*?\n\}\n(?=\n/\* onboarding:)"
-              js, count = re.subn(pattern, new_reading + '\n', js, count=1, flags=re.S)
-              if count != 1:
-                  raise SystemExit('renderLendoAgora não encontrado')
+              new_reading = textwrap.dedent('''
+              function renderLendoAgora(){
+                const lendo = prateleira.filter(l=>l.status==='Lendo');
+                const box=$('#lendoAgora');
+                const home=$('#homeFeed');
+                home?.classList.toggle('has-current-reading',lendo.length>0);
+                if(!lendo.length){ box.innerHTML=''; return; }
+                const l=lendo[0], idx=prateleira.indexOf(l);
+                box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><button type="button" class="more home-more-button" onclick="irPara('estante')">${t('see_shelf')}</button></div>${lendoAgoraCard(l,idx,false,false)}`;
+              }
+              ''').strip()
+              js = replace_section(
+                  js,
+                  'function renderLendoAgora(){',
+                  '/* onboarding:',
+                  new_reading,
+              )
 
-          new_onboarding = '''function renderOnboarding(){
-            const box=$('#onboardingBox');
-            if(!box) return;
-            const home=$('#homeFeed');
-            const est=estadoOnboarding();
-            if(est.concluido){
-              box.innerHTML='';
-              home?.classList.remove('has-onboarding');
-              return;
-            }
-            home?.classList.add('has-onboarding');
-            const registrou=prateleira.length>0;
-            const atualizouProgresso=diarioEntradas.length>0;
-            const conheceuPerfil=!!est.perfilVisitado;
-            if(registrou&&atualizouProgresso&&conheceuPerfil){
-              salvarEstadoOnboarding({concluido:true});
-              box.innerHTML='';
-              home?.classList.remove('has-onboarding');
-              return;
-            }
-            box.innerHTML=registrou?onboardingChecklistHTML({registrou,atualizouProgresso,conheceuPerfil}):onboardingHeroHTML();
-          }'''
           if "home?.classList.add('has-onboarding')" not in js:
-              pattern = r"function renderOnboarding\(\)\{.*?\n\}\n(?=\n+function handleLinkHTML)"
-              js, count = re.subn(pattern, new_onboarding + '\n', js, count=1, flags=re.S)
-              if count != 1:
-                  raise SystemExit('renderOnboarding não encontrado')
+              new_onboarding = textwrap.dedent('''
+              function renderOnboarding(){
+                const box=$('#onboardingBox');
+                if(!box) return;
+                const home=$('#homeFeed');
+                const est=estadoOnboarding();
+                if(est.concluido){
+                  box.innerHTML='';
+                  home?.classList.remove('has-onboarding');
+                  return;
+                }
+                home?.classList.add('has-onboarding');
+                const registrou=prateleira.length>0;
+                const atualizouProgresso=diarioEntradas.length>0;
+                const conheceuPerfil=!!est.perfilVisitado;
+                if(registrou&&atualizouProgresso&&conheceuPerfil){
+                  salvarEstadoOnboarding({concluido:true});
+                  box.innerHTML='';
+                  home?.classList.remove('has-onboarding');
+                  return;
+                }
+                box.innerHTML=registrou?onboardingChecklistHTML({registrou,atualizouProgresso,conheceuPerfil}):onboardingHeroHTML();
+              }
+              ''').strip()
+              js = replace_section(
+                  js,
+                  'function renderOnboarding(){',
+                  'function handleLinkHTML',
+                  new_onboarding,
+              )
 
           app.write_text(js, encoding='utf-8')
 
