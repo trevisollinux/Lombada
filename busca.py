@@ -13,7 +13,7 @@ from fontes import (
     gbooks_buscar, ol_buscar,
     _gbooks_info, _ol_isbn,
     normalizar_isbn, _sem_acento, _query_norm, _match_norm, _relevancia, _split_q,
-    _limpa_capa_gb, _capa_ol_isbn, chave_obra_canonica,
+    _limpa_capa_gb, _capa_ol_isbn, chave_obra_canonica, _autor_sobrenome,
     EDITORAS_BR_FORTES,
 )
 
@@ -276,7 +276,12 @@ def _chave_dedup_final(q: str, doc: dict) -> str:
     titulo = doc.get("titulo", "")
     autor = doc.get("autor", "")
     if _titulo_muito_parecido_com_busca(titulo, autor, q):
-        return f"query-title:{_titulo_para_dedup_final(q)}"
+        # O atalho por título-da-busca junta a MESMA obra vinda de fontes
+        # diferentes (título grafado de outro jeito). Sem ancorar no autor, um
+        # homônimo de outro autor — 'O idiota do rebanho' (Reis) contém 'O idiota'
+        # (Dostoiévski) — cai no mesmo grupo e mistura as edições. O sobrenome
+        # canônico já funde transliterações, então mantém a fusão legítima.
+        return f"query-title:{_titulo_para_dedup_final(q)}|{_autor_sobrenome(autor)}"
     chave = (doc.get("chave_obra") or "").strip()
     if chave:
         return f"obra:{chave}"
