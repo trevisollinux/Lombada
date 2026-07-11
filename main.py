@@ -501,7 +501,7 @@ def _entrada_payload(e: BaseModel) -> dict:
     d = e.model_dump()
     for k in ["titulo", "autor", "idioma_original", "titulo_edicao", "editora", "tradutor", "isbn", "idioma", "status", "relato", "data", "work_key"]:
         if k in d:
-            d[k] = _clean_text(d.get(k), 500 if k == "relato" else 240)
+            d[k] = _clean_text(d.get(k), RELATO_MAX if k == "relato" else 240)
     if "capa_url" in d:
         d["capa_url"] = _clean_url(d.get("capa_url"), 500) if d.get("capa_url") else ""
     return d
@@ -2352,6 +2352,8 @@ class EntradaPrateleira(BaseModel):
 
 
 STATUS_LEITURA = {"Lido", "Lendo", "Quero ler"}
+# Teto do relato/crítica — precisa acompanhar o maxlength dos textareas no app.js.
+RELATO_MAX = 2000
 
 
 def _validar_entrada_leitura(e, exigir_autor: bool = True):
@@ -2463,7 +2465,7 @@ def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool 
     if leitura_existente:
         raise HTTPException(409, {"duplicado": True, "leitura_id": leitura_existente.id, "edicao_id": edicao_existente.id})
     leitura = Leitura(edicao_id=edicao.id, usuario_id=usuario_id, status=e.status,
-                      nota=e.nota, relato=e.relato.strip(), publico=bool(e.publico),
+                      nota=e.nota, relato=e.relato.strip()[:RELATO_MAX], publico=bool(e.publico),
                       spoiler=bool(e.spoiler), data=e.data.strip())
     s.add(leitura)
     rel = s.exec(select(UserEdition).where(UserEdition.usuario_id == usuario_id, UserEdition.edicao_id == edicao.id)).first()
@@ -2560,6 +2562,8 @@ def editar_leitura(leitura_id: int, patch: PatchLeitura, request: Request,
             raise HTTPException(422, "status inválido")
         if campo in {"relato", "data"} and valor is not None:
             valor = valor.strip()
+            if campo == "relato":
+                valor = valor[:RELATO_MAX]
         setattr(l, campo, valor)
     s.add(l); s.commit(); s.refresh(l)
     return {"leitura_id": l.id, "status": l.status, "nota": l.nota,
@@ -2592,6 +2596,18 @@ def _feed_tipo(l: Leitura) -> str:
     return "leitura_criada"
 
 
+def _trecho_relato(texto: str, lim: int = 220) -> str:
+    """Corta o relato para exibição em trecho terminando com reticências,
+    em vez do corte seco no meio da frase."""
+    if len(texto) <= lim:
+        return texto
+    corte = texto[:lim - 1]
+    espaco = corte.rfind(" ")
+    if espaco > lim // 2:
+        corte = corte[:espaco]
+    return corte.rstrip(" ,;:.!?-–—") + "…"
+
+
 def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuario, atual: Usuario | None, trecho: bool = True) -> dict:
     relato = (l.relato or "").strip()
     atual_id = atual.id if atual else None
@@ -2606,7 +2622,7 @@ def _feed_review_item(s: Session, l: Leitura, ed: Edicao, o: Obra, autor: Usuari
         "edicao": {"editora": ed.editora, "tradutor": ed.tradutor, "ano": ed.ano},
         "leitura": {
             "leitura_id": l.id, "status": l.status, "nota": l.nota, "publico": bool(l.publico),
-            "is_demo": bool(getattr(l, "is_demo", False)), "spoiler": bool(l.spoiler), "relato": (relato[:220] if trecho else relato),
+            "is_demo": bool(getattr(l, "is_demo", False)), "spoiler": bool(l.spoiler), "relato": (_trecho_relato(relato) if trecho else relato),
             **(_review_state(s, l.id, atual_id) if l.publico and relato else {"likes_count": 0, "liked_by_me": False, "saved_by_me": False, "reported_by_me": False, "comments_count": 0}),
         },
         "created_at": l.criado_em.isoformat(),

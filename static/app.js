@@ -2364,7 +2364,7 @@ function escolherEdicao(j,event){
     <div class="card-form reading-form simple-reading-form">
       <section class="reading-form-block selected-edition-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
       <section class="reading-form-block reading-status-block"><div class="label">${t('your_reading')}</div><div class="field status-field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="reading-secondary-fields"><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div><div class="field rating-field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></div></section>
-      <section class="reading-form-block reading-text-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="160" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
+      <section class="reading-form-block reading-text-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="2000" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
       <section class="reading-form-block reading-options-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><p class="form-helper option-helper">${t('private_shelf_hint')}</p><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
       <section class="reading-form-block edition-relation-block light-options"><div class="label">${t('relation_with_edition')}</div><p class="form-helper option-helper">${t('edition_relation_hint')}</p><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('have_this_edition_full')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('want_this_edition_full')}</span></label></section>
       <button class="btn-primary reading-submit" type="button" onclick="salvar(event)">${t('save_to_shelf')}</button>
@@ -2556,7 +2556,7 @@ function abrirManual(event){
         <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
         <div class="field"><label class="label">${t('date')}</label><input type="text" id="m_data" placeholder="${t('date_placeholder')}" /></div></div>
         <div class="field"><label class="label">${t('rating')}</label><div class="stars" id="m_stars"></div></div>
-        <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="160"></textarea></div>
+        <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="2000"></textarea></div>
       </div>
       <button class="btn-primary" type="button" onclick="salvarManual(event)">${t('submit_for_review')}</button>
     </div>`;
@@ -3657,7 +3657,7 @@ function cardSharePayload(){
   const raw=isDiary?(src.nota||''):(isReview?(l.relato||''):'');
   const spoiler=!!(isDiary?src.spoiler:l.spoiler);
   const type=isDiary?'diario':(isReview?'critica':'leitura');
-  return {type, excerpt:cardIncludeExcerpt?trechoTexto(raw,isDiary?180:220):'', hasText:!!raw.trim(), spoiler, spoilerLabel:t(isDiary?'diary_with_spoiler':'review_with_spoiler'), progress:isDiary?progressoDiarioCard(src):'', shareKey:isDiary?'share_diary_text':(isReview?'share_review_text':'share_reading_text')};
+  return {type, excerpt:cardIncludeExcerpt?trechoTexto(raw,isDiary?420:480):'', hasText:!!raw.trim(), spoiler, spoilerLabel:t(isDiary?'diary_with_spoiler':'review_with_spoiler'), progress:isDiary?progressoDiarioCard(src):'', shareKey:isDiary?'share_diary_text':(isReview?'share_review_text':'share_reading_text')};
 }
 function setCardTheme(v){ cardTheme=['auto','light','dark'].includes(v)?v:'auto'; localStorage.setItem(CARD_THEME_KEY,cardTheme); updateShareCardPreview(cardAtual); }
 function setCardIncludeExcerpt(v){ cardIncludeExcerpt=!!v; updateShareCardPreview(cardAtual); }
@@ -3794,9 +3794,22 @@ function drawStars(ctx,x,y,nota,r,gap,color){
     if(f>0){if(f<1){ctx.clip(p);ctx.fillStyle=color;ctx.fillRect(cx-r,y-r,r*2*f,r*2);}else{ctx.fillStyle=color;ctx.fill(p);}}ctx.restore();}
 }
 function wrapLeft(ctx,text,x,y,maxW,lh,maxL){
-  const words=(text||'').split(' ');let line='';const lines=[];
-  for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;if(lines.length===maxL-1)break;}else line=t;}
-  if(line)lines.push(line);const out=lines.slice(0,maxL);
+  const words=(text||'').split(' ').filter(Boolean);let line='';const lines=[];let truncado=false;
+  for(const w of words){
+    const teste=line?line+' '+w:w;
+    if(line&&ctx.measureText(teste).width>maxW){
+      if(lines.length===maxL-1){truncado=true;break;}
+      lines.push(line);line=w;
+    }else line=teste;
+  }
+  if(line&&!truncado)lines.push(line);
+  else if(line&&truncado&&lines.length<maxL)lines.push(line);
+  if(truncado&&lines.length){
+    let ultima=lines[lines.length-1].replace(/[\s.,;:!?…–—-]+$/,'');
+    while(ultima&&ctx.measureText(ultima+'…').width>maxW)ultima=ultima.slice(0,-1).trimEnd();
+    lines[lines.length-1]=(ultima||'')+'…';
+  }
+  const out=lines.length?lines:[''];
   out.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lh));return y+(out.length-1)*lh;
 }
 function wrapCenter(ctx,text,cx,cy,maxW,lh,maxL){
@@ -3808,13 +3821,20 @@ function wrapCenter(ctx,text,cx,cy,maxW,lh,maxL){
 
 function drawCanvasTextLines(ctx,text,x,y,maxW,lh,maxL,align='left'){
   const words=(text||'').toString().trim().split(/\s+/).filter(Boolean);
-  const lines=[];let line='';
-  for(const word of words.length?words:['']){
+  const lines=[];let line='';let truncado=false;
+  for(const word of words){
     const test=line?line+' '+word:word;
-    if(ctx.measureText(test).width>maxW && line){lines.push(line);line=word;if(lines.length>=maxL-1)break;}
-    else line=test;
+    if(line&&ctx.measureText(test).width>maxW){
+      if(lines.length===maxL-1){truncado=true;break;}
+      lines.push(line);line=word;
+    }else line=test;
   }
-  if(line && lines.length<maxL)lines.push(line);
+  if(line&&lines.length<maxL)lines.push(line);
+  if(truncado&&lines.length){
+    let ultima=lines[lines.length-1].replace(/[\s.,;:!?…–—-]+$/,'');
+    while(ultima&&ctx.measureText(ultima+'…').width>maxW)ultima=ultima.slice(0,-1).trimEnd();
+    lines[lines.length-1]=(ultima||'')+'…';
+  }
   const out=lines.length?lines:[''];
   ctx.textAlign=align;
   out.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lh));
@@ -3984,7 +4004,14 @@ function drawShareCardText(ctx,l,W,H,cy,ch){
   let y=drawBookInfo(ctx,l,W,H,cy,ch)+86;
   if(payload.progress){ctx.fillStyle=p.muted;ctx.font="400 36px 'Space Mono', monospace";wrapLeft(ctx,payload.progress,110,y,W-220,46,1);y+=62;}
   else {drawShareStars(ctx,l,y);y+=110;}
-  if(payload.excerpt){ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,56,(reviewCardActive()||diaryCardActive())?2:3);}
+  if(payload.excerpt){
+    // Usa o espaço vertical livre até o rodapé em vez de um teto fixo de linhas:
+    // o card de crítica tem capa menor e comportava muito mais texto do que mostrava.
+    const lh=56, limiteRodape=H-210;
+    const maxLinhas=Math.min(8,Math.max(1,Math.floor((limiteRodape-y)/lh)+1));
+    ctx.fillStyle=p.text;ctx.font="italic 44px Spectral, serif";
+    wrapLeft(ctx,'"'+payload.excerpt+'"',110,y,W-220,lh,maxLinhas);
+  }
   else if(payload.spoiler&&payload.hasText){ctx.fillStyle=p.muted;ctx.font="italic 42px Spectral, serif";wrapLeft(ctx,payload.spoilerLabel,110,y,W-220,54,2);}
   drawFooter(ctx,l,W,H);
 }
@@ -4086,7 +4113,7 @@ function abrirEditar(){
         <input type="text" id="e_data" value="${esc(l.data)}" placeholder="${t('date_placeholder')}" /></div>
     </div>
     <div class="field"><label class="label" id="e_relato_label">${t('reading_note')}</label>
-      <textarea id="e_relato" maxlength="160">${esc(l.relato)}</textarea></div>
+      <textarea id="e_relato" maxlength="2000">${esc(l.relato)}</textarea></div>
     <div class="visibility-box"><div class="label">${t('visibility')}</div>
       <label class="check-line"><input type="checkbox" id="e_publico" ${l.publico?'checked':''}> <span id="e_publico_label">${t('make_review_public')}</span></label>
       <p class="muted">${t('public_text_hint')}</p>
