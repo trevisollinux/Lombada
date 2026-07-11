@@ -2177,3 +2177,32 @@ body.theme-dark .view-toggle-btn.active{background:var(--paper-2);border-color:v
 /* compartilhar: só o símbolo dos três pontos conectados */
 #shelfShareButton.btn-share-icon{width:42px;height:42px;min-height:42px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;flex:0 0 auto}
 #shelfShareButton.btn-share-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* status de leitura personalizados (perfil → configurações) */
+.custom-status-list{list-style:none;margin:10px 0 12px;padding:0;display:grid;gap:6px}
+.custom-status-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--rule);background:var(--paper);padding:8px 10px}
+.custom-status-item small{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.custom-status-form{display:flex;gap:8px;align-items:stretch}
+.custom-status-form input{flex:1;min-width:0}
+.custom-status-form .pbtn{flex:0 0 auto}
+
+/* área de escritores: textos livres */
+.textos-box .pbtn.solid{margin-bottom:6px}
+.textos-lista{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}
+.texto-item{border:1px solid var(--rule);background:var(--paper);padding:12px 14px;display:grid;gap:4px}
+.texto-titulo{background:transparent;border:0;padding:0;text-align:left;color:var(--ink);font-family:"Fraunces",serif;font-style:italic;font-size:19px;line-height:1.25;cursor:pointer}
+.texto-titulo:hover{text-decoration:underline;text-underline-offset:3px}
+.texto-item small{color:var(--muted)}
+.texto-acoes{display:flex;gap:14px;margin-top:2px}
+.texto-editor .field{margin-bottom:14px}
+.texto-editor textarea{min-height:40vh;line-height:1.55}
+.texto-editor .btn-primary{margin-top:12px;width:100%}
+.texto-leitura h2{font-family:"Fraunces",serif;font-style:italic;font-weight:500;font-size:28px;margin:6px 0 4px}
+.texto-meta{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.texto-corpo{margin-top:14px}
+.texto-corpo p{margin:0 0 12px;line-height:1.65;color:var(--ink-2);font-family:"Spectral",serif;font-size:16px}
+.feed-card-texto,#feed .feed-card.feed-card-texto{grid-template-columns:1fr}
+.feed-card-texto .feed-quote{margin-top:6px}
+.feed-text-more{margin-top:6px;align-self:start}
+.reader-texto .texto-titulo{font-size:16px}
+.modal-card.texto-mode .modal-actions{display:none}

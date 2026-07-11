@@ -30,12 +30,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
-from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ProfileReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, get_session, migrar
+from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ProfileReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, UserReadingStatus, TextoUsuario, get_session, migrar
 from auth import usuario_sessao, router as auth_router
 from api_publica import router as public_api_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
 from busca import _cache_get, _cache_set, buscar_titulo_v2, ol_buscar, _edicao_por_isbn, consolidar_resultados_busca_final
-from publica import render_estante_publica, _leituras_de, _pagina, _esc, resumo_perfil_publico
+from publica import render_estante_publica, render_texto_publico, _leituras_de, _pagina, _esc, resumo_perfil_publico
 from editoras import listar_editoras, dados_editora, render_pagina_editora, render_indice_editoras
 from landing import (render_landing, render_quem_somos, render_blog_index,
                      render_blog_post, render_privacidade, render_api_docs)
@@ -2354,9 +2354,26 @@ class EntradaPrateleira(BaseModel):
 STATUS_LEITURA = {"Lido", "Lendo", "Quero ler"}
 # Teto do relato/crítica — precisa acompanhar o maxlength dos textareas no app.js.
 RELATO_MAX = 2000
+# Status personalizados por usuário: limites de quantidade e de nome.
+STATUS_CUSTOM_MAX = 12
+STATUS_NOME_MAX = 30
 
 
-def _validar_entrada_leitura(e, exigir_autor: bool = True):
+def _status_customizados(s: Session, usuario_id) -> list[UserReadingStatus]:
+    if not usuario_id:
+        return []
+    return list(s.exec(
+        select(UserReadingStatus)
+        .where(UserReadingStatus.usuario_id == usuario_id)
+        .order_by(UserReadingStatus.criado_em)
+    ).all())
+
+
+def _status_validos(s: Session, usuario_id) -> set[str]:
+    return STATUS_LEITURA | {st.nome for st in _status_customizados(s, usuario_id)}
+
+
+def _validar_entrada_leitura(e, exigir_autor: bool = True, status_validos: set[str] | None = None):
     if not e.titulo.strip():
         raise HTTPException(422, "título é obrigatório")
     # Livros vindos do catálogo podem estar sem autor (ex.: Editora 34, cujo scraper
@@ -2364,7 +2381,7 @@ def _validar_entrada_leitura(e, exigir_autor: bool = True):
     # disso. O cadastro manual continua exigindo autor (pelo próprio formulário).
     if exigir_autor and not e.autor.strip():
         raise HTTPException(422, "título e autor são obrigatórios")
-    if e.status not in STATUS_LEITURA:
+    if e.status not in (status_validos or STATUS_LEITURA):
         raise HTTPException(422, "status inválido")
 
 
@@ -2437,7 +2454,7 @@ def _buscar_leitura_duplicada(usuario_id: int, e, obra: Obra, edicao: Edicao, s:
 
 def _criar_leitura(e, usuario_id: int, s: Session, reutilizar_obra_manual: bool = False):
     # Registro a partir do catálogo: autor pode faltar na edição, então não exigimos.
-    _validar_entrada_leitura(e, exigir_autor=False)
+    _validar_entrada_leitura(e, exigir_autor=False, status_validos=_status_validos(s, usuario_id))
     obra = None
     if e.work_key:
         obra = s.exec(select(Obra).where(Obra.ol_work_key == e.work_key)).first()
@@ -2507,7 +2524,7 @@ class EntradaManual(EntradaPrateleira):
 @app.post("/api/manual")
 def adicionar_manual(e: EntradaManual, request: Request, s: Session = Depends(get_session)):
     u = usuario_sessao(request, s)
-    _validar_entrada_leitura(e)
+    _validar_entrada_leitura(e, status_validos=_status_validos(s, u.id))
     sug = _criar_sugestao(e, u, s, tipo="new_book")
     return {"suggestion_id": sug.id, "status": sug.status, "message": "Cadastro enviado para revisão. Se aprovado, aparecerá na Lombada."}
 
@@ -2557,8 +2574,9 @@ def editar_leitura(leitura_id: int, patch: PatchLeitura, request: Request,
     l = s.get(Leitura, leitura_id)
     if not l or l.usuario_id != u.id:
         raise HTTPException(404, "leitura não encontrada")
+    status_ok = _status_validos(s, u.id)
     for campo, valor in patch.model_dump(exclude_unset=True).items():
-        if campo == "status" and valor not in STATUS_LEITURA:
+        if campo == "status" and valor not in status_ok:
             raise HTTPException(422, "status inválido")
         if campo in {"relato", "data"} and valor is not None:
             valor = valor.strip()
@@ -2581,6 +2599,194 @@ def remover_leitura(leitura_id: int, request: Request, s: Session = Depends(get_
     s.delete(l); s.commit()
     return {"ok": True}
 
+
+# ─── status de leitura personalizados ─────────────────────
+class NovoStatusLeitura(BaseModel):
+    nome: str = ""
+
+
+@app.get("/api/eu/status")
+def listar_status_leitura(request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    return {"padrao": ["Lido", "Lendo", "Quero ler"],
+            "custom": [{"id": st.id, "nome": st.nome} for st in _status_customizados(s, u.id)]}
+
+
+@app.post("/api/eu/status")
+def criar_status_leitura(body: NovoStatusLeitura, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    nome = " ".join((body.nome or "").split())[:STATUS_NOME_MAX].strip()
+    if not nome:
+        raise HTTPException(422, "nome do status é obrigatório")
+    existentes = _status_customizados(s, u.id)
+    if len(existentes) >= STATUS_CUSTOM_MAX:
+        raise HTTPException(422, "limite de status personalizados atingido")
+    # "Todos" é palavra reservada do filtro da estante.
+    reservados = {x.casefold() for x in STATUS_LEITURA} | {st.nome.casefold() for st in existentes} | {"todos"}
+    if nome.casefold() in reservados:
+        raise HTTPException(409, "esse status já existe")
+    st = UserReadingStatus(usuario_id=u.id, nome=nome)
+    s.add(st); s.commit(); s.refresh(st)
+    return {"id": st.id, "nome": st.nome}
+
+
+@app.delete("/api/eu/status/{status_id}")
+def remover_status_leitura(status_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    st = s.get(UserReadingStatus, status_id)
+    if not st or st.usuario_id != u.id:
+        raise HTTPException(404, "status não encontrado")
+    em_uso = s.exec(
+        select(func.count()).select_from(Leitura)
+        .where(Leitura.usuario_id == u.id, Leitura.status == st.nome)
+    ).one()
+    if em_uso:
+        raise HTTPException(409, {"em_uso": int(em_uso), "detail": "status em uso por leituras da estante"})
+    s.delete(st); s.commit()
+    return {"ok": True}
+
+
+# ─── área de escritores: textos livres ────────────────────
+TEXTO_TITULO_MAX = 160
+TEXTO_CONTEUDO_MAX = 20000
+
+
+class EntradaTexto(BaseModel):
+    titulo:   str           = ""
+    conteudo: str           = ""
+    work_key: Optional[str] = None
+    publico:  bool          = True
+
+
+class PatchTexto(BaseModel):
+    titulo:   Optional[str]  = None
+    conteudo: Optional[str]  = None
+    work_key: Optional[str]  = None
+    publico:  Optional[bool] = None
+
+
+def _obra_do_texto(s: Session, work_key) -> Obra | None:
+    if not (work_key or "").strip():
+        return None
+    obra = s.exec(select(Obra).where(Obra.ol_work_key == work_key.strip())).first()
+    if not obra:
+        raise HTTPException(422, "obra não encontrada")
+    return obra
+
+
+def _texto_payload(s: Session, tx: TextoUsuario, autor: Usuario | None = None, trecho: bool = False) -> dict:
+    obra = s.get(Obra, tx.obra_id) if tx.obra_id else None
+    d = {
+        "texto_id": tx.id, "titulo": tx.titulo,
+        "conteudo": _trecho_relato(tx.conteudo, 280) if trecho else tx.conteudo,
+        "trecho": bool(trecho), "publico": bool(tx.publico),
+        "criado_em": tx.criado_em.isoformat(),
+        "obra": ({"titulo": obra.titulo, "autor": obra.autor, "work_key": obra.ol_work_key} if obra else None),
+    }
+    if autor is not None:
+        d["usuario"] = {"handle": autor.handle, "nome": autor.nome,
+                        "avatar_url": getattr(autor, "avatar_url", "") or "",
+                        "is_demo": bool(getattr(autor, "is_demo", False))}
+    return d
+
+
+def _validar_corpo_texto(titulo, conteudo) -> tuple[str, str]:
+    titulo = " ".join((titulo or "").split())[:TEXTO_TITULO_MAX].strip()
+    conteudo = (conteudo or "").strip()[:TEXTO_CONTEUDO_MAX]
+    if not titulo or not conteudo:
+        raise HTTPException(422, "título e conteúdo são obrigatórios")
+    return titulo, conteudo
+
+
+@app.get("/api/eu/textos")
+def meus_textos(request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    rows = s.exec(
+        select(TextoUsuario).where(TextoUsuario.usuario_id == u.id)
+        .order_by(TextoUsuario.criado_em.desc())
+    ).all()
+    return [_texto_payload(s, tx) for tx in rows]
+
+
+@app.post("/api/eu/textos")
+def criar_texto(body: EntradaTexto, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    titulo, conteudo = _validar_corpo_texto(body.titulo, body.conteudo)
+    obra = _obra_do_texto(s, body.work_key)
+    tx = TextoUsuario(usuario_id=u.id, obra_id=obra.id if obra else None,
+                      titulo=titulo, conteudo=conteudo, publico=bool(body.publico))
+    s.add(tx); s.commit(); s.refresh(tx)
+    return _texto_payload(s, tx)
+
+
+@app.patch("/api/eu/textos/{texto_id}")
+def editar_texto(texto_id: int, patch: PatchTexto, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    tx = s.get(TextoUsuario, texto_id)
+    if not tx or tx.usuario_id != u.id:
+        raise HTTPException(404, "texto não encontrado")
+    dados = patch.model_dump(exclude_unset=True)
+    if "titulo" in dados or "conteudo" in dados:
+        titulo, conteudo = _validar_corpo_texto(
+            dados.get("titulo", tx.titulo), dados.get("conteudo", tx.conteudo))
+        tx.titulo, tx.conteudo = titulo, conteudo
+    if "work_key" in dados:
+        obra = _obra_do_texto(s, dados.get("work_key"))
+        tx.obra_id = obra.id if obra else None
+    if dados.get("publico") is not None:
+        tx.publico = bool(dados["publico"])
+    tx.atualizado_em = datetime.utcnow()
+    s.add(tx); s.commit(); s.refresh(tx)
+    return _texto_payload(s, tx)
+
+
+@app.delete("/api/eu/textos/{texto_id}")
+def remover_texto(texto_id: int, request: Request, s: Session = Depends(get_session)):
+    u = usuario_sessao(request, s)
+    tx = s.get(TextoUsuario, texto_id)
+    if not tx or tx.usuario_id != u.id:
+        raise HTTPException(404, "texto não encontrado")
+    s.delete(tx); s.commit()
+    return {"ok": True}
+
+
+@app.get("/api/textos/{texto_id}")
+def ver_texto(texto_id: int, request: Request, s: Session = Depends(get_session)):
+    tx = s.get(TextoUsuario, texto_id)
+    atual = usuario_sessao(request, s)
+    if not tx or (not tx.publico and tx.usuario_id != atual.id):
+        raise HTTPException(404, "texto não encontrado")
+    autor = s.get(Usuario, tx.usuario_id)
+    return _texto_payload(s, tx, autor=autor)
+
+
+@app.get("/api/u/{handle}/textos")
+def textos_publicos_de(handle: str, request: Request, s: Session = Depends(get_session)):
+    u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    if not u:
+        raise HTTPException(404, "perfil não encontrado")
+    rows = s.exec(
+        select(TextoUsuario)
+        .where(TextoUsuario.usuario_id == u.id, TextoUsuario.publico == True)
+        .order_by(TextoUsuario.criado_em.desc())
+        .limit(50)
+    ).all()
+    return [_texto_payload(s, tx, trecho=True) for tx in rows]
+
+
+def _feed_texto_item(s: Session, tx: TextoUsuario, autor: Usuario, atual: Usuario | None) -> dict:
+    atual_id = atual.id if atual else None
+    return {
+        "tipo": "wrote_text",
+        "usuario": {
+            "handle": autor.handle, "nome": autor.nome, "avatar_url": getattr(autor, "avatar_url", "") or "",
+            "is_demo": bool(getattr(autor, "is_demo", False)),
+            "is_following": _is_following(s, atual_id, autor.id),
+            "is_me": bool(atual_id and atual_id == autor.id),
+        },
+        "texto": _texto_payload(s, tx, trecho=True),
+        "created_at": tx.criado_em.isoformat(),
+    }
 
 
 def _feed_tipo(l: Leitura) -> str:
@@ -2645,6 +2851,15 @@ def feed(request: Request, s: Session = Depends(get_session), limit: int = Query
         .limit(limit)
     ).all()
     items = [_feed_review_item(s, l, ed, o, autor, u) for l, ed, o, autor in rows]
+    textos = s.exec(
+        select(TextoUsuario, Usuario)
+        .join(Usuario, TextoUsuario.usuario_id == Usuario.id)
+        .where(TextoUsuario.usuario_id.in_(following_ids), TextoUsuario.publico == True)
+        .order_by(TextoUsuario.criado_em.desc())
+        .limit(limit)
+    ).all()
+    items += [_feed_texto_item(s, tx, autor, u) for tx, autor in textos]
+    items = sorted(items, key=lambda i: i.get("created_at") or "", reverse=True)[:limit]
     return {"following_count": len(following_ids), "items": items}
 
 
@@ -2665,6 +2880,16 @@ def feed_discover(request: Request, s: Session = Depends(get_session), limit: in
     if rows_reais:
         rows = rows_reais
     reviews = [_feed_review_item(s, l, ed, o, autor, atual, trecho=False) for l, ed, o, autor in rows if (l.relato or "").strip()]
+    textos = s.exec(
+        select(TextoUsuario, Usuario)
+        .join(Usuario, TextoUsuario.usuario_id == Usuario.id)
+        .where(TextoUsuario.publico == True)
+        .order_by(TextoUsuario.criado_em.desc())
+        .limit(10)
+    ).all()
+    reviews += [_feed_texto_item(s, tx, autor, atual) for tx, autor in textos
+                if not (atual.id and tx.usuario_id == atual.id)]
+    reviews = sorted(reviews, key=lambda i: i.get("created_at") or "", reverse=True)[:limit]
 
     active_rows = s.exec(
         select(Usuario, func.count(Leitura.id).label("reviews_count"))
@@ -2748,7 +2973,11 @@ def estante_json(handle: str, request: Request, s: Session = Depends(get_session
         if l.get("publico") and (l.get("relato") or "").strip():
             l.update(_review_state(s, l.get("leitura_id"), atual.id))
     perfil = resumo_perfil_publico(leituras)
-    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "avatar_url": getattr(u, "avatar_url", "") or "", "is_demo": bool(getattr(u, "is_demo", False)), "leituras": leituras, **perfil, **_profile_social_payload(s, u, atual)}
+    textos = [_texto_payload(s, tx, trecho=True) for tx in s.exec(
+        select(TextoUsuario).where(TextoUsuario.usuario_id == u.id, TextoUsuario.publico == True)
+        .order_by(TextoUsuario.criado_em.desc()).limit(20)
+    ).all()]
+    return {"handle": u.handle, "nome": u.nome, "bio": getattr(u, "bio", ""), "avatar_url": getattr(u, "avatar_url", "") or "", "is_demo": bool(getattr(u, "is_demo", False)), "leituras": leituras, "textos": textos, **perfil, **_profile_social_payload(s, u, atual)}
 
 
 @app.post("/api/u/{handle}/follow")
@@ -2895,7 +3124,26 @@ def estante_publica(handle: str, request: Request, s: Session = Depends(get_sess
         )
         return HTMLResponse(_pagina("estante não encontrada · Lombada", corpo), status_code=404)
     atual = usuario_sessao(request, s)
-    return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id), _profile_social_payload(s, u, atual)))
+    textos = [_texto_payload(s, tx, trecho=True) for tx in s.exec(
+        select(TextoUsuario).where(TextoUsuario.usuario_id == u.id, TextoUsuario.publico == True)
+        .order_by(TextoUsuario.criado_em.desc()).limit(8)
+    ).all()]
+    return HTMLResponse(render_estante_publica(u, _leituras_de(s, u.id), _profile_social_payload(s, u, atual), textos=textos))
+
+
+@app.get("/u/{handle}/texto/{texto_id}")
+def texto_publico(handle: str, texto_id: int, request: Request, s: Session = Depends(get_session)):
+    u = s.exec(select(Usuario).where(Usuario.handle == handle.lower().strip())).first()
+    tx = s.get(TextoUsuario, texto_id) if u else None
+    atual = usuario_sessao(request, s)
+    if not u or not tx or tx.usuario_id != u.id or (not tx.publico and tx.usuario_id != atual.id):
+        corpo = (
+            '<div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+            '<div class="empty">esse texto não existe (ou o link veio torto).</div>'
+            '<a class="cta" href="/">conhecer a Lombada →</a>'
+        )
+        return HTMLResponse(_pagina("texto não encontrado · Lombada", corpo), status_code=404)
+    return HTMLResponse(render_texto_publico(u, _texto_payload(s, tx)))
 
 
 # ─── páginas das editoras ─────────────────────────────────

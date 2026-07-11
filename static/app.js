@@ -54,6 +54,7 @@ const SUGESTOES = [
 let meuHandle='', minhaConta={logado:false,provedor:'anonimo'}, escolha=null, edicaoSel=null, notaSel=0;
 let appConfig={};
 let resultadosArr=[], obrasAgrupadas=[], edicoesAtual=[], obraSocial=null, prateleira=[], diarioEntradas=[], cardAtual=null, notaEdit=0, diarioEditId=null, ultimaBuscaQ='';
+let meusStatus=[], meusTextos=[], meusTextosCarregados=false;
 let editorasHome=[], editorasBusca=[], filtroEditoraBusca='', filtroGeneroBusca='', filtroLiteraturaBusca='', editorasBuscaCarregadas=false;
 const GENEROS_BUSCA=['romance','conto','poesia','teatro','ensaio','biografia','autobiografia','história','filosofia','crítica literária','fantasia','ficção científica','terror','policial','infantil','juvenil','crônica','quadrinhos'];
 /* lista canônica inicial de literaturas/origens (espelha /api/literaturas) */
@@ -239,6 +240,41 @@ function statusLabel(status){
   if(status==='Quero ler') return t('status_want');
   if(status==='Todos') return t('filter_all');
   return status;
+}
+function statusNativos(){ return ['Lido','Lendo','Quero ler']; }
+function opcoesStatusHTML(sel){
+  const todos=[...statusNativos(),...meusStatus.map(st=>st.nome)];
+  // leitura pode carregar um status custom já removido: mantém a opção pra não trocar por engano
+  if(sel && !todos.includes(sel)) todos.push(sel);
+  return todos.map(v=>`<option value="${esc(v)}"${sel===v?' selected':''}>${esc(statusLabel(v))}</option>`).join('');
+}
+async function carregarMeusStatus(){
+  try{ const d=await(await fetch('/api/eu/status')).json(); meusStatus=Array.isArray(d.custom)?d.custom:[]; }catch(e){}
+}
+async function criarStatusPersonalizado(event){
+  event?.preventDefault?.();
+  const input=$('#novoStatusInput');
+  const nome=(input?.value||'').trim();
+  if(!nome) return false;
+  try{
+    const r=await fetch('/api/eu/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome})});
+    if(r.status===409){ toast(t('custom_status_exists')); return false; }
+    if(!r.ok){ const body=await r.json().catch(()=>({})); toast(body.detail||t('custom_status_error')); return false; }
+    await carregarMeusStatus();
+    toast(t('custom_status_created'));
+    renderPerfil(); alternarConfigPerfil(true); renderPrateleira();
+  }catch(e){ toast(t('custom_status_error')); }
+  return false;
+}
+async function removerStatusPersonalizado(id){
+  try{
+    const r=await fetch('/api/eu/status/'+id,{method:'DELETE'});
+    if(r.status===409){ toast(t('custom_status_in_use')); return; }
+    if(!r.ok) throw new Error(''+r.status);
+    await carregarMeusStatus();
+    toast(t('custom_status_removed'));
+    renderPerfil(); alternarConfigPerfil(true); renderPrateleira();
+  }catch(e){ toast(t('custom_status_error')); }
 }
 aplicarTema(temaInicial());
 
@@ -670,6 +706,7 @@ function modalAberto(){
 }
 function fecharModalDireto(){
   $('#modal')?.classList.remove('open');
+  $('#modal .modal-card')?.classList.remove('texto-mode');
   const editPanel=$('#editPanel');
   if(editPanel) editPanel.style.display='none';
   if(cardOpener && typeof cardOpener.focus==='function'){ try{ cardOpener.focus(); }catch(e){} }
@@ -1414,6 +1451,18 @@ function renderFeed(){
   if(feedTab==='discover' && !feedItems.length && !discoverReaders.length){ box.innerHTML=tabs+intro+stories+`<div class="empty-rich"><p>${t('feed_empty_no_activity')}</p></div>`; return; }
   const reviewCards=feedItems.map((it,i)=>{
     const u=it.usuario||{}, livro=it.livro||{}, l=it.leitura||{};
+    if(it.tipo==='wrote_text'&&it.texto){
+      const tx=it.texto;
+      const metaTexto=[tx.obra?`${t('text_about')} ${tx.obra.titulo}`:'',dataFeed(it.created_at)].filter(Boolean).join(' · ');
+      return `<article class="feed-card feed-card-texto">
+      <div class="feed-copy">
+        <div class="feed-card-top">${pessoaHTML(u,t('wrote_text'))}${feedTab==='following'?'':followButtonHTML(u)}</div>
+        <div class="feed-title-row"><button class="feed-title work-title-link" type="button" data-id="${tx.texto_id}" onclick="abrirTexto(this.dataset.id)">${esc(tx.titulo)}</button></div>
+        ${metaTexto?`<div class="feed-meta">${esc(metaTexto)}</div>`:''}
+        <div class="feed-quote">${esc(tx.conteudo)}</div>
+        <button type="button" class="link-btn subtle feed-text-more" data-id="${tx.texto_id}" onclick="abrirTexto(this.dataset.id)">${t('text_read_more')}</button>
+      </div></article>`;
+    }
     const edition=[it.edicao?.editora,it.edicao?.tradutor,it.edicao?.ano].filter(Boolean).join(' · ');
     const meta=[livro.autor,edition,dataFeed(it.created_at)].filter(Boolean).join(' · ');
     const spoiler=l.publico&&l.spoiler;
@@ -1560,6 +1609,7 @@ function renderLeitor(){
     ${lendo.length?`<div class="label reader-sec">${t('reading_now')}</div><div class="reader-shelf">${covers(lendo,'lendo_agora')}</div>`:''}
     ${ultimas.length?`<div class="label reader-sec">${t('reader_last_readings')}</div><div class="reader-shelf">${covers(ultimas,'ultimas_leituras')}</div>`:''}
     ${criticas.length?`<div class="label reader-sec">${t('reader_public_reviews')}</div>${criticas.map(c=>`<div class="reader-review"><b>${esc(c.titulo)}</b>${c.nota?` <span class="feed-stars">${estrelasStr(c.nota)}</span>`:''}${(c.relato||'').trim()&&!c.spoiler?`<p>“${esc(trechoTexto(c.relato,180))}”</p>`:''}</div>`).join('')}`:''}
+    ${(d.textos||[]).length?`<div class="label reader-sec">${t('reader_texts')}</div>${(d.textos||[]).slice(0,3).map(tx=>`<div class="reader-review reader-texto"><button type="button" class="texto-titulo" data-id="${tx.texto_id}" onclick="abrirTexto(this.dataset.id)"><b>${esc(tx.titulo)}</b></button><p>${esc(tx.conteudo)}</p></div>`).join('')}`:''}
     ${d.is_me?'':`<button type="button" class="report-profile-link" onclick="denunciarPerfil('${esc(d.handle).replace(/'/g,"\\'")}')">${t('report_profile')}</button>`}`;
 }
 
@@ -2363,7 +2413,7 @@ function escolherEdicao(j,event){
     <div class="section-head"><h2 class="h-section">${t('register_reading')}</h2></div>
     <div class="card-form reading-form simple-reading-form">
       <section class="reading-form-block selected-edition-block"><div class="label">${t('selected_edition')}</div>${edicaoHTML}<button class="link-btn subtle" type="button" onclick="sugerirCorrecaoCatalogo()">${t('suggest_correction')}</button></section>
-      <section class="reading-form-block reading-status-block"><div class="label">${t('your_reading')}</div><div class="field status-field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div><div class="reading-secondary-fields"><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div><div class="field rating-field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></div></section>
+      <section class="reading-form-block reading-status-block"><div class="label">${t('your_reading')}</div><div class="field status-field"><label class="label">${t('status')}</label><select id="f_status" onchange="atualizarFormularioLeituraPorStatus('f')">${opcoesStatusHTML('Lido')}</select></div><div class="reading-secondary-fields"><div class="field"><label class="label">${t('when')}</label><input type="text" id="f_data" placeholder="${t('date_placeholder')}" /></div><div class="field rating-field" data-rating-field="f"><label class="label">${t('your_rating')}</label><div class="stars" id="f_stars"></div></div></div></section>
       <section class="reading-form-block reading-text-block"><div class="field review-field"><label class="label" id="f_relato_label">${t('your_review')}</label><textarea id="f_relato" maxlength="2000" placeholder="${t('your_review_placeholder')}"></textarea></div></section>
       <section class="reading-form-block reading-options-block light-options"><div class="label">${t('options')}</div><label class="check-line"><input type="checkbox" id="f_publico"> <span id="f_publico_label">${t('show_on_public_profile')}</span></label><p class="form-helper option-helper">${t('private_shelf_hint')}</p><label class="check-line"><input type="checkbox" id="f_spoiler"> <span>${t('contains_spoiler')}</span></label></section>
       <section class="reading-form-block edition-relation-block light-options"><div class="label">${t('relation_with_edition')}</div><p class="form-helper option-helper">${t('edition_relation_hint')}</p><label class="check-line"><input type="checkbox" id="f_tenho" ${estado.tenho?'checked':''}> <span>${t('have_this_edition_full')}</span></label><label class="check-line"><input type="checkbox" id="f_quero" ${estado.quero?'checked':''}> <span>${t('want_this_edition_full')}</span></label></section>
@@ -2403,9 +2453,18 @@ function copyRelatoPorStatus(status){
     };
   }
 
+  if(status === 'Quero ler') {
+    return {
+      label: t('reading_expectation'),
+      placeholder: t('reading_expectation_placeholder'),
+      publico: t('show_on_public_profile')
+    };
+  }
+
+  // status personalizado: copy neutra
   return {
-    label: t('reading_expectation'),
-    placeholder: t('reading_expectation_placeholder'),
+    label: t('reading_note'),
+    placeholder: t('your_review_placeholder'),
     publico: t('show_on_public_profile')
   };
 }
@@ -2553,7 +2612,7 @@ function abrirManual(event){
         <div class="row"><div class="field"><label class="label">${t('edition_pages_label')}</label><input type="number" inputmode="numeric" min="1" step="1" id="m_paginas" /></div><div class="field"></div></div>
       </div>
       <div class="form-block"><div class="label">${t('your_reading')}</div>
-        <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status"><option value="Lido">${t('status_read')}</option><option value="Lendo">${t('status_reading')}</option><option value="Quero ler">${t('status_want')}</option></select></div>
+        <div class="row"><div class="field"><label class="label">${t('status')}</label><select id="m_status">${opcoesStatusHTML('Lido')}</select></div>
         <div class="field"><label class="label">${t('date')}</label><input type="text" id="m_data" placeholder="${t('date_placeholder')}" /></div></div>
         <div class="field"><label class="label">${t('rating')}</label><div class="stars" id="m_stars"></div></div>
         <div class="field"><label class="label">${t('reading_note')}</label><textarea id="m_relato" maxlength="2000"></textarea></div>
@@ -2607,10 +2666,10 @@ function mudarVisualizacaoEstante(modo){
   renderPrateleira();
 }
 function controlesEstante(){
-  const filtros=['Todos','Lido','Lendo','Quero ler'];
+  const filtros=['Todos','Lido','Lendo','Quero ler',...meusStatus.map(st=>st.nome)];
   return `<div class="shelf-tools">
     <div class="shelf-filters" aria-label="${t('filter_shelf_status')}">${filtros.map(f=>
-      `<button class="shelf-pill ${filtroEstante===f?'active':''}" onclick="mudarFiltroEstante('${f}')">${esc(statusLabel(f))}</button>`
+      `<button class="shelf-pill ${filtroEstante===f?'active':''}" data-status="${esc(f)}" onclick="mudarFiltroEstante(this.dataset.status)">${esc(statusLabel(f))}</button>`
     ).join('')}</div>
     <div class="shelf-view" aria-label="${t('shelf_view')}">
       <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">${t('view_grid')}</button>
@@ -3372,6 +3431,12 @@ function renderPerfil(){
       ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
       ${!logado?perfilLoginCTAHTML():''}
       ${n?grelhaPerfilHTML():estatisticasPerfilHTML(0,0,0,0)}
+      <div class="account-box textos-box">
+        <div class="label">${t('my_texts')}</div>
+        <p>${t('my_texts_hint')}</p>
+        <button class="pbtn solid" type="button" onclick="abrirEditorTexto()">${t('write_text')}</button>
+        <div id="meusTextosLista">${meusTextosHTML()}</div>
+      </div>
       <div id="profileSettings" class="profile-settings" hidden>
       <div class="label settings-title">${t('profile_settings')}</div>
       <div class="account-box theme-box">
@@ -3396,12 +3461,123 @@ function renderPerfil(){
         <p>${t('library_hint')}</p>
         <button class="pbtn" onclick="abrirManual()">${t('manual_prominent_button')}</button>
       </div>
+      <div class="account-box status-box">
+        <div class="label">${t('custom_statuses')}</div>
+        <p>${t('custom_statuses_hint')}</p>
+        <ul class="custom-status-list">
+          ${statusNativos().map(v=>`<li class="custom-status-item native"><span>${esc(statusLabel(v))}</span><small class="muted">${t('native_status')}</small></li>`).join('')}
+          ${meusStatus.map(st=>`<li class="custom-status-item"><span>${esc(st.nome)}</span><button type="button" class="link-btn subtle" data-id="${st.id}" onclick="removerStatusPersonalizado(this.dataset.id)">${t('custom_status_remove')}</button></li>`).join('')}
+        </ul>
+        <form class="custom-status-form" onsubmit="return criarStatusPersonalizado(event)">
+          <input id="novoStatusInput" type="text" maxlength="30" placeholder="${t('custom_status_placeholder')}">
+          <button class="pbtn" type="submit">${t('custom_status_add')}</button>
+        </form>
+      </div>
       ${contaHTML}
       ${installCtaHTML()}
       ${(appVersion&&appVersion!=='dev')?`<div class="app-version">${/^\d/.test(appVersion.replace(/\.0$/,''))?'Lombada v':'Lombada · '}${esc(appVersion.replace(/\.0$/,''))}</div>`:''}
       ${DEBUG?`<div class="app-version">APP_VERSION ${esc(appVersion)} · app.js ${esc(APP_JS_VERSION)} · cache ${esc(activeSwCache)}</div>`:''}
       </div>
     </div>`;
+  if(!meusTextosCarregados) carregarMeusTextos();
+}
+
+/* ── área de escritores: textos livres ── */
+async function carregarMeusTextos(){
+  try{
+    const d=await(await fetch('/api/eu/textos')).json();
+    meusTextos=Array.isArray(d)?d:[];
+    meusTextosCarregados=true;
+  }catch(e){ meusTextos=[]; }
+  const el=$('#meusTextosLista'); if(el) el.innerHTML=meusTextosHTML();
+}
+function meusTextosHTML(){
+  if(!meusTextosCarregados) return `<div class="empty">${t('texts_loading')}</div>`;
+  if(!meusTextos.length) return `<p class="muted texts-empty">${t('texts_empty')}</p>`;
+  return `<ul class="textos-lista">${meusTextos.map(tx=>`<li class="texto-item">
+      <button type="button" class="texto-titulo" data-id="${tx.texto_id}" onclick="abrirTexto(this.dataset.id)">${esc(tx.titulo)}</button>
+      <small class="muted">${[dataFeed(tx.criado_em),tx.obra?`${t('text_about')} ${esc(tx.obra.titulo)}`:'',tx.publico?t('text_public'):t('text_private')].filter(Boolean).join(' · ')}</small>
+      <span class="texto-acoes">
+        <button type="button" class="link-btn subtle" data-id="${tx.texto_id}" onclick="abrirEditorTexto(this.dataset.id)">${t('text_edit')}</button>
+        <button type="button" class="link-btn subtle" data-id="${tx.texto_id}" onclick="excluirTexto(this.dataset.id)">${t('text_delete')}</button>
+      </span></li>`).join('')}</ul>`;
+}
+function abrirModalTexto(html){
+  const editPanel=$('#editPanel'); if(editPanel) editPanel.style.display='none';
+  if(!restaurandoHistorico && document.activeElement instanceof HTMLElement) cardOpener=document.activeElement;
+  $('#bookDetail').innerHTML=html;
+  // as ações fixas do modal (compartilhar card, editar leitura…) são de livro
+  $('#modal .modal-card')?.classList.add('texto-mode');
+  $('#modal').classList.add('open');
+  requestAnimationFrame(()=>$('#modal .modal-x')?.focus());
+}
+function opcoesLivroTextoHTML(sel){
+  const ops=[]; const vistos=new Set();
+  for(const l of prateleira){ if(l.work_key&&!vistos.has(l.work_key)){ vistos.add(l.work_key); ops.push(l); } }
+  return `<option value="">${t('text_no_book')}</option>`+ops.map(l=>`<option value="${esc(l.work_key)}"${sel===l.work_key?' selected':''}>${esc(l.titulo)}</option>`).join('');
+}
+function abrirEditorTexto(id){
+  const tx=id?meusTextos.find(x=>String(x.texto_id)===String(id)):null;
+  abrirModalTexto(`
+    <section class="detail-section texto-editor">
+      <div class="label">${tx?t('text_edit_title'):t('text_new_title')}</div>
+      <p class="screen-helper">${t('text_editor_hint')}</p>
+      <div class="field"><label class="label" for="textoTituloInput">${t('text_title_label')}</label>
+        <input id="textoTituloInput" type="text" maxlength="160" value="${esc(tx?.titulo||'')}" placeholder="${t('text_title_placeholder')}"></div>
+      <div class="field"><label class="label" for="textoConteudoInput">${t('text_body_label')}</label>
+        <textarea id="textoConteudoInput" maxlength="20000" placeholder="${t('text_body_placeholder')}">${esc(tx?.conteudo||'')}</textarea></div>
+      <div class="field"><label class="label" for="textoLivroSelect">${t('text_book_label')}</label>
+        <select id="textoLivroSelect">${opcoesLivroTextoHTML(tx?.obra?.work_key||'')}</select></div>
+      <label class="check-line"><input type="checkbox" id="textoPublicoInput" ${!tx||tx.publico?'checked':''}> <span>${t('text_public_label')}</span></label>
+      <button class="btn-primary" type="button" data-id="${tx?.texto_id||''}" onclick="salvarTexto(this)">${t('text_save')}</button>
+    </section>`);
+}
+async function salvarTexto(btn){
+  const id=btn?.dataset?.id||'';
+  const body={
+    titulo:$('#textoTituloInput')?.value.trim()||'',
+    conteudo:$('#textoConteudoInput')?.value.trim()||'',
+    work_key:$('#textoLivroSelect')?.value||null,
+    publico:!!$('#textoPublicoInput')?.checked
+  };
+  if(!body.titulo||!body.conteudo){ toast(t('text_required')); return; }
+  setButtonBusy(btn,t('saving'));
+  try{
+    const r=await fetch(id?'/api/eu/textos/'+id:'/api/eu/textos',{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const b=await r.json().catch(()=>({})); throw new Error(b.detail||(''+r.status)); }
+    toast(t('text_saved'));
+    fecharModalDireto();
+    await carregarMeusTextos();
+  }catch(e){ toast(t('text_save_error')); }
+  finally{ clearButtonBusy(btn); }
+}
+async function excluirTexto(id){
+  if(!confirm(t('text_delete_confirm'))) return;
+  try{
+    const r=await fetch('/api/eu/textos/'+id,{method:'DELETE'});
+    if(!r.ok) throw new Error(''+r.status);
+    toast(t('text_deleted'));
+    await carregarMeusTextos();
+  }catch(e){ toast(t('text_save_error')); }
+}
+async function abrirTexto(id){
+  abrirModalTexto(`<div class="empty">${t('texts_loading')}</div>`);
+  try{
+    const r=await fetch('/api/textos/'+id);
+    if(!r.ok) throw new Error(''+r.status);
+    renderTextoModal(await r.json());
+  }catch(e){ $('#bookDetail').innerHTML=`<div class="empty">${t('text_load_error')}</div>`; }
+}
+function renderTextoModal(tx){
+  const autor=tx.usuario||{};
+  const paragrafos=(tx.conteudo||'').split('\n').filter(p=>p.trim()).map(p=>`<p>${esc(p)}</p>`).join('');
+  $('#bookDetail').innerHTML=`
+    <section class="detail-section texto-leitura">
+      <div class="label">${t('reader_text')}</div>
+      <h2 id="bookDetailTitle">${esc(tx.titulo)}</h2>
+      <p class="texto-meta muted">${[autor.handle?'@'+esc(autor.handle):'',dataFeed(tx.criado_em),tx.obra?`${t('text_about')} ${esc(tx.obra.titulo)}`:''].filter(Boolean).join(' · ')}</p>
+      <div class="texto-corpo">${paragrafos}</div>
+    </section>`;
 }
 
 /* vitrine do perfil: grade de capas das últimas leituras, estilo grid de posts */
@@ -3522,10 +3698,10 @@ async function removerFotoPerfil(btn){
   }catch(e){ toast(t('photo_error')); if(btn) btn.disabled=false; }
 }
 
-function alternarConfigPerfil(){
+function alternarConfigPerfil(abrir){
   const box=$('#profileSettings'); if(!box) return;
-  box.hidden=!box.hidden;
-  if(!box.hidden) box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  box.hidden=abrir===true?false:!box.hidden;
+  if(!box.hidden && abrir!==true) box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 function alternarEditarPerfil(){
@@ -3763,6 +3939,7 @@ async function abrirCard(i,opcoes={}){
   $('#editPanel').style.display='none';
   if(!restaurandoHistorico && document.activeElement instanceof HTMLElement) cardOpener=document.activeElement;
   renderDetalheLivro(cardAtual);
+  $('#modal .modal-card')?.classList.remove('texto-mode');
   $('#modal').classList.add('open');
   requestAnimationFrame(()=>$('.modal-x')?.focus());
  if(registrar && !restaurandoHistorico){
@@ -4105,9 +4282,7 @@ function abrirEditar(){
     <div class="row">
       <div class="field"><label class="label">${t('status')}</label>
         <select id="e_status">
-          <option value="Lido"${l.status==='Lido'?' selected':''}>${t('status_read')}</option>
-          <option value="Lendo"${l.status==='Lendo'?' selected':''}>${t('status_reading')}</option>
-          <option value="Quero ler"${l.status==='Quero ler'?' selected':''}>${t('status_want')}</option>
+          ${opcoesStatusHTML(l.status)}
         </select></div>
       <div class="field"><label class="label">${t('when')}</label>
         <input type="text" id="e_data" value="${esc(l.data)}" placeholder="${t('date_placeholder')}" /></div>
@@ -4333,6 +4508,7 @@ async function init(){
     $('#crumb').classList.add('visible');
     if(minhaConta.logado){ $('#activityBell').hidden=false; atualizarBadgeAtividade(); }
   }catch(e){}
+  await carregarMeusStatus();
   await carregarPrateleira();
   clearTimeout(coldStartTimer);
   clearTimeout(coldStartMaxTimer);

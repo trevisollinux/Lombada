@@ -205,7 +205,38 @@ def _n(count: int, singular: str, plural: str) -> str:
     return f"{count} {singular if count == 1 else plural}"
 
 
-def render_estante_publica(u: Usuario, leituras: list, social: dict | None = None) -> str:
+def _data_texto(iso: str) -> str:
+    return (iso or "")[:10]
+
+
+def _card_texto_publico(handle: str, tx: dict) -> str:
+    obra = tx.get("obra") or {}
+    meta = " · ".join(p for p in [_data_texto(tx.get("criado_em")), f"sobre {obra.get('titulo')}" if obra.get("titulo") else ""] if p)
+    return (
+        f'<article class="review"><div class="review-title"><a href="/u/{_esc(handle)}/texto/{int(tx.get("texto_id") or 0)}">{_esc(tx.get("titulo"))}</a></div>'
+        f'<div class="meta">{_esc(meta)}</div>'
+        f'<p class="review-text">{_esc(_trecho(tx.get("conteudo"), 260))}</p></article>'
+    )
+
+
+def render_texto_publico(u: Usuario, tx: dict) -> str:
+    nome = (u.nome or "").strip() or "Leitor Lombada"
+    obra = tx.get("obra") or {}
+    sobre = f'<div class="meta">sobre <a href="{_esc(_link_obra(obra))}">{_esc(obra.get("titulo"))}</a>{" · " + _esc(obra.get("autor")) if obra.get("autor") else ""}</div>' if obra.get("titulo") else ""
+    paragrafos = "".join(f'<p class="review-text">{_esc(p)}</p>' for p in (tx.get("conteudo") or "").split("\n") if p.strip())
+    corpo = (
+        f'<div class="head"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+        f'<h1>{_esc(tx.get("titulo"))}</h1>'
+        f'<div class="count">por <a href="/u/{_esc(u.handle)}">{_esc(nome)} · @{_esc(u.handle)}</a> · {_esc(_data_texto(tx.get("criado_em")))}</div>{sobre}</div>'
+        f'<section class="section texto-livre">{paragrafos}</section>'
+        f'<a class="cta" href="/u/{_esc(u.handle)}">ver o perfil de @{_esc(u.handle)} →</a>'
+    )
+    og = {"title": tx.get("titulo") or "texto na Lombada", "type": "article",
+          "description": _trecho(tx.get("conteudo"), 180) + f" · por @{u.handle} na Lombada"}
+    return _pagina(f'{tx.get("titulo")} · @{u.handle} · Lombada', corpo, og)
+
+
+def render_estante_publica(u: Usuario, leituras: list, social: dict | None = None, textos: list | None = None) -> str:
     resumo = resumo_perfil_publico(leituras)
     stats = resumo["stats"]
     n = stats["total"]
@@ -248,10 +279,12 @@ def render_estante_publica(u: Usuario, leituras: list, social: dict | None = Non
         texto = '<details class="spoiler"><summary>Crítica com spoiler — tocar para revelar</summary><p class="review-text">' + _esc(_trecho(l.get("relato"))) + '</p></details>' if l.get("spoiler") else '<p class="review-text">' + _esc(_trecho(l.get("relato"))) + '</p>'
         reviews_html += f'<article class="review"><div class="review-title">{_esc(l.get("titulo"))}</div><div class="a">{_esc(l.get("autor"))}</div><div class="meta">{_estrelas(l.get("nota")) if l.get("nota") else "sem nota"}{" · " + _esc(l.get("data")) if l.get("data") else ""}{" · " + _meta_edicao(l) if _meta_edicao(l) else ""}</div>{texto}</article>'
     criticas = _section("Críticas públicas", reviews_html or '<div class="empty">ainda não há críticas públicas.</div>')
+    textos_html = "".join(_card_texto_publico(u.handle, tx) for tx in (textos or [])[:8])
+    sec_textos = _section("Textos", textos_html) if textos_html else ""
     ultimas = _section("Últimas leituras", '<div class="list">' + "".join(_row_livro(l) for l in resumo["ultimas_leituras"][:8]) + '</div>' if resumo["ultimas_leituras"] else '<div class="empty">estante ainda vazia.</div>')
     media = f'{stats["media_nota"]:.1f} ★' if stats["media_nota"] else "—"
     estat = _section("Estatísticas", f'<div class="stats"><div class="stat"><strong>{n}</strong><span>{"livro" if n == 1 else "livros"}</span></div><div class="stat"><strong>{stats["lidos"]}</strong><span>{"lido" if stats["lidos"] == 1 else "lidos"}</span></div><div class="stat"><strong>{possui}</strong><span>{"edição na coleção" if possui == 1 else "edições na coleção"}</span></div><div class="stat"><strong>{desejadas}</strong><span>{"edição desejada" if desejadas == 1 else "edições desejadas"}</span></div><div class="stat"><strong>{media}</strong><span>média de nota</span></div></div>')
-    corpo = header + favs + lendo + criticas + ultimas + estat + '<a class="cta" href="/">criar a minha estante →</a>'
+    corpo = header + favs + lendo + criticas + sec_textos + ultimas + estat + '<a class="cta" href="/">criar a minha estante →</a>'
     og = {"title": f"o perfil literário de @{u.handle}", "type": "website", "description": f"{cont} · {_n(stats['lidos'], 'lido', 'lidos')} · veja o perfil público de @{u.handle} na Lombada"}
     primeira = next((l.get("capa_url") for l in leituras if l.get("capa_url")), "")
     if primeira:

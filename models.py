@@ -184,6 +184,31 @@ class Leitura(SQLModel, table=True):
     criado_em:  datetime        = Field(default_factory=datetime.utcnow)
 
 
+class UserReadingStatus(SQLModel, table=True):
+    """Status de leitura criado pelo usuário além dos nativos (Lido/Lendo/
+    Quero ler). O valor fica gravado como texto em Leitura.status, então os
+    nativos continuam funcionando sem migração."""
+    __table_args__ = (UniqueConstraint("usuario_id", "nome", name="uq_userstatus_pair"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    nome: str
+    criado_em: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TextoUsuario(SQLModel, table=True):
+    """Texto livre da área de escritores: ensaio, resenha longa, conto…
+    Opcionalmente vinculado a uma obra do catálogo."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    obra_id: Optional[int] = Field(default=None, foreign_key="obra.id", index=True)
+    titulo: str = ""
+    conteudo: str = ""
+    publico: bool = Field(default=True, index=True)
+    criado_em: datetime = Field(default_factory=datetime.utcnow, index=True)
+    atualizado_em: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ReadingJournalEntry(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     leitura_id: int = Field(foreign_key="leitura.id", index=True)
@@ -461,6 +486,12 @@ def migrar():
         "CREATE INDEX IF NOT EXISTS ix_readingjournalentry_created_at ON readingjournalentry (created_at)",
         "CREATE INDEX IF NOT EXISTS ix_edicaocapitulo_edicao_id ON edicaocapitulo (edicao_id)",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_edicaocapitulo_pos ON edicaocapitulo (edicao_id, ordem)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_userstatus_pair ON userreadingstatus (usuario_id, nome)",
+        "CREATE INDEX IF NOT EXISTS ix_userreadingstatus_usuario_id ON userreadingstatus (usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_textousuario_usuario_id ON textousuario (usuario_id)",
+        "CREATE INDEX IF NOT EXISTS ix_textousuario_obra_id ON textousuario (obra_id)",
+        "CREATE INDEX IF NOT EXISTS ix_textousuario_publico ON textousuario (publico)",
+        "CREATE INDEX IF NOT EXISTS ix_textousuario_criado_em ON textousuario (criado_em)",
     ]
     for ddl in ddls:
         _run_ddl("index/social", ddl)
@@ -472,7 +503,7 @@ def migrar():
         # estante. O DO-block só age quando realmente falta o default, então é
         # idempotente e não toca tabelas já saudáveis.
         core_tables = ("usuario", "obra", "edicao", "leitura", "buscacache")
-        social_tables = ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry")
+        social_tables = ("catalogsuggestion", "useredition", "follow", "reviewlike", "savedreview", "reviewreport", "readingjournalentry", "userreadingstatus", "textousuario")
         catalog_tables = ("publishergroup", "publisher", "imprint", "publisheralias", "publishersource")
         for table in core_tables + social_tables + catalog_tables:
             _run_ddl(
