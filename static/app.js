@@ -3367,6 +3367,7 @@ function renderPerfil(){
         <p>${t('account_connected')}</p>
         ${nome?`<div class="account-line">${esc(nome)}</div>`:''}
         ${email?`<div class="account-line muted">${esc(email)}</div>`:''}
+        ${minhaConta.admin?`<div class="profile-actions" style="margin:8px 0"><a class="pbtn" href="/admin">${t('admin_panel')}</a></div>`:''}
         <a class="account-logout" href="/api/auth/logout">${t('logout')}</a>
       </div>`
     : `<div class="account-box">

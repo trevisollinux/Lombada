@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -1404,6 +1404,7 @@ def eu(request: Request, s: Session = Depends(get_session)):
         "email": u.email,
         "logado": logado,
         "provedor": "google" if logado else "anonimo",
+        "admin": _is_admin(u),
         **_follow_counts(s, u.id),
         **_user_edition_counts(s, u.id),
     }
@@ -3225,8 +3226,182 @@ def admin_page(request: Request, s: Session = Depends(get_session)):
             f'<form method="post" action="/admin/profile-reports/{prep.id}/dismissed" style="display:inline"><button>Dispensar</button></form>'
             f'</article>'
         )
-    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><p><a href="/admin/source-records">Revisar source_records de editoras</a></p><h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Denúncias de perfil</h2>' + (''.join(profile_report_items) or '<p>Nenhuma denúncia de perfil pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
+    resumo = _resumo_usuarios(s)
+    usuarios_html = (
+        '<h2>Usuários</h2>'
+        f'<p><strong>{resumo["total"]}</strong> usuários · {resumo["com_google"]} com Google · '
+        f'{resumo["anonimos"]} anônimos · {resumo["novos_30d"]} novos e {resumo["ativos_30d"]} ativos nos últimos 30 dias · '
+        '<a href="/admin/usuarios">ver relatório completo</a></p>'
+    )
+    corpo = '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div><h1>Admin</h1><p><a href="/admin/source-records">Revisar source_records de editoras</a></p>' + usuarios_html + '<h2>Denúncias pendentes</h2>' + (''.join(report_items) or '<p>Nenhuma denúncia pendente.</p>') + '<h2>Denúncias de perfil</h2>' + (''.join(profile_report_items) or '<p>Nenhuma denúncia de perfil pendente.</p>') + '<h2>Sugestões pendentes</h2>' + (''.join(items) or '<p>Nenhuma sugestão pendente.</p>') + '</div>'
     return HTMLResponse(_pagina("Admin · Lombada", corpo))
+
+
+# ─── admin: relatório de usuários ─────────────────────────
+def _resumo_usuarios(s: Session) -> dict:
+    corte_30d = datetime.utcnow() - timedelta(days=30)
+    total = s.exec(select(func.count(Usuario.id))).one()
+    com_google = s.exec(select(func.count(Usuario.id)).where(Usuario.google_sub.is_not(None))).one()
+    demo = s.exec(select(func.count(Usuario.id)).where(Usuario.is_demo == True)).one()  # noqa: E712
+    novos_30d = s.exec(select(func.count(Usuario.id)).where(Usuario.criado_em >= corte_30d)).one()
+    ativos_30d = s.exec(
+        select(func.count(func.distinct(Leitura.usuario_id))).where(
+            Leitura.usuario_id.is_not(None), Leitura.criado_em >= corte_30d
+        )
+    ).one()
+    return {
+        "total": int(total or 0),
+        "com_google": int(com_google or 0),
+        "anonimos": int(total or 0) - int(com_google or 0) - int(demo or 0),
+        "demo": int(demo or 0),
+        "novos_30d": int(novos_30d or 0),
+        "ativos_30d": int(ativos_30d or 0),
+    }
+
+
+def _contagens_por_usuario(s: Session, modelo, coluna_usuario, ids: list[int]) -> dict[int, int]:
+    if not ids:
+        return {}
+    rows = s.exec(
+        select(coluna_usuario, func.count(modelo.id))
+        .where(coluna_usuario.in_(ids))
+        .group_by(coluna_usuario)
+    ).all()
+    return {int(uid): int(qtd) for uid, qtd in rows}
+
+
+ADMIN_USUARIOS_FILTROS = {"todos": "todos", "google": "com Google", "anonimos": "anônimos", "demo": "demo"}
+ADMIN_USUARIOS_ORDENS = {"recentes": "mais recentes", "antigos": "mais antigos", "uso": "mais leituras"}
+
+
+@app.get("/admin/usuarios")
+def admin_usuarios(request: Request, page: int = Query(1, ge=1), filtro: str = Query("todos"),
+                   ordem: str = Query("recentes"), s: Session = Depends(get_session)):
+    _require_admin(request, s)
+    per_page = 50
+    filtro = filtro if filtro in ADMIN_USUARIOS_FILTROS else "todos"
+    ordem = ordem if ordem in ADMIN_USUARIOS_ORDENS else "recentes"
+
+    leit_sq = (
+        select(
+            Leitura.usuario_id.label("uid"),
+            func.count(Leitura.id).label("leituras"),
+            func.max(Leitura.criado_em).label("ultima_leitura"),
+        )
+        .where(Leitura.usuario_id.is_not(None))
+        .group_by(Leitura.usuario_id)
+        .subquery()
+    )
+    q = select(Usuario, leit_sq.c.leituras, leit_sq.c.ultima_leitura).outerjoin(
+        leit_sq, leit_sq.c.uid == Usuario.id
+    )
+    q_total = select(func.count(Usuario.id))
+    if filtro == "google":
+        cond = Usuario.google_sub.is_not(None)
+    elif filtro == "anonimos":
+        cond = and_(Usuario.google_sub.is_(None), Usuario.is_demo == False)  # noqa: E712
+    elif filtro == "demo":
+        cond = Usuario.is_demo == True  # noqa: E712
+    else:
+        cond = None
+    if cond is not None:
+        q = q.where(cond)
+        q_total = q_total.where(cond)
+
+    if ordem == "uso":
+        q = q.order_by(func.coalesce(leit_sq.c.leituras, 0).desc(), Usuario.criado_em.desc())
+    elif ordem == "antigos":
+        q = q.order_by(Usuario.criado_em.asc())
+    else:
+        q = q.order_by(Usuario.criado_em.desc())
+
+    total_filtro = int(s.exec(q_total).one() or 0)
+    rows = s.exec(q.offset((page - 1) * per_page).limit(per_page)).all()
+
+    ids = [u.id for u, _, _ in rows]
+    textos = _contagens_por_usuario(s, TextoUsuario, TextoUsuario.usuario_id, ids)
+    diario = _contagens_por_usuario(s, ReadingJournalEntry, ReadingJournalEntry.usuario_id, ids)
+    seguidores = _contagens_por_usuario(s, Follow, Follow.following_id, ids)
+    seguindo = _contagens_por_usuario(s, Follow, Follow.follower_id, ids)
+
+    resumo = _resumo_usuarios(s)
+    cards = (
+        '<div class="profile-metrics" style="margin:16px 0">'
+        f'<div><strong>{resumo["total"]}</strong><span>usuários</span></div>'
+        f'<div><strong>{resumo["com_google"]}</strong><span>com Google</span></div>'
+        f'<div><strong>{resumo["anonimos"]}</strong><span>anônimos</span></div>'
+        f'<div><strong>{resumo["demo"]}</strong><span>demo</span></div>'
+        f'<div><strong>{resumo["novos_30d"]}</strong><span>novos 30d</span></div>'
+        f'<div><strong>{resumo["ativos_30d"]}</strong><span>ativos 30d</span></div>'
+        '</div>'
+    )
+
+    def _link_filtro(chave: str, rotulo: str, ativo: str, param: str) -> str:
+        params = {"filtro": filtro, "ordem": ordem}
+        params[param] = chave
+        marca = " <strong>✓</strong>" if chave == ativo else ""
+        return f'<a href="/admin/usuarios?filtro={params["filtro"]}&ordem={params["ordem"]}">{_esc(rotulo)}</a>{marca}'
+
+    filtros_html = " · ".join(_link_filtro(k, v, filtro, "filtro") for k, v in ADMIN_USUARIOS_FILTROS.items())
+    ordens_html = " · ".join(_link_filtro(k, v, ordem, "ordem") for k, v in ADMIN_USUARIOS_ORDENS.items())
+
+    def _td(valor, num: bool = False) -> str:
+        alinh = ";text-align:right" if num else ""
+        return f'<td style="padding:6px 8px;border-bottom:1px solid rgba(128,128,128,.25){alinh}">{valor}</td>'
+
+    linhas = []
+    for u, leituras, ultima in rows:
+        tipo = "demo" if getattr(u, "is_demo", False) else ("google" if u.google_sub else "anônimo")
+        criado = u.criado_em.strftime("%Y-%m-%d") if u.criado_em else "—"
+        ultima_str = ultima.strftime("%Y-%m-%d") if ultima else "—"
+        linhas.append(
+            "<tr>"
+            + _td(u.id)
+            + _td(f'<a href="/u/{_esc(u.handle)}" target="_blank" rel="noopener">@{_esc(u.handle)}</a>')
+            + _td(_esc(u.nome or ""))
+            + _td(_esc(u.email or ""))
+            + _td(tipo)
+            + _td(criado)
+            + _td(int(leituras or 0), num=True)
+            + _td(ultima_str)
+            + _td(diario.get(u.id, 0), num=True)
+            + _td(textos.get(u.id, 0), num=True)
+            + _td(seguidores.get(u.id, 0), num=True)
+            + _td(seguindo.get(u.id, 0), num=True)
+            + "</tr>"
+        )
+
+    paginas = max(1, (total_filtro + per_page - 1) // per_page)
+    nav = []
+    if page > 1:
+        nav.append(f'<a href="/admin/usuarios?filtro={filtro}&ordem={ordem}&page={page - 1}">← anterior</a>')
+    nav.append(f"página {page} de {paginas}")
+    if page < paginas:
+        nav.append(f'<a href="/admin/usuarios?filtro={filtro}&ordem={ordem}&page={page + 1}">próxima →</a>')
+
+    tabela = (
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">'
+        "<thead><tr>"
+        + "".join(
+            f'<th style="text-align:left;padding:6px 8px;border-bottom:1px solid currentColor">{h}</th>'
+            for h in ("id", "handle", "nome", "email", "conta", "criado em", "leituras",
+                      "última leitura", "diário", "textos", "seguidores", "seguindo")
+        )
+        + "</tr></thead><tbody>"
+        + "".join(linhas)
+        + "</tbody></table></div>"
+    )
+
+    corpo = (
+        '<div class="app"><div class="wordmark">LOMBADA<span class="dot">.</span></div>'
+        '<h1>Usuários</h1><p><a href="/admin">← voltar ao admin</a></p>'
+        + cards
+        + f"<p>Filtro: {filtros_html}</p><p>Ordem: {ordens_html}</p>"
+        + f"<p>{total_filtro} usuário(s) no filtro atual.</p>"
+        + (tabela if linhas else "<p>Nenhum usuário neste filtro.</p>")
+        + "<p>" + " · ".join(nav) + "</p></div>"
+    )
+    return HTMLResponse(_pagina("Usuários · Admin · Lombada", corpo))
 
 
 SOURCE_RECORD_FILTERS = {
