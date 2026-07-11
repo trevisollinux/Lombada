@@ -2305,6 +2305,7 @@ function renderEdicoes(){
   const estatisticasHTML=temEstatisticas
     ? `<section class="community-summary work-stats"><div><span>${leituras}</span><small>${t(leituras===1?'reading_on_lombada_one':'readings_on_lombada')}</small></div><div><span>${st.media?fmtMedia(st.media):'—'}</span><small>${t('average_rating')}</small></div><div><span>${lendo}</span><small>${t('people_reading')}</small></div><div><span>${querem}</span><small>${t(querem===1?'person_wants_to_read':'people_want_to_read')}</small></div></section>`
     : `<section class="work-section work-stats-empty"><p>${t('edition_stats')}</p></section>`;
+  const termoAmazonObra=[escolha?.titulo,escolha?.autor].filter(Boolean).join(' ');
   const cards=edicoesAtual.map((e,j)=>{
     const pt=normalizarTextoBase(e.idioma).includes('portugues')||normalizarTextoBase(e.pais).includes('brasil');
     const social=edicaoSocial(e);
@@ -2315,9 +2316,9 @@ function renderEdicoes(){
     const relation=editionRelationHTML(social);
     return `<li class="edition ${isMaisLida?'most-read':''}" onclick="escolherEdicao(${j})"><div class="edition-group">${grupo}</div>
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
-      <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<div class="edition-actions"><button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button>${botaoAmazon(e.isbn)}</div></div></li>`;
+      <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<div class="edition-actions"><button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button>${botaoAmazon(e.isbn,'',termoAmazonObra)}</div></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
+  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul>${linkAmazon('',termoAmazonObra)?`<p class="affiliate-note">${t('affiliate_note')}</p>`:''}<button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
 
 /* registrar */
@@ -2353,7 +2354,7 @@ function escolherEdicao(j,event){
         ${autor?`<p class="selected-edition-author">${esc(autor)}</p>`:''}
         ${metaHTML?`<div class="selected-edition-meta">${metaHTML}</div>`:`<p class="selected-edition-meta muted">${t('catalog_data_missing')}</p>`}
         ${escolha?.descricao?`<p class="selected-edition-desc">${esc(escolha.descricao)}</p>`:''}
-        ${botaoAmazon(edicaoSel.isbn)}
+        ${blocoAmazon(edicaoSel.isbn,[titulo,autor].filter(Boolean).join(' '))}
       </div>
     </div>`;
   clearButtonBusy(trigger);
@@ -4249,20 +4250,30 @@ async function carregarConfig(){
 }
 
 // Link de afiliado da Amazon a partir do ISBN. Usa a busca (mais robusta que
-// /dp/{asin}: nem todo ISBN mapeia num ASIN). '' quando não há tag ou ISBN.
-function linkAmazon(isbn){
+// /dp/{asin}: nem todo ISBN mapeia num ASIN). Sem ISBN, cai pra título+autor,
+// pra edição incompleta ainda ter botão. '' quando não há tag nem termo.
+function linkAmazon(isbn,termoFallback){
   const tag=(appConfig&&appConfig.amazon_tag)||'';
   const cod=(isbn||'').toString().replace(/[^0-9Xx]/g,'');
-  if(!tag||!cod) return '';
-  return 'https://www.amazon.com.br/s?k='+encodeURIComponent(cod)+'&tag='+encodeURIComponent(tag);
+  const termo=cod||(termoFallback||'').toString().trim();
+  if(!tag||!termo) return '';
+  return 'https://www.amazon.com.br/s?k='+encodeURIComponent(termo)+'&tag='+encodeURIComponent(tag);
 }
 
-// Botão "Comprar na Amazon" (ou '' se sem tag/ISBN). stopPropagation evita
+// Botão "Comprar na Amazon" (ou '' se sem tag/termo). stopPropagation evita
 // disparar o onclick do <li> da edição quando o botão vive dentro dele.
-function botaoAmazon(isbn,cls){
-  const url=linkAmazon(isbn);
+function botaoAmazon(isbn,cls,termoFallback){
+  const url=linkAmazon(isbn,termoFallback);
   if(!url) return '';
   return `<a class="buy-amazon ${cls||''}" href="${esc(url)}" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()">${t('buy_amazon')}</a>`;
+}
+
+// Botão + aviso de link de associado logo abaixo (exigência do programa de
+// Associados: a natureza do link precisa ficar clara perto dele).
+function blocoAmazon(isbn,termoFallback,cls){
+  const btn=botaoAmazon(isbn,cls,termoFallback);
+  if(!btn) return '';
+  return btn+`<p class="affiliate-note">${t('affiliate_note')}</p>`;
 }
 
 async function init(){
