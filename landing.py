@@ -180,6 +180,9 @@ def _footer(app_url: str, instagram_url: str = "") -> str:
     foot = '<span class="sep">·</span>'.join(links)
     return (
         f'<footer class="lp-foot">{foot}<div style="margin-top:10px;opacity:.7">'
+        'Como participante do Programa de Associados da Amazon, o Lombada é '
+        'remunerado pelas compras qualificadas efetuadas.</div>'
+        '<div style="margin-top:10px;opacity:.7">'
         'Lombada — feito no Brasil, pra quem lê em português.</div></footer>'
     )
 
@@ -514,8 +517,9 @@ def render_privacidade(app_url: str = "/", instagram_url: str = "",
         '<li><strong>Google</strong> — autenticação (login opcional).</li>'
         '<li><strong>Hospedagem e banco de dados</strong> — para rodar o app e '
         'guardar seus registros.</li>'
-        '<li><strong>Amazon</strong> — alguns links de compra são de afiliado. Se '
-        'você clicar e comprar, podemos receber uma comissão, sem custo extra pra '
+        '<li><strong>Amazon</strong> — alguns links de compra são de afiliado. '
+        'Como participante do Programa de Associados da Amazon, o Lombada é '
+        'remunerado pelas compras qualificadas efetuadas — sem custo extra pra '
         'você. A Amazon trata esses acessos conforme a política dela.</li>'
         '</ul>'
         '<p>Não vendemos nem alugamos seus dados pessoais a ninguém.</p>'

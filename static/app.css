@@ -174,6 +174,7 @@ input,textarea,select{font:inherit;color:inherit}
 .buy-amazon:hover{background:var(--gold);color:var(--paper)}
 .edition-actions .buy-amazon{margin-top:0}
 .selected-edition-copy .buy-amazon{margin-top:.85rem;font-size:10px;padding:10px 14px}
+.affiliate-note{margin:8px 0 0;font-size:11px;line-height:1.5;color:var(--muted-readable)}
 
 /* ---------- registrar ---------- */
 .card-form{margin-top:8px;border:1px solid var(--rule);background:var(--paper-2);padding:16px}
