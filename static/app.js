@@ -384,6 +384,63 @@ function toast(msg){
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),300); },3600);
 }
 
+/* ── juice: micro-recompensas visuais. Sempre atreladas a uma ação que o
+   usuário acabou de completar (terminar livro, curtir) — nunca a gatilho
+   externo — e desligadas com prefers-reduced-motion. ── */
+function movimentoReduzido(){ return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches; }
+function confete(){
+  if(movimentoReduzido()) return;
+  $('#confetti')?.remove();
+  const box=document.createElement('div');
+  box.id='confetti'; box.className='confetti'; box.setAttribute('aria-hidden','true');
+  const cores=['#8B2E1F','#6B1F1F','#D45C68','#C9A227','#4A6B4F'];
+  for(let i=0;i<26;i++){
+    const p=document.createElement('i');
+    p.style.setProperty('--x',(Math.random()*100)+'vw');
+    p.style.setProperty('--dx',((Math.random()-.5)*160)+'px');
+    p.style.setProperty('--dur',(1200+Math.random()*900)+'ms');
+    p.style.setProperty('--delay',(Math.random()*280)+'ms');
+    p.style.setProperty('--rot',(Math.random()*720-360)+'deg');
+    p.style.background=cores[i%cores.length];
+    if(i%3===0) p.style.borderRadius='50%';
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  setTimeout(()=>box.remove(),2600);
+}
+function marcoLeituraTexto(){
+  const lidos=prateleira.filter(l=>l.status==='Lido').length;
+  return lidos>0?t('books_read_milestone',{count:lidos}):'';
+}
+function animarCurtida(leituraId){
+  if(movimentoReduzido()) return;
+  document.querySelectorAll(`.ra-like[data-like-btn="${leituraId}"]`).forEach(btn=>{
+    btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+    const burst=document.createElement('span');
+    burst.className='like-burst'; burst.setAttribute('aria-hidden','true');
+    for(let i=0;i<6;i++){ const p=document.createElement('i'); p.style.setProperty('--a',(i*60)+'deg'); burst.appendChild(p); }
+    btn.appendChild(burst);
+    setTimeout(()=>burst.remove(),700);
+  });
+}
+const contadoresAnimados={};
+function animarContadores(sel,chave){
+  if(movimentoReduzido()) return;
+  document.querySelectorAll(sel).forEach((el,i)=>{
+    const fim=parseInt((el.textContent||'').replace(/\D/g,''),10);
+    const marca=`${chave}:${i}`;
+    if(!fim||contadoresAnimados[marca]===fim) return;
+    contadoresAnimados[marca]=fim;
+    const t0=performance.now(), dur=Math.min(900,350+fim*20);
+    const passo=agora=>{
+      const p=Math.min(1,(agora-t0)/dur), e=1-Math.pow(1-p,3);
+      el.textContent=Math.round(fim*e).toLocaleString(getLocale());
+      if(p<1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  });
+}
+
 function mostrarBannerPwa({id, mensagem, acaoTexto, acao, secundarioTexto, secundario}={}){
   const antigo=document.getElementById(id||'pwaBanner');
   if(antigo) antigo.remove();
@@ -2110,6 +2167,15 @@ function atualizarReviewLocal(leituraId, patch){
   const listas=[obraSocial?.criticas,obraSocial?.destaques,feedItems.map(it=>it.leitura)].filter(Boolean);
   listas.forEach(list=>list.forEach(c=>{ if(c&&c.leitura_id===leituraId) Object.assign(c,patch); }));
 }
+function encontrarReviewLocal(leituraId){
+  const listas=[obraSocial?.criticas,obraSocial?.destaques,feedItems.map(it=>it.leitura)].filter(Boolean);
+  for(const list of listas){ const c=list.find(x=>x&&x.leitura_id===leituraId); if(c) return c; }
+  return null;
+}
+function rerenderReviews(leituraId){
+  renderFeed();
+  if(obraSocial?.criticas?.some(c=>c.leitura_id===leituraId)) renderEdicoes();
+}
 async function acaoReview(leituraId,acao){
   if(!leituraId) return;
   const metodo=(acao==='unlike'||acao==='unsave')?'DELETE':'POST';
@@ -2118,19 +2184,34 @@ async function acaoReview(leituraId,acao){
   if(acao==='report'){
     body=JSON.stringify({motivo:t('report_other'),detalhe:''});
   }
+  // curtir responde na hora (otimista); a rede confirma ou desfaz em seguida
+  let anterior=null;
+  if(rota==='like'){
+    const alvo=encontrarReviewLocal(leituraId);
+    if(alvo){
+      anterior={liked_by_me:!!alvo.liked_by_me,likes_count:Number(alvo.likes_count||0)};
+      atualizarReviewLocal(leituraId,{liked_by_me:acao==='like',likes_count:Math.max(0,anterior.likes_count+(acao==='like'?1:-1))});
+      rerenderReviews(leituraId);
+      if(acao==='like') animarCurtida(leituraId);
+    }
+  }
+  const desfazer=()=>{ if(anterior){ atualizarReviewLocal(leituraId,anterior); rerenderReviews(leituraId); } };
   try{
     const res=await fetch(`/api/reviews/${leituraId}/${rota}`,{method:metodo,headers:body?{'Content-Type':'application/json'}:{},body});
-    if(res.status===401){ toast(t('login_to_interact')); return; }
+    if(res.status===401){ desfazer(); toast(t('login_to_interact')); return; }
     if(!res.ok) throw new Error(await res.text());
     const data=await res.json();
     const patch={};
     if('liked' in data){ patch.liked_by_me=data.liked; patch.likes_count=data.likes_count; }
     if('saved' in data) patch.saved_by_me=data.saved;
     if('reported' in data){ patch.reported_by_me=true; toast(t('report_sent')); }
+    // só re-renderiza se o servidor divergiu do estado otimista — senão a
+    // re-renderização cortaria a animação da curtida no meio
+    const atual=encontrarReviewLocal(leituraId);
+    const divergiu=!atual||Object.keys(patch).some(k=>atual[k]!==patch[k]);
     atualizarReviewLocal(leituraId,patch);
-    renderFeed();
-    if(obraSocial?.criticas?.some(c=>c.leitura_id===leituraId)) renderEdicoes();
-  }catch(e){ toast(t('interaction_error')||'não foi possível atualizar agora.'); }
+    if(divergiu) rerenderReviews(leituraId);
+  }catch(e){ desfazer(); toast(t('interaction_error')||'não foi possível atualizar agora.'); }
 }
 function reviewActionsHTML(c){
   if(!c||!c.leitura_id) return '';
@@ -2140,7 +2221,7 @@ function reviewActionsHTML(c){
   // curtir/guardar são ações leves e frequentes; denunciar é rara e negativa —
   // vai atrás do ⋯ pra action row não parecer formulário
   return `<div class="review-actions">
-    <button type="button" class="ra-like ${liked?'active':''}" aria-pressed="${liked}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'}${likes?` ${likes}`:''}</button>
+    <button type="button" class="ra-like ${liked?'active':''}" data-like-btn="${c.leitura_id}" aria-pressed="${liked}" onclick="acaoReview(${c.leitura_id},'${liked?'unlike':'like'}')">${liked?'♥':'♡'}${likes?` ${likes}`:''}</button>
     <button type="button" class="ra-comment ${comentariosAbertos[c.leitura_id]?'active':''}" aria-expanded="${!!comentariosAbertos[c.leitura_id]}" onclick="alternarComentarios(${c.leitura_id})">💬${comentarios?` ${comentarios}`:''}</button>
     <button type="button" class="ra-save ${saved?'active':''}" aria-pressed="${saved}" onclick="acaoReview(${c.leitura_id},'${saved?'unsave':'save'}')">${saved?t('saved_review'):t('save_review')}</button>
     <span class="ra-more-wrap"><button type="button" class="ra-more" aria-label="${t('more_options')}" aria-haspopup="true" aria-expanded="false" onclick="alternarMenuReview(this,event)">⋯</button>
@@ -2508,6 +2589,7 @@ function montarStars(id,get,set){
     for(let i=1;i<=5;i++){
       const s=document.createElement('span');
       s.className='st'+(i<=n?' on':''); s.textContent='★';
+      s.style.setProperty('--i',i);
       s.style.opacity=(i<=n?1:(i-0.5===n?.6:.28));
       s.onclick=()=>{ set(get()===i?i-0.5:i); paint(); };
       w.appendChild(s);
@@ -2566,8 +2648,13 @@ limparBusca(); $('#q').value=''; mostrarBusca('home',
 {registrar:false});
 marcarConviteLoginAposSalvar();
 marcarLivroSalvo(body);
-toast(t('saved_to_shelf'));
+if(body.status!=='Lido') toast(t('saved_to_shelf'));
 await carregarPrateleira();
+if(body.status==='Lido'){
+  confete();
+  const marco=marcoLeituraTexto();
+  toast(marco?`${t('saved_to_shelf')} · 📚 ${marco}`:t('saved_to_shelf'));
+}
 irPara('estante',{recarregar:false});
 }
 function abrirManual(event){
@@ -3480,6 +3567,8 @@ function renderPerfil(){
       ${DEBUG?`<div class="app-version">APP_VERSION ${esc(appVersion)} · app.js ${esc(APP_JS_VERSION)} · cache ${esc(activeSwCache)}</div>`:''}
       </div>
     </div>`;
+  animarContadores('#perfil .profile-stats-row strong','perfil-top');
+  animarContadores('#perfil .profile-metrics strong','perfil-metrics');
   if(!meusTextosCarregados) carregarMeusTextos();
 }
 
@@ -3760,10 +3849,12 @@ function abrirPosLeitura(livro){
   const modal=$('#postReadModal');
   const body=$('#postReadBody');
   if(!modal||!body||!livro) return;
+  const marco=marcoLeituraTexto();
   body.innerHTML=`
     <div class="post-read-kicker">${t('post_read_kicker')}</div>
     <h2 id="postReadTitle">${t('post_read_title')}</h2>
     <p>${t('post_read_message',{title:esc(livro.titulo||t('untitled_book'))})}</p>
+    ${marco?`<div class="post-read-milestone">📚 ${esc(marco)}</div>`:''}
     <div class="post-read-actions">
       <button type="button" class="post-read-primary" onclick="compartilharLeituraRegistrada()">${t('post_read_share')}</button>
       <button type="button" class="post-read-secondary" onclick="escreverDiarioLeituraRegistrada()">${t('post_read_diary')}</button>
@@ -3772,6 +3863,7 @@ function abrirPosLeitura(livro){
     <button type="button" class="post-read-later" onclick="fecharPosLeitura()">${t('post_read_later')}</button>`;
   modal.dataset.leituraId=livro.leitura_id||'';
   modal.classList.add('open');
+  confete();
   requestAnimationFrame(()=>modal.querySelector('.post-read-primary')?.focus());
 }
 function livroPosLeituraAtual(){

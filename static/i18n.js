@@ -425,6 +425,7 @@ const I18N = {
     post_read_diary: 'Escrever no diário',
     post_read_shelf: 'Ver na estante',
     post_read_later: 'Agora não',
+    books_read_milestone: 'seu {count}º livro lido',
     where_stopped: 'Onde você parou?',
     save_diary: 'Salvar no diário',
     no_progress_yet: 'sem progresso registrado ainda',
@@ -1347,7 +1348,8 @@ Object.assign(I18N['en'], {
   no_public_reviews_html: 'There are no public reviews for this work yet.<br>If you have read it, be the first to write one.',
   read_this_edition: 'Read this edition', you_read_this_edition: 'You read this edition', reading_note_placeholder: 'how is the reading going?', reading_impression_placeholder: 'what are you thinking so far?', reading_expectation_placeholder: 'what do you expect from this book?', why_want_read_placeholder: 'why do you want to read it?', fill_reading_below: 'Fill in your reading below.', search_books: 'Search books', empty_search_hint: 'Type at least 2 characters or choose a filter to search for books.', opening_form: 'opening…', saving: 'saving…', register_this_edition: 'Log this edition',
   reading_finished_label: 'You reached the end!', mark_as_read: 'Mark as read', reading_completed_toast: 'Reading completed! 🎉', reading_finished_hint: 'You reached the end! Mark it as read to finish this reading.',
-  post_read_kicker: 'after reading', post_read_title: 'Reading logged.', post_read_message: '{title} was added to your read books.', post_read_share: 'Share reading', post_read_diary: 'Write in diary', post_read_shelf: 'View on shelf', post_read_later: 'Not now'
+  post_read_kicker: 'after reading', post_read_title: 'Reading logged.', post_read_message: '{title} was added to your read books.', post_read_share: 'Share reading', post_read_diary: 'Write in diary', post_read_shelf: 'View on shelf', post_read_later: 'Not now',
+  books_read_milestone: 'book #{count} finished'
 });
 Object.assign(I18N['es'], {
   work_page: 'Página de la obra', unknown_author: 'autor no informado', readings_on_lombada: 'lecturas en Lombada', people_reading: 'leyendo ahora', people_want_to_read: 'quieren leer', about_work: 'Sobre la obra', see_more: 'ver más', see_less: 'ver menos', no_work_description: 'Todavía no tenemos una descripción para esta obra.', suggest_description: 'Sugerir descripción', description_suggestions_soon: 'Las sugerencias de descripción llegarán pronto.', work_low_data: 'Todavía tenemos pocos datos sobre esta obra. Puedes registrar una lectura o añadir una edición.', learn_more_external: 'saber más →',
@@ -1362,7 +1364,8 @@ Object.assign(I18N['es'], {
   no_public_reviews_html: 'Todavía no hay críticas públicas para esta obra.<br>Si ya la leíste, sé la primera persona en escribir.',
   read_this_edition: 'Leí esta edición', you_read_this_edition: 'Leíste esta edición', reading_note_placeholder: '¿cómo va la lectura?', reading_impression_placeholder: '¿qué te está pareciendo hasta ahora?', reading_expectation_placeholder: '¿qué esperas de esta lectura?', why_want_read_placeholder: '¿por qué quieres leerlo?', fill_reading_below: 'Completa tu lectura abajo.', search_books: 'Buscar libros', empty_search_hint: 'Escribe al menos 2 caracteres o elige un filtro para buscar libros.', opening_form: 'abriendo…', saving: 'guardando…', register_this_edition: 'Registrar esta edición',
   reading_finished_label: '¡Llegaste al final!', mark_as_read: 'Marcar como leído', reading_completed_toast: '¡Lectura terminada! 🎉', reading_finished_hint: '¡Llegaste al final! Márcalo como leído para concluir esta lectura.',
-  post_read_kicker: 'poslectura', post_read_title: 'Lectura registrada.', post_read_message: '{title} se añadió a tus libros leídos.', post_read_share: 'Compartir lectura', post_read_diary: 'Escribir en el diario', post_read_shelf: 'Ver en estantería', post_read_later: 'Ahora no'
+  post_read_kicker: 'poslectura', post_read_title: 'Lectura registrada.', post_read_message: '{title} se añadió a tus libros leídos.', post_read_share: 'Compartir lectura', post_read_diary: 'Escribir en el diario', post_read_shelf: 'Ver en estantería', post_read_later: 'Ahora no',
+  books_read_milestone: 'tu libro n.º {count} leído'
 });
 Object.assign(I18N['pt-BR'], {
   edit_profile: 'Editar perfil', profile_display_name: 'Nome exibido', profile_username: 'Nome de usuário', profile_short_bio: 'Bio curta', profile_bio_placeholder: 'o que você gosta de ler?', save_changes: 'Salvar alterações', profile_preview: 'Seu perfil:', profile_preview_empty: 'Seu perfil: escolha um nome de usuário', profile_updated: 'Perfil atualizado.', profile_save_error: 'Não foi possível salvar o perfil agora.', profile_name_required: 'Nome exibido é obrigatório.', profile_name_length: 'Nome exibido deve ter entre 2 e 40 caracteres.', profile_name_no_email: 'Escolha um nome público que não seja seu e-mail.', profile_handle_invalid: 'Use apenas letras, números e hífen.', profile_handle_taken: 'Esse nome de usuário já está em uso.', profile_bio_count: '{count}/160 caracteres', profile_bio_length: 'Bio curta deve ter no máximo 160 caracteres.'
