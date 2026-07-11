@@ -112,15 +112,15 @@ html[data-theme="dark"] .lp-support{background:rgba(243,235,221,.05)}
 .lp-foot .sep{margin:0 8px;opacity:.5}
 
 .lp-code{display:block;max-width:100%;box-sizing:border-box;background:var(--paper-3);color:var(--ink);border:1px solid var(--rule);padding:14px 16px;overflow-x:auto;font-family:"Space Mono",monospace;font-size:12px;line-height:1.55;white-space:pre;border-radius:10px;-webkit-overflow-scrolling:touch;opacity:1;scrollbar-color:var(--gold) var(--paper-3);scrollbar-width:thin}
-.lp-code code,.lp-code pre{font:inherit;color:var(--ink);background:transparent;padding:0;border:0;white-space:inherit;opacity:1}
+.lp-code code,.lp-code pre,.lp-prose .lp-code code,.lp-prose .lp-code pre{font:inherit;color:var(--ink);background:transparent;padding:0;border:0;white-space:inherit;opacity:1}
 .lp-code::-webkit-scrollbar{height:10px}.lp-code::-webkit-scrollbar-track{background:var(--paper-3)}.lp-code::-webkit-scrollbar-thumb{background:var(--gold);border-radius:999px}
 .lp-prose input,.lp-prose textarea,.api-card input,.api-card textarea{background:var(--paper-3);color:var(--ink);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;opacity:1;-webkit-text-fill-color:var(--ink)}
 .lp-prose input::placeholder,.lp-prose textarea::placeholder,.api-card input::placeholder,.api-card textarea::placeholder{color:var(--dim);opacity:1}
-html[data-theme="dark"] .lp-code,html[data-theme="dark"] .lp-code code,html[data-theme="dark"] .lp-code pre{background:#171310;color:#F3EBDD}
+html[data-theme="dark"] .lp-code,html[data-theme="dark"] .lp-code code,html[data-theme="dark"] .lp-code pre,html[data-theme="dark"] .lp-prose .lp-code code,html[data-theme="dark"] .lp-prose .lp-code pre{background:#171310;color:#F3EBDD}
 html[data-theme="dark"] .lp-prose input,html[data-theme="dark"] .lp-prose textarea,html[data-theme="dark"] .api-card input,html[data-theme="dark"] .api-card textarea{background:#171310;color:#F3EBDD;-webkit-text-fill-color:#F3EBDD}
 html[data-theme="dark"] .lp-prose input::placeholder,html[data-theme="dark"] .lp-prose textarea::placeholder,html[data-theme="dark"] .api-card input::placeholder,html[data-theme="dark"] .api-card textarea::placeholder{color:#CABEAA;opacity:1}
 .lp-inline-code,.lp-prose code{font-family:"Space Mono",monospace;font-size:.92em;background:rgba(0,0,0,.06);padding:2px 5px;border-radius:5px;color:var(--ink)}
-html[data-theme="dark"] .lp-inline-code,html[data-theme="dark"] .lp-prose code{background:rgba(255,255,255,.08);color:var(--paper)}
+html[data-theme="dark"] .lp-inline-code,html[data-theme="dark"] .lp-prose code{background:rgba(255,255,255,.08);color:var(--ink)}
 .api-notice{border:1px solid var(--rule);background:rgba(151,62,43,.08);padding:18px 20px;border-radius:14px;color:var(--ink-2);margin:22px 0 24px;font-size:15px;line-height:1.5}
 html[data-theme="dark"] .api-notice{background:rgba(243,235,221,.05)}
 .api-kicker{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:30px 0 10px}
@@ -145,8 +145,30 @@ html[data-theme="dark"] .lp-theme{background:rgba(243,235,221,.05)}
 .lp-theme-option input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .lp-theme-option input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
 html[data-theme="dark"] .lp-theme-option input:checked+span{background:var(--paper-3);border-color:var(--rule);color:var(--ink)}
+.lp-theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;margin-left:2px;border:1px solid var(--rule);border-radius:999px;background:transparent;color:var(--ink);cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.lp-theme-toggle:hover{background:rgba(255,255,255,.06);border-color:var(--ink)}
+.lp-theme-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.lp-theme-toggle svg{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.lp-ti--sun{display:none}
+html[data-theme="dark"] .lp-ti--sun{display:block}
+html[data-theme="dark"] .lp-ti--moon{display:none}
 @media(max-width:520px){.lp-code{font-size:11px;padding:12px 13px}.api-card{padding:16px 14px;border-radius:13px}.api-route{font-size:13px}.api-param{font-size:10px}.api-notice{padding:16px}}
 """
+
+
+def _theme_toggle() -> str:
+    """Botão de alternância de tema — presente na nav de toda página institucional."""
+    return (
+        '<button type="button" class="lp-theme-toggle" onclick="alternarTemaPublico()"'
+        ' aria-label="Alternar tema claro e escuro" title="Alternar tema">'
+        '<svg class="lp-ti lp-ti--moon" viewBox="0 0 24 24" aria-hidden="true">'
+        '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+        '<svg class="lp-ti lp-ti--sun" viewBox="0 0 24 24" aria-hidden="true">'
+        '<circle cx="12" cy="12" r="4"/>'
+        '<path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4'
+        'M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>'
+        '</button>'
+    )
 
 
 def _nav(app_url: str) -> str:
@@ -156,6 +178,7 @@ def _nav(app_url: str) -> str:
         '<a href="/blog">blog</a>'
         '<a href="/api-docs">API</a>'
         '<a href="/sobre#contribua">contribua</a>'
+        f'{_theme_toggle()}'
         f'<a class="lp-nav-cta" href="{_esc(app_url)}">abrir o app</a>'
     )
     return (
@@ -208,7 +231,7 @@ def _shell(title: str, inner: str, og: dict | None = None,
         f'<style>{_CSS}</style><style>{_LANDING_CSS}</style></head>'
         '<body><div class="wrap">'
         f'{_nav(app_url)}<main class="lp">{inner}</main>{_footer(app_url, instagram_url)}'
-        '</div><script>(function(){var KEY="lombada_theme";function apply(t){t=t==="dark"?"dark":"light";document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem(KEY,t)}catch(e){};document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t});var m=document.querySelector("meta[name=theme-color]");if(m)m.content=t==="dark"?"#0E0D0B":"#ECE4D4"}window.definirTemaPublico=apply;document.addEventListener("DOMContentLoaded",function(){var t=document.documentElement.getAttribute("data-theme")||"light";document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t})})})()</script></body></html>'
+        '</div><script>(function(){var KEY="lombada_theme";function apply(t){t=t==="dark"?"dark":"light";document.documentElement.setAttribute("data-theme",t);try{localStorage.setItem(KEY,t)}catch(e){};document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t});var m=document.querySelector("meta[name=theme-color]");if(m)m.content=t==="dark"?"#0E0D0B":"#ECE4D4"}window.definirTemaPublico=apply;window.alternarTemaPublico=function(){var cur=document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";apply(cur==="dark"?"light":"dark")};document.addEventListener("DOMContentLoaded",function(){var t=document.documentElement.getAttribute("data-theme")||"light";document.querySelectorAll("input[name=publicThemeChoice]").forEach(function(i){i.checked=i.value===t})})})()</script></body></html>'
     )
 
 
