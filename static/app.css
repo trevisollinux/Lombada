@@ -2206,3 +2206,18 @@ body.theme-dark .view-toggle-btn.active{background:var(--paper-2);border-color:v
 .feed-text-more{margin-top:6px;align-self:start}
 .reader-texto .texto-titulo{font-size:16px}
 .modal-card.texto-mode .modal-actions{display:none}
+
+/* ── juice: confete pós-leitura, pop de curtida, contadores ── */
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:1000;overflow:hidden}
+.confetti i{position:absolute;top:-14px;left:var(--x,50vw);width:7px;height:11px;opacity:0;animation:confettiFall var(--dur,1600ms) var(--delay,0ms) cubic-bezier(.25,.46,.45,.94) forwards}
+@keyframes confettiFall{0%{opacity:1;transform:translate(0,0) rotate(0)}80%{opacity:1}100%{opacity:0;transform:translate(var(--dx,0),104vh) rotate(var(--rot,540deg))}}
+.post-read-milestone{margin:2px 0 14px;padding:8px 12px;display:inline-block;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent,var(--gold));background:color-mix(in srgb,var(--accent,var(--gold)),transparent 90%);border:1px solid color-mix(in srgb,var(--accent,var(--gold)),transparent 70%);border-radius:999px}
+.review-actions .ra-like{position:relative}
+.review-actions .ra-like.pop{animation:likePop .45s cubic-bezier(.34,1.56,.64,1)}
+@keyframes likePop{0%{transform:scale(1)}30%{transform:scale(1.4)}60%{transform:scale(.92)}100%{transform:scale(1)}}
+.like-burst{position:absolute;inset:0;pointer-events:none}
+.like-burst i{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:var(--wine,var(--accent));animation:likeBurst .55s ease-out forwards}
+@keyframes likeBurst{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--a,0deg)) translateY(-7px) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--a,0deg)) translateY(-20px) scale(.4)}}
+.stars .st.on{display:inline-block;animation:starPop .32s cubic-bezier(.34,1.56,.64,1) backwards;animation-delay:calc(var(--i,1)*30ms)}
+@keyframes starPop{0%{transform:scale(.5)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){.confetti i,.review-actions .ra-like.pop,.like-burst i,.stars .st.on{animation:none}}
