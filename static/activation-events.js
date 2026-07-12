@@ -82,6 +82,14 @@
     return 'free';
   }
 
+  function isDiaryWrite(method, path) {
+    return (
+      method === 'POST' && /^\/api\/leitura\/\d+\/diario$/.test(path)
+    ) || (
+      method === 'PATCH' && /^\/api\/diario\/\d+$/.test(path)
+    );
+  }
+
   const originalFetch = global.fetch.bind(global);
   global.fetch = async function instrumentedFetch(input, init = {}) {
     const requestUrl = typeof input === 'string' || input instanceof URL
@@ -95,13 +103,11 @@
       const url = new URL(requestUrl, global.location.href);
       const path = url.pathname;
       if (response.ok && path !== '/api/events') {
-        if (method === 'POST' && path === '/api/manual') {
-          emit('reading_created', readingProperties(body, 'manual'));
-        } else if (method === 'POST' && path === '/api/leitura') {
+        if (method === 'POST' && path === '/api/prateleira') {
           emit('reading_created', readingProperties(body, body.source === 'quick_action' ? 'quick_action' : 'search'));
-        } else if (['PATCH', 'PUT'].includes(method) && path.startsWith('/api/leitura/')) {
+        } else if (method === 'PATCH' && /^\/api\/prateleira\/\d+$/.test(path)) {
           emit('reading_updated', readingProperties(body, body.source === 'quick_action' ? 'quick_action' : 'detail'));
-        } else if (['POST', 'PATCH', 'PUT'].includes(method) && path.startsWith('/api/diario')) {
+        } else if (isDiaryWrite(method, path)) {
           emit('progress_logged', {
             source: body.source === 'quick_action' ? 'quick_action' : 'diary',
             progress_type: progressType(body),
@@ -165,7 +171,8 @@
     const shareType = action.includes('baixar') ? 'download' : (action.includes('copiar') ? 'copy_link' : 'native');
     let source = sourceFromElement(shareTarget);
     if (shareTarget.closest('#modal')) source = 'reading';
-    if (shareTarget.closest('#retroModal')) source = 'recap';
+    else if (shareTarget.closest('#retroModal')) source = 'recap';
+    else if (!['shelf', 'profile'].includes(source)) source = 'unknown';
     emit('share_started', { source, share_type: shareType });
   }, true);
 })(window);
