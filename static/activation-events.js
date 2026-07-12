@@ -11,8 +11,14 @@
   if (!analytics || !features) return;
 
   let ready = false;
+  let appOpenedSent = false;
   const pending = [];
   const MAX_PENDING = 20;
+  const standalone = Boolean(
+    global.matchMedia?.('(display-mode: standalone)')?.matches ||
+    global.navigator?.standalone === true
+  );
+  const twa = /^android-app:/i.test(global.document.referrer || '');
 
   function emit(eventName, properties) {
     try {
@@ -24,14 +30,9 @@
     } catch (_) {}
   }
 
-  Promise.resolve(features.ready).catch(() => null).then(() => {
-    ready = true;
-    pending.splice(0).forEach(([eventName, properties]) => analytics.track(eventName, properties || {}));
-    const standalone = Boolean(
-      global.matchMedia?.('(display-mode: standalone)')?.matches ||
-      global.navigator?.standalone === true
-    );
-    const twa = /^android-app:/i.test(global.document.referrer || '');
+  function emitAppOpenedAfterSession() {
+    if (appOpenedSent) return;
+    appOpenedSent = true;
     const localeRaw = (global.document.documentElement.lang || 'pt-BR').trim();
     const locale = ['pt-BR', 'en', 'es'].includes(localeRaw) ? localeRaw : 'pt-BR';
     emit('app_opened', {
@@ -39,6 +40,11 @@
       locale,
       standalone
     });
+  }
+
+  Promise.resolve(features.ready).catch(() => null).then(() => {
+    ready = true;
+    pending.splice(0).forEach(([eventName, properties]) => analytics.track(eventName, properties || {}));
   });
 
   function sourceFromElement(element) {
@@ -114,6 +120,9 @@
             public: body.publico === true
           });
         } else if (method === 'GET' && path === '/api/eu') {
+          // /api/eu cria/recupera a sessão anônima. Emitir somente após sua resposta
+          // garante que app_opened receba user_id no POST seguinte de analytics.
+          emitAppOpenedAfterSession();
           const marker = global.sessionStorage?.getItem('lombada_after_google_login');
           if (marker) {
             response.clone().json().then(data => {
