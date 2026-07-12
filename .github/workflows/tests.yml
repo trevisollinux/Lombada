@@ -72,3 +72,12 @@ jobs:
 
       - name: Type-check and build frontend
         run: npm run build
+
+  container:
+    runs-on: ubuntu-latest
+    needs: [smoke, frontend]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build production image
+        run: docker build --tag lombada-app-v2:ci .
