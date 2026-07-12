@@ -5,6 +5,7 @@ import { App } from './App'
 import './styles.css'
 import './features/shelf/shelf.css'
 import './features/shelf/reading-editor.css'
+import './features/diary/diary.css'
 
 const rootElement = document.getElementById('root')
 
