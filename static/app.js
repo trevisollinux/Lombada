@@ -2911,7 +2911,7 @@ function spineHTML(l,i){
   const pags=Number(l.paginas)>0?Number(l.paginas):0;
   const np=pags?Math.max(0,Math.min(1,(pags-80)/620)):0.45;    // 0..1; sem dado = médio
   const w=Math.round(33+np*26);                                 // espessura 33..59
-  const h=Math.round(Math.min(206,150+(hue%100)/100*54+np*8));  // altura 150..206
+  const h=Math.round(Math.min(210,154+(hue%100)/100*54+np*8));  // altura 154..210
   const ano=Number(l.ano_obra||l.ano)||0;
   const antigo=ano>0&&ano<1970, vintage=ano>=1970&&ano<2000;
   const sat=antigo?30:vintage?42:54;                            // clássicos dessaturados
@@ -2920,10 +2920,20 @@ function spineHTML(l,i){
   const page=antigo?'#cdbd92':vintage?'#e2d9bd':'#efe9d6';      // topo (corte das folhas)
   const estilo=antigo?'nervuras':['liso','rotulo','faixas'][hue%3];
   const saved=livroEstaDestacado(l)?' data-saved="1"':'';
-  const titulo=esc(l.titulo||t('untitled'));
+  const titulo=(l.titulo||t('untitled')).trim();
+  const autor=(l.autor||'').trim();
+  const autorCurto=autor?trechoTexto(autor,24):'';
+  // autor no topo, título no pé (como lombada de verdade). O corpo do título
+  // tem a fonte auto-ajustada pra caber inteiro, sem cortar — títulos longos
+  // ficam menores, como nas lombadas reais de letra miúda.
+  const zonaAutor=autor?Math.min(48,Math.round(h*0.26)):14;
+  const zonaNota=l.nota?16:6;
+  const tmax=Math.max(44,h-zonaAutor-zonaNota-16);
+  const tfs=Math.max(8,Math.min(13,Math.round(tmax/Math.max(1,titulo.length)/0.62)));
   const rating=l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:'';
-  return `<span class="spine-slot"><button class="spine" data-estilo="${estilo}"${saved} style="--w:${w}px;--h:${h}px;--hue:${hue};--sat:${sat}%;--lig:${lig}%;--foil:${foil};--page:${page}" onclick="abrirCard(${i})" title="${titulo} — ${esc(l.autor||'')}" aria-label="${titulo}">
-    <span class="spine-title">${titulo}</span>${rating}
+  const autorHTML=autorCurto?`<span class="spine-author">${esc(autorCurto)}</span>`:'';
+  return `<span class="spine-slot"><button class="spine" data-estilo="${estilo}"${saved} style="--w:${w}px;--h:${h}px;--hue:${hue};--sat:${sat}%;--lig:${lig}%;--foil:${foil};--page:${page};--tfs:${tfs}px;--tmax:${tmax}px" onclick="abrirCard(${i})" title="${esc(titulo)} — ${esc(autor)}" aria-label="${esc(titulo)}">
+    ${autorHTML}<span class="spine-title">${esc(titulo)}</span>${rating}
   </button></span>`;
 }
 function resumoEstante(){

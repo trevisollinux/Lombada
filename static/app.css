@@ -2339,12 +2339,17 @@ body.theme-dark .per-page-select select{color-scheme:dark}
   background:
     linear-gradient(to bottom,transparent 15px,rgba(255,255,255,.17) 15px 17px,rgba(0,0,0,.22) 17px 19px,transparent 19px),
     linear-gradient(to top,transparent 31px,rgba(255,255,255,.17) 31px 33px,rgba(0,0,0,.22) 33px 35px,transparent 35px)}
+.spine-author{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
+  font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;text-transform:uppercase;text-align:center;line-height:1.15;
+  max-height:calc(var(--h) * .27);overflow:hidden;margin-bottom:4px;
+  color:var(--foil);opacity:.62;text-shadow:0 1px 1px rgba(0,0,0,.5)}
 .spine-title{
-  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;position:relative;z-index:2;
-  font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:13px;line-height:1.05;
-  max-height:calc(var(--h) - 56px);overflow:hidden;margin-top:8px;
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
+  font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:var(--tfs,12px);line-height:1.05;text-align:center;
+  max-height:var(--tmax);overflow:hidden;margin-top:auto;
   color:var(--foil);text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.spine-stars{margin-top:auto;position:relative;z-index:2;font-family:"Space Mono",monospace;font-size:8.5px;letter-spacing:.02em;color:var(--foil);opacity:.92;white-space:nowrap}
+.spine-stars{margin-top:5px;position:relative;z-index:2;font-family:"Space Mono",monospace;font-size:8.5px;letter-spacing:.02em;color:var(--foil);opacity:.92;white-space:nowrap}
 .spine:hover{transform:translateY(-9px) rotate(-.6deg);box-shadow:4px 12px 18px rgba(0,0,0,.55)}
 .spine:focus-visible{outline:2px solid #F2D89B;outline-offset:2px}
 .spine[data-saved]{outline:2px solid var(--gold);outline-offset:3px}
