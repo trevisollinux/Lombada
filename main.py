@@ -2663,7 +2663,7 @@ def listar(request: Request, s: Session = Depends(get_session)):
         "titulo": o.titulo, "autor": o.autor, "work_key": o.ol_work_key,
         "edicao_id": ed.id, "ol_edition_key": ed.ol_edition_key,
         "editora": ed.editora, "tradutor": ed.tradutor,
-        "ano": ed.ano, "isbn": ed.isbn, "capa_url": ed.capa_url, "paginas": ed.paginas,
+        "ano": ed.ano, "ano_obra": o.ano, "isbn": ed.isbn, "capa_url": ed.capa_url, "paginas": ed.paginas,
         "tenho_edicao": rel_map.get(ed.id, {}).get("tenho", False),
         "quero_edicao": rel_map.get(ed.id, {}).get("quero", False),
         "li_edicao": True,
