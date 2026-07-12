@@ -1,4 +1,4 @@
-"""ASGI entrypoint com correções de busca instaladas antes do primeiro request."""
+"""ASGI entrypoint com correções e módulos opcionais instalados antes do primeiro request."""
 import busca as busca_module
 import main
 
@@ -8,6 +8,7 @@ from author_search_patch import (
     install,
 )
 from feature_flags import router as feature_flags_router
+from product_analytics import router as product_analytics_router
 
 
 install()
@@ -48,6 +49,10 @@ app = main.app
 if not getattr(app.state, "feature_flags_router_installed", False):
     app.include_router(feature_flags_router)
     app.state.feature_flags_router_installed = True
+
+if not getattr(app.state, "product_analytics_router_installed", False):
+    app.include_router(product_analytics_router)
+    app.state.product_analytics_router_installed = True
 
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)
