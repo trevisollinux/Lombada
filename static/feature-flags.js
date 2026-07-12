@@ -92,6 +92,9 @@
     if (isEnabled('favorite_books')) {
       loadScriptOnce('/static/essential-books.js', 'favorite-books');
     }
+    if (isEnabled('period_recaps')) {
+      loadScriptOnce('/static/period-recaps.js', 'period-recaps');
+    }
   }
 
   const api = Object.freeze({
