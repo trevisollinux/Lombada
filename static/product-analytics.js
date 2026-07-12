@@ -1,8 +1,7 @@
 /* Cliente mínimo de eventos de produto do Lombada.
 
-   Não é carregado pelo HTML atual. A instrumentação futura deverá carregar
-   feature-flags.js antes deste arquivo. Nenhum método lança erro para o fluxo
-   chamador e somente propriedades estruturais allowlisted entram na fila. */
+   Carregado somente pela instrumentação oficial. Nenhum método lança erro para
+   o fluxo chamador e somente propriedades estruturais allowlisted entram na fila. */
 (function productAnalyticsBootstrap(global) {
   'use strict';
 
@@ -19,7 +18,9 @@
 
   const queue = [];
   let flushing = false;
+  let flushTimer = null;
   const MAX_BATCH_SIZE = 10;
+  const FLUSH_DELAY_MS = 1200;
 
   function enabled() {
     return Boolean(
@@ -51,6 +52,14 @@
     return clean;
   }
 
+  function scheduleFlush() {
+    if (flushTimer !== null || !enabled()) return;
+    flushTimer = global.setTimeout(() => {
+      flushTimer = null;
+      void flush();
+    }, FLUSH_DELAY_MS);
+  }
+
   function track(eventName, properties = {}) {
     try {
       if (!enabled() || !Object.prototype.hasOwnProperty.call(EVENT_PROPERTIES, eventName)) return false;
@@ -60,6 +69,7 @@
         client_event_id: eventId()
       });
       if (queue.length >= MAX_BATCH_SIZE) void flush();
+      else scheduleFlush();
       return true;
     } catch (_) {
       return false;
@@ -67,6 +77,10 @@
   }
 
   async function flush() {
+    if (flushTimer !== null) {
+      global.clearTimeout(flushTimer);
+      flushTimer = null;
+    }
     if (flushing || !enabled() || queue.length === 0) return false;
     flushing = true;
     const events = queue.splice(0, MAX_BATCH_SIZE);
@@ -90,12 +104,18 @@
     } finally {
       flushing = false;
       if (enabled() && queue.length >= MAX_BATCH_SIZE) void flush();
+      else if (enabled() && queue.length > 0) scheduleFlush();
     }
   }
 
   function size() {
     return queue.length;
   }
+
+  global.document?.addEventListener('visibilitychange', () => {
+    if (global.document.visibilityState === 'hidden') void flush();
+  });
+  global.addEventListener?.('pagehide', () => { void flush(); });
 
   global.LombadaAnalytics = Object.freeze({ track, flush, size });
 })(window);
