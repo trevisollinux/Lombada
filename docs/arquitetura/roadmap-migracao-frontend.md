@@ -9,7 +9,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Publicar o novo frontend inicialmente em `/app-v2`.
 - [x] Migrar shell, tema, idioma e navegação.
 - [x] Migrar estante somente leitura.
-- [ ] Migrar detalhe e mutações de leitura.
+- [x] Migrar detalhe e mutações de leitura.
 - [ ] Migrar diário.
 - [ ] Migrar busca, obra e edições.
 - [ ] Migrar explorar, feed e perfil.
@@ -23,7 +23,11 @@ O shell React já possui roteamento, navegação responsiva, tema, idioma, sess�
 
 ## Estado da estante v2
 
-A estante consome `/api/prateleira` e oferece filtros por status, visualização em grade ou lista, capas com fallback editorial, estados de loading/erro/vazio e detalhe somente leitura. Edição e exclusão continuam no aplicativo legado até a próxima fase.
+A estante consome `/api/prateleira` e oferece filtros por status, visualização em grade ou lista, capas com fallback editorial, estados de loading/erro/vazio e detalhe completo da leitura.
+
+## Estado das mutações de leitura
+
+O detalhe permite editar status padrão ou personalizado, nota, data, relato, visibilidade e spoiler. A exclusão exige confirmação explícita, remove também as entradas vinculadas do diário pelo contrato atual do backend e atualiza a estante sem recarregar a página.
 
 ## Regra de execução
 
