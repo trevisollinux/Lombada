@@ -98,9 +98,13 @@
 
   function progressType(body) {
     const raw = String(body.progresso_tipo || '').toLowerCase();
-    if (raw === 'pagina' || body.pagina !== null && body.pagina !== undefined) return 'page';
-    if (raw === 'porcentagem' || body.porcentagem !== null && body.porcentagem !== undefined) return 'percentage';
-    if (raw === 'capitulo' || body.capitulo_ordem !== null && body.capitulo_ordem !== undefined) return 'chapter';
+    if (body.pagina !== null && body.pagina !== undefined) return 'page';
+    if (body.porcentagem !== null && body.porcentagem !== undefined) return 'percentage';
+    if (
+      body.capitulo ||
+      body.capitulo_ordem !== null && body.capitulo_ordem !== undefined ||
+      raw === 'capitulo'
+    ) return 'chapter';
     return 'free';
   }
 
