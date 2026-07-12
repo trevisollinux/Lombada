@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import './styles.css'
 import './features/shelf/shelf.css'
+import './features/shelf/reading-editor.css'
 
 const rootElement = document.getElementById('root')
 
