@@ -12,6 +12,7 @@
     reading_created: ['source', 'status', 'has_rating', 'public'],
     reading_updated: ['source', 'status', 'has_rating', 'public'],
     progress_logged: ['source', 'progress_type', 'public'],
+    progress_feedback: ['source', 'insight_type', 'action'],
     share_started: ['source', 'share_type', 'success'],
     profile_connected: ['provider', 'source', 'success']
   });
