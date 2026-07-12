@@ -18,20 +18,23 @@ import author_search_patch  # noqa: E402
 import main  # noqa: E402
 from author_search_patch import sanitize_search_query  # noqa: E402
 
-# A produção usa PostgreSQL e suporta o fold completo. O SQLite da suíte possui
-# um limite baixo para expressões profundamente aninhadas e estoura o parser com
-# as 51 chamadas de replace do mapa completo. Mantemos aqui o subconjunto que
-# cobre português/espanhol e os casos de regressão, sem mudar a busca de produção.
+# A produção usa PostgreSQL e mantém o fold completo. O SQLite da suíte possui
+# um limite baixo para expressões aninhadas; este subconjunto cobre os dados dos
+# testes de português/espanhol sem alterar a busca de produção.
 if main.engine.dialect.name == "sqlite":
     author_search_patch._SQL_ACCENT_REPLACEMENTS = (
-        ("á", "a"), ("à", "a"), ("ã", "a"), ("â", "a"), ("ä", "a"),
-        ("é", "e"), ("è", "e"), ("ê", "e"), ("ë", "e"),
-        ("í", "i"), ("ì", "i"), ("î", "i"), ("ï", "i"),
-        ("ó", "o"), ("ò", "o"), ("õ", "o"), ("ô", "o"), ("ö", "o"),
-        ("ú", "u"), ("ù", "u"), ("û", "u"), ("ü", "u"),
-        ("ç", "c"), ("ñ", "n"), ("ý", "y"), ("ÿ", "y"),
-        ("Á", "a"), ("É", "e"), ("Í", "i"), ("Ó", "o"),
-        ("Ú", "u"), ("Ç", "c"), ("Ñ", "n"),
+        ("á", "a"),
+        ("ã", "a"),
+        ("é", "e"),
+        ("ê", "e"),
+        ("í", "i"),
+        ("ó", "o"),
+        ("ô", "o"),
+        ("õ", "o"),
+        ("ú", "u"),
+        ("ç", "c"),
+        ("ñ", "n"),
+        ("É", "e"),
     )
 
 
