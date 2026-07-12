@@ -50,6 +50,12 @@ class ProgressFeedbackUxContractTest(TestCase):
         ):
             self.assertIn(contract, self.source)
 
+    def test_note_without_numeric_progress_is_a_free_session(self):
+        self.assertIn("if (body.pagina !== null && body.pagina !== undefined) return 'page'", self.source)
+        self.assertIn("if (body.porcentagem !== null && body.porcentagem !== undefined) return 'percentage'", self.source)
+        self.assertIn("return 'free'", self.source)
+        self.assertIn("Sessão de leitura registrada.", self.source)
+
     def test_at_most_one_structural_insight_is_rendered(self):
         self.assertIn("const insight = progressInsight(snapshot, body)", self.source)
         self.assertIn("copy.title", self.source)
