@@ -18,6 +18,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field as PydanticField
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
@@ -91,6 +92,17 @@ class ProductEventInput(BaseModel):
 
 class ProductEventBatch(BaseModel):
     events: list[ProductEventInput]
+
+
+def _accepted_response(payload: dict[str, object]) -> JSONResponse:
+    return JSONResponse(
+        payload,
+        status_code=202,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 def _normalize_client_event_id(value: str | None) -> str:
@@ -203,50 +215,50 @@ def ingest_product_events(
     normalized = [validate_product_event(item) for item in payload.events]
 
     if not feature_enabled("product_analytics"):
-        return {"accepted": 0, "dropped": len(normalized), "disabled": True}
+        return _accepted_response({"accepted": 0, "dropped": len(normalized), "disabled": True})
 
     if not _consume_rate_limit(_request_actor_key(request), len(normalized)):
         raise HTTPException(429, "limite de eventos excedido")
 
-    uid = request.session.get("uid")
-    user = session.get(Usuario, uid) if uid else None
-    if user and user.is_demo:
-        return {"accepted": 0, "dropped": len(normalized), "ignored_demo": True}
-
-    user_id = user.id if user else None
-    actor_type = "connected" if user and (user.google_sub or user.email) else "anonymous"
-
-    # Dedupe de reenvios do cliente sem registrar payloads ou identificadores extras.
-    event_ids = [client_event_id for _name, _properties, client_event_id in normalized]
-    existing_rows = session.exec(
-        select(ProductEvent.client_event_id).where(ProductEvent.client_event_id.in_(event_ids))
-    ).all()
-    existing = {str(value) for value in existing_rows}
-
-    unique_rows: dict[str, ProductEvent] = {}
-    for event_name, properties, client_event_id in normalized:
-        if client_event_id in existing or client_event_id in unique_rows:
-            continue
-        unique_rows[client_event_id] = ProductEvent(
-            client_event_id=client_event_id,
-            event_name=event_name,
-            user_id=user_id,
-            actor_type=actor_type,
-            properties_json=json.dumps(properties, ensure_ascii=True, sort_keys=True, separators=(",", ":")),
-        )
-
     try:
+        uid = request.session.get("uid")
+        user = session.get(Usuario, uid) if uid else None
+        if user and user.is_demo:
+            return _accepted_response({"accepted": 0, "dropped": len(normalized), "ignored_demo": True})
+
+        user_id = user.id if user else None
+        actor_type = "connected" if user and (user.google_sub or user.email) else "anonymous"
+
+        # Dedupe de reenvios do cliente sem registrar payloads ou identificadores extras.
+        event_ids = [client_event_id for _name, _properties, client_event_id in normalized]
+        existing_rows = session.exec(
+            select(ProductEvent.client_event_id).where(ProductEvent.client_event_id.in_(event_ids))
+        ).all()
+        existing = {str(value) for value in existing_rows}
+
+        unique_rows: dict[str, ProductEvent] = {}
+        for event_name, properties, client_event_id in normalized:
+            if client_event_id in existing or client_event_id in unique_rows:
+                continue
+            unique_rows[client_event_id] = ProductEvent(
+                client_event_id=client_event_id,
+                event_name=event_name,
+                user_id=user_id,
+                actor_type=actor_type,
+                properties_json=json.dumps(properties, ensure_ascii=True, sort_keys=True, separators=(",", ":")),
+            )
+
         for row in unique_rows.values():
             session.add(row)
         session.commit()
     except IntegrityError:
         session.rollback()
         # Uma corrida de retry não deve virar erro visível no fluxo principal.
-        return {"accepted": 0, "dropped": len(normalized), "duplicate": True}
+        return _accepted_response({"accepted": 0, "dropped": len(normalized), "duplicate": True})
     except SQLAlchemyError:
         session.rollback()
         logger.exception("product_analytics_storage_unavailable")
-        return {"accepted": 0, "dropped": len(normalized), "storage_unavailable": True}
+        return _accepted_response({"accepted": 0, "dropped": len(normalized), "storage_unavailable": True})
 
     accepted = len(unique_rows)
-    return {"accepted": accepted, "dropped": len(normalized) - accepted}
+    return _accepted_response({"accepted": accepted, "dropped": len(normalized) - accepted})
