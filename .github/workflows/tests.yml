@@ -2,7 +2,7 @@ name: Tests
 
 # Testes de regressão e smoke: importam a aplicação, validam rotas principais e
 # contratos estáticos da interface antes do deploy. Usa a mesma versão mínima de
-# Python exigida pela aplicação em produção.
+# Python exigida pela aplicação em produção e valida isoladamente o novo frontend.
 
 on:
   push:
@@ -54,3 +54,21 @@ jobs:
       - name: Fail when tests failed
         if: steps.tests.outputs.exit_code != '0'
         run: exit 1
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check and build frontend
+        run: npm run build
