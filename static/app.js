@@ -3516,6 +3516,7 @@ function renderPerfil(){
         <button class="pbtn" type="button" onclick="compartilharPerfil()">${t('share_profile')}</button>
       </div>
       <div class="profile-metrics"><button type="button" class="metric-link" onclick="abrirEstanteFiltrada('Lido')"><strong>${lidos}</strong><span>${t('status_read')}</span></button><div><strong>${edicoesPossui}</strong><span>${t('owned_editions')}</span></div><div><strong>${edicoesDesejadas}</strong><span>${t('wanted_editions')}</span></div></div>
+      ${lidos?`<button type="button" class="retro-cta" onclick="abrirRetrospectiva()"><span class="retro-cta-spark">✨</span><span class="retro-cta-copy"><strong>${t('retro_cta')}</strong><small>${t('retro_cta_hint')}</small></span><span class="retro-cta-arrow">→</span></button>`:''}
       ${logado?`<div id="profileEditWrap" hidden>${editarPerfilHTML}</div>`:''}
       ${!logado?perfilLoginCTAHTML():''}
       ${n?grelhaPerfilHTML():estatisticasPerfilHTML(0,0,0,0)}
@@ -3885,6 +3886,79 @@ function verEstanteLidos(){
   filtroEstante='Lido';
   irPara('estante',{subaba:'shelf',recarregar:false});
   renderPrateleira();
+}
+
+/* ── retrospectiva: painéis estilo stories com o panorama da estante.
+   Aberta só quando o usuário pede (botão no perfil) — sem gatilho externo. ── */
+let retroSlides=[], retroIdx=0, retroTeclado=false;
+function dadosRetrospectiva(){
+  const lidos=prateleira.filter(l=>l.status==='Lido');
+  if(!lidos.length) return null;
+  const paginas=lidos.reduce((s,l)=>s+(Number(l.paginas)>0?Number(l.paginas):0),0);
+  const porAutor={};
+  lidos.forEach(l=>{ const a=(l.autor||'').trim(); if(a) (porAutor[a]=porAutor[a]||[]).push(l); });
+  const topAutor=Object.entries(porAutor).sort((a,b)=>b[1].length-a[1].length)[0]||null;
+  const notas=lidos.filter(l=>Number(l.nota)>0);
+  const media=notas.length?notas.reduce((s,l)=>s+Number(l.nota),0)/notas.length:0;
+  const favorito=notas.slice().sort((a,b)=>Number(b.nota)-Number(a.nota))[0]||null;
+  return {lidos,paginas,topAutor,notas,media,favorito};
+}
+function capasRetro(list,max=6){
+  return `<div class="retro-covers">${list.slice(0,max).map(l=>coverHTML(l.titulo,l.autor,l.capa_url,'')).join('')}</div>`;
+}
+function montarSlidesRetro(d){
+  const slides=[];
+  slides.push(`<div class="retro-big">${d.lidos.length}</div><div class="retro-caption">${t(d.lidos.length===1?'retro_books_one':'retro_books_many')}</div>`);
+  if(d.paginas>0) slides.push(`<div class="retro-big">${d.paginas.toLocaleString(getLocale())}</div><div class="retro-caption">${t('retro_pages')}</div>`);
+  if(d.topAutor&&d.topAutor[1].length>1) slides.push(`<div class="retro-caption">${t('retro_author_kicker')}</div><div class="retro-mid">${esc(d.topAutor[0])}</div><div class="retro-sub">${t('retro_author_count',{count:d.topAutor[1].length})}</div>${capasRetro(d.topAutor[1],4)}`);
+  if(d.favorito) slides.push(`<div class="retro-caption">${t('retro_fav')}</div>${capasRetro([d.favorito],1)}<div class="retro-mid">${esc(d.favorito.titulo)}</div><div class="retro-sub">${estrelasStr(d.favorito.nota)}${d.notas.length>1?` · ${t('retro_avg',{avg:(Math.round(d.media*10)/10).toLocaleString(getLocale())})}`:''}</div>`);
+  slides.push(`<div class="retro-caption">${t('retro_shelf')}</div>${capasRetro(d.lidos,8)}<div class="retro-sub">${t('retro_shelf_sub',{count:d.lidos.length})}</div><button type="button" class="retro-share" onclick="compartilharRetrospectiva()">${t('share')}</button>`);
+  return slides;
+}
+function abrirRetrospectiva(){
+  const d=dadosRetrospectiva();
+  if(!d){ toast(t('retro_empty')); return; }
+  retroSlides=montarSlidesRetro(d); retroIdx=0;
+  let modal=$('#retroModal');
+  if(!modal){ modal=document.createElement('div'); modal.id='retroModal'; document.body.appendChild(modal); }
+  modal.className='retro-modal open';
+  if(!retroTeclado){
+    retroTeclado=true;
+    document.addEventListener('keydown',e=>{
+      if(!$('#retroModal')?.classList.contains('open')) return;
+      if(e.key==='Escape') fecharRetrospectiva();
+      else if(e.key==='ArrowRight'||e.key===' ') retroAvancar(1);
+      else if(e.key==='ArrowLeft') retroAvancar(-1);
+    });
+  }
+  renderRetroSlide();
+  confete();
+}
+function fecharRetrospectiva(){ $('#retroModal')?.classList.remove('open'); }
+function retroAvancar(dir){
+  const prox=retroIdx+dir;
+  if(prox>=retroSlides.length){ fecharRetrospectiva(); return; }
+  retroIdx=Math.max(0,prox);
+  renderRetroSlide();
+}
+function renderRetroSlide(){
+  const modal=$('#retroModal'); if(!modal) return;
+  modal.innerHTML=`
+    <div class="retro-nav"><button type="button" aria-label="${t('back')}" onclick="retroAvancar(-1)"></button><button type="button" aria-label="${t('retro_tap_hint')}" onclick="retroAvancar(1)"></button></div>
+    <div class="retro-progress">${retroSlides.map((_,i)=>`<span class="${i<=retroIdx?'on':''}"></span>`).join('')}</div>
+    <button type="button" class="retro-x" aria-label="${t('close_detail')}" onclick="fecharRetrospectiva()">✕</button>
+    <div class="retro-kicker">Lombada · ${esc(t('retro_kicker'))}</div>
+    <div class="retro-slide">${retroSlides[retroIdx]}</div>
+    <div class="retro-hint">${retroIdx<retroSlides.length-1?t('retro_tap_hint'):''}</div>`;
+}
+async function compartilharRetrospectiva(){
+  const d=dadosRetrospectiva(); if(!d) return;
+  const texto=t('retro_share_text',{books:d.lidos.length,pages:d.paginas.toLocaleString(getLocale()),url:location.origin});
+  try{
+    if(navigator.share){ await navigator.share({text:texto}); return; }
+    await navigator.clipboard.writeText(texto);
+    toast(t('retro_copied'));
+  }catch(e){}
 }
 
 /* ---------- card / modal ---------- */
