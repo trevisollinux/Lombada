@@ -7,7 +7,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Adicionar smoke tests do frontend atual.
 - [x] Criar `frontend/` com React, TypeScript e Vite.
 - [x] Publicar o novo frontend inicialmente em `/app-v2`.
-- [ ] Migrar shell, tema, idioma e navegação.
+- [x] Migrar shell, tema, idioma e navegação.
 - [ ] Migrar estante somente leitura.
 - [ ] Migrar detalhe e mutações de leitura.
 - [ ] Migrar diário.
@@ -16,6 +16,10 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [ ] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
 - [ ] Promover o frontend React para `/` após paridade e estabilização.
+
+## Estado do shell v2
+
+O shell React já possui roteamento, navegação responsiva, tema, idioma, sessão compartilhada com o aplicativo atual, estados de loading/erro e estrutura das rotas principais.
 
 ## Regra de execução
 
