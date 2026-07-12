@@ -4019,6 +4019,7 @@ function renderDetalheLivro(l){
       <div class="label">${t('edition')}</div>
       ${dados}
       <p class="detail-empty shelf-edition-flags">${t('you_read_this_edition')}${l.tenho_edicao?' · '+t('you_have_this_edition'):''}${l.quero_edicao?' · '+t('you_want_this_edition'):''}</p>
+      ${blocoAmazon(l.isbn,[l.titulo,l.autor].filter(Boolean).join(' '))}
     </section>`;
 }
 async function abrirCard(i,opcoes={}){

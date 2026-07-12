@@ -37,6 +37,14 @@ class AmazonAffiliateTest(unittest.TestCase):
         )
         self.assertIn("botaoAmazon(e.isbn,'',termoAmazonObra)", self.js)
 
+    def test_botao_no_detalhe_do_livro_da_estante(self):
+        # modal "detalhe do livro" (estante): botão + aviso na seção Edição,
+        # com fallback título+autor pra leitura registrada sem ISBN
+        self.assertIn(
+            "blocoAmazon(l.isbn,[l.titulo,l.autor].filter(Boolean).join(' '))",
+            self.js,
+        )
+
     def test_aviso_de_associado_perto_do_botao(self):
         self.assertIn("function blocoAmazon(isbn,termoFallback,cls)", self.js)
         self.assertIn("affiliate-note", self.js)
