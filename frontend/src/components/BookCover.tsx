@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 
 interface BookCoverProps {
   title: string
@@ -45,7 +45,7 @@ export function BookCover({ title, author, url, className = '' }: BookCoverProps
       style={{
         '--cover-primary': palette[0],
         '--cover-accent': palette[1],
-      } as React.CSSProperties}
+      } as CSSProperties}
       role="img"
       aria-label={`Capa gerada para ${title}`}
     >
