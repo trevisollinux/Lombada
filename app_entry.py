@@ -9,18 +9,23 @@ from author_search_patch import (
     install,
 )
 from essential_books import (
-    install_product_analytics_contract,
+    install_product_analytics_contract as install_essential_analytics_contract,
     install_public_profile_patch,
     router as essential_books_router,
 )
 from feature_flags import router as feature_flags_router
 from frontend_v2 import install_frontend_v2
+from period_recaps import (
+    install_product_analytics_contract as install_recap_analytics_contract,
+    router as period_recaps_router,
+)
 from product_analytics import router as product_analytics_router
 from retention_dashboard import router as retention_dashboard_router
 
 
 install()
-install_product_analytics_contract(product_analytics_module)
+install_essential_analytics_contract(product_analytics_module)
+install_recap_analytics_contract(product_analytics_module)
 install_public_profile_patch(main)
 
 
@@ -73,6 +78,10 @@ if not getattr(app.state, "retention_dashboard_router_installed", False):
 if not getattr(app.state, "essential_books_router_installed", False):
     app.include_router(essential_books_router)
     app.state.essential_books_router_installed = True
+
+if not getattr(app.state, "period_recaps_router_installed", False):
+    app.include_router(period_recaps_router)
+    app.state.period_recaps_router_installed = True
 
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)
