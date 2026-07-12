@@ -595,12 +595,13 @@ def _doc_generos(doc: dict) -> list[str]:
     return out
 
 def _doc_compativel_genero(doc: dict, genero: str) -> bool:
+    # Estrito, como o filtro local: doc externo sem estilo catalogado sai.
+    # Manter o tolerante aqui reintroduzia resultados idênticos entre estilos.
     generos = _doc_generos(doc)
     if generos:
         doc["generos"] = generos
-        doc["_genero_match"] = genero in generos
-        return genero in generos
-    return True
+    doc["_genero_match"] = genero in generos
+    return doc["_genero_match"]
 
 # ─── literatura / nacionalidade ───────────────────────────
 # Base extensível: cada literatura aponta pra um país e/ou região. O metadado
@@ -912,16 +913,15 @@ def _buscar_catalogo_local(q: str, s: Session, editora: str = "", genero: str = 
             continue
         genero_compat = None
         if genero:
-            # Mesmo contrato do filtro de literatura: obra com estilo catalogado
-            # incompatível sai sempre; obra sem o metadado permanece (o catálogo
-            # ainda tem poucos gêneros preenchidos e escondê-la zerava o filtro).
-            # O estilo confirmado ganha bônus e sobe no ranking; o front avisa.
-            generos_da_obra = generos_obra(obra)
-            genero_compat = (genero in generos_da_obra) if generos_da_obra else None
-            if genero_compat is False:
+            # Filtro de estilo é ESTRITO: só entra obra com o estilo confirmado.
+            # A versão tolerante (obra sem metadado permanecia) fazia qualquer
+            # estilo devolver o catálogo inteiro — buscas por estilos diferentes
+            # retornavam resultados idênticos. Vazio honesto (com aviso e CTA no
+            # front) é melhor que um filtro que não filtra.
+            genero_compat = genero in generos_obra(obra)
+            if not genero_compat:
                 continue
-            if genero_compat:
-                score += 40
+            score += 40
         lit_compat = None
         if literatura:
             lit_compat = _compat_literatura(
@@ -1566,7 +1566,8 @@ def _ordenar_resultados_busca(docs: list[dict], ordenar: str, literatura_ativa: 
     elif ordenar == "recentes":
         docs.sort(key=lambda d: _doc_ano_recente(d), reverse=True)
     if genero_ativo:
-        # prioriza obras com estilo compatível confirmado, sem excluir as demais
+        # com o filtro estrito todo doc já tem o estilo confirmado; o sort fica
+        # como cinto de segurança pra doc que chegue sem a flag (ex.: cache antigo)
         docs.sort(key=lambda d: 0 if d.get("_genero_match") else 1)
     if literatura_ativa:
         # prioriza obras com origem compatível confirmada, sem excluir as demais
