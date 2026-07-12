@@ -8,6 +8,7 @@
     'home_ritual',
     'product_analytics',
     'progress_sessions',
+    'progress_feedback',
     'onboarding_value',
     'favorite_books',
     'period_recaps',
