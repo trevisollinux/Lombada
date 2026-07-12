@@ -1,11 +1,17 @@
 """ASGI entrypoint com correções e módulos opcionais instalados antes do primeiro request."""
 import busca as busca_module
 import main
+import product_analytics as product_analytics_module
 
 from author_search_patch import (
     SearchQuerySanitizerMiddleware,
     buscar_catalogo_local as _buscar_catalogo_local_patch,
     install,
+)
+from essential_books import (
+    install_product_analytics_contract,
+    install_public_profile_patch,
+    router as essential_books_router,
 )
 from feature_flags import router as feature_flags_router
 from product_analytics import router as product_analytics_router
@@ -13,6 +19,8 @@ from retention_dashboard import router as retention_dashboard_router
 
 
 install()
+install_product_analytics_contract(product_analytics_module)
+install_public_profile_patch(main)
 
 
 def _buscar_catalogo_local_estrito(
@@ -58,6 +66,10 @@ if not getattr(app.state, "product_analytics_router_installed", False):
 if not getattr(app.state, "retention_dashboard_router_installed", False):
     app.include_router(retention_dashboard_router)
     app.state.retention_dashboard_router_installed = True
+
+if not getattr(app.state, "essential_books_router_installed", False):
+    app.include_router(essential_books_router)
+    app.state.essential_books_router_installed = True
 
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)

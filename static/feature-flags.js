@@ -22,6 +22,13 @@
 
   const state = Object.create(null);
   NAMES.forEach(name => { state[name] = false; });
+  const scriptVersion = (() => {
+    try {
+      return new URL(global.document.currentScript?.src || global.location.href, global.location.href).searchParams.get('v') || 'dev';
+    } catch (_) {
+      return 'dev';
+    }
+  })();
 
   function snapshot() {
     return Object.freeze(Object.fromEntries(NAMES.map(name => [name, state[name] === true])));
@@ -71,6 +78,22 @@
     };
   }
 
+  function loadScriptOnce(path, marker) {
+    if (global.document.querySelector(`script[data-feature-module="${marker}"]`)) return;
+    const script = global.document.createElement('script');
+    script.src = `${path}?v=${encodeURIComponent(scriptVersion)}`;
+    script.async = true;
+    script.dataset.featureModule = marker;
+    global.document.head.appendChild(script);
+  }
+
+  async function installFlaggedModules() {
+    await api.ready;
+    if (isEnabled('favorite_books')) {
+      loadScriptOnce('/static/essential-books.js', 'favorite-books');
+    }
+  }
+
   const api = Object.freeze({
     names: NAMES,
     isEnabled,
@@ -80,5 +103,15 @@
   });
 
   global.LombadaFeatures = api;
-  global.document.addEventListener('DOMContentLoaded', installOnboardingStatusDefault, { once: true });
+
+  function afterDomReady() {
+    installOnboardingStatusDefault();
+    void installFlaggedModules();
+  }
+
+  if (global.document.readyState === 'loading') {
+    global.document.addEventListener('DOMContentLoaded', afterDomReady, { once: true });
+  } else {
+    afterDomReady();
+  }
 })(window);
