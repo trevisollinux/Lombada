@@ -1744,8 +1744,12 @@ Object.assign(I18N['pt-BR'], {
   genre_filter_active: 'estilo: {genre}',
   clear_genre_filter: 'limpar filtro de estilo',
   close_genre_filter: 'fechar filtro de estilo',
-  no_results_in_genre: 'Não houve resultados nesse estilo: {genre}.',
-  genre_no_metadata_note: 'Poucas obras têm estilo catalogado por enquanto — mostrando também resultados sem esse dado para o estilo {genre}.',
+  no_results_in_genre: 'Nenhuma obra com o estilo {genre} catalogada por enquanto — o catálogo de estilos ainda está em construção.',
+  per_page_label: 'resultados por página',
+  per_page_option: '{count}/página',
+  search_range: '{from}–{to} de {total}',
+  prev_page: 'página anterior',
+  next_page: 'próxima página',
 });
 Object.assign(I18N['en'], {
   search_filters: 'filters',
@@ -1761,8 +1765,12 @@ Object.assign(I18N['en'], {
   genre_filter_active: 'style: {genre}',
   clear_genre_filter: 'clear style filter',
   close_genre_filter: 'close style filter',
-  no_results_in_genre: 'No results found for this style: {genre}.',
-  genre_no_metadata_note: 'Few works have a cataloged style yet — also showing results without that data for the {genre} style.',
+  no_results_in_genre: 'No works cataloged with the {genre} style yet — the style catalog is still a work in progress.',
+  per_page_label: 'results per page',
+  per_page_option: '{count}/page',
+  search_range: '{from}–{to} of {total}',
+  prev_page: 'previous page',
+  next_page: 'next page',
 });
 Object.assign(I18N['es'], {
   search_filters: 'filtros',
@@ -1778,8 +1786,12 @@ Object.assign(I18N['es'], {
   genre_filter_active: 'estilo: {genre}',
   clear_genre_filter: 'quitar filtro de estilo',
   close_genre_filter: 'cerrar filtro de estilo',
-  no_results_in_genre: 'No hubo resultados en este estilo: {genre}.',
-  genre_no_metadata_note: 'Pocas obras tienen estilo catalogado por ahora — mostrando también resultados sin ese dato para el estilo {genre}.',
+  no_results_in_genre: 'Ninguna obra con el estilo {genre} catalogada por ahora — el catálogo de estilos sigue en construcción.',
+  per_page_label: 'resultados por página',
+  per_page_option: '{count}/página',
+  search_range: '{from}–{to} de {total}',
+  prev_page: 'página anterior',
+  next_page: 'página siguiente',
 });
 Object.assign(I18N['pt-BR'], {
   publisher_filter_hint: 'Escolha uma editora para refinar a busca.',

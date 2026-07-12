@@ -1881,19 +1881,22 @@ function mudarPaginaBusca(delta){
   renderResultadosBusca();
 }
 function controlesBusca(totalPages){
+  // barra única e compacta: toggle grade/lista · select "N/página" ·
+  // faixa "1–10 de 30" (página + total num só rótulo) · setas ‹ ›
   const total=obrasAgrupadas.length||0;
+  const inicio=Math.min((paginaBusca-1)*porPaginaBusca,Math.max(total-1,0));
+  const fim=Math.min(inicio+porPaginaBusca,total);
   return `<div class="search-controls">
     <div class="view-toggle" aria-label="visualização da busca">
       ${viewToggleButtonHTML('busca','grade',visualizacaoBusca==='grade',"mudarVisualizacaoBusca('grade')")}
       ${viewToggleButtonHTML('busca','lista',visualizacaoBusca==='lista',"mudarVisualizacaoBusca('lista')")}
     </div>
-    <div class="per-page-select" aria-label="resultados por página"><span>por página</span>${[10,20,50].map(n=>`<button class="${porPaginaBusca===n?'active':''}" type="button" onclick="mudarPorPaginaBusca(${n})">${n}</button>`).join('')}</div>
+    <label class="per-page-select"><select aria-label="${t('per_page_label')}" onchange="mudarPorPaginaBusca(this.value)">${[10,20,50].map(n=>`<option value="${n}"${porPaginaBusca===n?' selected':''}>${t('per_page_option',{count:n})}</option>`).join('')}</select></label>
+    <span class="search-range">${t('search_range',{from:inicio+1,to:fim,total})}</span>
     <div class="pager" aria-label="paginação da busca">
-      <button type="button" ${paginaBusca<=1?'disabled':''} onclick="mudarPaginaBusca(-1)">← anterior</button>
-      <span>página ${paginaBusca} de ${totalPages}</span>
-      <button type="button" ${paginaBusca>=totalPages?'disabled':''} onclick="mudarPaginaBusca(1)">próximo →</button>
+      <button type="button" aria-label="${t('prev_page')}" ${paginaBusca<=1?'disabled':''} onclick="mudarPaginaBusca(-1)">←</button>
+      <button type="button" aria-label="${t('next_page')}" ${paginaBusca>=totalPages?'disabled':''} onclick="mudarPaginaBusca(1)">→</button>
     </div>
-    <div class="search-total">${total} ${total===1?'resultado':'resultados'}</div>
   </div>`;
 }
 function cardResultadoBusca(d,i){
@@ -1995,7 +1998,10 @@ async function buscar(event){
   obrasAgrupadas=agruparResultadosPorObra(resultadosArr, q, {manterOrdem:manterOrdemServidor});
   if(!obrasAgrupadas.length){
     const temFiltro=filtrosBuscaAtivos().length>0;
-    const msg=temFiltro ? `<div class="empty-rich search-filter-empty"><p>${t('no_results_with_filters')}</p><button class="link-manual" type="button" onclick="limparTodosFiltrosBusca(true)">${t('clear_filters')}</button></div>` : '';
+    // com filtro de estilo ativo o vazio quase sempre é "esse estilo ainda não
+    // foi catalogado" — explica em vez da mensagem genérica de filtros
+    const textoVazio=filtroGeneroBusca ? t('no_results_in_genre',{genre:esc(filtroGeneroBusca)}) : t('no_results_with_filters');
+    const msg=temFiltro ? `<div class="empty-rich search-filter-empty"><p>${textoVazio}</p><button class="link-manual" type="button" onclick="limparTodosFiltrosBusca(true)">${t('clear_filters')}</button></div>` : '';
     $('#resultados').innerHTML=msg ? msg+manualCtaHTML(false) : manualCtaHTML(true);
     return;
   }
@@ -2003,8 +2009,6 @@ async function buscar(event){
   const avisos=[];
   if(filtroLiteraturaBusca && !resultadosArr.some(d=>d._literatura_match))
     avisos.push(`<div class="empty literatura-fallback-note">${t('literature_no_metadata_note',{literature:esc(literaturaLabelBusca(filtroLiteraturaBusca))})}</div>`);
-  if(filtroGeneroBusca && !resultadosArr.some(d=>d._genero_match))
-    avisos.push(`<div class="empty genero-fallback-note">${t('genre_no_metadata_note',{genre:esc(filtroGeneroBusca)})}</div>`);
   renderResultadosBusca(avisos.join(''));
 }
 
