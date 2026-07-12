@@ -15,6 +15,7 @@ export type ShelfTextKey =
   | 'empty_filtered'
   | 'register'
   | 'books_count'
+  | 'status'
   | 'rating'
   | 'no_rating'
   | 'publisher'
@@ -32,6 +33,28 @@ export type ShelfTextKey =
   | 'close_detail'
   | 'open_legacy'
   | 'no_review'
+  | 'edit_reading'
+  | 'reading_date'
+  | 'reading_date_placeholder'
+  | 'review_placeholder'
+  | 'make_public'
+  | 'make_public_hint'
+  | 'mark_spoiler'
+  | 'mark_spoiler_hint'
+  | 'save_changes'
+  | 'saving'
+  | 'cancel'
+  | 'remove_reading'
+  | 'remove_hint'
+  | 'remove_confirmation'
+  | 'keep_reading'
+  | 'confirm_remove'
+  | 'remove'
+  | 'deleting'
+  | 'save_error'
+  | 'delete_error'
+  | 'saved_success'
+  | 'deleted_success'
 
 const messages: Record<Locale, Record<ShelfTextKey, string>> = {
   'pt-BR': {
@@ -49,6 +72,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     empty_filtered: 'Nenhuma leitura corresponde a este filtro.',
     register: 'Buscar um livro',
     books_count: 'leituras',
+    status: 'Status',
     rating: 'Sua nota',
     no_rating: 'sem nota',
     publisher: 'Editora',
@@ -64,8 +88,30 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     wanted: 'edição desejada',
     open_detail: 'Abrir detalhes',
     close_detail: 'Fechar detalhes',
-    open_legacy: 'Editar no app atual',
+    open_legacy: 'Abrir no app atual',
     no_review: 'Nenhum relato registrado para esta leitura.',
+    edit_reading: 'Editar leitura',
+    reading_date: 'Quando você leu',
+    reading_date_placeholder: 'ex.: julho de 2026',
+    review_placeholder: 'Escreva suas impressões sobre a leitura…',
+    make_public: 'Tornar relato público',
+    make_public_hint: 'O relato poderá aparecer no seu perfil e na comunidade.',
+    mark_spoiler: 'Este relato contém spoiler',
+    mark_spoiler_hint: 'O conteúdo será protegido por um aviso para outros leitores.',
+    save_changes: 'Salvar alterações',
+    saving: 'Salvando…',
+    cancel: 'Cancelar',
+    remove_reading: 'Remover da estante',
+    remove_hint: 'A leitura e as entradas do diário vinculadas serão apagadas.',
+    remove_confirmation: 'Esta ação é permanente. Confirme para remover a leitura e seu diário.',
+    keep_reading: 'Manter leitura',
+    confirm_remove: 'Confirmar remoção',
+    remove: 'Remover',
+    deleting: 'Removendo…',
+    save_error: 'Não foi possível salvar as alterações.',
+    delete_error: 'Não foi possível remover a leitura.',
+    saved_success: 'Leitura atualizada.',
+    deleted_success: 'Leitura removida da estante.',
   },
   en: {
     all: 'All',
@@ -82,6 +128,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     empty_filtered: 'No reading matches this filter.',
     register: 'Find a book',
     books_count: 'readings',
+    status: 'Status',
     rating: 'Your rating',
     no_rating: 'not rated',
     publisher: 'Publisher',
@@ -97,8 +144,30 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     wanted: 'wanted edition',
     open_detail: 'Open details',
     close_detail: 'Close details',
-    open_legacy: 'Edit in current app',
+    open_legacy: 'Open in current app',
     no_review: 'No reading note was saved for this book.',
+    edit_reading: 'Edit reading',
+    reading_date: 'When you read it',
+    reading_date_placeholder: 'e.g. July 2026',
+    review_placeholder: 'Write your thoughts about this reading…',
+    make_public: 'Make note public',
+    make_public_hint: 'The note may appear on your profile and in the community.',
+    mark_spoiler: 'This note contains spoilers',
+    mark_spoiler_hint: 'The content will be hidden behind a warning for other readers.',
+    save_changes: 'Save changes',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    remove_reading: 'Remove from shelf',
+    remove_hint: 'The reading and its linked journal entries will be deleted.',
+    remove_confirmation: 'This action is permanent. Confirm to remove the reading and its journal.',
+    keep_reading: 'Keep reading',
+    confirm_remove: 'Confirm removal',
+    remove: 'Remove',
+    deleting: 'Removing…',
+    save_error: 'The changes could not be saved.',
+    delete_error: 'The reading could not be removed.',
+    saved_success: 'Reading updated.',
+    deleted_success: 'Reading removed from your shelf.',
   },
 }
 
