@@ -14,6 +14,7 @@ from essential_books import (
     router as essential_books_router,
 )
 from feature_flags import router as feature_flags_router
+from frontend_v2 import install_frontend_v2
 from product_analytics import router as product_analytics_router
 from retention_dashboard import router as retention_dashboard_router
 
@@ -54,6 +55,8 @@ busca_module._CACHE_SCHEMA_VERSION = max(
     4,
 )
 app = main.app
+
+install_frontend_v2(app)
 
 if not getattr(app.state, "feature_flags_router_installed", False):
     app.include_router(feature_flags_router)

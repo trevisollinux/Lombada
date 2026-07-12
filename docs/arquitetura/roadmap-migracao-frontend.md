@@ -4,9 +4,9 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 
 ## Fases
 
-- [ ] Adicionar smoke tests do frontend atual.
-- [ ] Criar `frontend/` com React, TypeScript e Vite.
-- [ ] Publicar o novo frontend inicialmente em `/app-v2`.
+- [x] Adicionar smoke tests do frontend atual.
+- [x] Criar `frontend/` com React, TypeScript e Vite.
+- [x] Publicar o novo frontend inicialmente em `/app-v2`.
 - [ ] Migrar shell, tema, idioma e navegação.
 - [ ] Migrar estante somente leitura.
 - [ ] Migrar detalhe e mutações de leitura.
