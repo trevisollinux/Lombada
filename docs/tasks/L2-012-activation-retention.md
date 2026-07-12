@@ -298,7 +298,7 @@ Não é necessário apagar dados nem executar migration reversa.
 - [x] Painel protegido por flag interna e `ADMIN_EMAILS`.
 - [x] Resposta sem dados individuais.
 - [x] Testes completos.
-- [x] CI final verde.
+- [x] GitHub Actions `Tests` run #345 concluído com sucesso.
 
 ## 15. Critério de saída
 
