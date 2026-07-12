@@ -3,3 +3,6 @@ __pycache__/
 lombada.db
 .env
 data/aliases.proposed.json
+backups/
+*.dump
+*.backup
