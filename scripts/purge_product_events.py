@@ -6,12 +6,18 @@ Nunca imprime DATABASE_URL, propriedades ou identificadores de usuário.
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from sqlmodel import Session
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from models import engine
-from product_analytics import purge_product_events
+from sqlmodel import Session  # noqa: E402
+
+from models import engine  # noqa: E402
+from product_analytics import purge_product_events  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
