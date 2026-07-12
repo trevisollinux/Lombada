@@ -1,8 +1,8 @@
 name: Tests
 
 # Testes de regressão e smoke: importam a aplicação, validam rotas principais e
-# contratos estáticos da interface antes do deploy. Roda na mesma versão principal
-# de Python usada pela aplicação em produção.
+# contratos estáticos da interface antes do deploy. Usa a mesma versão mínima de
+# Python exigida pela aplicação em produção.
 
 on:
   push:
@@ -20,14 +20,14 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: pip
           cache-dependency-path: |
             requirements.txt
             requirements-sync.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-sync.txt
+        run: pip install --quiet -r requirements.txt -r requirements-sync.txt
 
       - name: Run tests
-        run: python -m unittest discover -s tests -v
+        run: python -m unittest discover -s tests -q
