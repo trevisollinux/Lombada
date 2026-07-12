@@ -8,7 +8,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Criar `frontend/` com React, TypeScript e Vite.
 - [x] Publicar o novo frontend inicialmente em `/app-v2`.
 - [x] Migrar shell, tema, idioma e navegação.
-- [ ] Migrar estante somente leitura.
+- [x] Migrar estante somente leitura.
 - [ ] Migrar detalhe e mutações de leitura.
 - [ ] Migrar diário.
 - [ ] Migrar busca, obra e edições.
@@ -20,6 +20,10 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 ## Estado do shell v2
 
 O shell React já possui roteamento, navegação responsiva, tema, idioma, sessão compartilhada com o aplicativo atual, estados de loading/erro e estrutura das rotas principais.
+
+## Estado da estante v2
+
+A estante consome `/api/prateleira` e oferece filtros por status, visualização em grade ou lista, capas com fallback editorial, estados de loading/erro/vazio e detalhe somente leitura. Edição e exclusão continuam no aplicativo legado até a próxima fase.
 
 ## Regra de execução
 
