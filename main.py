@@ -3774,7 +3774,7 @@ def assetlinks():
 
 def render_index() -> HTMLResponse:
     html = (AQUI / "index.html").read_text(encoding="utf-8")
-    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260712a"
+    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260712b"
     html = html.replace("{{APP_VERSION}}", asset_version)
     return HTMLResponse(
         html,
