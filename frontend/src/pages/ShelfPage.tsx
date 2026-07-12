@@ -46,6 +46,7 @@ export function ShelfPage() {
   const [filter, setFilter] = useState<ShelfFilter>('all')
   const [view, setViewState] = useState<ShelfView>(initialView)
   const [selected, setSelected] = useState<ShelfReading | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setStatus('loading')
@@ -67,6 +68,12 @@ export function ShelfPage() {
     return () => controller.abort()
   }, [load])
 
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 3500)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   const counts = useMemo(() => {
     return Object.fromEntries(
       filters.map((option) => [
@@ -86,6 +93,20 @@ export function ShelfPage() {
     localStorage.setItem(VIEW_KEY, nextView === 'list' ? 'lista' : 'grade')
   }
 
+  function handleUpdated(updated: ShelfReading) {
+    setReadings((current) => current.map((reading) => (
+      reading.leitura_id === updated.leitura_id ? updated : reading
+    )))
+    setSelected(updated)
+    setNotice(shelfText(locale, 'saved_success'))
+  }
+
+  function handleDeleted(readingId: number) {
+    setReadings((current) => current.filter((reading) => reading.leitura_id !== readingId))
+    setSelected(null)
+    setNotice(shelfText(locale, 'deleted_success'))
+  }
+
   return (
     <section className="page page--shelf">
       <PageHeader
@@ -96,8 +117,14 @@ export function ShelfPage() {
             ? `${readings.length} ${shelfText(locale, 'books_count')}`
             : t('shelf_copy')
         }
-        aside={<span className="stage-stamp">03 · dados reais</span>}
+        aside={<span className="stage-stamp">04 · edição</span>}
       />
+
+      {notice && (
+        <div className="shelf-notice" role="status" aria-live="polite">
+          {notice}
+        </div>
+      )}
 
       <div className="shelf-toolbar">
         <div className="shelf-filters" role="group" aria-label={t('shelf_title')}>
@@ -204,7 +231,13 @@ export function ShelfPage() {
         </div>
       )}
 
-      <ReadingDetailPanel reading={selected} locale={locale} onClose={() => setSelected(null)} />
+      <ReadingDetailPanel
+        reading={selected}
+        locale={locale}
+        onClose={() => setSelected(null)}
+        onUpdated={handleUpdated}
+        onDeleted={handleDeleted}
+      />
     </section>
   )
 }
