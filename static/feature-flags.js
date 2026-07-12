@@ -1,7 +1,5 @@
 /* Feature flags públicas do Lombada.
 
-   Este arquivo é intencionalmente isolado e não é carregado pela interface atual.
-   A primeira funcionalidade gated deverá incluí-lo antes do seu próprio código.
    Falhas de rede mantêm todas as flags desligadas e nunca bloqueiam o app. */
 (function featureFlagsBootstrap(global) {
   'use strict';
@@ -10,6 +8,7 @@
     'home_ritual',
     'product_analytics',
     'progress_sessions',
+    'onboarding_value',
     'favorite_books',
     'period_recaps',
     'literary_reactions',
