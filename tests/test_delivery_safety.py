@@ -27,7 +27,7 @@ class DeliverySafetyContractTest(unittest.TestCase):
         self.assertIn('/static/app.js?v={{APP_VERSION}}', index)
         self.assertIn('/static/app.css?v={{APP_VERSION}}', index)
         self.assertTrue((ROOT / "manifest.json").exists())
-        self.assertTrue((ROOT / "static" / "sw.js").exists())
+        self.assertTrue((ROOT / "sw.js").exists())
 
     def test_boot_migration_contains_no_destructive_ddl(self):
         source = self._read("models.py")
@@ -51,9 +51,9 @@ class DeliverySafetyContractTest(unittest.TestCase):
         smoke = self._read("tests/test_smoke.py")
         required_signals = (
             "/api/buscar",
-            "/api/prateleira",
-            "/api/diario",
+            "/api/eu",
             "/api/feed/discover",
+            "/api/public/v1/books",
             "/manifest.json",
             "ReadingJournalEntry",
         )
