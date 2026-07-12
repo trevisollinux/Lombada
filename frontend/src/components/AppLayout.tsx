@@ -32,7 +32,7 @@ export function AppLayout() {
   useEffect(() => {
     setQuickOpen(false)
     setSettingsOpen(false)
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    window.scrollTo({ top: 0, behavior: 'auto' })
   }, [location.pathname])
 
   useEffect(() => {
