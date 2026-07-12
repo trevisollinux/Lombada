@@ -769,7 +769,7 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
 .profile-showcase .label{margin-bottom:12px}.profile-mini-wall{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px}.profile-mini-book .t{font-size:13px}.profile-mini-book .a{font-size:10px}.profile-empty{margin-top:0}.profile-review{border-top:1px solid var(--rule);padding:12px 0}.profile-review:first-child{border-top:0;padding-top:0}.profile-review strong{display:block;font-family:"Fraunces",serif;font-size:17px}.profile-review span{display:block;color:var(--muted);font-family:"Space Mono",monospace;font-size:10px;margin-top:3px}.profile-review p{font-size:14px;color:var(--ink-2);font-style:italic;margin-top:6px;line-height:1.35}.public-preview-box .pbtn{display:block;text-align:center}
 @media(min-width:920px){.profile-mini-wall{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
-.feed-list{display:grid;gap:2px}
+.feed-list{display:grid;grid-template-columns:minmax(0,1fr);gap:2px}
 .feed-card{display:grid;grid-template-columns:44px 1fr;gap:11px;padding:10px 0;border-bottom:1px solid var(--rule)}
 .feed-cover .cover{width:44px;min-height:64px;box-shadow:var(--shadow-sm)}.feed-cover .cover img{object-fit:contain}
 .feed-copy{min-width:0}.feed-user{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);cursor:pointer}.feed-action{color:var(--muted);font-style:italic;margin-left:4px}
