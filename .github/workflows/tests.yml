@@ -76,6 +76,7 @@ jobs:
           node --check ../static/product-analytics.js
           node --check ../static/activation-events.js
           node --check ../static/essential-books.js
+          node --check ../static/period-recaps.js
 
       - name: Type-check and build frontend
         run: npm run build
