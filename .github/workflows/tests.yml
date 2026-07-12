@@ -70,5 +70,11 @@ jobs:
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Check legacy JavaScript syntax
+        run: |
+          node --check ../static/feature-flags.js
+          node --check ../static/product-analytics.js
+          node --check ../static/activation-events.js
+
       - name: Type-check and build frontend
         run: npm run build
