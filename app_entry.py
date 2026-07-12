@@ -7,6 +7,7 @@ from author_search_patch import (
     buscar_catalogo_local as _buscar_catalogo_local_patch,
     install,
 )
+from feature_flags import router as feature_flags_router
 
 
 install()
@@ -43,6 +44,10 @@ busca_module._CACHE_SCHEMA_VERSION = max(
     4,
 )
 app = main.app
+
+if not getattr(app.state, "feature_flags_router_installed", False):
+    app.include_router(feature_flags_router)
+    app.state.feature_flags_router_installed = True
 
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)
