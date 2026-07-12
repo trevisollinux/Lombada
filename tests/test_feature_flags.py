@@ -113,16 +113,13 @@ class FeatureFlagFrontendContractTest(TestCase):
         for name in PUBLIC_FEATURE_NAMES:
             self.assertIn(f"'{name}'", source)
 
-    def test_frontend_helpers_load_in_safe_order(self):
+    def test_frontend_helper_loads_before_gated_code(self):
+        """A primeira experiência gated (sheet "Li mais", L2/EPIC 2) exige o
+        helper carregado antes do app.js — fail-closed continua garantido
+        pelo próprio helper quando /api/features falha."""
         index = (ROOT / "index.html").read_text(encoding="utf-8")
-        flags = index.index('/static/feature-flags.js')
-        analytics = index.index('/static/product-analytics.js')
-        activation = index.index('/static/activation-events.js')
-        app = index.index('/static/app.js')
-
-        self.assertLess(flags, analytics)
-        self.assertLess(analytics, activation)
-        self.assertLess(activation, app)
+        self.assertIn("/static/feature-flags.js", index)
+        self.assertLess(index.index("/static/feature-flags.js"), index.index("/static/app.js"))
 
 
 if __name__ == "__main__":

@@ -1310,7 +1310,9 @@ function lendoAgoraCard(l,idx,compacto=false,mostrarLabel=true){
   const noFim=leituraNoFim(l);
   const acaoPrincipal=noFim
     ?`<button type="button" class="reading-diary-action" aria-label="${t('mark_as_read')}" onclick="event.stopPropagation();concluirLeitura(${idx},this)">${t('mark_as_read')}</button>`
-    :`<button type="button" class="reading-diary-action" aria-label="${t('update_progress')}" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>`;
+    :(ffOn('progress_sessions')
+      ?`<button type="button" class="reading-diary-action" aria-label="${t('li_mais')}" onclick="event.stopPropagation();abrirLiMais(${idx})">${t('li_mais')}</button><button type="button" class="review-card-action reading-review-card-action" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>`
+      :`<button type="button" class="reading-diary-action" aria-label="${t('update_progress')}" onclick="event.stopPropagation();abrirDiarioLeitura(${idx})">${t('update_progress')}</button>`);
   return `<div class="reading-now-card ${compacto?'compact':''}" role="button" tabindex="0" onclick="abrirCard(${idx})" aria-label="${esc(l.titulo)}">
     <div class="reading-cover">${coverHTML(l.titulo,l.autor,l.capa_url,'')}</div>
     <div class="reading-copy">
@@ -1334,10 +1336,109 @@ function renderLendoAgora(){
   if(!box) return;
   const lendo = prateleira.filter(l=>l.status==='Lendo');
   const home=$('#homeFeed');
-  home?.classList.toggle('has-current-reading',lendo.length>0);
-  if(!lendo.length){ box.innerHTML=''; return; }
+  // a leitura atual na home é a primeira experiência gated do Lombada 2.0 —
+  // com a flag desligada a home fica exatamente como era
+  const mostrar=ffOn('home_ritual')&&lendo.length>0;
+  home?.classList.toggle('has-current-reading',mostrar);
+  if(!mostrar){ box.innerHTML=''; return; }
   const l=lendo[0], idx=prateleira.indexOf(l);
   box.innerHTML=`<div class="section-head"><h2 class="h-section">${leituraNoFim(l)?t('reading_finished_label'):t('continue_reading')}</h2><button type="button" class="more home-more-button" onclick="irPara('estante')">${t('see_shelf')}</button></div>${lendoAgoraCard(l,idx,false,false)}`;
+  injetarResumoSessao(l,'#lendoAgora');
+}
+
+/* ── Lombada 2.0 (atrás de flags): sheet "Li mais" e resumo de sessão.
+   Com as flags desligadas nada disso aparece e o fluxo atual segue igual. ── */
+function ffOn(name){ try{ return !!window.LombadaFeatures?.isEnabled(name); }catch(e){ return false; } }
+function trackEvento(nome,props){ try{ window.LombadaAnalytics?.track(nome,props); }catch(e){} }
+// as flags chegam por rede depois do primeiro render — re-renderiza as
+// superfícies gated quando o snapshot real estiver disponível
+try{
+  window.LombadaFeatures?.ready?.then?.(()=>{
+    renderLendoAgora();
+    if($('#secEstante')?.style.display!=='none'){ renderPrateleira(); renderDiario(); }
+  });
+}catch(e){}
+function modoLiMais(l){
+  const entradas=diarioEntradas.filter(e=>e.leitura_id===l.leitura_id).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const ultimaPagina=entradas.find(e=>paginaEfetiva(e));
+  const ultimaPct=entradas.find(e=>e.porcentagem!==null&&e.porcentagem!==undefined);
+  if(!ultimaPagina && ultimaPct) return 'porcentagem';
+  return 'pagina';
+}
+function abrirLiMais(idx){
+  const l=prateleira[idx]; if(!l) return;
+  const modo=modoLiMais(l);
+  const det=progressoDetalhado(l);
+  const atualTexto=modo==='pagina'
+    ? (det?`${t('page_of_total',{count:det.atual,total:det.total||'?'})}`:'')
+    : '';
+  let modal=$('#liMaisModal');
+  if(!modal){ modal=document.createElement('div'); modal.id='liMaisModal'; document.body.appendChild(modal); }
+  modal.className='limais-modal open';
+  modal.innerHTML=`
+    <div class="limais-backdrop" onclick="fecharLiMais()"></div>
+    <div class="limais-sheet" role="dialog" aria-modal="true" aria-labelledby="liMaisTitle">
+      <button type="button" class="modal-x limais-x" aria-label="${t('close_detail')}" onclick="fecharLiMais()">✕</button>
+      <div class="limais-kicker">${t('li_mais')}</div>
+      <h3 id="liMaisTitle">${esc(l.titulo)}</h3>
+      <p class="limais-hint">${t('where_stopped')}${atualTexto?` <span class="limais-atual">· ${esc(atualTexto)}</span>`:''}</p>
+      <div class="limais-row">
+        <input id="liMaisInput" type="number" inputmode="numeric" min="1" max="${modo==='porcentagem'?100:20000}" placeholder="${modo==='porcentagem'?t('diary_percent_placeholder'):t('diary_page_placeholder')}">
+        <span class="limais-sufixo">${modo==='porcentagem'?'%':(Number(l.paginas)>0?`/ ${Number(l.paginas)}`:'')}</span>
+      </div>
+      <button type="button" class="btn-primary limais-save" onclick="salvarLiMais(${idx},'${modo}',this)">${t('save_diary')}</button>
+      <button type="button" class="linklike limais-full" onclick="fecharLiMais();abrirDiarioLeitura(${idx})">${t('open_full_diary')}</button>
+    </div>`;
+  const input=$('#liMaisInput');
+  input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); modal.querySelector('.limais-save')?.click(); } });
+  requestAnimationFrame(()=>input?.focus());
+}
+function fecharLiMais(){ $('#liMaisModal')?.classList.remove('open'); }
+async function salvarLiMais(idx,modo,el=null){
+  const l=prateleira[idx]; if(!l) return;
+  const valor=Number($('#liMaisInput')?.value);
+  const valido=Number.isFinite(valor)&&valor>0&&(modo!=='porcentagem'||valor<=100);
+  if(!valido){ toast(t('inform_progress_or_note')); $('#liMaisInput')?.focus(); return; }
+  setButtonBusy(el,t('saving'));
+  const payload=modo==='porcentagem'
+    ? {progresso_tipo:'porcentagem',porcentagem:Math.round(valor),origem:'li_mais'}
+    : {progresso_tipo:'pagina',pagina:Math.round(valor),origem:'li_mais'};
+  let data=null;
+  try{
+    const r=await fetch(`/api/leitura/${l.leitura_id}/diario`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error('li mais '+r.status);
+    data=await r.json();
+  }catch(e){ clearButtonBusy(el); toast(t('diary_save_error')); return; }
+  clearButtonBusy(el);
+  fecharLiMais();
+  trackEvento('progress_logged',{source:'quick_action',progress_type:modo==='porcentagem'?'percentage':'page',public:false});
+  await carregarPrateleira();
+  const salva=prateleira.find(x=>x.leitura_id===l.leitura_id);
+  if(leituraNoFim(salva)) toast(t('reading_finished_hint'));
+  else if(Number(data?.paginas_delta)>0) toast(t('li_mais_delta',{count:data.paginas_delta}));
+  else toast(t('diary_entry_saved'));
+  renderLendoAgora();
+  if($('#secEstante')?.style.display!=='none'){ renderPrateleira(); renderDiario(); }
+}
+const resumoSessaoPedido={};
+async function injetarResumoSessao(l,scopeSel){
+  if(!l||!ffOn('home_ritual')) return;
+  try{
+    const r=await fetch(`/api/leitura/${l.leitura_id}/progresso`);
+    if(!r.ok) return;
+    const d=await r.json();
+    const partes=[];
+    if(Number(d.delta_ultima)>0) partes.push(t('last_session_pages',{count:d.delta_ultima}));
+    if(Number(d.paginas_7d)>0) partes.push(t('week_pages',{count:d.paginas_7d}));
+    if(!partes.length) return;
+    const alvo=document.querySelector(`${scopeSel} .reading-copy`);
+    if(!alvo) return;
+    alvo.querySelector('.reading-session-meta')?.remove();
+    const el=document.createElement('div');
+    el.className='reading-session-meta';
+    el.textContent=partes.join(' · ');
+    alvo.appendChild(el);
+  }catch(e){}
 }
 
 /* onboarding: primeira visita, primeiros passos — some pra sempre depois de completar as 3 ações */

@@ -737,7 +737,7 @@ body.theme-dark .theme-option input:checked + span{background:var(--paper-2);bor
   .tab.active{background:transparent;border-color:transparent;color:var(--ink);font-weight:400}
   body.theme-dark .tab.active{background:transparent;border-color:transparent;color:var(--ink)}
   #edicoes:not([style*="display:none"]){display:block!important;width:100%;max-width:100%;overflow-x:hidden}
-  .work-page{grid-template-columns:none}
+  .work-page{grid-template-columns:minmax(0,1fr)}
   .work-page .work-hero{grid-row:auto;position:static;display:flex;border-bottom:1px solid var(--rule);margin-bottom:8px;padding:4px 0 16px}
   .work-page .work-hero .cover{width:92px;max-width:100%;max-height:340px;margin-bottom:0;flex:0 0 92px}
   .work-page .work-hero ~ *{grid-column:auto}
@@ -1181,6 +1181,7 @@ body.theme-dark textarea::placeholder{color:#CABEAA;opacity:1}
 
 .work-page{
   display:grid;
+  grid-template-columns:minmax(0,1fr);
   gap:1rem;
 }
 .work-hero{
@@ -2261,3 +2262,25 @@ body.theme-dark .per-page-select select{color-scheme:dark}
 .retro-hint{position:absolute;bottom:18px;left:0;right:0;z-index:2;pointer-events:none;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(244,239,230,.45)}
 .retro-share{pointer-events:auto;position:relative;z-index:3;margin-top:6px;padding:12px 26px;border:0;border-radius:999px;background:#F4EFE6;color:#4A1212;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 @media (prefers-reduced-motion: reduce){.retro-slide{animation:none}}
+
+/* ── Lombada 2.0: sheet "Li mais" e resumo de sessão (atrás de flags) ── */
+.limais-modal{position:fixed;inset:0;z-index:960;display:none}
+.limais-modal.open{display:block}
+.limais-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.limais-sheet{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;background:var(--paper,var(--bg));color:var(--text);border-radius:18px 18px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -18px 50px rgba(0,0,0,.35);animation:limaisUp .28s cubic-bezier(.22,1,.36,1)}
+@keyframes limaisUp{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
+.limais-x{position:absolute;top:12px;right:12px}
+.limais-kicker{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent,var(--gold));margin-bottom:6px}
+.limais-sheet h3{font-family:"Fraunces",serif;font-size:20px;margin:0 0 4px;padding-right:36px}
+.limais-hint{margin:0 0 14px;color:var(--dim);font-size:13px}
+.limais-atual{white-space:nowrap}
+.limais-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.limais-row input{flex:1;font-size:22px;font-family:"Fraunces",serif;padding:10px 14px;border:1px solid var(--rule);border-radius:12px;background:transparent;color:inherit;min-width:0}
+.limais-row input:focus{border-color:var(--accent);outline:none}
+.limais-sufixo{color:var(--dim);font-family:"Space Mono",monospace;font-size:13px;white-space:nowrap}
+.limais-save{width:100%}
+.limais-full{display:block;margin:12px auto 0}
+.reading-session-meta{margin-top:6px;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.04em;color:var(--accent,var(--gold))}
+@media (prefers-reduced-motion: reduce){.limais-sheet{animation:none}}
+.home-current-reading{margin:6px 0 18px}
+.home-current-reading:empty{display:none;margin:0}
