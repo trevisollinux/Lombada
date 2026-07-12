@@ -1870,27 +1870,33 @@ function mudarVisualizacaoBusca(modo){
   paginaBusca=1;
   renderResultadosBusca();
 }
+function voltarAoTopoDosResultados(){
+  // a barra de paginação fica depois da lista — sem isso o usuário
+  // trocava de página e continuava olhando o fim da página anterior
+  $('#resultados')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function mudarPorPaginaBusca(n){
   porPaginaBusca=[10,20,50].includes(Number(n))?Number(n):20;
   paginaBusca=1;
   renderResultadosBusca();
+  voltarAoTopoDosResultados();
 }
 function mudarPaginaBusca(delta){
   const totalPages=Math.max(1,Math.ceil((obrasAgrupadas.length||0)/porPaginaBusca));
-  paginaBusca=Math.min(totalPages,Math.max(1,paginaBusca+delta));
+  const nova=Math.min(totalPages,Math.max(1,paginaBusca+delta));
+  if(nova===paginaBusca) return;
+  paginaBusca=nova;
   renderResultadosBusca();
+  voltarAoTopoDosResultados();
 }
 function controlesBusca(totalPages){
-  // barra única e compacta: toggle grade/lista · select "N/página" ·
-  // faixa "1–10 de 30" (página + total num só rótulo) · setas ‹ ›
+  // barra compacta de linha única, exibida só DEPOIS da lista:
+  // select "N/página" · faixa "1–10 de 30" · setas ‹ › (o toggle
+  // grade/lista vive no cabeçalho "obras encontradas")
   const total=obrasAgrupadas.length||0;
   const inicio=Math.min((paginaBusca-1)*porPaginaBusca,Math.max(total-1,0));
   const fim=Math.min(inicio+porPaginaBusca,total);
   return `<div class="search-controls">
-    <div class="view-toggle" aria-label="visualização da busca">
-      ${viewToggleButtonHTML('busca','grade',visualizacaoBusca==='grade',"mudarVisualizacaoBusca('grade')")}
-      ${viewToggleButtonHTML('busca','lista',visualizacaoBusca==='lista',"mudarVisualizacaoBusca('lista')")}
-    </div>
     <label class="per-page-select"><select aria-label="${t('per_page_label')}" onchange="mudarPorPaginaBusca(this.value)">${[10,20,50].map(n=>`<option value="${n}"${porPaginaBusca===n?' selected':''}>${t('per_page_option',{count:n})}</option>`).join('')}</select></label>
     <span class="search-range">${t('search_range',{from:inicio+1,to:fim,total})}</span>
     <div class="pager" aria-label="paginação da busca">
@@ -1923,7 +1929,12 @@ function renderResultadosBusca(extraHTML=''){
     : `<div class="wall">${itens.map((d,idx)=>cardResultadoBusca(d,inicio+idx)).join('')}</div>`;
   const melhorScore=resultadosArr.length?Math.max(...resultadosArr.map(d=>scoreResultadoBusca(d,ultimaBuscaQ))):100;
   const precisaDestaque=melhorScore<40;
-  $('#resultados').innerHTML=`<div class="section-head"><h2 class="h-section">${t('works_found')}</h2></div>`+extraHTML+controlesBusca(totalPages)+lista+controlesBusca(totalPages)+manualCtaHTML(precisaDestaque);
+  const cabecalho=`<div class="section-head search-section-head"><h2 class="h-section">${t('works_found')}</h2>
+    <div class="view-toggle" aria-label="visualização da busca">
+      ${viewToggleButtonHTML('busca','grade',visualizacaoBusca==='grade',"mudarVisualizacaoBusca('grade')")}
+      ${viewToggleButtonHTML('busca','lista',visualizacaoBusca==='lista',"mudarVisualizacaoBusca('lista')")}
+    </div></div>`;
+  $('#resultados').innerHTML=cabecalho+extraHTML+lista+controlesBusca(totalPages)+manualCtaHTML(precisaDestaque);
 }
 
 /* busca */

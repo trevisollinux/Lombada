@@ -2117,19 +2117,21 @@ body.theme-dark .view-toggle-btn.active{background:var(--paper-2);border-color:v
 .catalog-list-author{display:block;margin-top:2px;font-family:"Spectral",serif;font-size:13px;line-height:1.2;color:var(--muted)}
 .catalog-list-meta{margin-top:5px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
 .popular-section-head{align-items:center;justify-content:space-between;gap:12px}.home-popular-list{width:100%}.wall.catalog-list-host{display:block}
-/* Busca: barra compacta (linha única) de paginação e alternância grade/lista */
-.search-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 18px;padding:8px 10px;border:1px solid var(--rule);background:var(--paper-2)}
-.search-controls .view-toggle{flex:none}
+/* Busca: toggle grade/lista no cabeçalho; paginação em barra única após a lista */
+.search-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.search-section-head .view-toggle{flex:none}
+.search-controls{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin:16px 0 18px;padding:8px 10px;border:1px solid var(--rule);background:var(--paper-2)}
 .per-page-select{position:relative;display:inline-flex;align-items:center}
 .per-page-select select{appearance:none;-webkit-appearance:none;border:1px solid var(--rule);border-radius:8px;background:transparent;color:var(--muted);font-family:"Space Mono",monospace;font-size:11px;line-height:1;padding:9px 24px 9px 10px;min-height:34px;cursor:pointer}
 .per-page-select::after{content:"▾";position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--muted)}
 body.theme-dark .per-page-select select{color-scheme:dark}
-.search-range{margin-left:auto;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.search-range{flex:1 1 auto;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.search-controls .per-page-select,.search-controls .pager{flex:none}
 .search-controls .pager{display:flex;align-items:center;gap:6px}
 .pager button{display:inline-grid;place-items:center;width:38px;height:34px;border:1px solid var(--rule);border-radius:8px;background:transparent;color:var(--ink);font-size:14px;line-height:1;padding:0;min-height:0;cursor:pointer}
 .pager button:disabled{opacity:.4;cursor:not-allowed}
 .search-result-list{display:grid;gap:0}.search-result-row{cursor:pointer}.search-result-title{font-size:17px}.search-result-author{font-size:13px}.search-result-meta{margin-top:5px}
-@media(max-width:420px){.search-controls{padding:8px;gap:7px}.per-page-select select{font-size:10px;padding:9px 20px 9px 8px}.per-page-select::after{right:7px}.search-range{font-size:9px}.pager button{width:34px}.search-result-title{font-size:16px}}
+@media(max-width:420px){.search-controls{padding:8px 8px;gap:6px}.per-page-select select{font-size:10px;padding:9px 18px 9px 8px}.per-page-select::after{right:6px}.search-range{font-size:9px;letter-spacing:.04em}.pager button{width:34px}.search-result-title{font-size:16px}}
 
 
 /* Home hierarchy: prioritize the current reading and progressive discovery. */
