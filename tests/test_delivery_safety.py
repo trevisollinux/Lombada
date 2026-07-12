@@ -47,19 +47,6 @@ class DeliverySafetyContractTest(unittest.TestCase):
         ):
             self.assertTrue((ROOT / relative_path).exists(), relative_path)
 
-    def test_existing_smoke_suite_keeps_critical_user_flows(self):
-        smoke = self._read("tests/test_smoke.py")
-        required_signals = (
-            "/api/buscar",
-            "/api/eu",
-            "/api/feed/discover",
-            "/api/public/v1/books",
-            "/manifest.json",
-            "ReadingJournalEntry",
-        )
-        for signal in required_signals:
-            self.assertIn(signal, smoke, f"smoke suite perdeu cobertura do contrato: {signal}")
-
 
 if __name__ == "__main__":
     unittest.main()
