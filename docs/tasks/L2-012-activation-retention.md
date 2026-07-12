@@ -4,59 +4,57 @@ Issue: #291 · Parent: #277 · PR: #297
 
 ## 1. Contexto
 
-O Lombada já possui a infraestrutura técnica necessária para evoluir com segurança:
-
-- testes e política de rollback;
-- feature flags desligadas por padrão;
-- modelo privado de eventos de produto;
-- endpoint de ingestão com allowlist, rate limit e retenção de 90 dias;
-- cliente de analytics isolado e ainda não carregado pela interface.
-
-Esta tarefa conecta essas peças para responder, de forma prática, às perguntas:
+O Lombada já possui testes, rollback, feature flags desligadas por padrão e uma camada privada de eventos de produto. Esta tarefa conecta essas peças para responder, por meio de totais agregados:
 
 - as pessoas encontram livros?
 - depois de encontrar, registram uma leitura?
 - quem registra volta para atualizar o progresso?
 - quantas pessoas usam o Lombada em uma semana?
-- quantas voltam após 1, 7 e 30 dias?
+- quantas voltam depois de 1, 7 e 30 dias?
 - uma mudança futura na home melhora ou piora esses números?
 
-O objetivo não é criar vigilância sobre usuários. O painel deve mostrar somente totais agregados e nunca expor uma linha de evento individual.
+O objetivo não é reconstruir a navegação de uma pessoa. O painel nunca mostra eventos individuais, IDs de usuário, email, handle, nome ou conteúdo literário.
 
-## 2. Resultado esperado na prática
+## 2. Resultado prático
 
-Ao final desta tarefa, o administrador poderá consultar uma visão como:
+Com a coleta e o painel ativados, uma conta administrativa pode acessar:
+
+```text
+/admin/retention
+```
+
+A tela apresenta uma visão como:
 
 ```text
 Últimos 7 dias
 
 Usuários ativos: 120
-Abriram o app: 120
+WAU: 120
 Buscaram um livro: 84
 Abriram um livro: 61
 Registraram uma leitura: 28
 Atualizaram o progresso: 14
-
-Ativação em até 24h: 23,3%
-Ativação em até 7 dias: 31,7%
+Ativação em 24h: 23,3%
+Ativação em 7 dias: 31,7%
 Retenção D1: 18,2%
 Retenção D7: 9,4%
 Retenção D30: 4,1%
 ```
 
-Esses valores são exemplos. O painel real calculará os números a partir dos eventos armazenados quando a coleta for ativada.
+Os valores acima são exemplos. O painel real calcula os números a partir dos eventos permitidos quando a coleta estiver ligada.
 
 ## 3. Estado inicial e segurança
 
 Tudo permanece desligado por padrão:
 
-- `FF_PRODUCT_ANALYTICS=false`: eventos não são persistidos;
-- `FF_ADMIN_RETENTION_DASHBOARD=false`: painel não fica acessível;
-- ausência de token administrativo: painel não fica acessível;
-- falha de analytics nunca impede busca, leitura, diário ou login;
+- `FF_PRODUCT_ANALYTICS=false`: os eventos enviados pelo navegador são descartados e não persistidos;
+- `FF_ADMIN_RETENTION_DASHBOARD=false`: o painel responde como inexistente;
+- somente uma conta Google cujo email esteja em `ADMIN_EMAILS` pode acessar o painel;
+- uma pessoa não autorizada recebe `404`, evitando revelar a existência da área;
+- falhas de analytics não interrompem busca, leitura, diário, compartilhamento ou login;
 - não existe migration destrutiva.
 
-O deploy deste PR não deve, sozinho, iniciar coleta em produção.
+O deploy deste PR não inicia coleta sozinho.
 
 ## 4. Definições oficiais
 
@@ -64,15 +62,13 @@ O deploy deste PR não deve, sozinho, iniciar coleta em produção.
 
 Pessoa representada por `ProductEvent.user_id`.
 
-Eventos sem `user_id` podem ajudar no diagnóstico operacional, mas não entram em métricas de retenção, porque não é possível reconhecer a mesma pessoa em dias diferentes com segurança.
+Eventos sem `user_id` podem servir a diagnóstico operacional, mas não entram em métricas de ativação ou retenção, porque não é possível reconhecer a mesma pessoa em dias diferentes com segurança.
 
 Usuários com `Usuario.is_demo = true` são sempre excluídos.
 
 ### 4.2 Usuário ativo
 
-Usuário com pelo menos um evento significativo no período analisado.
-
-Eventos significativos:
+Usuário com pelo menos um evento significativo no período:
 
 - `search_submitted`;
 - `book_opened`;
@@ -82,240 +78,227 @@ Eventos significativos:
 - `share_started`;
 - `profile_connected`.
 
-`app_opened` sozinho não define uso ativo; ele representa abertura, não valor recebido.
+`app_opened` sozinho não define uso ativo: representa abertura, não valor recebido.
 
 ### 4.3 WAU
 
-`Weekly Active Users`: quantidade de usuários distintos com evento significativo nos últimos 7 dias completos até o instante da consulta.
-
-Fórmula:
+`Weekly Active Users` é a quantidade de usuários distintos com pelo menos um evento significativo nos sete dias anteriores ao instante da consulta.
 
 ```text
-WAU = usuários distintos com evento significativo entre agora - 7 dias e agora
+WAU = usuários distintos ativos entre agora - 7 dias e agora
 ```
 
-### 4.4 Ativação principal
+### 4.4 Ativação
 
-Um usuário é considerado ativado quando realiza pelo menos um destes eventos:
+Um usuário é considerado ativado quando realiza:
 
-- `reading_created`;
+- `reading_created`; ou
 - `progress_logged`.
 
 A ativação representa que a pessoa saiu da exploração e começou a construir sua vida de leitura dentro do Lombada.
 
-### 4.5 Ativação em 24 horas
-
-Percentual de usuários da coorte que atingiram a ativação até 24 horas após seu primeiro evento observado.
+Janelas:
 
 ```text
-ativação_24h = usuários ativados em até 24h / usuários elegíveis da coorte
+ativação_24h = ativados no intervalo [primeiro evento, primeiro evento + 24h)
+ativação_7d  = ativados no intervalo [primeiro evento, primeiro evento + 7 dias)
 ```
 
-### 4.6 Ativação em 7 dias
+### 4.5 Coorte
 
-Percentual de usuários da coorte que atingiram a ativação até 7 dias após seu primeiro evento observado.
+A coorte de um usuário é definida pelo instante UTC de seu primeiro `app_opened`.
+
+Na ausência desse evento, usa-se o primeiro evento conhecido. Esse fallback mantém os dados mensuráveis durante rollouts graduais.
+
+### 4.6 Retenção D1, D7 e D30
+
+Um usuário é retido quando possui pelo menos um evento significativo na janela-alvo contada a partir do instante de entrada na coorte:
+
+- D1: de 24h, inclusive, até antes de 48h;
+- D7: de 168h, inclusive, até antes de 192h;
+- D30: de 720h, inclusive, até antes de 744h.
 
 ```text
-ativação_7d = usuários ativados em até 7d / usuários elegíveis da coorte
+retenção_Dn = usuários da coorte ativos na janela Dn / usuários elegíveis
 ```
 
-### 4.7 Coorte
-
-A coorte de um usuário é a data UTC do primeiro `app_opened` registrado.
-
-Quando não houver `app_opened`, usa-se a data UTC do primeiro evento conhecido. Esse fallback permite que dados válidos continuem mensuráveis durante implantações graduais.
-
-### 4.8 Retenção D1, D7 e D30
-
-Um usuário é retido quando possui pelo menos um evento significativo no dia-alvo contado a partir da data da coorte.
-
-Janelas adotadas:
-
-- D1: entre 24h e menos de 48h após o primeiro evento;
-- D7: entre 7×24h e menos de 8×24h;
-- D30: entre 30×24h e menos de 31×24h.
-
-Fórmula:
-
-```text
-retenção_Dn = usuários da coorte ativos na janela Dn / usuários elegíveis da coorte
-```
-
-Coortes que ainda não tiveram tempo suficiente para chegar ao dia-alvo não entram no denominador dessa métrica.
+Uma coorte que ainda não completou toda a janela não entra no denominador.
 
 ## 5. Funil de produto
 
-O funil agregado segue esta sequência:
+O painel conta usuários distintos em cada capacidade:
 
 1. `app_opened` — abriu o aplicativo;
-2. `search_submitted` — procurou um livro;
-3. `book_opened` — abriu o detalhe de uma obra/edição;
-4. `reading_created` — adicionou uma leitura;
-5. `progress_logged` — voltou para registrar progresso;
-6. `share_started` — tentou compartilhar algo do Lombada;
-7. `profile_connected` — conectou a conta Google.
+2. `search_submitted` — enviou uma busca;
+3. `book_opened` — abriu um livro;
+4. `reading_created` — adicionou uma leitura à estante;
+5. `progress_logged` — registrou progresso;
+6. `share_started` — iniciou um compartilhamento;
+7. `profile_connected` — confirmou conexão com Google.
 
-Cada etapa contará usuários distintos, não número bruto de cliques.
+As etapas não precisam ocorrer em ordem estrita. O objetivo é medir adoção de capacidades, não reconstruir a jornada individual.
 
-As etapas não precisam acontecer em ordem estrita para aparecerem no painel. O objetivo é medir adoção de capacidades, não reconstruir a navegação individual de cada pessoa.
+O cadastro manual enviado para moderação **não** conta como `reading_created`, pois ainda não criou uma leitura na estante.
 
-## 6. Instrumentação desta tarefa
+## 6. Instrumentação do navegador
 
-Os dois scripts existentes serão carregados de forma não bloqueante:
+Os scripts são carregados nesta ordem:
 
 ```html
 <script src="/static/feature-flags.js?v={{APP_VERSION}}"></script>
 <script src="/static/product-analytics.js?v={{APP_VERSION}}"></script>
+<script src="/static/activation-events.js?v={{APP_VERSION}}"></script>
 ```
 
-Com a flag desligada, eles não enviam eventos.
+Com `product_analytics` desligada, eles permanecem inertes.
 
-Marcos mínimos a instrumentar:
+A instrumentação acompanha somente marcos estruturais:
 
-- abertura da aplicação;
-- envio de busca;
-- abertura de livro;
-- criação de leitura;
-- atualização de leitura;
-- registro de progresso;
-- início de compartilhamento;
-- conexão de perfil quando houver retorno confirmado do login.
+- abertura do app;
+- envio de busca, sem enviar a consulta;
+- abertura de livro, sem enviar título, autor ou ISBN;
+- criação e atualização de leitura, enviando apenas status, presença de nota e visibilidade;
+- registro de progresso, enviando apenas tipo e visibilidade;
+- início de compartilhamento, enviando apenas origem e tipo;
+- conexão de perfil confirmada pelo retorno do login.
 
-A instrumentação deve enviar somente propriedades estruturais já allowlisted, sem título, autor, ISBN, consulta digitada ou texto do usuário.
+Eventos pequenos são enviados após um atraso curto; lotes maiores saem imediatamente. Ao esconder ou fechar a página, a fila restante tenta ser descarregada com `keepalive`. Qualquer falha é ignorada pelo fluxo principal e não gera retry infinito.
 
 ## 7. Painel administrativo
 
 ### 7.1 Acesso
 
-O painel será protegido por duas camadas:
+O painel possui duas camadas:
 
-1. flag interna `FF_ADMIN_RETENTION_DASHBOARD=true`;
-2. token administrativo comparado de forma segura.
+1. `FF_ADMIN_RETENTION_DASHBOARD=true`;
+2. sessão Google com email incluído em `ADMIN_EMAILS`.
 
-Sem qualquer uma delas, a resposta deve ser `404`, evitando revelar que o painel existe.
+Rotas:
+
+```text
+/admin/retention?days=30
+/api/admin/retention?days=30
+```
+
+Sem qualquer uma das camadas, a resposta é `404`.
 
 ### 7.2 Conteúdo permitido
 
-O painel pode mostrar:
-
 - totais por etapa;
-- conversão percentual entre etapas;
+- conversão entre etapas;
+- usuários ativos;
 - WAU;
-- ativação 24h e 7d;
+- ativação em 24h e 7 dias;
 - retenção D1, D7 e D30;
 - tamanho das coortes;
-- período e horário de geração;
-- aviso quando não houver dados suficientes.
+- período, timezone e horário da geração;
+- aviso se o limite de linhas for atingido.
 
 ### 7.3 Conteúdo proibido
-
-O painel não pode mostrar:
 
 - email, handle ou nome;
 - IDs individuais de usuário;
 - `client_event_id`;
 - eventos individuais;
-- propriedades de um usuário específico;
-- IP, User-Agent ou qualquer texto privado.
+- propriedades de uma pessoa específica;
+- IP, User-Agent ou conteúdo privado.
 
 ## 8. Datas e fusos
 
 Persistência e fórmulas usam UTC.
 
-A resposta administrativa deve declarar explicitamente:
+O painel declara:
 
 - timestamp UTC de geração;
-- timezone de apresentação: `America/Sao_Paulo`;
-- datas das coortes formatadas para leitura no Brasil sem alterar as janelas matemáticas em UTC.
+- timezone de apresentação `America/Sao_Paulo`;
+- datas das coortes apresentadas no fuso brasileiro sem alterar as janelas matemáticas em UTC.
 
-## 9. Períodos consultáveis
+## 9. Períodos e performance
 
-O painel aceitará somente períodos controlados:
+Períodos permitidos:
 
 - 7 dias;
-- 30 dias;
+- 30 dias, padrão;
 - 90 dias.
 
-O padrão será 30 dias. Valores fora da allowlist serão rejeitados para impedir consultas caras ou inesperadas.
+Valores fora dessa allowlist são rejeitados.
 
-## 10. Performance
+A consulta:
 
-- consultas agregadas e limitadas;
-- nenhum carregamento da tabela inteira em produção;
-- índices existentes em `event_name`, `user_id` e `created_at` devem ser aproveitados;
-- resultados podem usar cache curto em memória, sem cache compartilhado com rotas públicas;
-- o painel não participa do carregamento normal da aplicação.
+- usa os índices de evento, usuário e timestamp;
+- exclui eventos sem identidade e usuários demo no banco;
+- lê no máximo `RETENTION_DASHBOARD_MAX_ROWS`, padrão 50.000 e teto 200.000;
+- avisa quando o resultado foi truncado;
+- não participa do carregamento normal da aplicação.
 
-## 11. Privacidade e retenção
+A retenção dos eventos continua limitada a 90 dias, portanto métricas além de D30 não fazem parte desta versão.
 
-Continuam valendo as regras de `docs/PRODUCT_ANALYTICS.md`:
+## 10. Privacidade
+
+Continuam válidas as regras de `docs/PRODUCT_ANALYTICS.md`:
 
 - nenhum texto livre;
-- nenhum identificador de livro;
+- nenhum título, autor, ISBN ou consulta digitada;
 - nenhum dado pessoal copiado para `ProductEvent`;
-- eventos retidos por até 90 dias;
-- limpeza por script com dry-run;
+- IP e User-Agent não persistidos;
 - usuários demo excluídos;
-- apenas agregados administrativos.
+- eventos mantidos por até 90 dias;
+- painel somente agregado.
 
-Como a retenção é de 90 dias, D30 é suportado; métricas além de 90 dias não fazem parte desta versão.
-
-## 12. Rollout
+## 11. Rollout
 
 1. Mesclar o PR com ambas as flags desligadas.
 2. Confirmar saúde do deploy e ausência de mudança visual.
-3. Ativar `FF_ADMIN_RETENTION_DASHBOARD=true` com analytics ainda desligado.
-4. Validar painel vazio e proteção do token.
-5. Ativar `FF_PRODUCT_ANALYTICS=true`.
-6. Confirmar ingestão somente dos eventos allowlisted.
-7. Acompanhar os primeiros dados agregados.
-8. Verificar manualmente que nenhuma propriedade privada entrou na tabela.
-9. Manter a coleta ativa apenas após validação.
+3. Confirmar que o email administrativo correto está em `ADMIN_EMAILS`.
+4. Ativar `FF_ADMIN_RETENTION_DASHBOARD=true` mantendo analytics desligado.
+5. Validar `/admin/retention` vazio e o bloqueio para contas não autorizadas.
+6. Ativar `FF_PRODUCT_ANALYTICS=true`.
+7. Confirmar ingestão somente dos eventos allowlisted.
+8. Acompanhar os primeiros dados agregados.
+9. Revisar a tabela para confirmar ausência de propriedades privadas.
+10. Manter a coleta ativa apenas após validação.
 
-## 13. Rollback
+## 12. Rollback
 
-Ordem preferida:
-
-1. `FF_PRODUCT_ANALYTICS=false` para interromper persistência;
-2. `FF_ADMIN_RETENTION_DASHBOARD=false` para ocultar painel;
+1. `FF_PRODUCT_ANALYTICS=false` interrompe novas persistências;
+2. `FF_ADMIN_RETENTION_DASHBOARD=false` oculta o painel;
 3. revert do PR, caso o problema esteja no código;
-4. manter a tabela aditiva e aplicar retenção normalmente.
+4. a tabela aditiva permanece e segue a retenção normal.
 
-Não é necessário apagar dados ou executar migration reversa.
+Não é necessário apagar dados nem executar migration reversa.
 
-## 14. Testes obrigatórios
+## 13. Testes cobertos
 
-- painel inexistente com flag interna desligada;
-- painel inexistente com token ausente/incorreto;
-- resposta agregada com token correto;
-- nenhum ID ou dado pessoal na resposta;
-- exclusão de usuários demo;
-- usuários sem `user_id` fora de ativação e retenção;
-- usuário ativo contado uma vez por período;
-- ativação dentro e fora das janelas de 24h/7d;
-- D1/D7/D30 nos limites exatos das janelas;
-- coortes imaturas fora do denominador;
-- períodos permitidos e rejeição de valores inválidos;
-- flags desligadas preservando comportamento atual;
-- scripts de analytics falhando de forma segura;
-- suíte completa verde.
+- [x] painel inexistente com flag interna desligada;
+- [x] painel inexistente para conta não administrativa;
+- [x] resposta agregada para conta autorizada;
+- [x] ausência de IDs e dados pessoais na resposta;
+- [x] exclusão de usuários demo;
+- [x] eventos sem `user_id` fora das métricas de pessoa;
+- [x] usuário ativo contado uma vez por período;
+- [x] ativação dentro e fora das janelas;
+- [x] D1, D7 e D30 nos limites das janelas;
+- [x] coortes imaturas fora do denominador;
+- [x] períodos permitidos e rejeição de valores inválidos;
+- [x] scripts carregados na ordem segura;
+- [x] analytics falhando sem interromper o aplicativo;
+- [x] suíte completa verde.
 
-## 15. Entregas marcáveis
+## 14. Entregas
 
-- [ ] Definições formais implementadas e documentadas.
-- [ ] Scripts de flags e analytics carregados sem bloquear o app.
-- [ ] Instrumentação dos marcos essenciais.
-- [ ] Serviço de agregação de funil.
-- [ ] Cálculo de WAU.
-- [ ] Cálculo de ativação 24h e 7d.
-- [ ] Cálculo de D1, D7 e D30.
-- [ ] Exclusão de usuários demo e eventos sem identidade nas métricas de pessoa.
-- [ ] Endpoint administrativo protegido por flag e token.
-- [ ] Resposta sem dados individuais.
-- [ ] Documentação operacional atualizada.
-- [ ] Testes completos.
-- [ ] CI verde e revisão final.
+- [x] Definições formais implementadas e documentadas.
+- [x] Scripts de flags e analytics carregados sem bloquear o app.
+- [x] Instrumentação alinhada às rotas reais de leitura e diário.
+- [x] Serviço agregado de funil.
+- [x] Cálculo de WAU.
+- [x] Cálculo de ativação 24h e 7d.
+- [x] Cálculo de D1, D7 e D30.
+- [x] Exclusão de usuários demo e eventos sem identidade.
+- [x] Painel protegido por flag interna e `ADMIN_EMAILS`.
+- [x] Resposta sem dados individuais.
+- [x] Testes completos.
+- [x] Primeira execução de CI verde.
 
-## 16. Critério de saída
+## 15. Critério de saída
 
-Com as flags desligadas, o aplicativo mantém o comportamento atual e não persiste eventos. Com as flags ligadas e o token correto, o administrador recebe somente métricas agregadas e reproduzíveis de ativação, WAU e retenção.
+Com as flags desligadas, o aplicativo mantém o comportamento atual e não persiste eventos. Com as flags ligadas e uma conta autorizada, o administrador recebe somente métricas agregadas e reproduzíveis de ativação, WAU e retenção.
