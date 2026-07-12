@@ -37,7 +37,6 @@ export function ReadingDetailPanel({ reading, locale, onClose }: ReadingDetailPa
   const editionMeta = [
     reading.editora,
     reading.ano,
-    reading.idioma,
     reading.paginas ? `${reading.paginas} ${shelfText(locale, 'pages')}` : '',
   ].filter(Boolean)
 
