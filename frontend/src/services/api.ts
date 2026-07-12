@@ -1,5 +1,11 @@
 import type { Account } from '../types/account'
 import type {
+  ChapterSuggestion,
+  DiaryEntry,
+  DiaryMutation,
+  EditionPagesResponse,
+} from '../types/diary'
+import type {
   ReadingMutation,
   ReadingMutationResponse,
   ReadingStatusesResponse,
@@ -77,4 +83,45 @@ export function deleteReading(readingId: number): Promise<{ ok: boolean }> {
   return apiRequest<{ ok: boolean }>(`/api/prateleira/${readingId}`, {
     method: 'DELETE',
   })
+}
+
+export function getDiary(signal?: AbortSignal): Promise<DiaryEntry[]> {
+  return apiGet<DiaryEntry[]>('/api/diario', signal)
+}
+
+export function createDiaryEntry(
+  readingId: number,
+  payload: DiaryMutation,
+): Promise<DiaryEntry> {
+  return apiRequest<DiaryEntry>(`/api/leitura/${readingId}/diario`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateDiaryEntry(entryId: number, payload: DiaryMutation): Promise<DiaryEntry> {
+  return apiRequest<DiaryEntry>(`/api/diario/${entryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteDiaryEntry(entryId: number): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/api/diario/${entryId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function getEditionPages(
+  editionId: number,
+  signal?: AbortSignal,
+): Promise<EditionPagesResponse> {
+  return apiGet<EditionPagesResponse>(`/api/edicoes/${editionId}/paginas`, signal)
+}
+
+export function getEditionChapters(
+  editionId: number,
+  signal?: AbortSignal,
+): Promise<ChapterSuggestion[]> {
+  return apiGet<ChapterSuggestion[]>(`/api/edicoes/${editionId}/capitulos`, signal)
 }
