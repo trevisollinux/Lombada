@@ -246,15 +246,28 @@ class ProductAnalyticsContractTest(TestCase):
         for forbidden in ("email", "handle", "ip", "user_agent", "query", "text"):
             self.assertNotIn(forbidden, columns)
 
-    def test_frontend_client_is_fail_safe_and_not_loaded_yet(self):
+    def test_frontend_client_is_flag_gated_fail_safe_and_loaded_in_order(self):
         client = (ROOT / "static" / "product-analytics.js").read_text(encoding="utf-8")
+        activation = (ROOT / "static" / "activation-events.js").read_text(encoding="utf-8")
         index = (ROOT / "index.html").read_text(encoding="utf-8")
 
         self.assertIn("LombadaFeatures.isEnabled('product_analytics')", client)
         self.assertIn("sanitizeProperties", client)
         self.assertIn("keepalive: true", client)
+        self.assertIn("FLUSH_DELAY_MS", client)
+        self.assertIn("visibilitychange", client)
         self.assertIn("catch (_)", client)
-        self.assertNotIn("/static/product-analytics.js", index)
+        self.assertIn("/api/prateleira", activation)
+        self.assertIn("/api\\/leitura\\/\\d+\\/diario", activation)
+        self.assertNotIn("path === '/api/manual'", activation)
+
+        flags_pos = index.index('/static/feature-flags.js')
+        client_pos = index.index('/static/product-analytics.js')
+        activation_pos = index.index('/static/activation-events.js')
+        app_pos = index.index('/static/app.js')
+        self.assertLess(flags_pos, client_pos)
+        self.assertLess(client_pos, activation_pos)
+        self.assertLess(activation_pos, app_pos)
 
     def test_entrypoint_registers_analytics_router_once(self):
         source = (ROOT / "app_entry.py").read_text(encoding="utf-8")
