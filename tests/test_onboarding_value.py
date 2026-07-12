@@ -20,11 +20,15 @@ class OnboardingValueFlagTest(TestCase):
         self.assertIn("onboarding_value", public_feature_flags({}))
         self.assertFalse(public_feature_flags({})["onboarding_value"])
 
-    def test_browser_allowlist_contains_flag(self):
+    def test_browser_allowlist_contains_flag_and_safe_status_override(self):
         source = (ROOT / "static" / "feature-flags.js").read_text(encoding="utf-8")
         self.assertIn("'onboarding_value'", source)
         self.assertIn("state[name] = false", source)
         self.assertIn("catch (_)", source)
+        self.assertIn("installOnboardingStatusDefault", source)
+        self.assertIn("selected === 'Lido' ? 'Lendo' : selected", source)
+        self.assertIn("isEnabled('onboarding_value')", source)
+        self.assertIn("lombada_onboarding_value", source)
 
 
 class OnboardingValueUxContractTest(TestCase):
