@@ -442,6 +442,8 @@ const I18N = {
     retro_tap_hint: 'toque para continuar',
     retro_share_text: 'Minha retrospectiva no Lombada: {books} livros lidos, {pages} páginas viradas. {url}',
     retro_copied: 'retrospectiva copiada!',
+    retro_generating: 'gerando card…',
+    retro_card_downloaded: 'card salvo! agora é só postar 📚',
     where_stopped: 'Onde você parou?',
     save_diary: 'Salvar no diário',
     no_progress_yet: 'sem progresso registrado ainda',
@@ -1371,7 +1373,8 @@ Object.assign(I18N['en'], {
   retro_pages: 'pages turned', retro_author_kicker: 'your most-read author', retro_author_count: '{count} books read',
   retro_fav: 'your favorite book', retro_avg: 'average rating {avg}', retro_shelf: 'your shelf so far',
   retro_shelf_sub: '{count} readings that became stories', retro_tap_hint: 'tap to continue',
-  retro_share_text: 'My Lombada recap: {books} books read, {pages} pages turned. {url}', retro_copied: 'recap copied!'
+  retro_share_text: 'My Lombada recap: {books} books read, {pages} pages turned. {url}', retro_copied: 'recap copied!',
+  retro_generating: 'making your card…', retro_card_downloaded: 'card saved! ready to post 📚'
 });
 Object.assign(I18N['es'], {
   work_page: 'Página de la obra', unknown_author: 'autor no informado', readings_on_lombada: 'lecturas en Lombada', people_reading: 'leyendo ahora', people_want_to_read: 'quieren leer', about_work: 'Sobre la obra', see_more: 'ver más', see_less: 'ver menos', no_work_description: 'Todavía no tenemos una descripción para esta obra.', suggest_description: 'Sugerir descripción', description_suggestions_soon: 'Las sugerencias de descripción llegarán pronto.', work_low_data: 'Todavía tenemos pocos datos sobre esta obra. Puedes registrar una lectura o añadir una edición.', learn_more_external: 'saber más →',
@@ -1393,7 +1396,8 @@ Object.assign(I18N['es'], {
   retro_pages: 'páginas pasadas', retro_author_kicker: 'tu autor más leído', retro_author_count: '{count} libros leídos',
   retro_fav: 'tu libro favorito', retro_avg: 'nota media {avg}', retro_shelf: 'tu estantería hasta ahora',
   retro_shelf_sub: '{count} lecturas que se volvieron historia', retro_tap_hint: 'toca para continuar',
-  retro_share_text: 'Mi retrospectiva en Lombada: {books} libros leídos, {pages} páginas pasadas. {url}', retro_copied: '¡retrospectiva copiada!'
+  retro_share_text: 'Mi retrospectiva en Lombada: {books} libros leídos, {pages} páginas pasadas. {url}', retro_copied: '¡retrospectiva copiada!',
+  retro_generating: 'generando tarjeta…', retro_card_downloaded: '¡tarjeta guardada! lista para publicar 📚'
 });
 Object.assign(I18N['pt-BR'], {
   edit_profile: 'Editar perfil', profile_display_name: 'Nome exibido', profile_username: 'Nome de usuário', profile_short_bio: 'Bio curta', profile_bio_placeholder: 'o que você gosta de ler?', save_changes: 'Salvar alterações', profile_preview: 'Seu perfil:', profile_preview_empty: 'Seu perfil: escolha um nome de usuário', profile_updated: 'Perfil atualizado.', profile_save_error: 'Não foi possível salvar o perfil agora.', profile_name_required: 'Nome exibido é obrigatório.', profile_name_length: 'Nome exibido deve ter entre 2 e 40 caracteres.', profile_name_no_email: 'Escolha um nome público que não seja seu e-mail.', profile_handle_invalid: 'Use apenas letras, números e hífen.', profile_handle_taken: 'Esse nome de usuário já está em uso.', profile_bio_count: '{count}/160 caracteres', profile_bio_length: 'Bio curta deve ter no máximo 160 caracteres.'

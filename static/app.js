@@ -3951,9 +3951,99 @@ function renderRetroSlide(){
     <div class="retro-slide">${retroSlides[retroIdx]}</div>
     <div class="retro-hint">${retroIdx<retroSlides.length-1?t('retro_tap_hint'):''}</div>`;
 }
+function retroRoundRectPath(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+async function drawRetroCover(ctx,l,x,y,w,h){
+  const url=getSafeCoverUrl(l);
+  const im=url?await loadShareCardImage(capaSrc(url)):null;
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=34; ctx.shadowOffsetY=16;
+  ctx.fillStyle='#241512'; retroRoundRectPath(ctx,x,y,w,h,10); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  retroRoundRectPath(ctx,x,y,w,h,10); ctx.clip();
+  if(im){
+    const r=Math.max(w/im.naturalWidth,h/im.naturalHeight);
+    const iw=im.naturalWidth*r, ih=im.naturalHeight*r;
+    ctx.drawImage(im,x+(w-iw)/2,y+(h-ih)/2,iw,ih);
+  }else{
+    ctx.fillStyle=coverAccent(l.titulo,l.autor,true); ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='rgba(244,239,230,.9)';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font=`600 italic ${Math.round(h*.34)}px Fraunces, serif`;
+    ctx.fillText((l.titulo||'?').trim().charAt(0).toUpperCase(),x+w/2,y+h/2);
+  }
+  ctx.restore();
+}
+async function renderRetroCardCanvas(){
+  const d=dadosRetrospectiva(); if(!d) return null;
+  try{ await document.fonts.ready; }catch(e){}
+  const cv=document.createElement('canvas'); cv.width=1080; cv.height=1920;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const marfim='#F4EFE6', dourado='#D6A75B', suave='rgba(244,239,230,.8)';
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#4A1212'); g.addColorStop(.55,'#2B0C0C'); g.addColorStop(1,'#180707');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  drawPaperTexture(ctx,0,0,W,H,'rgba(244,239,230,.03)',34);
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=dourado; ctx.font="700 30px 'Space Mono', monospace";
+  ctx.fillText(('LOMBADA · '+t('retro_kicker')).toUpperCase(),W/2,150);
+  const num=String(d.lidos.length);
+  fitFontSize(ctx,num,s=>`600 ${s}px Fraunces, serif`,W-220,330,120);
+  ctx.fillStyle=marfim; ctx.fillText(num,W/2,520);
+  ctx.fillStyle=suave; ctx.font="400 34px 'Space Mono', monospace";
+  ctx.fillText(t(d.lidos.length===1?'retro_books_one':'retro_books_many').toUpperCase(),W/2,600);
+  // fileira de capas (até 5)
+  const capasL=d.lidos.slice(0,5);
+  const cw=capasL.length>4?150:170, chh=Math.round(cw*1.5), gap=30;
+  let x0=(W-(capasL.length*cw+(capasL.length-1)*gap))/2;
+  for(const l of capasL){ await drawRetroCover(ctx,l,x0,700,cw,chh); x0+=cw+gap; }
+  // estatísticas
+  let y=700+chh+150;
+  ctx.strokeStyle='rgba(214,167,91,.45)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(W/2-70,y-84); ctx.lineTo(W/2+70,y-84); ctx.stroke();
+  const stat=(label,valor)=>{
+    ctx.fillStyle=dourado; ctx.font="400 26px 'Space Mono', monospace";
+    ctx.fillText(label.toUpperCase(),W/2,y);
+    ctx.fillStyle=marfim;
+    fitFontSize(ctx,valor,s=>`500 ${s}px Fraunces, serif`,W-200,58,34);
+    ctx.fillText(valor,W/2,y+66);
+    y+=190;
+  };
+  if(d.paginas>0) stat(t('retro_pages'),d.paginas.toLocaleString(getLocale()));
+  if(d.topAutor&&d.topAutor[1].length>1) stat(t('retro_author_kicker'),d.topAutor[0]);
+  if(d.favorito) stat(t('retro_fav'),`${d.favorito.titulo} · ${estrelasStr(d.favorito.nota)}`);
+  if(meuHandle){ ctx.fillStyle=suave; ctx.font="400 26px 'Space Mono', monospace"; ctx.fillText('@'+meuHandle,W/2,H-140); }
+  ctx.fillStyle=dourado; ctx.font="600 italic 46px Fraunces, serif";
+  ctx.fillText('lombada.',W/2,H-76);
+  return cv;
+}
 async function compartilharRetrospectiva(){
   const d=dadosRetrospectiva(); if(!d) return;
+  const btn=document.querySelector('.retro-share');
+  setButtonBusy(btn,t('retro_generating'));
+  let blob=null;
+  try{ const cv=await renderRetroCardCanvas(); blob=cv?await canvasToPngBlob(cv):null; }
+  catch(e){ console.error('erro ao gerar card da retrospectiva',e); }
+  clearButtonBusy(btn);
   const texto=t('retro_share_text',{books:d.lidos.length,pages:d.paginas.toLocaleString(getLocale()),url:location.origin});
+  if(blob){
+    const file=new File([blob],'lombada-retrospectiva.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{ await navigator.share({text:texto,files:[file]}); return; }
+      catch(e){ if(e?.name==='AbortError') return; }
+    }
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='lombada-retrospectiva.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+    toast(t('retro_card_downloaded'));
+    return;
+  }
   try{
     if(navigator.share){ await navigator.share({text:texto}); return; }
     await navigator.clipboard.writeText(texto);
