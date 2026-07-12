@@ -69,6 +69,23 @@ EVENT_PROPERTY_SCHEMAS: dict[str, dict[str, object]] = {
         "progress_type": frozenset({"page", "percentage", "chapter", "free"}),
         "public": _BOOL,
     },
+    "progress_feedback": {
+        "source": frozenset({"diary", "onboarding", "quick_action", "unknown"}),
+        "insight_type": frozenset(
+            {
+                "page_delta",
+                "percent_delta",
+                "best_session",
+                "percent_reached",
+                "page_reached",
+                "completed",
+                "chapter",
+                "session",
+                "correction",
+            }
+        ),
+        "action": frozenset({"viewed", "closed", "open_diary", "auto_closed"}),
+    },
     "share_started": {
         "source": frozenset({"reading", "review", "diary", "shelf", "recap", "profile", "unknown"}),
         "share_type": frozenset({"native", "download", "copy_link"}),
