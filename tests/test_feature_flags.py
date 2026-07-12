@@ -113,9 +113,16 @@ class FeatureFlagFrontendContractTest(TestCase):
         for name in PUBLIC_FEATURE_NAMES:
             self.assertIn(f"'{name}'", source)
 
-    def test_frontend_helper_is_not_loaded_before_first_gated_feature(self):
+    def test_frontend_helpers_load_in_safe_order(self):
         index = (ROOT / "index.html").read_text(encoding="utf-8")
-        self.assertNotIn("/static/feature-flags.js", index)
+        flags = index.index('/static/feature-flags.js')
+        analytics = index.index('/static/product-analytics.js')
+        activation = index.index('/static/activation-events.js')
+        app = index.index('/static/app.js')
+
+        self.assertLess(flags, analytics)
+        self.assertLess(analytics, activation)
+        self.assertLess(activation, app)
 
 
 if __name__ == "__main__":
