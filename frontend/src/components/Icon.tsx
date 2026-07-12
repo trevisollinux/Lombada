@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react'
+import type { ReactNode, SVGProps } from 'react'
 
 export type IconName =
   | 'search'
@@ -33,7 +33,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
     'aria-hidden': true,
   }
 
-  const paths: Record<IconName, React.ReactNode> = {
+  const paths: Record<IconName, ReactNode> = {
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
     feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
