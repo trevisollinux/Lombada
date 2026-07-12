@@ -2285,46 +2285,76 @@ body.theme-dark .per-page-select select{color-scheme:dark}
 .home-current-reading{margin:6px 0 18px}
 .home-current-reading:empty{display:none;margin:0}
 
+/* ── seletor de visão da estante (grade / lista / lombadas) ── */
+/* o toggle também aparece no mobile — é o acesso à visão "lombadas". Os
+   filtros de status ficam num trilho que rola sozinho, e o toggle é fixo à
+   direita: assim um não corta o outro. */
+.shelf-view{display:flex;flex:0 0 auto;gap:4px}
+.shelf-filters{flex:1 1 auto;min-width:0}
+.shelf-view-btn{display:inline-flex;align-items:center;justify-content:center;min-width:38px}
+.shelf-view-btn svg{display:block}
+
 /* ── estante de lombadas: prateleira física de livros ── */
-/* o toggle de visão também aparece no mobile — é o acesso à visão "lombadas",
-   que é justamente onde ela mais encanta (telas de toque) */
-.shelf-view{display:flex}
 .shelf-spines{
-  display:flex;flex-wrap:wrap;align-items:flex-end;--slot-h:234px;
+  display:flex;flex-wrap:wrap;align-items:flex-end;--slot-h:236px;
   margin-top:10px;padding:0 14px;border-radius:10px;overflow:hidden;
   background:
-    repeating-linear-gradient(to bottom,
+    repeating-linear-gradient(to bottom,           /* tabuleiros de madeira */
       transparent 0,
       transparent calc(var(--slot-h) - 16px),
       #7a5636 calc(var(--slot-h) - 16px),
       #5a3d24 calc(var(--slot-h) - 9px),
       #33220f calc(var(--slot-h) - 2px),
       #33220f var(--slot-h)),
+    repeating-linear-gradient(90deg,               /* veios verticais da madeira */
+      rgba(0,0,0,.14) 0 2px, transparent 2px 7px, rgba(255,255,255,.02) 7px 8px, transparent 8px 15px),
     linear-gradient(#3c2b1d,#2a1e13);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),inset 0 3px 22px rgba(0,0,0,.45);
 }
-.spine-slot{height:var(--slot-h);display:flex;align-items:flex-end;justify-content:center;padding:0 2px}
+.spine-slot{height:var(--slot-h);display:flex;align-items:flex-end;justify-content:center;padding:0 1px}
 .spine{
   width:var(--w);height:var(--h);margin-bottom:16px;
-  border:0;cursor:pointer;padding:9px 0 8px;
-  display:flex;flex-direction:column;align-items:center;
-  color:#F4EFE6;border-radius:2px 3px 3px 2px;position:relative;
-  background:linear-gradient(90deg,
-    hsl(var(--hue) 33% 22%) 0%,
-    hsl(var(--hue) 41% 35%) 16%,
-    hsl(var(--hue) 38% 31%) 84%,
-    hsl(var(--hue) 30% 19%) 100%);
-  box-shadow:2px 4px 9px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.05);
+  border:0;cursor:pointer;padding:9px 3px 8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  color:var(--foil);border-radius:2px 3px 3px 2px;position:relative;overflow:hidden;
+  background-color:hsl(var(--hue) var(--sat) var(--lig));
+  background-image:
+    linear-gradient(to bottom, var(--page) 0 3px, rgba(0,0,0,.24) 3px 4px, transparent 4px),   /* corte das folhas no topo */
+    linear-gradient(to top, rgba(0,0,0,.26) 0 2px, transparent 2px),                             /* pé da lombada */
+    linear-gradient(90deg, rgba(0,0,0,.30) 0%, transparent 15%, transparent 85%, rgba(0,0,0,.32) 100%); /* leve curvatura, fosca */
+  box-shadow:1px 4px 9px rgba(0,0,0,.40),inset 0 0 0 1px rgba(0,0,0,.22);
   transition:transform .18s ease,box-shadow .18s ease;
 }
-.spine::before{content:'';position:absolute;left:0;right:0;top:13px;height:5px;background:hsl(var(--hue) 46% 48%);opacity:.5}
+/* grão bem sutil de papel */
+.spine::after{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0 1px,transparent 1px 3px);opacity:.5}
+/* couro (clássicos): curvatura mais rica + nervuras horizontais em relevo */
+.spine[data-estilo="couro"]{
+  background-image:
+    linear-gradient(to bottom, var(--page) 0 3px, rgba(0,0,0,.30) 3px 5px, transparent 5px),
+    linear-gradient(to top, rgba(0,0,0,.36) 0 3px, transparent 3px),
+    linear-gradient(90deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 13%, rgba(255,255,255,.08) 48%, rgba(0,0,0,0) 87%, rgba(0,0,0,.44) 100%);
+}
+.spine[data-estilo="couro"]::before{content:'';position:absolute;left:0;right:0;top:8px;bottom:8px;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,transparent 0 30px,rgba(0,0,0,.30) 30px 32px,rgba(255,255,255,.11) 32px 35px,transparent 35px 62px)}
+.spine[data-estilo="couro"] .spine-title{font-style:italic}
+.spine-author{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
+  font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;text-transform:uppercase;text-align:center;line-height:1.15;
+  max-height:calc(var(--h) * .26);overflow:hidden;
+  color:var(--foil);opacity:.6;text-shadow:0 1px 1px rgba(0,0,0,.5)}
 .spine-title{
-  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
-  font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:13px;line-height:1.05;
-  max-height:calc(var(--h) - 52px);overflow:hidden;margin-top:6px;
-  text-shadow:0 1px 2px rgba(0,0,0,.45)}
-.spine-stars{margin-top:auto;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;color:#F2D89B;white-space:nowrap}
-.spine:hover{transform:translateY(-8px);box-shadow:3px 11px 17px rgba(0,0,0,.5)}
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
+  font-family:"Fraunces",serif;font-style:normal;font-weight:600;font-size:var(--tfs,12px);line-height:1.06;text-align:center;
+  max-height:var(--tmax);overflow:hidden;margin:auto 0;
+  color:var(--foil);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+/* rodapé: colofão da editora (horizontal, miúdo) + nota — como paperback real */
+.spine-foot{position:relative;z-index:2;width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:5px}
+.spine-foot::before{content:'';width:42%;height:1px;background:currentColor;opacity:.24;margin-bottom:2px}
+.spine-pub{writing-mode:horizontal-tb;font-family:"Space Mono",monospace;font-size:6px;line-height:1.25;letter-spacing:0;text-transform:uppercase;text-align:center;opacity:.72;max-height:24px;overflow:hidden;word-break:normal;overflow-wrap:normal;hyphens:none}
+.spine-stars{writing-mode:horizontal-tb;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;color:var(--foil);opacity:.9;white-space:nowrap}
+.spine:hover{transform:translateY(-9px) rotate(-.6deg);box-shadow:4px 12px 18px rgba(0,0,0,.55)}
+.spine:hover{transform:translateY(-9px) rotate(-.6deg);box-shadow:4px 12px 18px rgba(0,0,0,.55)}
 .spine:focus-visible{outline:2px solid #F2D89B;outline-offset:2px}
-.spine.saved-highlight{outline:2px solid var(--gold);outline-offset:3px}
+.spine[data-saved]{outline:2px solid var(--gold);outline-offset:3px}
 @media (prefers-reduced-motion: reduce){.spine{transition:none}.spine:hover{transform:none}}

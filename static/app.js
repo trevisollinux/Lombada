@@ -2884,30 +2884,60 @@ function controlesEstante(){
     <div class="shelf-filters" aria-label="${t('filter_shelf_status')}">${filtros.map(f=>
       `<button class="shelf-pill ${filtroEstante===f?'active':''}" data-status="${esc(f)}" onclick="mudarFiltroEstante(this.dataset.status)">${esc(statusLabel(f))}</button>`
     ).join('')}</div>
-    <div class="shelf-view" aria-label="${t('shelf_view')}">
-      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">${t('view_grid')}</button>
-      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">${t('view_list')}</button>
-      <button class="shelf-view-btn ${visualizacaoEstante==='lombadas'?'active':''}" onclick="mudarVisualizacaoEstante('lombadas')">${t('view_spines')}</button>
+    <div class="shelf-view" role="group" aria-label="${t('shelf_view')}">
+      <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" aria-pressed="${visualizacaoEstante==='grade'}" aria-label="${t('view_grid')}" title="${t('view_grid')}" onclick="mudarVisualizacaoEstante('grade')">${ICON_VIEW.grade}</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" aria-pressed="${visualizacaoEstante==='lista'}" aria-label="${t('view_list')}" title="${t('view_list')}" onclick="mudarVisualizacaoEstante('lista')">${ICON_VIEW.lista}</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lombadas'?'active':''}" aria-pressed="${visualizacaoEstante==='lombadas'}" aria-label="${t('view_spines')}" title="${t('view_spines')}" onclick="mudarVisualizacaoEstante('lombadas')">${ICON_VIEW.lombadas}</button>
     </div>
   </div>`;
 }
 function metaListaEstante(l){
   return [l.editora?`${t('publisher_abbr')} ${esc(l.editora)}`:'',l.tradutor?`${t('translator_abbr')} ${esc(l.tradutor)}`:'',l.isbn?`${t('isbn')} ${esc(l.isbn)}`:''].filter(Boolean).join(' · ');
 }
+/* ícones do seletor de visão da estante (grade / lista / lombadas) */
+const ICON_VIEW={
+  grade:'<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg>',
+  lista:'<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="4" cy="5" r="1.1" fill="currentColor" stroke="none"/><line x1="8" y1="5" x2="17" y2="5"/><circle cx="4" cy="10" r="1.1" fill="currentColor" stroke="none"/><line x1="8" y1="10" x2="17" y2="10"/><circle cx="4" cy="15" r="1.1" fill="currentColor" stroke="none"/><line x1="8" y1="15" x2="17" y2="15"/></svg>',
+  lombadas:'<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="3.4" y="6" width="2.3" height="10" rx=".4"/><rect x="6.6" y="4" width="2.3" height="12" rx=".4"/><rect x="9.8" y="7" width="2.3" height="9" rx=".4"/><rect x="13.4" y="5.2" width="2.3" height="10.8" rx=".4" transform="rotate(9 14.5 11)"/><rect x="2.5" y="16.2" width="15" height="1.7" rx=".7"/></svg>'
+};
 /* Visão "lombadas": cada livro vira uma lombada desenhada numa prateleira.
    Cor derivada do título (mesmo hash das capas de arte); espessura pela
-   contagem de páginas; altura com variação orgânica por título. */
+   contagem de páginas; altura com variação orgânica; e a "idade" (ano da
+   obra) muda o acabamento — clássicos ganham couro escuro com nervuras e
+   letra dourada; modernos ficam vivos e limpos — pra a prateleira parecer
+   uma estante real de livros variados. */
 function spineHTML(l,i){
   const hue=bookHue(l.titulo,l.autor);
   const pags=Number(l.paginas)>0?Number(l.paginas):0;
-  const np=pags?Math.max(0,Math.min(1,(pags-80)/620)):0.45;   // 0..1; sem dado = médio
-  const w=Math.round(32+np*26);                                // espessura 32..58
-  const h=Math.round(Math.min(205,150+(hue%100)/100*52+np*8)); // altura 150..205
-  const destaque=livroEstaDestacado(l)?' saved-highlight':'';
-  const titulo=esc(l.titulo||t('untitled'));
-  const rating=l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:'';
-  return `<span class="spine-slot"><button class="spine${destaque}" style="--w:${w}px;--h:${h}px;--hue:${hue}" onclick="abrirCard(${i})" title="${titulo} — ${esc(l.autor||'')}" aria-label="${titulo}">
-    <span class="spine-title">${titulo}</span>${rating}
+  const np=pags?Math.max(0,Math.min(1,(pags-80)/620)):0.45;    // 0..1; sem dado = médio
+  const w=Math.round(33+np*26);                                 // espessura 33..59
+  const h=Math.round(Math.min(210,154+(hue%100)/100*54+np*8));  // altura 154..210
+  const ano=Number(l.ano_obra||l.ano)||0;
+  const antigo=ano>0&&ano<1970, vintage=ano>=1970&&ano<2000;
+  const sat=antigo?30:vintage?42:54;                            // clássicos dessaturados
+  const lig=antigo?26:vintage?33:42;                            // clássicos mais escuros
+  const foil=antigo?'#E7C877':vintage?'#F0E6C8':'#F6F1E6';      // letra: dourada→creme
+  const page=antigo?'#cdbd92':vintage?'#e2d9bd':'#efe9d6';      // topo (corte das folhas)
+  // acabamento: clássicos (<1970) em couro; o resto, paperback fosco — como
+  // as lombadas de referência (cor chapada, autor no topo, editora no pé).
+  const estilo=antigo?'couro':'matte';
+  const saved=livroEstaDestacado(l)?' data-saved="1"':'';
+  const titulo=(l.titulo||t('untitled')).trim();
+  const autor=(l.autor||'').trim();
+  const autorCurto=autor?trechoTexto(autor,24):'';
+  const editora=(l.editora||'').trim();
+  const editoraCurta=editora?trechoTexto(editora,22):'';
+  // autor no topo, título no meio, editora no pé (colofão). A fonte do título
+  // é auto-ajustada pela altura livre pra caber inteiro — títulos longos ficam
+  // menores e quebram em duas colunas, como nas lombadas reais de letra miúda.
+  const zonaAutor=autor?Math.min(44,Math.round(h*0.24)):10;
+  const zonaFoot=(editoraCurta?22:0)+(l.nota?14:6);
+  const tmax=Math.max(40,h-zonaAutor-zonaFoot-14);
+  const tfs=Math.max(8,Math.min(13,Math.round(tmax/Math.max(1,titulo.length)/0.62)));
+  const autorHTML=autorCurto?`<span class="spine-author">${esc(autorCurto)}</span>`:'';
+  const footHTML=(editoraCurta||l.nota)?`<span class="spine-foot">${editoraCurta?`<span class="spine-pub">${esc(editoraCurta)}</span>`:''}${l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:''}</span>`:'';
+  return `<span class="spine-slot"><button class="spine" data-estilo="${estilo}"${saved} style="--w:${w}px;--h:${h}px;--hue:${hue};--sat:${sat}%;--lig:${lig}%;--foil:${foil};--page:${page};--tfs:${tfs}px;--tmax:${tmax}px" onclick="abrirCard(${i})" title="${esc(titulo)} — ${esc(autor)}" aria-label="${esc(titulo)}">
+    ${autorHTML}<span class="spine-title">${esc(titulo)}</span>${footHTML}
   </button></span>`;
 }
 function resumoEstante(){
