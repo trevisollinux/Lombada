@@ -221,6 +221,10 @@ class ReadingJournalEntry(SQLModel, table=True):
     nota: str = ""
     publico: bool = Field(default=False, index=True)
     spoiler: bool = False
+    # campos de sessão (Lombada 2.0): por onde a entrada foi criada e quantas
+    # páginas a sessão avançou em relação à entrada anterior (negativo = voltou)
+    origem: str = Field(default="diario")
+    paginas_delta: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -416,6 +420,8 @@ def migrar():
     _add_column_if_missing("obra", "literatura_pais", "ALTER TABLE obra ADD COLUMN literatura_pais VARCHAR DEFAULT ''")
     _add_column_if_missing("obra", "literatura_regiao", "ALTER TABLE obra ADD COLUMN literatura_regiao VARCHAR DEFAULT ''")
     _add_column_if_missing("readingjournalentry", "capitulo_ordem", "ALTER TABLE readingjournalentry ADD COLUMN capitulo_ordem INTEGER")
+    _add_column_if_missing("readingjournalentry", "origem", "ALTER TABLE readingjournalentry ADD COLUMN origem VARCHAR DEFAULT 'diario'")
+    _add_column_if_missing("readingjournalentry", "paginas_delta", "ALTER TABLE readingjournalentry ADD COLUMN paginas_delta INTEGER")
     _add_column_if_missing("edicao", "paginas", "ALTER TABLE edicao ADD COLUMN paginas INTEGER")
     _add_column_if_missing("edicao", "editora_raw", "ALTER TABLE edicao ADD COLUMN editora_raw VARCHAR DEFAULT ''")
     _add_column_if_missing("edicao", "publisher_id", "ALTER TABLE edicao ADD COLUMN publisher_id INTEGER")

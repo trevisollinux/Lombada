@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 from datetime import datetime, timedelta
+from math import ceil
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -31,6 +32,7 @@ from sqlmodel import SQLModel, Session, select, func
 from starlette.middleware.sessions import SessionMiddleware
 
 from models import SECRET_KEY, engine, Usuario, Obra, Edicao, Leitura, Follow, ReviewLike, SavedReview, ReviewReport, ProfileReport, ReviewComment, CatalogSuggestion, UserEdition, ReadingJournalEntry, EdicaoCapitulo, BuscaCache, Notificacao, UserReadingStatus, TextoUsuario, get_session, migrar
+from feature_flags import feature_enabled
 from auth import usuario_sessao, router as auth_router
 from api_publica import router as public_api_router
 from fontes import ol_edicoes, normalizar_isbn, gbooks_buscar, chave_obra_canonica, ol_table_of_contents, paginas_por_isbn, TIMEOUT, _UA
@@ -1989,6 +1991,9 @@ class DiarioPayload(BaseModel):
     # total de páginas da edição, respondido uma única vez quando o catálogo
     # não tem o dado — vai pra Edicao, não pra entrada do diário
     paginas_total: Optional[int] = None
+    # por onde a entrada foi criada ("diario" ou "li_mais"); só vale no create —
+    # editar uma entrada não muda a origem dela
+    origem: Optional[str] = None
 
 
 def _backfill_paginas_edicao(edicao_id: int, paginas_total: Optional[int], s: Session) -> None:
@@ -2055,6 +2060,7 @@ def _diario_payload(entry: ReadingJournalEntry, l: Leitura | None = None, ed: Ed
         "id": entry.id, "leitura_id": entry.leitura_id, "progresso_tipo": entry.progresso_tipo,
         "pagina": entry.pagina, "porcentagem": entry.porcentagem, "capitulo": entry.capitulo,
         "capitulo_ordem": entry.capitulo_ordem, "pagina_estimada": pagina_estimada,
+        "origem": getattr(entry, "origem", "diario") or "diario", "paginas_delta": getattr(entry, "paginas_delta", None),
         "nota": entry.nota, "publico": bool(entry.publico), "spoiler": bool(entry.spoiler),
         "created_at": entry.created_at.isoformat(), "updated_at": entry.updated_at.isoformat(),
         **({"status": l.status, "titulo": o.titulo, "autor": o.autor, "capa_url": ed.capa_url} if l and ed and o else {}),
@@ -2123,6 +2129,33 @@ def _pagina_estimada_da_entrada(entry: ReadingJournalEntry, mapa: dict[int, int]
     if entry.progresso_tipo != "capitulo" or entry.pagina is not None or not entry.capitulo_ordem:
         return None
     return _interpolar_pagina(mapa, entry.capitulo_ordem)
+
+
+ORIGENS_DIARIO = {"diario", "li_mais"}
+
+
+def _pagina_efetiva_sessao(entry: ReadingJournalEntry, mapa: dict[int, int], paginas_total: int | None) -> int | None:
+    """Melhor estimativa da página em que uma entrada deixou a leitura, na mesma
+    ordem de preferência que o front usa: página explícita, capítulo→página do
+    sumário, porcentagem sobre o total conhecido."""
+    if entry.pagina:
+        return entry.pagina
+    estimada = _pagina_estimada_da_entrada(entry, mapa)
+    if estimada:
+        return estimada
+    if entry.porcentagem is not None and paginas_total:
+        return round(paginas_total * entry.porcentagem / 100)
+    return None
+
+
+def _delta_sessao(nova: ReadingJournalEntry, anterior: ReadingJournalEntry | None, mapa: dict[int, int], paginas_total: int | None) -> int | None:
+    if anterior is None:
+        return None
+    pagina_nova = _pagina_efetiva_sessao(nova, mapa, paginas_total)
+    pagina_anterior = _pagina_efetiva_sessao(anterior, mapa, paginas_total)
+    if pagina_nova is None or pagina_anterior is None:
+        return None
+    return pagina_nova - pagina_anterior
 
 
 @app.get("/api/leitura/{leitura_id}/diario")
@@ -2293,7 +2326,23 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
     u = usuario_sessao(request, s)
     leitura = _leitura_do_usuario(leitura_id, u.id, s)
     data = _validar_diario(payload)
-    entry = ReadingJournalEntry(leitura_id=leitura_id, usuario_id=u.id, **data)
+    origem = (payload.origem or "diario").strip().lower()
+    entry = ReadingJournalEntry(
+        leitura_id=leitura_id, usuario_id=u.id,
+        origem=origem if origem in ORIGENS_DIARIO else "diario",
+        **data,
+    )
+    # delta de páginas da sessão em relação à entrada anterior — dado aditivo:
+    # se não dá pra estimar (progresso livre, sem total de páginas), fica nulo
+    anterior = s.exec(
+        select(ReadingJournalEntry)
+        .where(ReadingJournalEntry.leitura_id == leitura_id)
+        .order_by(ReadingJournalEntry.created_at.desc())
+    ).first()
+    ed = s.get(Edicao, leitura.edicao_id)
+    paginas_total = payload.paginas_total or (ed.paginas if ed else None)
+    mapa = _mapa_pagina_capitulos(leitura.edicao_id, s)
+    entry.paginas_delta = _delta_sessao(entry, anterior, mapa, paginas_total)
     try:
         s.add(entry); s.commit(); s.refresh(entry)
     except SQLAlchemyError:
@@ -2303,6 +2352,59 @@ def criar_diario(leitura_id: int, payload: DiarioPayload, request: Request, s: S
     _registrar_capitulo_sumario(leitura.edicao_id, data.get("capitulo_ordem"), data.get("capitulo", ""), s, pagina=data.get("pagina"))
     _backfill_paginas_edicao(leitura.edicao_id, payload.paginas_total, s)
     return _diario_payload(entry)
+
+
+@app.get("/api/leitura/{leitura_id}/progresso")
+def resumo_progresso(leitura_id: int, request: Request, s: Session = Depends(get_session)):
+    """Resumo de progresso de uma leitura (Lombada 2.0, atrás de flag).
+
+    Com a flag desligada devolve 404 e o app segue exatamente como antes."""
+    if not feature_enabled("progress_sessions"):
+        raise HTTPException(404, "recurso indisponível")
+    u = usuario_sessao(request, s)
+    leitura = _leitura_do_usuario(leitura_id, u.id, s)
+    ed = s.get(Edicao, leitura.edicao_id)
+    paginas_total = ed.paginas if ed else None
+    mapa = _mapa_pagina_capitulos(leitura.edicao_id, s)
+    entradas = s.exec(
+        select(ReadingJournalEntry)
+        .where(ReadingJournalEntry.leitura_id == leitura_id)
+        .order_by(ReadingJournalEntry.created_at.desc())
+    ).all()
+    pagina_atual = None
+    for e in entradas:
+        pagina_atual = _pagina_efetiva_sessao(e, mapa, paginas_total)
+        if pagina_atual is not None:
+            break
+    porcentagem = None
+    for e in entradas:
+        if e.porcentagem is not None:
+            porcentagem = e.porcentagem
+            break
+    if porcentagem is None and pagina_atual and paginas_total:
+        porcentagem = max(0, min(100, round(pagina_atual / paginas_total * 100)))
+    delta_ultima = _delta_sessao(entradas[0], entradas[1], mapa, paginas_total) if len(entradas) >= 2 else None
+    corte_7d = datetime.utcnow() - timedelta(days=7)
+    paginas_7d = sum(
+        e.paginas_delta for e in entradas
+        if e.paginas_delta and e.paginas_delta > 0 and e.created_at >= corte_7d
+    ) or None
+    paginas_restantes = max(0, paginas_total - pagina_atual) if paginas_total and pagina_atual else None
+    previsao_dias = None
+    if paginas_restantes and paginas_7d:
+        previsao_dias = max(1, ceil(paginas_restantes / (paginas_7d / 7)))
+    return {
+        "leitura_id": leitura_id,
+        "paginas_total": paginas_total,
+        "pagina_atual": pagina_atual,
+        "porcentagem": porcentagem,
+        "paginas_restantes": paginas_restantes,
+        "sessoes": len(entradas),
+        "delta_ultima": delta_ultima,
+        "paginas_7d": paginas_7d,
+        "previsao_dias": previsao_dias,
+        "ultima_sessao_em": entradas[0].created_at.isoformat() if entradas else None,
+    }
 
 
 @app.patch("/api/diario/{entrada_id}")
