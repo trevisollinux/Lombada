@@ -43,7 +43,15 @@ import blog as blog_mod
 
 AQUI = Path(__file__).resolve().parent
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
-APP_VERSION = os.getenv("APP_VERSION", "dev")
+# Versão exposta em /api/version e usada como cache-buster (?v=) dos assets no
+# index.html. O Railway não define APP_VERSION, mas injeta o SHA do commit de
+# cada deploy — usá-lo garante que a URL do app.js/app.css muda a cada deploy
+# e o Cloudflare/navegador não seguram JS antigo. "dev" só em ambiente local.
+APP_VERSION = (
+    os.getenv("APP_VERSION", "").strip()
+    or os.getenv("RAILWAY_GIT_COMMIT_SHA", "").strip()[:12]
+    or "dev"
+)
 RECON_TOKEN = os.getenv("RECON_TOKEN", "")
 # Links externos da landing (/sobre). Vazios → botão/link some.
 APOIO_URL = os.getenv("APOIO_URL", "").strip()          # ex.: https://apoia.se/lombada
@@ -3766,7 +3774,7 @@ def assetlinks():
 
 def render_index() -> HTMLResponse:
     html = (AQUI / "index.html").read_text(encoding="utf-8")
-    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260710b"
+    asset_version = APP_VERSION if APP_VERSION and APP_VERSION != "dev" else "20260712a"
     html = html.replace("{{APP_VERSION}}", asset_version)
     return HTMLResponse(
         html,
