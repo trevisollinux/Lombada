@@ -6,7 +6,6 @@ já presentes na estante do usuário.
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
@@ -126,6 +125,10 @@ def replace_essential_books(
     ).all()
     for row in current:
         session.delete(row)
+    # A exclusão precisa chegar ao banco antes das novas posições. Sem este
+    # flush, o ORM pode tentar inserir a nova posição 1 enquanto a posição 1
+    # antiga ainda existe e acionar a restrição única durante uma reordenação.
+    session.flush()
 
     now = datetime.utcnow()
     for position, work_key in enumerate(normalized, start=1):
