@@ -2284,3 +2284,47 @@ body.theme-dark .per-page-select select{color-scheme:dark}
 @media (prefers-reduced-motion: reduce){.limais-sheet{animation:none}}
 .home-current-reading{margin:6px 0 18px}
 .home-current-reading:empty{display:none;margin:0}
+
+/* ── estante de lombadas: prateleira física de livros ── */
+/* o toggle de visão também aparece no mobile — é o acesso à visão "lombadas",
+   que é justamente onde ela mais encanta (telas de toque) */
+.shelf-view{display:flex}
+.shelf-spines{
+  display:flex;flex-wrap:wrap;align-items:flex-end;--slot-h:234px;
+  margin-top:10px;padding:0 14px;border-radius:10px;overflow:hidden;
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0,
+      transparent calc(var(--slot-h) - 16px),
+      #7a5636 calc(var(--slot-h) - 16px),
+      #5a3d24 calc(var(--slot-h) - 9px),
+      #33220f calc(var(--slot-h) - 2px),
+      #33220f var(--slot-h)),
+    linear-gradient(#3c2b1d,#2a1e13);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),inset 0 3px 22px rgba(0,0,0,.45);
+}
+.spine-slot{height:var(--slot-h);display:flex;align-items:flex-end;justify-content:center;padding:0 2px}
+.spine{
+  width:var(--w);height:var(--h);margin-bottom:16px;
+  border:0;cursor:pointer;padding:9px 0 8px;
+  display:flex;flex-direction:column;align-items:center;
+  color:#F4EFE6;border-radius:2px 3px 3px 2px;position:relative;
+  background:linear-gradient(90deg,
+    hsl(var(--hue) 33% 22%) 0%,
+    hsl(var(--hue) 41% 35%) 16%,
+    hsl(var(--hue) 38% 31%) 84%,
+    hsl(var(--hue) 30% 19%) 100%);
+  box-shadow:2px 4px 9px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.05);
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.spine::before{content:'';position:absolute;left:0;right:0;top:13px;height:5px;background:hsl(var(--hue) 46% 48%);opacity:.5}
+.spine-title{
+  writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;
+  font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:13px;line-height:1.05;
+  max-height:calc(var(--h) - 52px);overflow:hidden;margin-top:6px;
+  text-shadow:0 1px 2px rgba(0,0,0,.45)}
+.spine-stars{margin-top:auto;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;color:#F2D89B;white-space:nowrap}
+.spine:hover{transform:translateY(-8px);box-shadow:3px 11px 17px rgba(0,0,0,.5)}
+.spine:focus-visible{outline:2px solid #F2D89B;outline-offset:2px}
+.spine.saved-highlight{outline:2px solid var(--gold);outline-offset:3px}
+@media (prefers-reduced-motion: reduce){.spine{transition:none}.spine:hover{transform:none}}
