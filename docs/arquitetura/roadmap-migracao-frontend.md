@@ -10,7 +10,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar shell, tema, idioma e navegação.
 - [x] Migrar estante somente leitura.
 - [x] Migrar detalhe e mutações de leitura.
-- [ ] Migrar diário.
+- [x] Migrar diário.
 - [ ] Migrar busca, obra e edições.
 - [ ] Migrar explorar, feed e perfil.
 - [ ] Migrar cards, retrospectiva e compartilhamento.
@@ -28,6 +28,10 @@ A estante consome `/api/prateleira` e oferece filtros por status, visualização
 ## Estado das mutações de leitura
 
 O detalhe permite editar status padrão ou personalizado, nota, data, relato, visibilidade e spoiler. A exclusão exige confirmação explícita, remove também as entradas vinculadas do diário pelo contrato atual do backend e atualiza a estante sem recarregar a página.
+
+## Estado do diário v2
+
+O diário lista a linha do tempo real do usuário, filtra por livro e permite criar, editar e excluir entradas. Os quatro modos atuais — página, porcentagem, capítulo e anotação livre — usam os contratos existentes, incluindo total de páginas, sumário colaborativo, página estimada, privacidade, spoiler e origem “Li mais”.
 
 ## Regra de execução
 
