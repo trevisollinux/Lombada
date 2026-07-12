@@ -91,16 +91,15 @@ class BackupCommandTest(TestCase):
         ):
             result = postgres_ops.backup(Path(tmp), SAFE_ENV)
             output = Path(result["file"])
-
-        pg_dump_command, child_env = calls[0]
-        joined = " ".join(pg_dump_command)
-        self.assertNotIn(SOURCE_URL, joined)
-        self.assertNotIn("source-secret", joined)
-        self.assertNotIn("DATABASE_URL", child_env)
-        self.assertEqual(child_env["PGPASSWORD"], "source-secret")
-        self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
-        self.assertEqual(result["bytes"], len(b"valid custom dump"))
-        self.assertEqual(len(result["sha256"]), 64)
+            pg_dump_command, child_env = calls[0]
+            joined = " ".join(pg_dump_command)
+            self.assertNotIn(SOURCE_URL, joined)
+            self.assertNotIn("source-secret", joined)
+            self.assertNotIn("DATABASE_URL", child_env)
+            self.assertEqual(child_env["PGPASSWORD"], "source-secret")
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+            self.assertEqual(result["bytes"], len(b"valid custom dump"))
+            self.assertEqual(len(result["sha256"]), 64)
 
 
 class RestoreCommandTest(TestCase):
