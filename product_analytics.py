@@ -44,16 +44,16 @@ EVENT_PROPERTY_SCHEMAS: dict[str, dict[str, object]] = {
         "standalone": _BOOL,
     },
     "search_submitted": {
-        "source": frozenset({"home", "explore", "unknown"}),
+        "source": frozenset({"home", "explore", "onboarding", "unknown"}),
         "has_filters": _BOOL,
         "result_state": frozenset({"submitted", "empty", "error"}),
     },
     "book_opened": {
-        "source": frozenset({"search", "explore", "shelf", "profile", "unknown"}),
+        "source": frozenset({"search", "explore", "shelf", "profile", "onboarding", "unknown"}),
         "has_cover": _BOOL,
     },
     "reading_created": {
-        "source": frozenset({"search", "manual", "quick_action", "unknown"}),
+        "source": frozenset({"search", "manual", "quick_action", "onboarding", "unknown"}),
         "status": frozenset({"Lido", "Lendo", "Quero ler", "custom"}),
         "has_rating": _BOOL,
         "public": _BOOL,
@@ -171,94 +171,85 @@ def _consume_rate_limit(key: str, count: int) -> bool:
         if len(bucket) + count > limit:
             return False
         bucket.extend([now] * count)
+        return True
 
-        if len(_RATE_BUCKETS) > 2048:
-            stale = [bucket_key for bucket_key, values in _RATE_BUCKETS.items() if not values or values[-1] < cutoff]
-            for bucket_key in stale[:512]:
-                _RATE_BUCKETS.pop(bucket_key, None)
-    return True
+
+def _event_retention_days() -> int:
+    try:
+        return min(365, max(1, int(os.getenv("PRODUCT_EVENT_RETENTION_DAYS", "90"))))
+    except ValueError:
+        return 90
 
 
 def purge_product_events(
     session: Session,
     *,
     before: datetime,
-    limit: int = 5000,
+    batch_size: int = 500,
     apply: bool = False,
 ) -> int:
-    """Conta ou remove um lote de eventos anteriores ao corte informado."""
-    safe_limit = min(50_000, max(1, int(limit)))
-    rows = session.exec(
-        select(ProductEvent)
-        .where(ProductEvent.created_at < before)
-        .order_by(ProductEvent.id)
-        .limit(safe_limit)
-    ).all()
-    if apply:
+    """Conta ou remove eventos anteriores ao corte, em lotes idempotentes."""
+    total = 0
+    while True:
+        rows = session.exec(
+            select(ProductEvent)
+            .where(ProductEvent.created_at < before)
+            .order_by(ProductEvent.id)
+            .limit(max(1, min(batch_size, 5000)))
+        ).all()
+        if not rows:
+            break
+        total += len(rows)
+        if not apply:
+            break
         for row in rows:
             session.delete(row)
         session.commit()
-    return len(rows)
+    return total
 
 
-@router.post("/api/events", status_code=202, include_in_schema=False)
+@router.post("/api/events", include_in_schema=False)
 def ingest_product_events(
     payload: ProductEventBatch,
     request: Request,
     session: Session = Depends(get_session),
 ):
-    if not payload.events:
-        raise HTTPException(422, "lote vazio")
-    if len(payload.events) > MAX_BATCH_SIZE:
-        raise HTTPException(422, "lote excede o limite")
+    if not payload.events or len(payload.events) > MAX_BATCH_SIZE:
+        raise HTTPException(422, "lote de eventos inválido")
 
-    normalized = [validate_product_event(item) for item in payload.events]
-
+    validated = [validate_product_event(item) for item in payload.events]
     if not feature_enabled("product_analytics"):
-        return _accepted_response({"accepted": 0, "dropped": len(normalized), "disabled": True})
+        return _accepted_response({"accepted": 0, "dropped": len(validated), "disabled": True})
 
-    if not _consume_rate_limit(_request_actor_key(request), len(normalized)):
+    actor_key = _request_actor_key(request)
+    if not _consume_rate_limit(actor_key, len(validated)):
         raise HTTPException(429, "limite de eventos excedido")
 
-    try:
-        uid = request.session.get("uid")
-        user = session.get(Usuario, uid) if uid else None
-        if user and user.is_demo:
-            return _accepted_response({"accepted": 0, "dropped": len(normalized), "ignored_demo": True})
+    uid = request.session.get("uid")
+    user = session.get(Usuario, uid) if uid else None
+    if user and user.is_demo:
+        return _accepted_response({"accepted": 0, "dropped": len(validated), "ignored_demo": True})
 
-        user_id = user.id if user else None
-        actor_type = "connected" if user and (user.google_sub or user.email) else "anonymous"
+    accepted = 0
+    dropped = 0
+    for event_name, properties, client_event_id in validated:
+        event = ProductEvent(
+            client_event_id=client_event_id,
+            event_name=event_name,
+            user_id=user.id if user else None,
+            actor_type="connected" if user and user.google_sub else "anonymous",
+            properties_json=json.dumps(properties, ensure_ascii=False, sort_keys=True),
+        )
+        session.add(event)
+        try:
+            session.commit()
+            accepted += 1
+        except IntegrityError:
+            session.rollback()
+            dropped += 1
+        except SQLAlchemyError:
+            session.rollback()
+            logger.exception("falha ao persistir evento de produto")
+            dropped += 1
 
-        # Dedupe de reenvios do cliente sem registrar payloads ou identificadores extras.
-        event_ids = [client_event_id for _name, _properties, client_event_id in normalized]
-        existing_rows = session.exec(
-            select(ProductEvent.client_event_id).where(ProductEvent.client_event_id.in_(event_ids))
-        ).all()
-        existing = {str(value) for value in existing_rows}
-
-        unique_rows: dict[str, ProductEvent] = {}
-        for event_name, properties, client_event_id in normalized:
-            if client_event_id in existing or client_event_id in unique_rows:
-                continue
-            unique_rows[client_event_id] = ProductEvent(
-                client_event_id=client_event_id,
-                event_name=event_name,
-                user_id=user_id,
-                actor_type=actor_type,
-                properties_json=json.dumps(properties, ensure_ascii=True, sort_keys=True, separators=(",", ":")),
-            )
-
-        for row in unique_rows.values():
-            session.add(row)
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        # Uma corrida de retry não deve virar erro visível no fluxo principal.
-        return _accepted_response({"accepted": 0, "dropped": len(normalized), "duplicate": True})
-    except SQLAlchemyError:
-        session.rollback()
-        logger.exception("product_analytics_storage_unavailable")
-        return _accepted_response({"accepted": 0, "dropped": len(normalized), "storage_unavailable": True})
-
-    accepted = len(unique_rows)
-    return _accepted_response({"accepted": accepted, "dropped": len(normalized) - accepted})
+    return _accepted_response({"accepted": accepted, "dropped": dropped})
