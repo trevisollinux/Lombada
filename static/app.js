@@ -841,6 +841,16 @@ function irPara(aba,opcoes={}){
    mostra exatamente uma de cada vez (mata o "carrega embaixo"). */
 function mostrarBusca(tela,opcoes={}){
   const registrar=opcoes.registrar ?? tela!=='home';
+  // pode ser chamada de outra aba (ex.: obra popular no Explorar) — sem trazer
+  // a seção Buscar pra frente, tudo renderiza escondido e o toque parece morto
+  if($('#secBuscar').style.display==='none'){
+    const secs={buscar:'#secBuscar',feed:'#secFeed',estante:'#secEstante',perfil:'#secPerfil'};
+    for(const k in secs) $(secs[k]).style.display = (k==='buscar')?'':'none';
+    $('#tabBuscar').classList.add('active');
+    $('#tabFeed')?.classList.remove('active');
+    $('#tabEstante').classList.remove('active');
+    $('#tabPerfil').classList.remove('active');
+  }
   const telas={home:'#homeFeed',resultados:'#resultados',edicoes:'#edicoes',form:'#form',manual:'#manual'};
   for(const k in telas) $(telas[k]).style.display = (k===tela)?'':'none';
   navAtual={...navAtual,aba:'buscar',busca:tela};
@@ -2464,7 +2474,7 @@ function renderEdicoes(){
       <div class="edition-cover">${coverHTML(e.titulo_edicao||escolha.titulo,escolha.autor,e.capa_url,'')}</div>
       <div class="edition-body"><div class="pub">${e.editora?linkEditoraHTML(e.editora):esc(t('publisher_missing'))}${pt?' · PT/BR':''}</div><div class="te">${esc(e.titulo_edicao||escolha.titulo)}</div><div class="tr">${tr}</div><div class="ln meta edition-meta-pills">${[e.ano,e.idioma,e.pais,e.isbn&&`${t('isbn')} ${e.isbn}`].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}</div>${stats}${relation}<div class="edition-actions"><button class="edition-action" type="button" data-work-action="choose-edition" data-edition-index="${j}">${t('register_this_edition')}</button>${botaoAmazon(e.isbn,'',termoAmazonObra)}</div></div></li>`;
   }).join('');
-  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul>${linkAmazon('',termoAmazonObra)?`<p class="affiliate-note">${t('affiliate_note')}</p>`:''}<button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
+  $('#edicoes').innerHTML=back+`<main class="work-page">${cab}${seguidosLeramHTML()}${estatisticasHTML}${estadoPoucosDados}${sobreObra}${destaqueObraHTML.length?`<section class="work-edition-highlights work-section"><div class="label">${t('edition_social')}</div>${destaqueObraHTML.map(x=>`<p>${x}</p>`).join('')}</section>`:''}<section class="work-section"><div class="section-head"><h2 class="h-section">${t('editions')}</h2></div>${cards?`<ul class="editions work-editions">${cards}</ul><button class="link-tertiary" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button>`:`<div class="empty-rich work-empty"><p>${t('no_editions_register_manual')}</p><button class="btn-cta" type="button" data-work-action="manual-edition">${t('register_edition_manually')}</button></div>`}</section>${criticasHTML()}</main>`;
 }
 
 /* registrar */
@@ -2500,7 +2510,7 @@ function escolherEdicao(j,event){
         ${autor?`<p class="selected-edition-author">${esc(autor)}</p>`:''}
         ${metaHTML?`<div class="selected-edition-meta">${metaHTML}</div>`:`<p class="selected-edition-meta muted">${t('catalog_data_missing')}</p>`}
         ${escolha?.descricao?`<p class="selected-edition-desc">${esc(escolha.descricao)}</p>`:''}
-        ${blocoAmazon(edicaoSel.isbn,[titulo,autor].filter(Boolean).join(' '))}
+        ${botaoAmazon(edicaoSel.isbn,'',[titulo,autor].filter(Boolean).join(' '))}
       </div>
     </div>`;
   clearButtonBusy(trigger);
@@ -4165,6 +4175,7 @@ function renderDetalheLivro(l){
         <h2 id="bookDetailTitle">${esc(l.titulo)}</h2>
         <p class="detail-author">${linkAutorHTML(l.autor)}</p>
         <span class="status-tag">${esc(statusLabel(l.status||'Lido'))}</span>
+        ${botaoAmazon(l.isbn,'',[l.titulo,l.autor].filter(Boolean).join(' '))}
       </div>
     </section>
     <section class="detail-section card-cover-control">
@@ -4198,7 +4209,6 @@ function renderDetalheLivro(l){
       <div class="label">${t('edition')}</div>
       ${dados}
       <p class="detail-empty shelf-edition-flags">${t('you_read_this_edition')}${l.tenho_edicao?' · '+t('you_have_this_edition'):''}${l.quero_edicao?' · '+t('you_want_this_edition'):''}</p>
-      ${blocoAmazon(l.isbn,[l.titulo,l.autor].filter(Boolean).join(' '))}
     </section>`;
 }
 async function abrirCard(i,opcoes={}){
@@ -4743,13 +4753,6 @@ function botaoAmazon(isbn,cls,termoFallback){
   return `<a class="buy-amazon ${cls||''}" href="${esc(url)}" target="_blank" rel="noopener nofollow sponsored" onclick="event.stopPropagation()">${t('buy_amazon')}</a>`;
 }
 
-// Botão + aviso de link de associado logo abaixo (exigência do programa de
-// Associados: a natureza do link precisa ficar clara perto dele).
-function blocoAmazon(isbn,termoFallback,cls){
-  const btn=botaoAmazon(isbn,cls,termoFallback);
-  if(!btn) return '';
-  return btn+`<p class="affiliate-note">${t('affiliate_note')}</p>`;
-}
 
 async function init(){
   // servidor grátis (Render free tier) hiberna após inatividade — a primeira

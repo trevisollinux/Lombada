@@ -2,8 +2,9 @@
 
 O link é gerado no frontend a partir da tag pública (/api/config → amazon_tag,
 env AMAZON_ASSOC_TAG). Aqui garantimos que: o link usa ISBN com fallback pra
-título+autor, o aviso de link de associado existe nos três idiomas e a
-declaração exigida pelo programa aparece nas páginas institucionais.
+título+autor, o botão aparece nas telas certas (edições, registro e detalhe da
+estante, sem aviso inline por decisão de produto) e a declaração exigida pelo
+programa segue nas páginas institucionais e na política de privacidade.
 """
 from pathlib import Path
 import unittest
@@ -38,22 +39,24 @@ class AmazonAffiliateTest(unittest.TestCase):
         self.assertIn("botaoAmazon(e.isbn,'',termoAmazonObra)", self.js)
 
     def test_botao_no_detalhe_do_livro_da_estante(self):
-        # modal "detalhe do livro" (estante): botão + aviso na seção Edição,
+        # modal "detalhe do livro" (estante): botão junto ao título/status,
         # com fallback título+autor pra leitura registrada sem ISBN
         self.assertIn(
-            "blocoAmazon(l.isbn,[l.titulo,l.autor].filter(Boolean).join(' '))",
+            "botaoAmazon(l.isbn,'',[l.titulo,l.autor].filter(Boolean).join(' '))",
             self.js,
         )
 
-    def test_aviso_de_associado_perto_do_botao(self):
-        self.assertIn("function blocoAmazon(isbn,termoFallback,cls)", self.js)
-        self.assertIn("affiliate-note", self.js)
+    def test_botao_no_formulario_de_registro(self):
+        self.assertIn(
+            "botaoAmazon(edicaoSel.isbn,'',[titulo,autor].filter(Boolean).join(' '))",
+            self.js,
+        )
 
-    def test_aviso_traduzido_nos_tres_idiomas(self):
-        # pt usa chave sem aspas; en/es usam com aspas
-        self.assertIn("affiliate_note: 'Link de associado", self.i18n)
-        self.assertIn('"affiliate_note": "Affiliate link', self.i18n)
-        self.assertIn('"affiliate_note": "Enlace de afiliado', self.i18n)
+    def test_sem_aviso_inline_junto_ao_botao(self):
+        # o aviso por botão foi removido a pedido do produto; a declaração
+        # oficial continua nas páginas institucionais (testes abaixo)
+        self.assertNotIn("affiliate-note", self.js)
+        self.assertNotIn("affiliate_note", self.i18n)
 
     def test_declaracao_no_rodape_institucional(self):
         from landing import _footer
