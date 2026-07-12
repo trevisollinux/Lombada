@@ -1,7 +1,5 @@
 /* Feature flags públicas do Lombada.
 
-   Este arquivo é intencionalmente isolado e não é carregado pela interface atual.
-   A primeira funcionalidade gated deverá incluí-lo antes do seu próprio código.
    Falhas de rede mantêm todas as flags desligadas e nunca bloqueiam o app. */
 (function featureFlagsBootstrap(global) {
   'use strict';
@@ -10,6 +8,7 @@
     'home_ritual',
     'product_analytics',
     'progress_sessions',
+    'onboarding_value',
     'favorite_books',
     'period_recaps',
     'literary_reactions',
@@ -55,6 +54,22 @@
     return snapshot();
   }
 
+  function installOnboardingStatusDefault() {
+    const originalOptions = global.opcoesStatusHTML;
+    if (typeof originalOptions !== 'function') return;
+    const marker = 'lombada_onboarding_value';
+
+    global.opcoesStatusHTML = function onboardingStatusOptions(selected) {
+      let onboardingActive = false;
+      try {
+        onboardingActive = global.sessionStorage?.getItem(marker) === 'active' &&
+          isEnabled('onboarding_value');
+      } catch (_) {}
+      const initial = onboardingActive && selected === 'Lido' ? 'Lendo' : selected;
+      return originalOptions(initial);
+    };
+  }
+
   const api = Object.freeze({
     names: NAMES,
     isEnabled,
@@ -64,4 +79,5 @@
   });
 
   global.LombadaFeatures = api;
+  global.document.addEventListener('DOMContentLoaded', installOnboardingStatusDefault, { once: true });
 })(window);

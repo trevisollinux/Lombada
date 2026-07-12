@@ -14,6 +14,7 @@
   let appOpenedSent = false;
   const pending = [];
   const MAX_PENDING = 20;
+  const ONBOARDING_VALUE_MARKER = 'lombada_onboarding_value';
   const standalone = Boolean(
     global.matchMedia?.('(display-mode: standalone)')?.matches ||
     global.navigator?.standalone === true
@@ -28,6 +29,18 @@
       }
       analytics.track(eventName, properties || {});
     } catch (_) {}
+  }
+
+  function onboardingValueActive() {
+    try {
+      return global.sessionStorage?.getItem(ONBOARDING_VALUE_MARKER) === 'active';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearOnboardingValueMarker() {
+    try { global.sessionStorage?.removeItem(ONBOARDING_VALUE_MARKER); } catch (_) {}
   }
 
   function emitAppOpenedAfterSession() {
@@ -110,7 +123,11 @@
       const path = url.pathname;
       if (response.ok && path !== '/api/events') {
         if (method === 'POST' && path === '/api/prateleira') {
-          emit('reading_created', readingProperties(body, body.source === 'quick_action' ? 'quick_action' : 'search'));
+          const source = onboardingValueActive()
+            ? 'onboarding'
+            : (body.source === 'quick_action' ? 'quick_action' : 'search');
+          emit('reading_created', readingProperties(body, source));
+          if (source === 'onboarding') clearOnboardingValueMarker();
         } else if (method === 'PATCH' && /^\/api\/prateleira\/\d+$/.test(path)) {
           emit('reading_updated', readingProperties(body, body.source === 'quick_action' ? 'quick_action' : 'detail'));
         } else if (isDiaryWrite(method, path)) {
@@ -152,7 +169,7 @@
     );
     if (query.length < 2 && !hasFilters) return;
     emit('search_submitted', {
-      source: 'home',
+      source: onboardingValueActive() ? 'onboarding' : 'home',
       has_filters: hasFilters,
       result_state: 'submitted'
     });
@@ -166,8 +183,9 @@
       '.book, .catalog-list-item, .shelf-row, .reading-now-card, .diary-book-row, .work-title-link, [data-work-action="choose-edition"]'
     );
     if (bookTarget) {
+      const elementSource = sourceFromElement(bookTarget);
       emit('book_opened', {
-        source: sourceFromElement(bookTarget),
+        source: onboardingValueActive() && elementSource === 'search' ? 'onboarding' : elementSource,
         has_cover: Boolean(bookTarget.querySelector?.('img, .cover, .shelf-cover, .diary-book-cover'))
       });
     }

@@ -30,6 +30,7 @@ _FLAG_SPECS = (
     FeatureFlag("home_ritual", "FF_HOME_RITUAL"),
     FeatureFlag("product_analytics", "FF_PRODUCT_ANALYTICS"),
     FeatureFlag("progress_sessions", "FF_PROGRESS_SESSIONS"),
+    FeatureFlag("onboarding_value", "FF_ONBOARDING_VALUE"),
     FeatureFlag("favorite_books", "FF_FAVORITE_BOOKS"),
     FeatureFlag("period_recaps", "FF_PERIOD_RECAPS"),
     FeatureFlag("literary_reactions", "FF_LITERARY_REACTIONS"),
