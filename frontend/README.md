@@ -8,11 +8,22 @@ O frontend React é compilado durante o build do Docker e servido pelo entrypoin
 
 O aplicativo legado continua responsável pela rota `/` e por todos os fluxos reais. A rota nova existe como ambiente seguro para a migração gradual, sem substituir a experiência atual.
 
+O shell v2 já possui:
+
+- React Router com `basename=/app-v2`;
+- navegação responsiva para celular e desktop;
+- tema claro/escuro compartilhado com o app legado;
+- idioma português/inglês compartilhado com o app legado;
+- sessão e conta carregadas por `/api/eu`;
+- estados de loading, erro e retry;
+- rotas estruturais para busca, feed, estante, diário e perfil;
+- painel de configurações e ações rápidas.
+
 Quando o diretório `frontend/dist` não existe, `/app-v2` responde com status 503 e informa que o frontend ainda não foi compilado. Isso permite importar e testar o backend sem exigir Node em todos os ambientes Python.
 
 ## Requisitos
 
-- Node.js `^20.19.0` ou `>=22.12.0`
+- Node.js `^22.22.0` ou `>=24.0.0`
 - npm
 
 ## Comandos
@@ -41,6 +52,14 @@ Depois, abra `/app-v2` no servidor local.
 - `index.html` e rotas da SPA: `no-cache`;
 - assets versionados do Vite em `/app-v2/assets/`: cache longo e imutável;
 - assets inexistentes: 404, sem fallback indevido para HTML.
+
+## Próximas funcionalidades
+
+1. estante somente leitura consumindo `/api/prateleira`;
+2. detalhes e mutações de leitura;
+3. diário real;
+4. busca, obra e edições;
+5. feed, explorar e perfil completos.
 
 ## Regras da migração
 
