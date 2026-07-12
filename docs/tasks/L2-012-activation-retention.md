@@ -154,7 +154,7 @@ Com `product_analytics` desligada, eles permanecem inertes.
 
 A instrumentação acompanha somente marcos estruturais:
 
-- abertura do app;
+- abertura do app, emitida somente após a sessão interna existir;
 - envio de busca, sem enviar a consulta;
 - abertura de livro, sem enviar título, autor ou ISBN;
 - criação e atualização de leitura, enviando apenas status, presença de nota e visibilidade;
@@ -289,6 +289,7 @@ Não é necessário apagar dados nem executar migration reversa.
 - [x] Definições formais implementadas e documentadas.
 - [x] Scripts de flags e analytics carregados sem bloquear o app.
 - [x] Instrumentação alinhada às rotas reais de leitura e diário.
+- [x] Abertura vinculada à sessão interna antes da persistência.
 - [x] Serviço agregado de funil.
 - [x] Cálculo de WAU.
 - [x] Cálculo de ativação 24h e 7d.
@@ -297,7 +298,7 @@ Não é necessário apagar dados nem executar migration reversa.
 - [x] Painel protegido por flag interna e `ADMIN_EMAILS`.
 - [x] Resposta sem dados individuais.
 - [x] Testes completos.
-- [x] Primeira execução de CI verde.
+- [x] CI final verde.
 
 ## 15. Critério de saída
 
