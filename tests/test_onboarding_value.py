@@ -60,7 +60,7 @@ class OnboardingValueUxContractTest(TestCase):
             self.assertIn(text, self.ux)
 
     def test_first_reading_removes_onboarding_through_existing_reload(self):
-        save_start = self.app.index("async function salvar()")
+        save_start = self.app.index("async function salvar(event)")
         shelf_start = self.app.index("async function carregarPrateleira()")
         shelf_end = self.app.index("/* diário", shelf_start)
         save_flow = self.app[save_start:shelf_start]
