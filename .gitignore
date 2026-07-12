@@ -6,3 +6,5 @@ data/aliases.proposed.json
 backups/
 *.dump
 *.backup
+frontend/node_modules/
+frontend/dist/
