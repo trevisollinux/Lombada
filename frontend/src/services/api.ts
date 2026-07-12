@@ -1,4 +1,5 @@
 import type { Account } from '../types/account'
+import type { ShelfReading } from '../types/reading'
 
 export class ApiError extends Error {
   readonly status: number
@@ -36,4 +37,8 @@ export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> 
 
 export function getCurrentAccount(signal?: AbortSignal): Promise<Account> {
   return apiGet<Account>('/api/eu', signal)
+}
+
+export function getShelf(signal?: AbortSignal): Promise<ShelfReading[]> {
+  return apiGet<ShelfReading[]>('/api/prateleira', signal)
 }
