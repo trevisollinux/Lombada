@@ -54,6 +54,22 @@
     return snapshot();
   }
 
+  function installOnboardingStatusDefault() {
+    const originalOptions = global.opcoesStatusHTML;
+    if (typeof originalOptions !== 'function') return;
+    const marker = 'lombada_onboarding_value';
+
+    global.opcoesStatusHTML = function onboardingStatusOptions(selected) {
+      let onboardingActive = false;
+      try {
+        onboardingActive = global.sessionStorage?.getItem(marker) === 'active' &&
+          isEnabled('onboarding_value');
+      } catch (_) {}
+      const initial = onboardingActive && selected === 'Lido' ? 'Lendo' : selected;
+      return originalOptions(initial);
+    };
+  }
+
   const api = Object.freeze({
     names: NAMES,
     isEnabled,
@@ -63,4 +79,5 @@
   });
 
   global.LombadaFeatures = api;
+  global.document.addEventListener('DOMContentLoaded', installOnboardingStatusDefault, { once: true });
 })(window);
