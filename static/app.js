@@ -2918,22 +2918,26 @@ function spineHTML(l,i){
   const lig=antigo?26:vintage?33:42;                            // clássicos mais escuros
   const foil=antigo?'#E7C877':vintage?'#F0E6C8':'#F6F1E6';      // letra: dourada→creme
   const page=antigo?'#cdbd92':vintage?'#e2d9bd':'#efe9d6';      // topo (corte das folhas)
-  const estilo=antigo?'nervuras':['liso','rotulo','faixas'][hue%3];
+  // acabamento: clássicos (<1970) em couro; o resto, paperback fosco — como
+  // as lombadas de referência (cor chapada, autor no topo, editora no pé).
+  const estilo=antigo?'couro':'matte';
   const saved=livroEstaDestacado(l)?' data-saved="1"':'';
   const titulo=(l.titulo||t('untitled')).trim();
   const autor=(l.autor||'').trim();
   const autorCurto=autor?trechoTexto(autor,24):'';
-  // autor no topo, título no pé (como lombada de verdade). O corpo do título
-  // tem a fonte auto-ajustada pra caber inteiro, sem cortar — títulos longos
-  // ficam menores, como nas lombadas reais de letra miúda.
-  const zonaAutor=autor?Math.min(48,Math.round(h*0.26)):14;
-  const zonaNota=l.nota?16:6;
-  const tmax=Math.max(44,h-zonaAutor-zonaNota-16);
+  const editora=(l.editora||'').trim();
+  const editoraCurta=editora?trechoTexto(editora,22):'';
+  // autor no topo, título no meio, editora no pé (colofão). A fonte do título
+  // é auto-ajustada pela altura livre pra caber inteiro — títulos longos ficam
+  // menores e quebram em duas colunas, como nas lombadas reais de letra miúda.
+  const zonaAutor=autor?Math.min(44,Math.round(h*0.24)):10;
+  const zonaFoot=(editoraCurta?22:0)+(l.nota?14:6);
+  const tmax=Math.max(40,h-zonaAutor-zonaFoot-14);
   const tfs=Math.max(8,Math.min(13,Math.round(tmax/Math.max(1,titulo.length)/0.62)));
-  const rating=l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:'';
   const autorHTML=autorCurto?`<span class="spine-author">${esc(autorCurto)}</span>`:'';
+  const footHTML=(editoraCurta||l.nota)?`<span class="spine-foot">${editoraCurta?`<span class="spine-pub">${esc(editoraCurta)}</span>`:''}${l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:''}</span>`:'';
   return `<span class="spine-slot"><button class="spine" data-estilo="${estilo}"${saved} style="--w:${w}px;--h:${h}px;--hue:${hue};--sat:${sat}%;--lig:${lig}%;--foil:${foil};--page:${page};--tfs:${tfs}px;--tmax:${tmax}px" onclick="abrirCard(${i})" title="${esc(titulo)} — ${esc(autor)}" aria-label="${esc(titulo)}">
-    ${autorHTML}<span class="spine-title">${esc(titulo)}</span>${rating}
+    ${autorHTML}<span class="spine-title">${esc(titulo)}</span>${footHTML}
   </button></span>`;
 }
 function resumoEstante(){

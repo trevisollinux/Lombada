@@ -2314,42 +2314,46 @@ body.theme-dark .per-page-select select{color-scheme:dark}
 .spine-slot{height:var(--slot-h);display:flex;align-items:flex-end;justify-content:center;padding:0 1px}
 .spine{
   width:var(--w);height:var(--h);margin-bottom:16px;
-  border:0;cursor:pointer;padding:10px 0 9px;
-  display:flex;flex-direction:column;align-items:center;
-  color:var(--foil);border-radius:2px 4px 4px 2px;position:relative;overflow:hidden;
+  border:0;cursor:pointer;padding:9px 3px 8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  color:var(--foil);border-radius:2px 3px 3px 2px;position:relative;overflow:hidden;
   background-color:hsl(var(--hue) var(--sat) var(--lig));
   background-image:
-    linear-gradient(to bottom, var(--page) 0 3px, rgba(0,0,0,.30) 3px 5px, transparent 5px),   /* corte das folhas no topo */
-    linear-gradient(to top, rgba(0,0,0,.36) 0 3px, transparent 3px),                             /* pé da lombada */
-    linear-gradient(90deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 13%, rgba(255,255,255,.11) 48%, rgba(255,255,255,.03) 60%, rgba(0,0,0,0) 87%, rgba(0,0,0,.44) 100%); /* curvatura */
-  box-shadow:2px 5px 10px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.28);
+    linear-gradient(to bottom, var(--page) 0 3px, rgba(0,0,0,.24) 3px 4px, transparent 4px),   /* corte das folhas no topo */
+    linear-gradient(to top, rgba(0,0,0,.26) 0 2px, transparent 2px),                             /* pé da lombada */
+    linear-gradient(90deg, rgba(0,0,0,.30) 0%, transparent 15%, transparent 85%, rgba(0,0,0,.32) 100%); /* leve curvatura, fosca */
+  box-shadow:1px 4px 9px rgba(0,0,0,.40),inset 0 0 0 1px rgba(0,0,0,.22);
   transition:transform .18s ease,box-shadow .18s ease;
 }
-/* grão sutil de tecido/papel por cima da cor */
+/* grão bem sutil de papel */
 .spine::after{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;
-  background:repeating-linear-gradient(90deg,rgba(0,0,0,.06) 0 1px,rgba(255,255,255,.02) 1px 2px,transparent 2px 4px);opacity:.55}
-/* nervuras (clássicos em couro): relevos horizontais */
-.spine[data-estilo="nervuras"]::before{content:'';position:absolute;left:0;right:0;top:8px;bottom:8px;z-index:0;pointer-events:none;
-  background:repeating-linear-gradient(to bottom,transparent 0 30px,rgba(0,0,0,.32) 30px 32px,rgba(255,255,255,.13) 32px 35px,transparent 35px 62px)}
-/* rótulo (etiqueta rebaixada com o título) */
-.spine[data-estilo="rotulo"]::before{content:'';position:absolute;left:5px;right:5px;top:22px;bottom:40px;z-index:0;pointer-events:none;border-radius:2px;
-  background:linear-gradient(rgba(0,0,0,.24),rgba(0,0,0,.32));box-shadow:0 0 0 1px rgba(0,0,0,.32),inset 0 0 0 1px rgba(255,255,255,.14)}
-/* faixas (modernos): dois filetes perto da cabeça e do pé */
-.spine[data-estilo="faixas"]::before{content:'';position:absolute;left:0;right:0;top:0;bottom:0;z-index:0;pointer-events:none;
-  background:
-    linear-gradient(to bottom,transparent 15px,rgba(255,255,255,.17) 15px 17px,rgba(0,0,0,.22) 17px 19px,transparent 19px),
-    linear-gradient(to top,transparent 31px,rgba(255,255,255,.17) 31px 33px,rgba(0,0,0,.22) 33px 35px,transparent 35px)}
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0 1px,transparent 1px 3px);opacity:.5}
+/* couro (clássicos): curvatura mais rica + nervuras horizontais em relevo */
+.spine[data-estilo="couro"]{
+  background-image:
+    linear-gradient(to bottom, var(--page) 0 3px, rgba(0,0,0,.30) 3px 5px, transparent 5px),
+    linear-gradient(to top, rgba(0,0,0,.36) 0 3px, transparent 3px),
+    linear-gradient(90deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 13%, rgba(255,255,255,.08) 48%, rgba(0,0,0,0) 87%, rgba(0,0,0,.44) 100%);
+}
+.spine[data-estilo="couro"]::before{content:'';position:absolute;left:0;right:0;top:8px;bottom:8px;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,transparent 0 30px,rgba(0,0,0,.30) 30px 32px,rgba(255,255,255,.11) 32px 35px,transparent 35px 62px)}
+.spine[data-estilo="couro"] .spine-title{font-style:italic}
 .spine-author{
   writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
   font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;text-transform:uppercase;text-align:center;line-height:1.15;
-  max-height:calc(var(--h) * .27);overflow:hidden;margin-bottom:4px;
-  color:var(--foil);opacity:.62;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  max-height:calc(var(--h) * .26);overflow:hidden;
+  color:var(--foil);opacity:.6;text-shadow:0 1px 1px rgba(0,0,0,.5)}
 .spine-title{
   writing-mode:vertical-rl;text-orientation:mixed;white-space:normal;position:relative;z-index:2;
-  font-family:"Fraunces",serif;font-style:italic;font-weight:600;font-size:var(--tfs,12px);line-height:1.05;text-align:center;
-  max-height:var(--tmax);overflow:hidden;margin-top:auto;
+  font-family:"Fraunces",serif;font-style:normal;font-weight:600;font-size:var(--tfs,12px);line-height:1.06;text-align:center;
+  max-height:var(--tmax);overflow:hidden;margin:auto 0;
   color:var(--foil);text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.spine-stars{margin-top:5px;position:relative;z-index:2;font-family:"Space Mono",monospace;font-size:8.5px;letter-spacing:.02em;color:var(--foil);opacity:.92;white-space:nowrap}
+/* rodapé: colofão da editora (horizontal, miúdo) + nota — como paperback real */
+.spine-foot{position:relative;z-index:2;width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:5px}
+.spine-foot::before{content:'';width:42%;height:1px;background:currentColor;opacity:.24;margin-bottom:2px}
+.spine-pub{writing-mode:horizontal-tb;font-family:"Space Mono",monospace;font-size:6px;line-height:1.25;letter-spacing:0;text-transform:uppercase;text-align:center;opacity:.72;max-height:24px;overflow:hidden;word-break:normal;overflow-wrap:normal;hyphens:none}
+.spine-stars{writing-mode:horizontal-tb;font-family:"Space Mono",monospace;font-size:8px;letter-spacing:.02em;color:var(--foil);opacity:.9;white-space:nowrap}
+.spine:hover{transform:translateY(-9px) rotate(-.6deg);box-shadow:4px 12px 18px rgba(0,0,0,.55)}
 .spine:hover{transform:translateY(-9px) rotate(-.6deg);box-shadow:4px 12px 18px rgba(0,0,0,.55)}
 .spine:focus-visible{outline:2px solid #F2D89B;outline-offset:2px}
 .spine[data-saved]{outline:2px solid var(--gold);outline-offset:3px}
