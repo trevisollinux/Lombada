@@ -246,7 +246,7 @@ class ProductAnalyticsContractTest(TestCase):
         for forbidden in ("email", "handle", "ip", "user_agent", "query", "text"):
             self.assertNotIn(forbidden, columns)
 
-    def test_frontend_client_is_fail_safe_and_not_loaded_yet(self):
+    def test_frontend_client_is_fail_safe_and_loaded_after_flags(self):
         client = (ROOT / "static" / "product-analytics.js").read_text(encoding="utf-8")
         index = (ROOT / "index.html").read_text(encoding="utf-8")
 
@@ -254,7 +254,11 @@ class ProductAnalyticsContractTest(TestCase):
         self.assertIn("sanitizeProperties", client)
         self.assertIn("keepalive: true", client)
         self.assertIn("catch (_)", client)
-        self.assertNotIn("/static/product-analytics.js", index)
+        # carregado junto com a primeira experiência gated, depois do helper
+        # de flags e antes do app.js
+        self.assertIn("/static/product-analytics.js", index)
+        self.assertLess(index.index("/static/feature-flags.js"), index.index("/static/product-analytics.js"))
+        self.assertLess(index.index("/static/product-analytics.js"), index.index("/static/app.js"))
 
     def test_entrypoint_registers_analytics_router_once(self):
         source = (ROOT / "app_entry.py").read_text(encoding="utf-8")

@@ -70,6 +70,8 @@
         <div class="label" data-i18n="home_label">um diário de leituras</div>
         <h1 class="h-display" data-i18n="home_title_html">o que você<br>está lendo<span class="q">?</span></h1>
       </div>
+      <!-- Lombada 2.0: leitura atual na home — só renderiza com a flag home_ritual ligada -->
+      <section id="lendoAgora" class="home-current-reading"></section>
     </div>
 
 <!-- TELA: resultados de busca -->
@@ -221,6 +223,8 @@
   </div>
 </div>
 
+<script src="/static/feature-flags.js?v={{APP_VERSION}}"></script>
+<script src="/static/product-analytics.js?v={{APP_VERSION}}"></script>
 <script src="/static/i18n.js?v={{APP_VERSION}}"></script>
 <script src="/static/app.js?v={{APP_VERSION}}"></script>
 <script src="/static/ux-fixes.js?v={{APP_VERSION}}"></script>
