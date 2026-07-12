@@ -87,7 +87,7 @@ let feedItems=[], feedFollowingCount=0, feedTab=localStorage.getItem('lombada_fe
 let ultimoLivroSalvo=null;
 let cardOpener=null;
 let timerDestaqueLivro=null;
-let visualizacaoEstante=localStorage.getItem('lombada_view_estante')==='lista'?'lista':'grade';
+let visualizacaoEstante=(v=>['lista','lombadas'].includes(v)?v:'grade')(localStorage.getItem('lombada_view_estante'));
 let visualizacaoBusca=localStorage.getItem('lombada_view_busca')==='grade'?'grade':'lista';
 let visualizacaoHomePopulares=localStorage.getItem('lombada_view_home_populares')==='lista'?'lista':'grade';
 let paginaBusca=1, porPaginaBusca=20;
@@ -2874,7 +2874,7 @@ function mudarFiltroEstante(status){
   renderPrateleira();
 }
 function mudarVisualizacaoEstante(modo){
-  visualizacaoEstante=modo==='lista'?'lista':'grade';
+  visualizacaoEstante=['lista','lombadas'].includes(modo)?modo:'grade';
   localStorage.setItem('lombada_view_estante',visualizacaoEstante);
   renderPrateleira();
 }
@@ -2887,11 +2887,28 @@ function controlesEstante(){
     <div class="shelf-view" aria-label="${t('shelf_view')}">
       <button class="shelf-view-btn ${visualizacaoEstante==='grade'?'active':''}" onclick="mudarVisualizacaoEstante('grade')">${t('view_grid')}</button>
       <button class="shelf-view-btn ${visualizacaoEstante==='lista'?'active':''}" onclick="mudarVisualizacaoEstante('lista')">${t('view_list')}</button>
+      <button class="shelf-view-btn ${visualizacaoEstante==='lombadas'?'active':''}" onclick="mudarVisualizacaoEstante('lombadas')">${t('view_spines')}</button>
     </div>
   </div>`;
 }
 function metaListaEstante(l){
   return [l.editora?`${t('publisher_abbr')} ${esc(l.editora)}`:'',l.tradutor?`${t('translator_abbr')} ${esc(l.tradutor)}`:'',l.isbn?`${t('isbn')} ${esc(l.isbn)}`:''].filter(Boolean).join(' · ');
+}
+/* Visão "lombadas": cada livro vira uma lombada desenhada numa prateleira.
+   Cor derivada do título (mesmo hash das capas de arte); espessura pela
+   contagem de páginas; altura com variação orgânica por título. */
+function spineHTML(l,i){
+  const hue=bookHue(l.titulo,l.autor);
+  const pags=Number(l.paginas)>0?Number(l.paginas):0;
+  const np=pags?Math.max(0,Math.min(1,(pags-80)/620)):0.45;   // 0..1; sem dado = médio
+  const w=Math.round(32+np*26);                                // espessura 32..58
+  const h=Math.round(Math.min(205,150+(hue%100)/100*52+np*8)); // altura 150..205
+  const destaque=livroEstaDestacado(l)?' saved-highlight':'';
+  const titulo=esc(l.titulo||t('untitled'));
+  const rating=l.nota?`<span class="spine-stars">★ ${l.nota.toLocaleString(getLocale())}</span>`:'';
+  return `<span class="spine-slot"><button class="spine${destaque}" style="--w:${w}px;--h:${h}px;--hue:${hue}" onclick="abrirCard(${i})" title="${titulo} — ${esc(l.autor||'')}" aria-label="${titulo}">
+    <span class="spine-title">${titulo}</span>${rating}
+  </button></span>`;
 }
 function resumoEstante(){
   const total=prateleira.length;
@@ -2914,7 +2931,9 @@ function renderPrateleira(){
   }
   const itens=prateleira.map((l,i)=>({l,i})).filter(({l})=>filtroEstante==='Todos'||l.status===filtroEstante);
   const vazio=`<div class="empty shelf-empty">${t('shelf_filter_empty',{filter:esc(filtroEstante)})}</div>`;
-  const corpo=visualizacaoEstante==='lista'
+  const corpo=visualizacaoEstante==='lombadas'
+    ? `<div class="shelf-spines" role="list">${itens.map(({l,i})=>spineHTML(l,i)).join('')}</div>`
+    : visualizacaoEstante==='lista'
     ? `<ul class="shelf-list">${itens.map(({l,i})=>{
         const cap=coverHTML(l.titulo,l.autor,l.capa_url,'').replace('class="cover','class="shelf-cover');
         const statusNota=[statusLabel(l.status),l.nota?`${estrelasStr(l.nota)} ${l.nota.toLocaleString(getLocale())}`:t('no_rating')].filter(Boolean).join(' · ');
