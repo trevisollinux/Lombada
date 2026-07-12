@@ -9,6 +9,7 @@ from author_search_patch import (
 )
 from feature_flags import router as feature_flags_router
 from product_analytics import router as product_analytics_router
+from retention_dashboard import router as retention_dashboard_router
 
 
 install()
@@ -53,6 +54,10 @@ if not getattr(app.state, "feature_flags_router_installed", False):
 if not getattr(app.state, "product_analytics_router_installed", False):
     app.include_router(product_analytics_router)
     app.state.product_analytics_router_installed = True
+
+if not getattr(app.state, "retention_dashboard_router_installed", False):
+    app.include_router(retention_dashboard_router)
+    app.state.retention_dashboard_router_installed = True
 
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)
