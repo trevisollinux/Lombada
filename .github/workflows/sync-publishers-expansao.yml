@@ -42,11 +42,10 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
-  schedule:
-    # A cada 3 horas, no minuto 29, defasado do sync principal (:13) e do universitário (:43)
-    # só pra espalhar a carga no Neon — a concorrência entre workflows é
-    # permitida (grupos distintos); dentro DESTE workflow continua 1 run por vez.
-    - cron: "29 */3 * * *"
+  # schedule:
+  #   # PAUSADO para interromper o consumo automático do banco no Railway.
+  #   # Para reativar, remova os comentários das duas linhas abaixo.
+  #   - cron: "29 */3 * * *"
 
 permissions:
   contents: read

@@ -46,10 +46,10 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
-  schedule:
-    # A cada 6 horas, no minuto 37 (defasado dos outros syncs: :13 principal,
-    # :29 expansão, :43 universitárias, :51 cia) só pra espalhar a carga no Neon.
-    - cron: "37 */6 * * *"
+  # schedule:
+  #   # PAUSADO para interromper o consumo automático do banco no Railway.
+  #   # Para reativar, remova os comentários das duas linhas abaixo.
+  #   - cron: "37 */6 * * *"
 
 permissions:
   contents: read

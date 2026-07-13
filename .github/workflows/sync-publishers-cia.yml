@@ -50,10 +50,10 @@ on:
         type: choice
         options: ['false', 'true']
         default: 'false'
-  schedule:
-    # A cada 3 horas, no minuto 51 (defasado dos outros syncs: :13 principal,
-    # :29 expansão, :43 universitárias) só pra espalhar a carga no Neon.
-    - cron: "51 */3 * * *"
+  # schedule:
+  #   # PAUSADO para interromper o consumo automático do banco no Railway.
+  #   # Para reativar, remova os comentários das duas linhas abaixo.
+  #   - cron: "51 */3 * * *"
 
 permissions:
   contents: read
