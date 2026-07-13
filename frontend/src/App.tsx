@@ -4,6 +4,7 @@ import { AppLayout } from './components/AppLayout'
 import { DiaryPage } from './pages/DiaryPage'
 import { ExplorePage } from './pages/ExplorePage'
 import { FeedPage } from './pages/FeedPage'
+import { MemoriesPage } from './pages/MemoriesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SearchPage } from './pages/SearchPage'
@@ -25,6 +26,7 @@ export function App() {
               <Route path="feed" element={<FeedPage />} />
               <Route path="estante" element={<ShelfPage />} />
               <Route path="diario" element={<DiaryPage />} />
+              <Route path="memorias" element={<MemoriesPage />} />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="perfil/:handle" element={<ProfilePage />} />
               <Route path="*" element={<NotFoundPage />} />
