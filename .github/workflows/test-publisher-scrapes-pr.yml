@@ -65,3 +65,11 @@ jobs:
           PUBLISHER_MAX_URLS: '2'
           PUBLISHER_SLEEP_SECONDS: '0.2'
           PUBLISHER_FETCH_CONCURRENCY: '2'
+      - name: Upload scrape output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-output-${{ matrix.slug }}
+          path: scrape-output.txt
+          if-no-files-found: error
+          retention-days: 3
