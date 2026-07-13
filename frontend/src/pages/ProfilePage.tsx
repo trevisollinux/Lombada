@@ -35,13 +35,14 @@ export function ProfilePage() {
 
   useEffect(() => {
     if (sessionStatus !== 'ready' || !account || !targetHandle) return
+    const currentAccount = account
     const controller = new AbortController()
     setStatus('loading')
     setError(null)
 
     async function load() {
       try {
-        const isOwnTarget = !routeHandle || routeHandle === account.handle
+        const isOwnTarget = !routeHandle || routeHandle === currentAccount.handle
         const [nextProfile, nextTexts] = await Promise.all([
           getPublicProfile(targetHandle, controller.signal),
           isOwnTarget ? getMyProfileTexts(controller.signal) : Promise.resolve<ProfileText[]>([]),
@@ -223,6 +224,7 @@ export function ProfilePage() {
               owner={owner}
               loggedIn={loggedIn}
               locale={locale}
+              onItemsChange={owner ? setMyTexts : undefined}
             />
           )}
 
