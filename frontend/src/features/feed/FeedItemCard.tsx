@@ -71,6 +71,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
       capa_url: item.livro.capa_url,
     },
   }
+  const profilePath = `/perfil/${encodeURIComponent(item.usuario.handle)}`
 
   const updateCommentsCount = useCallback((count: number) => {
     setReading((current) => ({ ...current, comments_count: count }))
@@ -130,7 +131,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
   return (
     <article className={`feed-card feed-card--${item.tipo}`}>
       <header className="feed-card__header">
-        <a className="feed-card__identity" href={`/u/${encodeURIComponent(item.usuario.handle)}`}>
+        <Link className="feed-card__identity" to={profilePath}>
           <FeedAvatar
             name={item.usuario.nome}
             handle={item.usuario.handle}
@@ -140,7 +141,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
             <strong>{item.usuario.nome || `@${item.usuario.handle}`}</strong>
             <small>@{item.usuario.handle}</small>
           </span>
-        </a>
+        </Link>
         <div className="feed-card__header-actions">
           <FollowButton
             handle={item.usuario.handle}
@@ -265,11 +266,12 @@ function FeedTextCard({ item, locale, loggedIn, onFollowChange }: FeedItemCardPr
         autor: item.texto.obra.autor,
       })
     : null
+  const profilePath = `/perfil/${encodeURIComponent(item.usuario.handle)}`
 
   return (
     <article className="feed-card feed-card--text">
       <header className="feed-card__header">
-        <a className="feed-card__identity" href={`/u/${encodeURIComponent(item.usuario.handle)}`}>
+        <Link className="feed-card__identity" to={profilePath}>
           <FeedAvatar
             name={item.usuario.nome}
             handle={item.usuario.handle}
@@ -279,7 +281,7 @@ function FeedTextCard({ item, locale, loggedIn, onFollowChange }: FeedItemCardPr
             <strong>{item.usuario.nome || `@${item.usuario.handle}`}</strong>
             <small>@{item.usuario.handle}</small>
           </span>
-        </a>
+        </Link>
         <div className="feed-card__header-actions">
           <FollowButton
             handle={item.usuario.handle}
