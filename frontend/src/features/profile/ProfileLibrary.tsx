@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 
 import { BookCover } from '../../components/BookCover'
@@ -42,12 +42,15 @@ function statusClass(status: string): string {
 }
 
 export function ProfileShelf({ readings, locale }: ProfileShelfProps) {
-  const statuses = useMemo(() => [
-    profileText(locale, 'all_statuses'),
-    ...Array.from(new Set(readings.map((reading) => reading.status).filter(Boolean))),
-  ], [locale, readings])
-  const [filter, setFilter] = useState(profileText(locale, 'all_statuses'))
   const allLabel = profileText(locale, 'all_statuses')
+  const statuses = useMemo(() => [
+    allLabel,
+    ...Array.from(new Set(readings.map((reading) => reading.status).filter(Boolean))),
+  ], [allLabel, readings])
+  const [filter, setFilter] = useState(allLabel)
+
+  useEffect(() => setFilter(allLabel), [allLabel])
+
   const visible = filter === allLabel ? readings : readings.filter((reading) => reading.status === filter)
 
   return (
