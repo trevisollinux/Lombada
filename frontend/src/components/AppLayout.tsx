@@ -23,9 +23,9 @@ const navigationItems: NavigationItem[] = [
   { to: '/perfil', label: 'nav_profile', icon: 'profile' },
 ]
 
-const mobileNavigationItems = navigationItems.filter((item) =>
-  ['/', '/explorar', '/estante', '/perfil'].includes(item.to),
-)
+const mobileNavigationItems = ['/', '/feed', '/explorar', '/estante'].map((path) => (
+  navigationItems.find((item) => item.to === path) as NavigationItem
+))
 
 export function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
