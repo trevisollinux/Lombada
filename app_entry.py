@@ -15,6 +15,7 @@ from essential_books import (
 )
 from feature_flags import router as feature_flags_router
 from frontend_v2 import install_frontend_v2
+from literary_reaction_cascade import install_literary_reaction_cascades
 from literary_reactions import (
     install_product_analytics_contract as install_reaction_analytics_contract,
     router as literary_reactions_router,
@@ -28,6 +29,7 @@ from retention_dashboard import router as retention_dashboard_router
 
 
 install()
+install_literary_reaction_cascades()
 install_essential_analytics_contract(product_analytics_module)
 install_recap_analytics_contract(product_analytics_module)
 install_reaction_analytics_contract(product_analytics_module)
