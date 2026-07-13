@@ -9,7 +9,7 @@ import { SettingsPanel } from './SettingsPanel'
 
 interface NavigationItem {
   to: string
-  label: 'nav_search' | 'nav_explore' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_profile'
+  label: 'nav_search' | 'nav_explore' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_memories' | 'nav_profile'
   icon: IconName
   end?: boolean
 }
@@ -20,6 +20,7 @@ const navigationItems: NavigationItem[] = [
   { to: '/feed', label: 'nav_feed', icon: 'feed' },
   { to: '/estante', label: 'nav_shelf', icon: 'shelf' },
   { to: '/diario', label: 'nav_diary', icon: 'diary' },
+  { to: '/memorias', label: 'nav_memories', icon: 'memory' },
   { to: '/perfil', label: 'nav_profile', icon: 'profile' },
 ]
 
@@ -156,6 +157,11 @@ export function AppLayout() {
               <Link className="quick-action-card" to="/diario">
                 <Icon name="diary" />
                 <span>{t('quick_diary')}</span>
+                <Icon name="arrow" size={18} />
+              </Link>
+              <Link className="quick-action-card" to="/memorias">
+                <Icon name="memory" />
+                <span>{t('quick_memories')}</span>
                 <Icon name="arrow" size={18} />
               </Link>
               <a className="quick-action-card" href="/">
