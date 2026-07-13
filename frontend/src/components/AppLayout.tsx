@@ -9,18 +9,23 @@ import { SettingsPanel } from './SettingsPanel'
 
 interface NavigationItem {
   to: string
-  label: 'nav_search' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_profile'
+  label: 'nav_search' | 'nav_explore' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_profile'
   icon: IconName
   end?: boolean
 }
 
 const navigationItems: NavigationItem[] = [
   { to: '/', label: 'nav_search', icon: 'search', end: true },
+  { to: '/explorar', label: 'nav_explore', icon: 'explore' },
   { to: '/feed', label: 'nav_feed', icon: 'feed' },
   { to: '/estante', label: 'nav_shelf', icon: 'shelf' },
   { to: '/diario', label: 'nav_diary', icon: 'diary' },
   { to: '/perfil', label: 'nav_profile', icon: 'profile' },
 ]
+
+const mobileNavigationItems = navigationItems.filter((item) =>
+  ['/', '/explorar', '/estante', '/perfil'].includes(item.to),
+)
 
 export function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -107,7 +112,7 @@ export function AppLayout() {
       </div>
 
       <nav className="bottom-navigation" aria-label="Navegação principal">
-        {navigationItems.slice(0, 2).map((item) => (
+        {mobileNavigationItems.slice(0, 2).map((item) => (
           <NavItem key={item.to} item={item} />
         ))}
         <button
@@ -119,7 +124,7 @@ export function AppLayout() {
         >
           <Icon name={quickOpen ? 'close' : 'plus'} size={26} />
         </button>
-        {navigationItems.slice(2).filter((item) => item.to !== '/diario').map((item) => (
+        {mobileNavigationItems.slice(2).map((item) => (
           <NavItem key={item.to} item={item} />
         ))}
       </nav>
@@ -134,7 +139,7 @@ export function AppLayout() {
           />
           <section className="quick-sheet" aria-labelledby="quick-title">
             <div className="quick-sheet__handle" />
-            <p className="eyebrow">{t('feature_next')}</p>
+            <p className="eyebrow">{t('quick_action')}</p>
             <h2 id="quick-title">{t('quick_title')}</h2>
             <p>{t('quick_copy')}</p>
             <div className="quick-sheet__actions">
