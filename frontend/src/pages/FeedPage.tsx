@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
-import { FeedDiscoveryPanels, ReaderSuggestions, ReadingNowRail } from '../features/feed/FeedDiscoveryPanels'
+import { ReaderSuggestions, ReadingNowRail } from '../features/feed/FeedDiscoveryPanels'
 import { FeedItemCard } from '../features/feed/FeedItemCard'
 import { feedText } from '../features/feed/feedI18n'
 import { usePreferences } from '../providers/PreferencesProvider'
