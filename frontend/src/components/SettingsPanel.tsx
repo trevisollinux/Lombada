@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Link } from 'react-router'
 
 import { usePreferences } from '../providers/PreferencesProvider'
 import { useSession } from '../providers/SessionProvider'
@@ -138,6 +139,10 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </div>
               <p>{account.logado ? t('logged_hint') : t('anonymous_hint')}</p>
               <div className="account-card__actions">
+                <Link className="button button--secondary" to="/perfil" onClick={onClose}>
+                  <Icon name="profile" size={16} />
+                  {t('nav_profile')}
+                </Link>
                 {account.logado ? (
                   <a className="button button--secondary" href="/api/auth/logout">
                     {t('sign_out')}
