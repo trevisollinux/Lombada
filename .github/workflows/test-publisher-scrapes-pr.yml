@@ -6,6 +6,8 @@ on:
       - 'data/publishers/**'
       - 'scripts/sync_publishers.py'
       - 'scripts/sync_publishers_catalog.py'
+      - 'scripts/publisher_catalog_policies.py'
+      - 'scripts/diagnose_publisher_spa.py'
       - 'tests/test_publishers_catalog.py'
       - '.github/workflows/test-publisher-scrapes-pr.yml'
 
@@ -58,7 +60,21 @@ jobs:
             echo '' | tee -a scrape-output.txt
             echo '--- DIAGNÓSTICO DE ENDPOINTS ---' | tee -a scrape-output.txt
             PUBLISHER_DIAGNOSE=true python scripts/sync_publishers_catalog.py | tee -a scrape-output.txt || true
+            case "$PUBLISHER_SLUGS" in
+              global_editora)
+                echo '--- DIAGNÓSTICO DE SPA ---' | tee -a scrape-output.txt
+                python scripts/diagnose_publisher_spa.py https://globaleditora.com.br --insecure | tee -a scrape-output.txt || true
+                ;;
+              globo_livros)
+                echo '--- DIAGNÓSTICO DE SPA ---' | tee -a scrape-output.txt
+                python scripts/diagnose_publisher_spa.py http://globolivros.globo.com | tee -a scrape-output.txt || true
+                ;;
+            esac
             echo "Nenhum livro foi extraído de $PUBLISHER_SLUGS"
+            exit 1
+          fi
+          if grep -Eiq 'Outros livros de|Mais livros de|&(#0*39|apos);' scrape-output.txt; then
+            echo "A coleta de $PUBLISHER_SLUGS contém título genérico ou entidade HTML não normalizada"
             exit 1
           fi
         env:
