@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 
 import { AppLayout } from './components/AppLayout'
 import { DiaryPage } from './pages/DiaryPage'
+import { ExplorePage } from './pages/ExplorePage'
 import { FeedPage } from './pages/FeedPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
@@ -19,6 +20,7 @@ export function App() {
           <Routes>
             <Route element={<AppLayout />}>
               <Route index element={<SearchPage />} />
+              <Route path="explorar" element={<ExplorePage />} />
               <Route path="obra" element={<WorkPage />} />
               <Route path="feed" element={<FeedPage />} />
               <Route path="estante" element={<ShelfPage />} />
