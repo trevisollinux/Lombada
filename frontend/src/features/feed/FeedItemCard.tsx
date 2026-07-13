@@ -14,6 +14,7 @@ import type { FeedItem, FeedReviewItem, FeedTextItem } from '../../types/feed'
 import { FeedAvatar } from './FeedAvatar'
 import { feedText } from './feedI18n'
 import { FollowButton } from './FollowButton'
+import { reportReview } from './reportReview'
 import { ReviewComments } from './ReviewComments'
 
 interface FeedItemCardProps {
@@ -53,7 +54,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
   const [reading, setReading] = useState(item.leitura)
   const [spoilerVisible, setSpoilerVisible] = useState(!item.leitura.spoiler)
   const [commentsOpen, setCommentsOpen] = useState(false)
-  const [busyAction, setBusyAction] = useState<'like' | 'save' | null>(null)
+  const [busyAction, setBusyAction] = useState<'like' | 'save' | 'report' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const workParams = new URLSearchParams({
@@ -118,6 +119,21 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
         ? await unsaveReview(reading.leitura_id)
         : await saveReview(reading.leitura_id)
       setReading((current) => ({ ...current, saved_by_me: result.saved }))
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : feedText(locale, 'error'))
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function report() {
+    if (busyAction || reading.reported_by_me || !requireInteraction()) return
+    if (!window.confirm(feedText(locale, 'report_confirm'))) return
+    setBusyAction('report')
+    setActionError(null)
+    try {
+      const result = await reportReview(reading.leitura_id)
+      setReading((current) => ({ ...current, reported_by_me: result.reported }))
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : feedText(locale, 'error'))
     } finally {
@@ -235,6 +251,17 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
             >
               <Icon name="bookmark" size={18} />
               <span>{reading.saved_by_me ? feedText(locale, 'saved') : feedText(locale, 'save')}</span>
+            </button>
+            <button
+              type="button"
+              className={reading.reported_by_me ? 'is-active' : ''}
+              aria-pressed={reading.reported_by_me}
+              disabled={busyAction === 'report' || reading.reported_by_me}
+              onClick={() => void report()}
+              title={item.usuario.is_me ? feedText(locale, 'own_review') : feedText(locale, 'report')}
+            >
+              <Icon name="flag" size={18} />
+              <span>{reading.reported_by_me ? feedText(locale, 'reported') : feedText(locale, 'report')}</span>
             </button>
           </div>
           {actionError && (
