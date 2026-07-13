@@ -104,6 +104,7 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
   }, [notice])
 
   if (!payload) return null
+  const activePayload = payload
 
   function setTheme(value: ShareCardTheme) {
     setThemeState(value)
@@ -113,7 +114,7 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
   async function ensureCanvas(): Promise<HTMLCanvasElement> {
     const canvas = canvasRef.current
     if (!canvas) throw new Error(memoriesText(locale, 'card_error'))
-    await renderShareCard(canvas, payload, { theme, coverMode, includeExcerpt }, locale)
+    await renderShareCard(canvas, activePayload, { theme, coverMode, includeExcerpt }, locale)
     return canvas
   }
 
@@ -124,7 +125,7 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
     setNotice(null)
     try {
       const canvas = await ensureCanvas()
-      const result = await shareOrDownloadCard(canvas, payload, locale)
+      const result = await shareOrDownloadCard(canvas, activePayload, locale)
       if (result === 'shared') setNotice(memoriesText(locale, 'card_shared'))
       if (result === 'downloaded') setNotice(memoriesText(locale, 'card_downloaded'))
     } catch (cause) {
@@ -141,7 +142,7 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
     setNotice(null)
     try {
       const canvas = await ensureCanvas()
-      await downloadShareCard(canvas, shareCardFilename(payload))
+      await downloadShareCard(canvas, shareCardFilename(activePayload))
       setNotice(memoriesText(locale, 'card_downloaded'))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : memoriesText(locale, 'card_error'))
@@ -151,11 +152,11 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
   }
 
   async function copyProfile() {
-    if (busy || !payload.handle) return
+    if (busy || !activePayload.handle) return
     setBusy('copy')
     setError(null)
     try {
-      await copyText(`${window.location.origin}/u/${encodeURIComponent(payload.handle)}`)
+      await copyText(`${window.location.origin}/u/${encodeURIComponent(activePayload.handle)}`)
       setNotice(memoriesText(locale, 'link_copied'))
     } catch {
       setError(memoriesText(locale, 'card_error'))
@@ -164,9 +165,9 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
     }
   }
 
-  const supportsCover = shareCardSupportsCover(payload)
-  const hasExcerpt = shareCardHasExcerpt(payload)
-  const hasSpoiler = shareCardHasSpoiler(payload)
+  const supportsCover = shareCardSupportsCover(activePayload)
+  const hasExcerpt = shareCardHasExcerpt(activePayload)
+  const hasSpoiler = shareCardHasSpoiler(activePayload)
 
   return (
     <div className="share-card-layer" role="presentation">
@@ -264,7 +265,7 @@ export function ShareCardDialog({ payload, locale, onClose }: ShareCardDialogPro
               <button className="button button--secondary" type="button" disabled={Boolean(busy) || rendering} onClick={() => void download()}>
                 {busy === 'download' ? memoriesText(locale, 'generating') : memoriesText(locale, 'download_card')}
               </button>
-              {payload.handle && (
+              {activePayload.handle && (
                 <button className="button button--ghost" type="button" disabled={Boolean(busy)} onClick={() => void copyProfile()}>
                   {memoriesText(locale, 'copy_profile_link')}
                 </button>
