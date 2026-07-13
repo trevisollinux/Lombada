@@ -1,0 +1,9 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+bamboozinho,Bamboozinho,,,infantil_juvenil,Livros e materiais para a primeira infância.,active,imprint,Catálogo ou site oficial não confirmado; manter para descoberta manual.,false,,missing,auto,,3
+callis_editora,Callis Editora,,,infantil_juvenil,"Biografias, conhecimento, folclore, música e literatura para crianças e jovens.",active,publisher,,true,https://www.callis.com.br,candidate,auto,catalogo_b,2
+carochinha,Carochinha,,,infantil_juvenil,Narrativas e livros para o desenvolvimento e a leitura nos primeiros anos.,active,imprint,Marca ou selo sem catálogo oficial isolado confirmado; precisa ser associado ao grupo responsável.,false,,missing,auto,,3
+editora_abacatte,Editora Abacatte,,,infantil_juvenil,"Livros ilustrados, obras bilíngues e novos talentos da ilustração.",active,publisher,,true,https://www.abacatte.com.br,candidate,auto,catalogo_c,2
+editora_jujuba,Editora Jujuba,,,infantil_juvenil,Livros ilustrados e literatura infantil com autores e ilustradores brasileiros e estrangeiros.,active,publisher,,true,https://editorajujuba.com.br,candidate,auto,catalogo_h,1
+editora_piu,Editora Piu,,,infantil_juvenil,Literatura infantil e juvenil voltada à imaginação e à experimentação narrativa.,active,publisher,,true,https://editorapiu.com.br,candidate,auto,catalogo_e,3
+editora_pulo_do_gato,Editora Pulo do Gato,,,infantil_juvenil,"Literatura infantil e juvenil, livros ilustrados e obras sobre formação de leitores.",active,publisher,,true,https://editorapulodogato.com.br,candidate,auto,catalogo_a,1
+edicoes_barbatana,Edições Barbatana,,,infantil_juvenil,Livros ilustrados e projetos gráficos com exploração material e tátil.,active,publisher,,true,https://edicoesbarbatana.com.br,candidate,auto,catalogo_d,2
