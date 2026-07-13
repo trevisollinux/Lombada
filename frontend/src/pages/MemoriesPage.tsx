@@ -16,7 +16,7 @@ import type { ShelfReading } from '../types/reading'
 const MAX_OFFSET = 12
 
 export function MemoriesPage() {
-  const { locale } = usePreferences()
+  const { locale, t } = usePreferences()
   const { account } = useSession()
   const [readings, setReadings] = useState<ShelfReading[]>([])
   const [shelfStatus, setShelfStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -26,6 +26,7 @@ export function MemoriesPage() {
   const [recap, setRecap] = useState<PeriodRecap | null>(null)
   const [recapStatus, setRecapStatus] = useState<'loading' | 'ready' | 'unavailable' | 'error'>('loading')
   const [recapError, setRecapError] = useState<string | null>(null)
+  const [recapReloadVersion, setRecapReloadVersion] = useState(0)
   const [sharePayload, setSharePayload] = useState<ShareCardPayload | null>(null)
 
   const libraryRecap = useMemo(() => buildLibraryRecap(readings), [readings])
@@ -71,7 +72,7 @@ export function MemoriesPage() {
         setRecapStatus('error')
       })
     return () => controller.abort()
-  }, [locale, offset, period])
+  }, [locale, offset, period, recapReloadVersion])
 
   function changePeriod(next: RecapPeriod) {
     setPeriod(next)
@@ -131,8 +132,9 @@ export function MemoriesPage() {
           <div className="memories-state memories-state--error" role="alert">
             <Icon name="refresh" size={30} />
             <p>{recapError}</p>
-            <button className="button button--secondary" type="button" onClick={() => setOffset((current) => current)}>
-              {memoriesText(locale, 'next')}
+            <button className="button button--secondary" type="button" onClick={() => setRecapReloadVersion((current) => current + 1)}>
+              <Icon name="refresh" size={16} />
+              {t('retry')}
             </button>
           </div>
         )}
@@ -171,12 +173,13 @@ export function MemoriesPage() {
             ) : (
               <>
                 <div className="memories-metrics">
-                  <MemoryMetric value={recap.sessions} label={memoriesText(locale, 'sessions')} />
-                  <MemoryMetric value={recap.active_days} label={memoriesText(locale, 'active_days')} />
-                  <MemoryMetric value={recap.books_touched} label={memoriesText(locale, 'books_touched')} />
+                  <MemoryMetric value={recap.sessions} label={memoriesText(locale, 'sessions')} locale={locale} />
+                  <MemoryMetric value={recap.active_days} label={memoriesText(locale, 'active_days')} locale={locale} />
+                  <MemoryMetric value={recap.books_touched} label={memoriesText(locale, 'books_touched')} locale={locale} />
                   <MemoryMetric
                     value={recap.page_sessions_calculable > 0 ? recap.pages_advanced : recap.sessions}
                     label={memoriesText(locale, recap.page_sessions_calculable > 0 ? 'pages_advanced' : 'updates')}
+                    locale={locale}
                     emphasis
                   />
                 </div>
@@ -185,20 +188,23 @@ export function MemoriesPage() {
                   <div className="memories-period-books">
                     <h3>{memoriesText(locale, 'highlights')}</h3>
                     <div>
-                      {recap.highlights.map((book) => (
-                        <article key={book.reading_id}>
-                          <BookCover title={book.title} author={book.author} url={book.cover_url} />
-                          <div>
-                            <h4>{book.title}</h4>
-                            <p>{book.author}</p>
-                            <small>
-                              {book.sessions} {memoriesText(locale, 'sessions')}
-                              {book.pages_advanced > 0 ? ` · +${book.pages_advanced} ${memoriesText(locale, 'pages_advanced')}` : ''}
-                              {progressLabel(book.last_progress, locale) ? ` · ${progressLabel(book.last_progress, locale)}` : ''}
-                            </small>
-                          </div>
-                        </article>
-                      ))}
+                      {recap.highlights.map((book) => {
+                        const progress = progressLabel(book.last_progress, locale)
+                        return (
+                          <article key={book.reading_id}>
+                            <BookCover title={book.title} author={book.author} url={book.cover_url} />
+                            <div>
+                              <h4>{book.title}</h4>
+                              <p>{book.author}</p>
+                              <small>
+                                {book.sessions.toLocaleString(locale)} {memoriesText(locale, 'sessions')}
+                                {book.pages_advanced > 0 ? ` · +${book.pages_advanced.toLocaleString(locale)} ${memoriesText(locale, 'pages_advanced')}` : ''}
+                                {progress ? ` · ${progress}` : ''}
+                              </small>
+                            </div>
+                          </article>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -235,7 +241,7 @@ export function MemoriesPage() {
             <p>{shelfError}</p>
             <button className="button button--secondary" type="button" onClick={() => void loadShelf()}>
               <Icon name="refresh" size={16} />
-              {memoriesText(locale, 'next')}
+              {t('retry')}
             </button>
           </div>
         )}
@@ -267,10 +273,10 @@ export function MemoriesPage() {
                 <article><span>{memoriesText(locale, 'pages_read')}</span><strong>{libraryRecap.pages.toLocaleString(locale)}</strong></article>
               )}
               {libraryRecap.topAuthor && (
-                <article><span>{memoriesText(locale, 'top_author')}</span><strong>{libraryRecap.topAuthor.name}</strong><small>{libraryRecap.topAuthor.books.length} {memoriesText(locale, 'books_read')}</small></article>
+                <article><span>{memoriesText(locale, 'top_author')}</span><strong>{libraryRecap.topAuthor.name}</strong><small>{libraryRecap.topAuthor.books.length.toLocaleString(locale)} {memoriesText(locale, 'books_read')}</small></article>
               )}
               {libraryRecap.averageRating !== null && (
-                <article><span>{memoriesText(locale, 'average_rating')}</span><strong>{libraryRecap.averageRating.toFixed(1)}</strong></article>
+                <article><span>{memoriesText(locale, 'average_rating')}</span><strong>{libraryRecap.averageRating.toLocaleString(locale, { maximumFractionDigits: 1 })}</strong></article>
               )}
               {libraryRecap.favorite && (
                 <article><span>{memoriesText(locale, 'favorite')}</span><strong>{libraryRecap.favorite.titulo}</strong><small>{libraryRecap.favorite.autor}</small></article>
@@ -296,10 +302,20 @@ export function MemoriesPage() {
   )
 }
 
-function MemoryMetric({ value, label, emphasis = false }: { value: number; label: string; emphasis?: boolean }) {
+function MemoryMetric({
+  value,
+  label,
+  locale,
+  emphasis = false,
+}: {
+  value: number
+  label: string
+  locale: string
+  emphasis?: boolean
+}) {
   return (
     <article className={emphasis ? 'is-emphasis' : ''}>
-      <strong>{value.toLocaleString()}</strong>
+      <strong>{value.toLocaleString(locale)}</strong>
       <span>{label}</span>
     </article>
   )
