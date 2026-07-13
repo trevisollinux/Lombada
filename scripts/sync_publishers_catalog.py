@@ -15,6 +15,8 @@ import csv
 from pathlib import Path
 from typing import Any
 
+from publisher_catalog_policies import apply_source_overrides, install
+
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "publishers"
 _ALLOWED_STATUS = {"active"}
 _COPYABLE_SCRAPE_KEYS = {
@@ -86,7 +88,7 @@ def scraper_sources(catalog: dict[str, Any]) -> list[dict[str, Any]]:
         for key in _COPYABLE_SCRAPE_KEYS:
             if key in scrape and scrape[key] not in (None, "", []):
                 source[key] = scrape[key]
-        result.append(source)
+        result.append(apply_source_overrides(source))
     return result
 
 
@@ -115,6 +117,7 @@ def main() -> int:
     catalog = load_catalog()
     candidates = scraper_sources(catalog)
     added = extend_sources(sync_publishers, catalog)
+    install(sync_publishers)
     print(
         "Catálogo de editoras: "
         f"{len(catalog['publishers'])} cadastradas · "
