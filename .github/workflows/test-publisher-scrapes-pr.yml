@@ -37,7 +37,6 @@ jobs:
           - editora_melhoramentos
           - planeta_livros_brasil
           - global_editora
-          - globo_livros
           - grupo_editorial_pensamento
           - martin_claret
     runs-on: ubuntu-latest
@@ -60,16 +59,10 @@ jobs:
             echo '' | tee -a scrape-output.txt
             echo '--- DIAGNÓSTICO DE ENDPOINTS ---' | tee -a scrape-output.txt
             PUBLISHER_DIAGNOSE=true python scripts/sync_publishers_catalog.py | tee -a scrape-output.txt || true
-            case "$PUBLISHER_SLUGS" in
-              global_editora)
-                echo '--- DIAGNÓSTICO DE SPA ---' | tee -a scrape-output.txt
-                python scripts/diagnose_publisher_spa.py https://globaleditora.com.br --insecure | tee -a scrape-output.txt || true
-                ;;
-              globo_livros)
-                echo '--- DIAGNÓSTICO DE SPA ---' | tee -a scrape-output.txt
-                python scripts/diagnose_publisher_spa.py http://globolivros.globo.com | tee -a scrape-output.txt || true
-                ;;
-            esac
+            if [[ "$PUBLISHER_SLUGS" == "global_editora" ]]; then
+              echo '--- DIAGNÓSTICO DE SPA ---' | tee -a scrape-output.txt
+              python scripts/diagnose_publisher_spa.py https://grupoeditorialglobal.com.br | tee -a scrape-output.txt || true
+            fi
             echo "Nenhum livro foi extraído de $PUBLISHER_SLUGS"
             exit 1
           fi
