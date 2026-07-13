@@ -17,6 +17,15 @@ import type {
   EditionPagesResponse,
 } from '../types/diary'
 import type {
+  DiscoverFeedResponse,
+  FollowResponse,
+  FollowingFeedResponse,
+  ReadingNowResponse,
+  ReviewComment,
+  ReviewSavedResponse,
+  ReviewStateResponse,
+} from '../types/feed'
+import type {
   ReadingMutation,
   ReadingMutationResponse,
   ReadingStatusesResponse,
@@ -205,4 +214,62 @@ export function createReading(payload: ReadingCreatePayload): Promise<ReadingCre
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+export function getFollowingFeed(limit = 30, signal?: AbortSignal): Promise<FollowingFeedResponse> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  return apiGet<FollowingFeedResponse>(`/api/feed?${params.toString()}`, signal)
+}
+
+export function getDiscoverFeed(limit = 24, signal?: AbortSignal): Promise<DiscoverFeedResponse> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  return apiGet<DiscoverFeedResponse>(`/api/feed/discover?${params.toString()}`, signal)
+}
+
+export function getReadingNow(
+  scope: 'following' | 'discover',
+  limit = 12,
+  signal?: AbortSignal,
+): Promise<ReadingNowResponse> {
+  const params = new URLSearchParams({ scope, limit: String(limit) })
+  return apiGet<ReadingNowResponse>(`/api/feed/lendo?${params.toString()}`, signal)
+}
+
+export function likeReview(readingId: number): Promise<ReviewStateResponse> {
+  return apiRequest<ReviewStateResponse>(`/api/reviews/${readingId}/like`, { method: 'POST' })
+}
+
+export function unlikeReview(readingId: number): Promise<ReviewStateResponse> {
+  return apiRequest<ReviewStateResponse>(`/api/reviews/${readingId}/like`, { method: 'DELETE' })
+}
+
+export function saveReview(readingId: number): Promise<ReviewSavedResponse> {
+  return apiRequest<ReviewSavedResponse>(`/api/reviews/${readingId}/save`, { method: 'POST' })
+}
+
+export function unsaveReview(readingId: number): Promise<ReviewSavedResponse> {
+  return apiRequest<ReviewSavedResponse>(`/api/reviews/${readingId}/save`, { method: 'DELETE' })
+}
+
+export function getReviewComments(readingId: number, signal?: AbortSignal): Promise<ReviewComment[]> {
+  return apiGet<ReviewComment[]>(`/api/reviews/${readingId}/comments`, signal)
+}
+
+export function createReviewComment(readingId: number, text: string): Promise<ReviewComment> {
+  return apiRequest<ReviewComment>(`/api/reviews/${readingId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ texto: text }),
+  })
+}
+
+export function deleteReviewComment(commentId: number): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/api/comments/${commentId}`, { method: 'DELETE' })
+}
+
+export function followReader(handle: string): Promise<FollowResponse> {
+  return apiRequest<FollowResponse>(`/api/u/${encodeURIComponent(handle)}/follow`, { method: 'POST' })
+}
+
+export function unfollowReader(handle: string): Promise<FollowResponse> {
+  return apiRequest<FollowResponse>(`/api/u/${encodeURIComponent(handle)}/follow`, { method: 'DELETE' })
 }
