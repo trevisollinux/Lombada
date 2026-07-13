@@ -8,6 +8,7 @@ import './features/shelf/reading-editor.css'
 import './features/diary/diary.css'
 import './features/catalog/catalog.css'
 import './features/explore/explore.css'
+import './features/feed/feed.css'
 
 const rootElement = document.getElementById('root')
 

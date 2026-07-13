@@ -7,6 +7,10 @@ export type IconName =
   | 'shelf'
   | 'diary'
   | 'profile'
+  | 'people'
+  | 'heart'
+  | 'bookmark'
+  | 'comment'
   | 'plus'
   | 'settings'
   | 'close'
@@ -41,6 +45,10 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
     diary: <><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M8 4v16" /><path d="M11 8h5" /><path d="M11 12h5" /></>,
     profile: <><circle cx="12" cy="8" r="3" /><path d="M5 20c.8-4 3-6 7-6s6.2 2 7 6" /></>,
+    people: <><circle cx="9" cy="8" r="3" /><path d="M3 20c.7-4 2.7-6 6-6s5.3 2 6 6" /><path d="M16 5a3 3 0 0 1 0 6" /><path d="M18 14c1.8.7 2.8 2.7 3 6" /></>,
+    heart: <path d="M20.8 5.8a5 5 0 0 0-7.1 0L12 7.5l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.1a5 5 0 0 0 0-7.1Z" />,
+    bookmark: <path d="M6 4h12v17l-6-4-6 4z" />,
+    comment: <><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9h8" /><path d="M8 12h5" /></>,
     plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
     settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21h-4v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3.1 14H3v-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3.1V3h4v.1A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1v4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
     close: <><path d="m6 6 12 12" /><path d="M18 6 6 18" /></>,
