@@ -17,6 +17,7 @@ interface ProfileTextsProps {
   owner: boolean
   loggedIn: boolean
   locale: Locale
+  onItemsChange?: (texts: ProfileText[]) => void
 }
 
 type EditorMode = { kind: 'new' } | { kind: 'edit'; textId: number } | null
@@ -27,7 +28,14 @@ function formatDate(value: string, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(parsed)
 }
 
-export function ProfileTexts({ texts, readings, owner, loggedIn, locale }: ProfileTextsProps) {
+export function ProfileTexts({
+  texts,
+  readings,
+  owner,
+  loggedIn,
+  locale,
+  onItemsChange,
+}: ProfileTextsProps) {
   const [items, setItems] = useState(texts)
   const [editor, setEditor] = useState<EditorMode>(null)
   const [title, setTitle] = useState('')
@@ -54,6 +62,14 @@ export function ProfileTexts({ texts, readings, owner, loggedIn, locale }: Profi
     }
     return [...byKey.values()].sort((a, b) => a.title.localeCompare(b.title, locale))
   }, [locale, readings])
+
+  function setSyncedItems(updater: (current: ProfileText[]) => ProfileText[]) {
+    setItems((current) => {
+      const next = updater(current)
+      onItemsChange?.(next)
+      return next
+    })
+  }
 
   function closeEditor() {
     setEditor(null)
@@ -108,7 +124,7 @@ export function ProfileTexts({ texts, readings, owner, loggedIn, locale }: Profi
       const saved = editor.kind === 'new'
         ? await createProfileText(payload)
         : await updateProfileText(editor.textId, payload)
-      setItems((current) => editor.kind === 'new'
+      setSyncedItems((current) => editor.kind === 'new'
         ? [saved, ...current]
         : current.map((item) => item.texto_id === saved.texto_id ? saved : item))
       closeEditor()
@@ -130,7 +146,7 @@ export function ProfileTexts({ texts, readings, owner, loggedIn, locale }: Profi
     setError(null)
     try {
       await deleteProfileText(textId)
-      setItems((current) => current.filter((item) => item.texto_id !== textId))
+      setSyncedItems((current) => current.filter((item) => item.texto_id !== textId))
       setDeleteConfirmId(null)
       if (editor?.kind === 'edit' && editor.textId === textId) closeEditor()
     } catch (cause) {
