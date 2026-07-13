@@ -1,5 +1,13 @@
 import type { Account } from '../types/account'
 import type {
+  CatalogEdition,
+  CatalogWork,
+  PopularSearch,
+  ReadingCreatePayload,
+  ReadingCreateResponse,
+  WorkSocialResponse,
+} from '../types/catalog'
+import type {
   ChapterSuggestion,
   DiaryEntry,
   DiaryMutation,
@@ -14,24 +22,30 @@ import type {
 
 export class ApiError extends Error {
   readonly status: number
+  readonly detail: unknown
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, detail?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.detail = detail
   }
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readError(response: Response): Promise<{ message: string; detail?: unknown }> {
   try {
     const payload = (await response.json()) as {
-      detail?: string | { detail?: string }
+      detail?: string | { detail?: string; [key: string]: unknown }
     }
-    if (typeof payload.detail === 'string') return payload.detail
-    if (payload.detail && typeof payload.detail.detail === 'string') return payload.detail.detail
-    return `Erro ${response.status}`
+    if (typeof payload.detail === 'string') {
+      return { message: payload.detail, detail: payload.detail }
+    }
+    if (payload.detail && typeof payload.detail.detail === 'string') {
+      return { message: payload.detail.detail, detail: payload.detail }
+    }
+    return { message: `Erro ${response.status}`, detail: payload.detail }
   } catch {
-    return `Erro ${response.status}`
+    return { message: `Erro ${response.status}` }
   }
 }
 
@@ -47,7 +61,8 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   })
 
   if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status)
+    const error = await readError(response)
+    throw new ApiError(error.message, response.status, error.detail)
   }
 
   return (await response.json()) as T
@@ -124,4 +139,41 @@ export function getEditionChapters(
   signal?: AbortSignal,
 ): Promise<ChapterSuggestion[]> {
   return apiGet<ChapterSuggestion[]>(`/api/edicoes/${editionId}/capitulos`, signal)
+}
+
+export function searchCatalog(query: string, signal?: AbortSignal): Promise<CatalogWork[]> {
+  const params = new URLSearchParams({ q: query.trim() })
+  return apiGet<CatalogWork[]>(`/api/buscar?${params.toString()}`, signal)
+}
+
+export function getPopularSearches(signal?: AbortSignal): Promise<PopularSearch[]> {
+  return apiGet<PopularSearch[]>('/api/buscas/populares', signal)
+}
+
+export function getPopularWorks(signal?: AbortSignal): Promise<CatalogWork[]> {
+  return apiGet<CatalogWork[]>('/api/explore/populares', signal)
+}
+
+export function getWorkSocial(
+  work: Pick<CatalogWork, 'work_key' | 'titulo' | 'autor'>,
+  signal?: AbortSignal,
+): Promise<WorkSocialResponse> {
+  const params = new URLSearchParams({
+    work_key: work.work_key,
+    titulo: work.titulo,
+    autor: work.autor,
+  })
+  return apiGet<WorkSocialResponse>(`/api/obra/social?${params.toString()}`, signal)
+}
+
+export function getWorkEditions(workKey: string, signal?: AbortSignal): Promise<CatalogEdition[]> {
+  const params = new URLSearchParams({ work_key: workKey })
+  return apiGet<CatalogEdition[]>(`/api/edicoes?${params.toString()}`, signal)
+}
+
+export function createReading(payload: ReadingCreatePayload): Promise<ReadingCreateResponse> {
+  return apiRequest<ReadingCreateResponse>('/api/prateleira', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
