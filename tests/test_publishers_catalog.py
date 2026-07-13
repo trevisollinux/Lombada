@@ -4,10 +4,15 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
+
+from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 
+import publisher_catalog_policies as policies  # noqa: E402
+import sync_publishers as sp  # noqa: E402
 import sync_publishers_catalog as catalog_adapter  # noqa: E402
 
 
@@ -138,6 +143,52 @@ class PublisherCatalogAdapterTest(unittest.TestCase):
         sources = catalog_adapter.scraper_sources(catalog)
 
         self.assertEqual([source["slug"] for source in sources], ["ativa"])
+
+    def test_globo_uses_http_spa_entrypoint_only_at_runtime(self):
+        catalog = catalog_adapter.load_catalog(ROOT / "data" / "publishers")
+        sources = {source["slug"]: source for source in catalog_adapter.scraper_sources(catalog)}
+
+        self.assertEqual(sources["globo_livros"]["base_url"], "http://globolivros.globo.com")
+        self.assertEqual(sources["globo_livros"]["platform"], "html")
+
+
+class PublisherCatalogPolicyTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        policies.install(sp)
+
+    def test_decodes_nested_html_entities_in_titles(self):
+        record = sp.build_record(
+            {"slug": "martin_claret", "name": "Martin Claret"},
+            "https://example.test/livro",
+            title="Recordações d&amp;#039;Arc",
+            isbn="9780000000000",
+        )
+
+        self.assertIsNotNone(record)
+        self.assertEqual(record[0]["title"], "Recordações d'Arc")
+
+    def test_rejects_planeta_author_pages_and_generic_titles(self):
+        generic = sp.build_record(
+            {"slug": "planeta_livros_brasil", "name": "Planeta"},
+            "https://www.planetadelivros.com.br/autor/james-shapiro/000057",
+            title="Outros livros de James Shapiro",
+            isbn="9788542226683",
+        )
+
+        self.assertFalse(sp.valid_extracted_record(generic))
+
+    def test_extracts_author_from_semantic_links(self):
+        soup = BeautifulSoup(
+            '<main><a href="/autor/jane-austen/">Jane Austen</a></main>',
+            "html.parser",
+        )
+
+        self.assertEqual(sp.extract_author_from_soup(soup, {}), "Jane Austen")
+
+    def test_explicit_unknown_slug_never_falls_back_to_all_sources(self):
+        with patch.dict(os.environ, {"PUBLISHER_SLUGS": "nao_existe"}, clear=False):
+            self.assertEqual(sp.select_sources(), [])
 
 
 if __name__ == "__main__":
