@@ -13,7 +13,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar diário.
 - [x] Migrar busca, obra e edições.
 - [x] Migrar explorar.
-- [ ] Migrar feed.
+- [x] Migrar feed.
 - [ ] Migrar perfil.
 - [ ] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
@@ -42,6 +42,10 @@ A busca consulta o catálogo real por título, autor ou ISBN, exibe buscas e obr
 ## Estado do explorar v2
 
 A rota `/app-v2/explorar` oferece vitrines populares e caminhos por gênero, literatura e editora. Os filtros combinam origem, gênero, editora, ordenação, idioma, capa, ISBN, críticas públicas e leituras em andamento, mantendo o estado na URL e reutilizando a página de obra para aprofundamento e registro.
+
+## Estado do feed v2
+
+O feed possui abas Seguindo e Descobrir, carrossel de leitores que estão lendo agora, sugestões de perfis e uma linha do tempo que combina críticas, mudanças de status de leitura e textos públicos. Leitores com conta Google podem seguir perfis, curtir e salvar críticas, criar comentários e excluir os próprios comentários. Spoilers permanecem ocultos até uma ação explícita e todas as mutações aguardam confirmação do servidor antes de atualizar a interface.
 
 ## Regra de execução
 
