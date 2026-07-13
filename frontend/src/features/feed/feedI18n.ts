@@ -19,6 +19,9 @@ export type FeedTextKey =
   | 'comment_loading'
   | 'login_required'
   | 'own_review'
+  | 'report'
+  | 'reported'
+  | 'report_confirm'
   | 'spoiler'
   | 'reveal_spoiler'
   | 'hide_spoiler'
@@ -63,6 +66,9 @@ const messages: Record<Locale, Record<FeedTextKey, string>> = {
     comment_loading: 'Carregando comentários…',
     login_required: 'Entre com Google para interagir com a comunidade.',
     own_review: 'Esta crítica é sua.',
+    report: 'Denunciar',
+    reported: 'Denunciado',
+    report_confirm: 'Denunciar esta crítica para análise?',
     spoiler: 'Contém spoiler',
     reveal_spoiler: 'Mostrar crítica',
     hide_spoiler: 'Ocultar crítica',
@@ -106,6 +112,9 @@ const messages: Record<Locale, Record<FeedTextKey, string>> = {
     comment_loading: 'Loading comments…',
     login_required: 'Sign in with Google to interact with the community.',
     own_review: 'This is your review.',
+    report: 'Report',
+    reported: 'Reported',
+    report_confirm: 'Report this review for moderation?',
     spoiler: 'Contains spoilers',
     reveal_spoiler: 'Show review',
     hide_spoiler: 'Hide review',
