@@ -1,0 +1,15 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+benvira,Benvirá,,,trade_interesse_geral,"Ficção, biografias, negócios e não ficção de interesse geral.",active,imprint,Selo criado pela Saraiva; precisa localizar o catálogo atual ou a fonte sucessora antes de ativar.,false,,missing,auto,,2
+ediouro_publicacoes,Ediouro Publicações,,,trade_interesse_geral,"Entretenimento, passatempos, cultura pop e títulos de interesse geral.",active,group,,true,https://www.ediouro.com.br,candidate,auto,catalogo_a,1
+editora_gente,Editora Gente,,,trade_interesse_geral,"Negócios, gestão, desenvolvimento pessoal e liderança.",active,publisher,,true,https://www.editoragente.com.br,candidate,auto,catalogo_b,1
+editora_melhoramentos,Editora Melhoramentos,,,trade_interesse_geral,"Literatura infantil e juvenil, obras de referência e gastronomia.",active,publisher,,true,https://www.editoramelhoramentos.com.br,candidate,auto,catalogo_c,1
+planeta_livros_brasil,Editora Planeta de Livros Brasil,Planeta de Livros Brasil,,trade_interesse_geral,"Autoajuda, negócios, não ficção e ficção comercial.",active,publisher,,true,https://www.planetadelivros.com.br,candidate,auto,catalogo_d,1
+editora_voo,Editora Voo,,,trade_interesse_geral,"Literatura inspiracional, impacto social, sustentabilidade e negócios.",active,publisher,,true,https://editoravoo.com.br,candidate,auto,catalogo_c,2
+geracao_editorial,Geração Editorial,,,trade_interesse_geral,"Jornalismo investigativo, política, história e biografias.",active,publisher,,true,https://geracaoeditorial.com.br,candidate,auto,catalogo_d,2
+global_editora,Global Editora,,,trade_interesse_geral,"Literatura brasileira, educação, ciências humanas e estudos regionais.",active,publisher,,true,https://globaleditora.com.br,candidate,auto,catalogo_e,1
+globo_livros,Globo Livros,,,trade_interesse_geral,"Não ficção, biografias, cultura pop e títulos de interesse geral.",active,publisher,,true,https://globolivros.globo.com,candidate,auto,catalogo_f,1
+grupo_editorial_pensamento,Grupo Editorial Pensamento,,,trade_interesse_geral,"Espiritualidade, esoterismo, filosofia, saúde e bem-estar.",active,group,,true,https://www.grupopensamento.com.br,candidate,auto,catalogo_g,1
+leya_brasil,Leya Brasil,,,trade_interesse_geral,"Literatura de língua portuguesa, ficção contemporânea, histórica e fantástica.",active,publisher,,true,https://www.leya.com.br,candidate,auto,catalogo_e,2
+martin_claret,Martin Claret,,,trade_interesse_geral,Clássicos da literatura mundial e edições de preço acessível.,active,publisher,,true,https://www.martinclaret.com.br,candidate,auto,catalogo_h,1
+nova_fronteira,Nova Fronteira,,,trade_interesse_geral,"Clássicos, poesia, literatura brasileira e obras de referência.",active,publisher,,true,https://www.novafronteira.com.br,candidate,auto,catalogo_a,1
+panda_books,Panda Books,,,trade_interesse_geral,"Curiosidades, biografias, enciclopédias temáticas e jornalismo esportivo.",active,publisher,,true,https://www.pandabooks.com.br,candidate,auto,catalogo_b,1
