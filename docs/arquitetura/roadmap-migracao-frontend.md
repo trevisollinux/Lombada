@@ -14,7 +14,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar busca, obra e edições.
 - [x] Migrar explorar.
 - [x] Migrar feed.
-- [ ] Migrar perfil.
+- [x] Migrar perfil.
 - [ ] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
 - [ ] Promover o frontend React para `/` após paridade e estabilização.
@@ -46,6 +46,10 @@ A rota `/app-v2/explorar` oferece vitrines populares e caminhos por gênero, lit
 ## Estado do feed v2
 
 O feed possui abas Seguindo e Descobrir, carrossel de leitores que estão lendo agora, sugestões de perfis e uma linha do tempo que combina críticas, mudanças de status de leitura e textos públicos. Leitores com conta Google podem seguir perfis, curtir e salvar críticas, criar comentários e excluir os próprios comentários. Spoilers permanecem ocultos até uma ação explícita e todas as mutações aguardam confirmação do servidor antes de atualizar a interface.
+
+## Estado do perfil v2
+
+A rota `/app-v2/perfil` permite editar nome, usuário e bio, trocar ou remover o avatar e gerenciar textos públicos ou privados vinculados opcionalmente a uma obra da estante. Perfis públicos vivem em `/app-v2/perfil/{handle}` e exibem métricas, estante filtrável, favoritos, leituras em andamento, críticas com spoiler, textos e listas de seguidores e seguindo. O avatar é recortado e comprimido no navegador antes do envio, e mutações de identidade, relações sociais e textos só atualizam a interface após confirmação do servidor.
 
 ## Regra de execução
 

@@ -42,6 +42,7 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
               capa_url: item.capa_url,
             },
           }
+          const profilePath = `/perfil/${encodeURIComponent(item.handle)}`
           return (
             <article key={`${item.handle}-${item.work_key}-${item.titulo}`} className="reading-now-card">
               <Link
@@ -52,11 +53,11 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
                 <BookCover title={item.titulo} author={item.autor} url={item.capa_url} />
               </Link>
               <div className="reading-now-card__reader">
-                <a href={`/u/${encodeURIComponent(item.handle)}`}>
+                <Link to={profilePath}>
                   <FeedAvatar name={item.nome} handle={item.handle} url={item.avatar_url} size="small" />
-                </a>
+                </Link>
                 <div>
-                  <a href={`/u/${encodeURIComponent(item.handle)}`}>{item.nome || `@${item.handle}`}</a>
+                  <Link to={profilePath}>{item.nome || `@${item.handle}`}</Link>
                   <span>{item.titulo}</span>
                 </div>
               </div>
@@ -88,36 +89,39 @@ export function ReaderSuggestions({ readers, locale, loggedIn, onFollowChange }:
         <Icon name="people" size={25} />
       </div>
       <div className="reader-suggestion-grid">
-        {readers.map((reader) => (
-          <article key={reader.handle} className="reader-suggestion-card">
-            <a className="reader-suggestion-card__identity" href={`/u/${encodeURIComponent(reader.handle)}`}>
-              <FeedAvatar name={reader.nome} handle={reader.handle} url={reader.avatar_url} size="large" />
-              <span>
-                <strong>{reader.nome || `@${reader.handle}`}</strong>
-                <small>@{reader.handle}</small>
-              </span>
-            </a>
-            {reader.bio && <p>{reader.bio}</p>}
-            <div className="reader-suggestion-card__metrics">
-              <span><strong>{reader.reviews_count ?? 0}</strong>{feedText(locale, 'reviews')}</span>
-              <span><strong>{reader.followers_count ?? 0}</strong>{feedText(locale, 'followers')}</span>
-            </div>
-            <div className="reader-suggestion-card__actions">
-              <FollowButton
-                handle={reader.handle}
-                following={reader.is_following}
-                isMe={reader.is_me}
-                isDemo={reader.is_demo}
-                loggedIn={loggedIn}
-                locale={locale}
-                onChange={onFollowChange}
-              />
-              <a className="text-button" href={`/u/${encodeURIComponent(reader.handle)}`}>
-                {feedText(locale, 'open_profile')} <Icon name="arrow" size={14} />
-              </a>
-            </div>
-          </article>
-        ))}
+        {readers.map((reader) => {
+          const profilePath = `/perfil/${encodeURIComponent(reader.handle)}`
+          return (
+            <article key={reader.handle} className="reader-suggestion-card">
+              <Link className="reader-suggestion-card__identity" to={profilePath}>
+                <FeedAvatar name={reader.nome} handle={reader.handle} url={reader.avatar_url} size="large" />
+                <span>
+                  <strong>{reader.nome || `@${reader.handle}`}</strong>
+                  <small>@{reader.handle}</small>
+                </span>
+              </Link>
+              {reader.bio && <p>{reader.bio}</p>}
+              <div className="reader-suggestion-card__metrics">
+                <span><strong>{reader.reviews_count ?? 0}</strong>{feedText(locale, 'reviews')}</span>
+                <span><strong>{reader.followers_count ?? 0}</strong>{feedText(locale, 'followers')}</span>
+              </div>
+              <div className="reader-suggestion-card__actions">
+                <FollowButton
+                  handle={reader.handle}
+                  following={reader.is_following}
+                  isMe={reader.is_me}
+                  isDemo={reader.is_demo}
+                  loggedIn={loggedIn}
+                  locale={locale}
+                  onChange={onFollowChange}
+                />
+                <Link className="text-button" to={profilePath}>
+                  {feedText(locale, 'open_profile')} <Icon name="arrow" size={14} />
+                </Link>
+              </div>
+            </article>
+          )
+        })}
       </div>
     </section>
   )

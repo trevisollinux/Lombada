@@ -26,6 +26,15 @@ import type {
   ReviewStateResponse,
 } from '../types/feed'
 import type {
+  AvatarMutationResponse,
+  ProfileMutation,
+  ProfileMutationResponse,
+  ProfilePerson,
+  ProfileText,
+  ProfileTextMutation,
+  PublicProfileResponse,
+} from '../types/profile'
+import type {
   ReadingMutation,
   ReadingMutationResponse,
   ReadingStatusesResponse,
@@ -272,4 +281,56 @@ export function followReader(handle: string): Promise<FollowResponse> {
 
 export function unfollowReader(handle: string): Promise<FollowResponse> {
   return apiRequest<FollowResponse>(`/api/u/${encodeURIComponent(handle)}/follow`, { method: 'DELETE' })
+}
+
+export function getPublicProfile(handle: string, signal?: AbortSignal): Promise<PublicProfileResponse> {
+  return apiGet<PublicProfileResponse>(`/api/u/${encodeURIComponent(handle)}`, signal)
+}
+
+export function updateProfile(payload: ProfileMutation): Promise<ProfileMutationResponse> {
+  return apiRequest<ProfileMutationResponse>('/api/eu/perfil', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function uploadProfileAvatar(data: string): Promise<AvatarMutationResponse> {
+  return apiRequest<AvatarMutationResponse>('/api/eu/avatar', {
+    method: 'POST',
+    body: JSON.stringify({ data }),
+  })
+}
+
+export function removeProfileAvatar(): Promise<AvatarMutationResponse> {
+  return apiRequest<AvatarMutationResponse>('/api/eu/avatar', { method: 'DELETE' })
+}
+
+export function getMyProfileTexts(signal?: AbortSignal): Promise<ProfileText[]> {
+  return apiGet<ProfileText[]>('/api/eu/textos', signal)
+}
+
+export function createProfileText(payload: ProfileTextMutation): Promise<ProfileText> {
+  return apiRequest<ProfileText>('/api/eu/textos', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateProfileText(textId: number, payload: ProfileTextMutation): Promise<ProfileText> {
+  return apiRequest<ProfileText>(`/api/eu/textos/${textId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteProfileText(textId: number): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/api/eu/textos/${textId}`, { method: 'DELETE' })
+}
+
+export function getProfileFollowers(handle: string, signal?: AbortSignal): Promise<ProfilePerson[]> {
+  return apiGet<ProfilePerson[]>(`/api/u/${encodeURIComponent(handle)}/followers`, signal)
+}
+
+export function getProfileFollowing(handle: string, signal?: AbortSignal): Promise<ProfilePerson[]> {
+  return apiGet<ProfilePerson[]>(`/api/u/${encodeURIComponent(handle)}/following`, signal)
 }
