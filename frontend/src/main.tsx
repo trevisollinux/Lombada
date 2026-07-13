@@ -6,6 +6,7 @@ import './styles.css'
 import './features/shelf/shelf.css'
 import './features/shelf/reading-editor.css'
 import './features/diary/diary.css'
+import './features/catalog/catalog.css'
 
 const rootElement = document.getElementById('root')
 

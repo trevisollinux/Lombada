@@ -11,7 +11,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar estante somente leitura.
 - [x] Migrar detalhe e mutações de leitura.
 - [x] Migrar diário.
-- [ ] Migrar busca, obra e edições.
+- [x] Migrar busca, obra e edições.
 - [ ] Migrar explorar, feed e perfil.
 - [ ] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
@@ -32,6 +32,10 @@ O detalhe permite editar status padrão ou personalizado, nota, data, relato, vi
 ## Estado do diário v2
 
 O diário lista a linha do tempo real do usuário, filtra por livro e permite criar, editar e excluir entradas. Os quatro modos atuais — página, porcentagem, capítulo e anotação livre — usam os contratos existentes, incluindo total de páginas, sumário colaborativo, página estimada, privacidade, spoiler e origem “Li mais”.
+
+## Estado do catálogo v2
+
+A busca consulta o catálogo real por título, autor ou ISBN, exibe buscas e obras populares e abre uma rota dedicada da obra. A página combina edições locais e externas, mostra estatísticas sociais e permite registrar uma leitura com status, nota, relato, privacidade, spoiler e relação de posse ou desejo da edição. Filtros editoriais avançados permanecem disponíveis no frontend legado até a migração da experiência de explorar.
 
 ## Regra de execução
 

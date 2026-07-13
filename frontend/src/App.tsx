@@ -7,6 +7,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SearchPage } from './pages/SearchPage'
 import { ShelfPage } from './pages/ShelfPage'
+import { WorkPage } from './pages/WorkPage'
 import { PreferencesProvider } from './providers/PreferencesProvider'
 import { SessionProvider } from './providers/SessionProvider'
 
@@ -18,6 +19,7 @@ export function App() {
           <Routes>
             <Route element={<AppLayout />}>
               <Route index element={<SearchPage />} />
+              <Route path="obra" element={<WorkPage />} />
               <Route path="feed" element={<FeedPage />} />
               <Route path="estante" element={<ShelfPage />} />
               <Route path="diario" element={<DiaryPage />} />
