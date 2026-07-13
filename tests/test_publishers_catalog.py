@@ -82,6 +82,14 @@ class PublisherCatalogValidationTest(unittest.TestCase):
         ):
             self.assertNotIn(european_form, raw)
 
+    def test_globo_remains_registered_but_direct_scrape_is_blocked(self):
+        by_slug = {publisher["slug"]: publisher for publisher in self.publishers}
+        globo = by_slug["globo_livros"]
+
+        self.assertEqual(globo["status"], "active")
+        self.assertFalse(globo["scrape"]["enabled"])
+        self.assertEqual(globo["scrape"]["url_status"], "blocked")
+
 
 class PublisherCatalogAdapterTest(unittest.TestCase):
     def test_adapter_skips_existing_specialized_source(self):
@@ -102,7 +110,8 @@ class PublisherCatalogAdapterTest(unittest.TestCase):
         slugs = [source["slug"] for source in fake_module.SOURCES]
         self.assertEqual(slugs.count("ubu"), 1)
         self.assertGreater(added, 80)
-        self.assertIn("globo_livros", slugs)
+        self.assertIn("global_editora", slugs)
+        self.assertNotIn("globo_livros", slugs)
 
     def test_adapter_ignores_disabled_and_historical_entries(self):
         catalog = {
@@ -144,12 +153,14 @@ class PublisherCatalogAdapterTest(unittest.TestCase):
 
         self.assertEqual([source["slug"] for source in sources], ["ativa"])
 
-    def test_globo_uses_http_spa_entrypoint_only_at_runtime(self):
+    def test_global_uses_current_official_domain(self):
         catalog = catalog_adapter.load_catalog(ROOT / "data" / "publishers")
         sources = {source["slug"]: source for source in catalog_adapter.scraper_sources(catalog)}
 
-        self.assertEqual(sources["globo_livros"]["base_url"], "http://globolivros.globo.com")
-        self.assertEqual(sources["globo_livros"]["platform"], "html")
+        self.assertEqual(
+            sources["global_editora"]["base_url"],
+            "https://grupoeditorialglobal.com.br",
+        )
 
 
 class PublisherCatalogPolicyTest(unittest.TestCase):
@@ -177,6 +188,35 @@ class PublisherCatalogPolicyTest(unittest.TestCase):
         )
 
         self.assertFalse(sp.valid_extracted_record(generic))
+
+    def test_planeta_extractor_prefers_h1_and_real_author_link(self):
+        page = SimpleNamespace(
+            text="""
+            <html><head>
+              <meta property="og:title" content="Outros livros de Erich Fromm">
+              <meta property="og:image" content="https://cdn.example/capa.jpg">
+            </head><body>
+              <h1>A arte de ser</h1>
+              <a href="/autor/erich-fromm/000123">Erich Fromm</a>
+              <section>ISBN 978-85-422-3194-6</section>
+            </body></html>
+            """
+        )
+        publisher = {
+            "slug": "planeta_livros_brasil",
+            "name": "Editora Planeta de Livros Brasil",
+        }
+
+        with patch.object(sp, "fetch_url", return_value=page):
+            record = sp.extract_page(
+                "https://www.planetadelivros.com.br/livro-a-arte-de-ser/413414",
+                publisher,
+            )
+
+        self.assertIsNotNone(record)
+        self.assertEqual(record[0]["title"], "A arte de ser")
+        self.assertEqual(record[0]["author"], "Erich Fromm")
+        self.assertEqual(record[0]["isbn"], "9788542231946")
 
     def test_extracts_author_from_semantic_links(self):
         soup = BeautifulSoup(
