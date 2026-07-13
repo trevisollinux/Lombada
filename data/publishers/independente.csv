@@ -1,0 +1,29 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+7letras,7Letras,,,independente,"Poesia contemporânea brasileira, contos e ensaios literários.",active,publisher,,true,https://7letras.com.br,candidate,auto,catalogo_f,1
+alameda_casa_editorial,Alameda Casa Editorial,,,independente,"História, ciências humanas, América Latina e sociologia.",active,publisher,,true,https://www.alamedaeditorial.com.br,candidate,auto,catalogo_g,1
+aletria_editora,Aletria Editora,,,independente,"Literatura infantil e juvenil autoral, tradição oral e formação de leitores.",active,publisher,,true,https://www.aletria.com.br,candidate,auto,catalogo_h,1
+bazar_do_tempo,Bazar do Tempo,,,independente,"História, memória, crítica cultural, artes e literatura.",active,publisher,,true,https://bazardotempo.com.br,candidate,auto,catalogo_a,1
+bebel_books,Bebel Books,,,independente,"Publicações de arte, quadrinhos, fotografia e projetos gráficos experimentais.",active,publisher,,true,https://bebelbooks.com.br,candidate,auto,catalogo_b,3
+cobogo,Cobogó,,,independente,"Teatro, cinema, artes visuais, música e cultura contemporânea.",active,publisher,,true,https://www.editoracobogo.com.br,candidate,auto,catalogo_b,1
+concha_editora,Concha Editora,,,independente,"Literatura contemporânea, crítica e experimentação visual.",active,publisher,,true,https://conchaeditora.com.br,candidate,auto,catalogo_c,3
+dublinense,Dublinense,,,independente,Literatura brasileira e traduções de ficção internacional contemporânea.,active,publisher,,true,https://dublinense.com.br,candidate,auto,catalogo_c,1
+editora_bestiario,Editora Bestiário,,,independente,"Ficção contemporânea sul-americana, poesia e crítica literária.",active,publisher,,true,https://editorabestiario.com.br,candidate,auto,catalogo_d,3
+editora_brasiliense,Editora Brasiliense,,,independente,"Ciências humanas, literatura e coleções de divulgação como Primeiros Passos.",active,publisher,Reclassificada como ativa; não deve permanecer no grupo de editoras extintas.,true,https://editorabrasiliense.com.br,candidate,auto,catalogo_d,1
+editora_jandaira,Editora Jandaíra,Pólen Livros|Pólen Editora,Pólen Livros|Pólen Editora,independente,"Debates contemporâneos, relações raciais, feminismos e diversidade.",active,publisher,A antiga Pólen passou a operar como Editora Jandaíra; aliases preservados para correspondência de edições antigas.,true,https://editorajandaira.com.br,candidate,auto,catalogo_e,1
+editora_male,Editora Malê,,,independente,"Literatura afro-brasileira, autores negros e produção contemporânea.",active,publisher,,true,https://editoramale.com.br,candidate,auto,catalogo_f,1
+editora_oito_e_meio,Editora Oito e Meio,,,independente,"Romances, contos, crônicas, antologias e formação literária.",active,publisher,,true,https://oitoemeio.com.br,candidate,auto,catalogo_e,3
+editora_patua,Editora Patuá,,,independente,"Poesia, conto, romance e publicação de novos autores brasileiros.",active,publisher,,true,https://editorapatua.com.br,candidate,auto,catalogo_g,1
+editora_penalux,Editora Penalux,,,independente,"Contos, micronarrativas, romances, poesia e ensaios críticos.",active,publisher,,true,https://editorapenalux.com.br,candidate,auto,catalogo_e,2
+edicoes_chao_da_feira,Edições Chão da Feira,,,independente,"Poesia, ensaio e pensamento estético-político contemporâneo.",active,publisher,,true,https://chaodafeira.com,candidate,auto,catalogo_f,2
+edicoes_macondo,Edições Macondo,,,independente,"Poesia e literatura brasileira contemporânea, com atenção a novas vozes.",active,publisher,,true,https://edicoesmacondo.com.br,candidate,auto,catalogo_g,2
+edicoes_olho_de_vidro,Edições Olho de Vidro,,,independente,Literatura infantil e juvenil de elaboração estética e abordagem crítica.,active,publisher,Site oficial não identificado com segurança; manter em descoberta manual.,false,,missing,auto,,3
+estacao_liberdade,Estação Liberdade,,,independente,"Literatura japonesa, ficção internacional, ensaio e ciências humanas.",active,publisher,Reclassificada de quadrinhos para editora independente de literatura e ensaio.,true,https://estacaoliberdade.com.br,candidate,auto,catalogo_h,1
+garamond,Garamond,,,independente,"Ciências humanas, ensaios políticos, comunicação e sustentabilidade.",active,publisher,,true,https://www.garamond.com.br,candidate,auto,catalogo_h,2
+lote_42,Lote 42,,,independente,"Projetos gráficos, livros-objeto, quadrinhos e crônicas urbanas.",active,publisher,,true,https://lote42.com.br,candidate,auto,catalogo_a,1
+moinhos,Moinhos,,,independente,Literatura brasileira contemporânea e traduções ibero-americanas.,active,publisher,,true,https://editoramoinhos.com.br,candidate,auto,catalogo_b,1
+oficina_raquel,Oficina Raquel,,,independente,"Literatura contemporânea, ensaio e formação de leitores.",active,publisher,,true,https://oficinaraquel.com,candidate,auto,catalogo_a,2
+pinard,Pinard,,,independente,Literatura latino-americana e circulação de autores pouco publicados no Brasil.,active,publisher,,true,https://editorapinard.com.br,candidate,auto,catalogo_f,3
+pipoca_press,Pipoca Press,,,independente,"Artes gráficas independentes, zines e coletâneas de contos.",active,publisher,Nome não localizado com segurança como editora ativa; exige confirmação manual.,false,,missing,auto,,3
+quintal_edicoes,Quintal Edições,,,independente,Publicações autorais e projetos voltados à produção de escritoras.,active,publisher,,true,https://quintaledicoes.com.br,candidate,auto,catalogo_g,3
+relicario_edicoes,Relicário Edições,,,independente,"Literatura estrangeira pouco difundida, ficção brasileira e ensaios.",active,publisher,,true,https://relicarioedicoes.com,candidate,auto,catalogo_c,1
+ubu,Ubu Editora,,,independente,"Antropologia, psicanálise, filosofia, design, artes e literatura.",active,publisher,,true,https://www.ubueditora.com.br,candidate,auto,catalogo_d,1
