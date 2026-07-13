@@ -22,11 +22,6 @@ _AUTHOR_REJECT_RE = re.compile(
     r"^(?:outros livros|mais livros|todos os livros|conheça|veja também|saiba mais)\b",
     re.I,
 )
-_SOURCE_OVERRIDES: dict[str, dict[str, Any]] = {
-    # O endpoint HTTPS raiz devolve AccessDenied no bucket; o host HTTP entrega
-    # o shell da SPA e é o ponto de partida para a estratégia específica.
-    "globo_livros": {"base_url": "http://globolivros.globo.com", "platform": "html"},
-}
 
 
 def decode_entities(value: Any) -> str:
@@ -41,9 +36,8 @@ def decode_entities(value: Any) -> str:
 
 
 def apply_source_overrides(source: dict[str, Any]) -> dict[str, Any]:
-    result = dict(source)
-    result.update(_SOURCE_OVERRIDES.get(str(source.get("slug") or ""), {}))
-    return result
+    """Ponto de extensão para ajustes de runtime que não pertencem ao CSV."""
+    return dict(source)
 
 
 def _clean_author_candidate(value: str) -> str:
@@ -91,6 +85,53 @@ def _fetch_with_insecure_tls(sync_module: Any, url: str, accept: str | None, ext
     return None
 
 
+def _extract_planeta_page(sync_module: Any, url: str, publisher: dict[str, str]):
+    """Extrai a ficha real da Planeta, ignorando JSON-LD/OG da seção relacionada."""
+    response = sync_module.fetch_url(url)
+    if response is None:
+        return None
+    soup = sync_module.BeautifulSoup(response.text, "html.parser")
+    h1 = soup.find("h1")
+    title = decode_entities(h1.get_text(" ", strip=True) if h1 else "")
+    if not title or _GENERIC_PLANETA_TITLE_RE.search(title):
+        sync_module._record_fetch_failure("planeta_titulo_invalido", url)
+        return None
+
+    author = ""
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "")
+        if re.search(r"/autor(?:es)?/[^/?#]+", href, re.I):
+            author = _clean_author_candidate(anchor.get_text(" ", strip=True))
+            if author:
+                break
+
+    visible_text = soup.get_text(" ", strip=True)
+    isbn = sync_module.extract_isbn(visible_text)
+    year = sync_module.extract_year(visible_text)
+    thumbnail = sync_module.meta_content(soup, "og:image")
+    description = sync_module.meta_content(soup, "og:description")
+    if not description:
+        synopsis = soup.find(
+            lambda tag: tag.name in {"h2", "h3"}
+            and "sinopse" in tag.get_text(" ", strip=True).lower()
+        )
+        paragraph = synopsis.find_next("p") if synopsis else None
+        description = paragraph.get_text(" ", strip=True) if paragraph else ""
+
+    return sync_module.build_record(
+        publisher,
+        url,
+        title=title,
+        author=author,
+        isbn=isbn,
+        year=year,
+        thumbnail=thumbnail,
+        description=description,
+        structured=False,
+        raw_extra={"platform": "planeta_html", "source_title": "h1"},
+    )
+
+
 def install(sync_module: Any) -> None:
     """Instala correções conservadoras somente no processo do catálogo expandido."""
     if getattr(sync_module, "_publisher_catalog_policies_installed", False):
@@ -103,6 +144,7 @@ def install(sync_module: Any) -> None:
     original_select_sources = sync_module.select_sources
     original_collect_from_urls = sync_module._collect_from_urls
     original_extract_page_parallel = sync_module._extract_page_parallel
+    original_extract_page = sync_module.extract_page
 
     def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None):
         host = (urlparse(url).hostname or "").lower()
@@ -157,6 +199,11 @@ def install(sync_module: Any) -> None:
                 if candidate:
                     return candidate
         return ""
+
+    def extract_page(url: str, publisher: dict[str, str]):
+        if publisher.get("slug") == "planeta_livros_brasil":
+            return _extract_planeta_page(sync_module, url, publisher)
+        return original_extract_page(url, publisher)
 
     def valid_extracted_record(extracted: Any) -> bool:
         if not original_valid_record(extracted):
@@ -213,6 +260,7 @@ def install(sync_module: Any) -> None:
     sync_module.fetch_url = fetch_url
     sync_module.build_record = build_record
     sync_module.extract_author_from_soup = extract_author_from_soup
+    sync_module.extract_page = extract_page
     sync_module.valid_extracted_record = valid_extracted_record
     sync_module.select_sources = select_sources
     sync_module._collect_from_urls = collect_from_urls
