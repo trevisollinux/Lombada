@@ -1,6 +1,8 @@
 import { useState } from 'react'
 
 import { BookCover } from '../../components/BookCover'
+import { Icon } from '../../components/Icon'
+import { memoriesText } from '../memories/memoriesI18n'
 import type { Locale } from '../../i18n'
 import { deleteDiaryEntry } from '../../services/api'
 import type { DiaryEntry } from '../../types/diary'
@@ -10,6 +12,7 @@ interface DiaryEntryCardProps {
   entry: DiaryEntry
   locale: Locale
   onEdit: (entry: DiaryEntry) => void
+  onShare: (entry: DiaryEntry) => void
   onDeleted: (entryId: number) => void
 }
 
@@ -31,7 +34,7 @@ function progressSummary(entry: DiaryEntry, locale: Locale): string {
   return diaryText(locale, 'free')
 }
 
-export function DiaryEntryCard({ entry, locale, onEdit, onDeleted }: DiaryEntryCardProps) {
+export function DiaryEntryCard({ entry, locale, onEdit, onShare, onDeleted }: DiaryEntryCardProps) {
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -118,6 +121,10 @@ export function DiaryEntryCard({ entry, locale, onEdit, onDeleted }: DiaryEntryC
         {error && <p className="diary-entry__error" role="alert">{error}</p>}
 
         <div className="diary-entry__actions">
+          <button type="button" className="text-button" onClick={() => onShare(entry)} disabled={deleting}>
+            <Icon name="memory" size={15} />
+            {memoriesText(locale, 'share_card')}
+          </button>
           <button type="button" className="text-button" onClick={() => onEdit(entry)} disabled={deleting}>
             {diaryText(locale, 'edit')}
           </button>
