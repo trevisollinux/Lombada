@@ -30,9 +30,7 @@
         moved_me: 'This one stayed with me', good_reading: 'Good reading',
         connect: 'Connect Google to react', error: 'I could not update your reaction now.',
         inboxLabel: 'social return', inboxTitle: 'Reactions to your reviews',
-        inboxEmpty: 'Your public reviews have no literary reactions yet.',
-        reactionsOne: '1 reaction', reactionsMany: '{count} reactions',
-        unread: 'new', close: 'Close', loading: 'Loading reactions…'
+        reactionsOne: '1 reaction', reactionsMany: '{count} reactions', unread: 'new'
       };
     }
     if (locale() === 'es') {
@@ -41,9 +39,7 @@
         moved_me: 'Este me marcó', good_reading: 'Buena lectura',
         connect: 'Conecta Google para reaccionar', error: 'No pude actualizar tu reacción ahora.',
         inboxLabel: 'retorno social', inboxTitle: 'Reacciones a tus reseñas',
-        inboxEmpty: 'Tus reseñas públicas todavía no tienen reacciones literarias.',
-        reactionsOne: '1 reacción', reactionsMany: '{count} reacciones',
-        unread: 'nueva', close: 'Cerrar', loading: 'Cargando reacciones…'
+        reactionsOne: '1 reacción', reactionsMany: '{count} reacciones', unread: 'nueva'
       };
     }
     return {
@@ -51,9 +47,7 @@
       moved_me: 'Esse me marcou', good_reading: 'Boa leitura',
       connect: 'Conecte o Google para reagir', error: 'Não consegui atualizar sua reação agora.',
       inboxLabel: 'retorno social', inboxTitle: 'Reações às suas críticas',
-      inboxEmpty: 'Suas críticas públicas ainda não receberam reações literárias.',
-      reactionsOne: '1 reação', reactionsMany: '{count} reações',
-      unread: 'nova', close: 'Fechar', loading: 'Carregando reações…'
+      reactionsOne: '1 reação', reactionsMany: '{count} reações', unread: 'nova'
     };
   }
 
@@ -232,8 +226,6 @@
       summaries.set(readingId, normalizeSummary(payload, readingId));
       renderReading(readingId);
       track(removing ? 'removed' : (payload.action === 'changed' ? 'changed' : 'set'), removing ? 'none' : type, sourceFor(bar));
-      // O dono verá o agrupamento atualizado quando abrir o perfil; nenhum popup
-      // ou notificação individual é produzido para cada clique.
     } catch (_) {
       try { if (typeof toast === 'function') toast(copy().error); } catch (_) {}
     } finally {
@@ -244,10 +236,10 @@
 
   function inboxCountsText(group) {
     const c = copy();
-    const pieces = TYPES
+    return TYPES
       .filter(type => Number(group?.counts?.[type] || 0) > 0)
-      .map(type => `${c[type]} · ${Number(group.counts[type])}`);
-    return pieces.join('  ·  ');
+      .map(type => `${c[type]} · ${Number(group.counts[type])}`)
+      .join('  ·  ');
   }
 
   function inboxHTML(data) {
@@ -281,7 +273,11 @@
       if (anchor) anchor.insertAdjacentElement('afterend', section);
       else profile.prepend(section);
     }
-    section.innerHTML = inboxHTML(inboxData);
+    const signature = JSON.stringify(inboxData);
+    if (section.dataset.signature !== signature) {
+      section.innerHTML = inboxHTML(inboxData);
+      section.dataset.signature = signature;
+    }
     markInboxSeenWhenVisible(section);
   }
 
