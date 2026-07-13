@@ -14,6 +14,7 @@
     progress_logged: ['source', 'progress_type', 'public'],
     progress_feedback: ['source', 'insight_type', 'action'],
     period_recap: ['period', 'action', 'state'],
+    literary_reaction: ['source', 'action', 'reaction_type'],
     share_started: ['source', 'share_type', 'success'],
     profile_connected: ['provider', 'source', 'success']
   });
