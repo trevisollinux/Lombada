@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { SearchResultCard } from '../features/catalog/SearchResultCard'
 import { exploreText } from '../features/explore/exploreI18n'
+import type { Locale } from '../i18n'
 import { usePreferences } from '../providers/PreferencesProvider'
 import {
   exploreCatalog,
@@ -21,34 +22,23 @@ import type {
 } from '../types/catalog'
 
 const genres = [
-  'romance',
-  'conto',
-  'poesia',
-  'teatro',
-  'ensaio',
-  'biografia',
-  'história',
-  'filosofia',
-  'fantasia',
-  'ficção científica',
-  'terror',
-  'policial',
-  'infantil',
-  'juvenil',
-  'crônica',
-  'quadrinhos',
+  'romance', 'conto', 'poesia', 'teatro', 'ensaio', 'biografia', 'história', 'filosofia',
+  'fantasia', 'ficção científica', 'terror', 'policial', 'infantil', 'juvenil', 'crônica', 'quadrinhos',
 ]
 
 const booleanParams = ['criticas', 'lendo', 'capa', 'isbn', 'pt'] as const
-
 type BooleanParam = (typeof booleanParams)[number]
 
 function enabled(params: URLSearchParams, key: BooleanParam): boolean {
   return params.get(key) === '1'
 }
 
+function validSort(value: string): CatalogSort {
+  return value === 'popular' || value === 'avaliacao' || value === 'recentes' ? value : ''
+}
+
 export function ExplorePage() {
-  const { locale, t } = usePreferences()
+  const { locale } = usePreferences()
   const [searchParams, setSearchParams] = useSearchParams()
   const [popularWorks, setPopularWorks] = useState<CatalogWork[]>([])
   const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
@@ -57,11 +47,12 @@ export function ExplorePage() {
   const [discoveryStatus, setDiscoveryStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [resultsStatus, setResultsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [retryVersion, setRetryVersion] = useState(0)
 
   const genre = searchParams.get('genero') || ''
   const literature = searchParams.get('literatura') || ''
   const publisher = searchParams.get('editora') || ''
-  const sort = (searchParams.get('ordem') || '') as CatalogSort
+  const sort = validSort(searchParams.get('ordem') || '')
   const withReviews = enabled(searchParams, 'criticas')
   const readingNow = enabled(searchParams, 'lendo')
   const withCover = enabled(searchParams, 'capa')
@@ -91,7 +82,7 @@ export function ExplorePage() {
       getPopularWorks(controller.signal),
       getCatalogPublishers(controller.signal),
       getCatalogLiteratures(controller.signal),
-    ]).then(([worksResult, publishersResult, literaturesResult]) => {
+    ] as const).then(([worksResult, publishersResult, literaturesResult]) => {
       if (controller.signal.aborted) return
       if (worksResult.status === 'fulfilled') setPopularWorks(worksResult.value.slice(0, 12))
       if (publishersResult.status === 'fulfilled') setPublishers(publishersResult.value)
@@ -124,7 +115,7 @@ export function ExplorePage() {
         setResultsStatus('error')
       })
     return () => controller.abort()
-  }, [hasFilters, locale, options])
+  }, [hasFilters, locale, options, retryVersion])
 
   function setParam(key: string, value: string | boolean) {
     const next = new URLSearchParams(searchParams)
@@ -137,10 +128,6 @@ export function ExplorePage() {
       next.delete(key)
     }
     setSearchParams(next)
-  }
-
-  function clearFilters() {
-    setSearchParams({})
   }
 
   const activeLabels = [
@@ -177,7 +164,7 @@ export function ExplorePage() {
             <h2 id="explore-filter-title">{exploreText(locale, 'filter_copy')}</h2>
           </div>
           {hasFilters && (
-            <button className="text-button" type="button" onClick={clearFilters}>
+            <button className="text-button" type="button" onClick={() => setSearchParams({})}>
               {exploreText(locale, 'clear')}
             </button>
           )}
@@ -189,9 +176,7 @@ export function ExplorePage() {
             <select value={publisher} onChange={(event) => setParam('editora', event.target.value)}>
               <option value="">{exploreText(locale, 'all_publishers')}</option>
               {publishers.map((item) => (
-                <option key={item.slug} value={item.editora}>
-                  {item.editora} · {item.obras_count}
-                </option>
+                <option key={item.slug} value={item.editora}>{item.editora} · {item.obras_count}</option>
               ))}
             </select>
           </label>
@@ -200,9 +185,7 @@ export function ExplorePage() {
             <span>{exploreText(locale, 'literature')}</span>
             <select value={literature} onChange={(event) => setParam('literatura', event.target.value)}>
               <option value="">{exploreText(locale, 'all_literatures')}</option>
-              {literatures.map((item) => (
-                <option key={item.slug} value={item.slug}>{item.label}</option>
-              ))}
+              {literatures.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
             </select>
           </label>
 
@@ -242,7 +225,7 @@ export function ExplorePage() {
         {activeLabels.length > 0 && (
           <div className="explore-active-filters" aria-label={exploreText(locale, 'active_filters')}>
             <span>{exploreText(locale, 'active_filters')}</span>
-            {activeLabels.map((label) => <strong key={label}>{label}</strong>)}
+            {activeLabels.map((label, index) => <strong key={`${label}-${index}`}>{label}</strong>)}
           </div>
         )}
       </section>
@@ -253,7 +236,7 @@ export function ExplorePage() {
           status={resultsStatus}
           results={results}
           error={error}
-          retry={() => setSearchParams(new URLSearchParams(searchParams))}
+          retry={() => setRetryVersion((current) => current + 1)}
         />
       ) : (
         <DiscoveryHome
@@ -272,7 +255,7 @@ export function ExplorePage() {
 }
 
 interface FilteredResultsProps {
-  locale: 'pt-BR' | 'en'
+  locale: Locale
   status: 'idle' | 'loading' | 'ready' | 'error'
   results: CatalogWork[]
   error: string | null
@@ -313,7 +296,7 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
 }
 
 interface DiscoveryHomeProps {
-  locale: 'pt-BR' | 'en'
+  locale: Locale
   status: 'loading' | 'ready' | 'error'
   popularWorks: CatalogWork[]
   publishers: CatalogPublisher[]
@@ -347,10 +330,7 @@ function DiscoveryHome({
     <div className="explore-discovery">
       {popularWorks.length > 0 && (
         <section className="explore-section">
-          <div className="explore-section__heading">
-            <div><p className="eyebrow">{exploreText(locale, 'popular')}</p><h2>{exploreText(locale, 'popular')}</h2></div>
-            <span>{popularWorks.length}</span>
-          </div>
+          <SectionHeading eyebrow={exploreText(locale, 'popular')} title={exploreText(locale, 'popular')} count={popularWorks.length} />
           <div className="catalog-results explore-results">
             {popularWorks.map((work) => (
               <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} />
@@ -360,9 +340,7 @@ function DiscoveryHome({
       )}
 
       <section className="explore-section">
-        <div className="explore-section__heading">
-          <div><p className="eyebrow">{exploreText(locale, 'paths')}</p><h2>{exploreText(locale, 'literatures')}</h2></div>
-        </div>
+        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'literatures')} />
         <div className="explore-path-grid">
           {literatures.slice(0, 10).map((item, index) => (
             <button key={item.slug} type="button" onClick={() => chooseLiterature(item.slug)}>
@@ -376,9 +354,7 @@ function DiscoveryHome({
       </section>
 
       <section className="explore-section">
-        <div className="explore-section__heading">
-          <div><p className="eyebrow">{exploreText(locale, 'paths')}</p><h2>{exploreText(locale, 'genres')}</h2></div>
-        </div>
+        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'genres')} />
         <div className="explore-genre-wall">
           {genres.map((item, index) => (
             <button key={item} type="button" onClick={() => chooseGenre(item)}>
@@ -391,10 +367,7 @@ function DiscoveryHome({
 
       {publishers.length > 0 && (
         <section className="explore-section">
-          <div className="explore-section__heading">
-            <div><p className="eyebrow">{exploreText(locale, 'publishers')}</p><h2>{exploreText(locale, 'publishers')}</h2></div>
-            <span>{publishers.length}</span>
-          </div>
+          <SectionHeading eyebrow={exploreText(locale, 'publishers')} title={exploreText(locale, 'publishers')} count={publishers.length} />
           <div className="explore-publisher-grid">
             {publishers.slice(0, 12).map((item) => (
               <button key={item.slug} type="button" onClick={() => choosePublisher(item.editora)}>
@@ -407,6 +380,15 @@ function DiscoveryHome({
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+function SectionHeading({ eyebrow, title, count }: { eyebrow: string; title: string; count?: number }) {
+  return (
+    <div className="explore-section__heading">
+      <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
+      {count !== undefined && <span>{count}</span>}
     </div>
   )
 }
