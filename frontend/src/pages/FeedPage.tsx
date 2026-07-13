@@ -43,26 +43,27 @@ export function FeedPage() {
 
     async function load() {
       try {
-        const readingNowPromise = getReadingNow(tab, 12, controller.signal)
         if (tab === 'following') {
-          const [feed, now] = await Promise.all([
+          const [feedResult, nowResult] = await Promise.allSettled([
             getFollowingFeed(30, controller.signal),
-            readingNowPromise,
-          ])
+            getReadingNow(tab, 12, controller.signal),
+          ] as const)
           if (controller.signal.aborted) return
-          setItems(feed.items)
+          if (feedResult.status === 'rejected') throw feedResult.reason
+          setItems(feedResult.value.items)
           setReaders([])
-          setFollowingCount(feed.following_count)
-          setReadingNow(now.items)
+          setFollowingCount(feedResult.value.following_count)
+          setReadingNow(nowResult.status === 'fulfilled' ? nowResult.value.items : [])
         } else {
-          const [feed, now] = await Promise.all([
+          const [feedResult, nowResult] = await Promise.allSettled([
             getDiscoverFeed(30, controller.signal),
-            readingNowPromise,
-          ])
+            getReadingNow(tab, 12, controller.signal),
+          ] as const)
           if (controller.signal.aborted) return
-          setItems(feed.reviews)
-          setReaders(feed.readers)
-          setReadingNow(now.items)
+          if (feedResult.status === 'rejected') throw feedResult.reason
+          setItems(feedResult.value.reviews)
+          setReaders(feedResult.value.readers)
+          setReadingNow(nowResult.status === 'fulfilled' ? nowResult.value.items : [])
         }
         setStatus('ready')
       } catch (cause) {
