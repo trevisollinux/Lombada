@@ -1,7 +1,10 @@
 import type { Account } from '../types/account'
 import type {
   CatalogEdition,
+  CatalogLiterature,
+  CatalogPublisher,
   CatalogWork,
+  ExploreCatalogOptions,
   PopularSearch,
   ReadingCreatePayload,
   ReadingCreateResponse,
@@ -146,12 +149,38 @@ export function searchCatalog(query: string, signal?: AbortSignal): Promise<Cata
   return apiGet<CatalogWork[]>(`/api/buscar?${params.toString()}`, signal)
 }
 
+export function exploreCatalog(
+  options: ExploreCatalogOptions,
+  signal?: AbortSignal,
+): Promise<CatalogWork[]> {
+  const params = new URLSearchParams()
+  if (options.query?.trim()) params.set('q', options.query.trim())
+  if (options.publisher) params.set('editora', options.publisher)
+  if (options.genre) params.set('genero', options.genre)
+  if (options.literature) params.set('literatura', options.literature)
+  if (options.sort) params.set('ordenar', options.sort)
+  if (options.withReviews) params.set('com_criticas', 'true')
+  if (options.readingNow) params.set('lendo_agora', 'true')
+  if (options.withCover) params.set('com_capa', 'true')
+  if (options.withIsbn) params.set('com_isbn', 'true')
+  if (options.portuguese) params.set('idioma', 'Português')
+  return apiGet<CatalogWork[]>(`/api/buscar?${params.toString()}`, signal)
+}
+
 export function getPopularSearches(signal?: AbortSignal): Promise<PopularSearch[]> {
   return apiGet<PopularSearch[]>('/api/buscas/populares', signal)
 }
 
 export function getPopularWorks(signal?: AbortSignal): Promise<CatalogWork[]> {
   return apiGet<CatalogWork[]>('/api/explore/populares', signal)
+}
+
+export function getCatalogPublishers(signal?: AbortSignal): Promise<CatalogPublisher[]> {
+  return apiGet<CatalogPublisher[]>('/api/editoras', signal)
+}
+
+export function getCatalogLiteratures(signal?: AbortSignal): Promise<CatalogLiterature[]> {
+  return apiGet<CatalogLiterature[]>('/api/literaturas', signal)
 }
 
 export function getWorkSocial(

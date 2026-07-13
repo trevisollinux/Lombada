@@ -12,7 +12,9 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar detalhe e mutações de leitura.
 - [x] Migrar diário.
 - [x] Migrar busca, obra e edições.
-- [ ] Migrar explorar, feed e perfil.
+- [x] Migrar explorar.
+- [ ] Migrar feed.
+- [ ] Migrar perfil.
 - [ ] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
 - [ ] Promover o frontend React para `/` após paridade e estabilização.
@@ -35,7 +37,11 @@ O diário lista a linha do tempo real do usuário, filtra por livro e permite cr
 
 ## Estado do catálogo v2
 
-A busca consulta o catálogo real por título, autor ou ISBN, exibe buscas e obras populares e abre uma rota dedicada da obra. A página combina edições locais e externas, mostra estatísticas sociais e permite registrar uma leitura com status, nota, relato, privacidade, spoiler e relação de posse ou desejo da edição. Filtros editoriais avançados permanecem disponíveis no frontend legado até a migração da experiência de explorar.
+A busca consulta o catálogo real por título, autor ou ISBN, exibe buscas e obras populares e abre uma rota dedicada da obra. A página combina edições locais e externas, mostra estatísticas sociais e permite registrar uma leitura com status, nota, relato, privacidade, spoiler e relação de posse ou desejo da edição.
+
+## Estado do explorar v2
+
+A rota `/app-v2/explorar` oferece vitrines populares e caminhos por gênero, literatura e editora. Os filtros combinam origem, gênero, editora, ordenação, idioma, capa, ISBN, críticas públicas e leituras em andamento, mantendo o estado na URL e reutilizando a página de obra para aprofundamento e registro.
 
 ## Regra de execução
 

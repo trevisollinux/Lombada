@@ -2,6 +2,7 @@ import type { ReactNode, SVGProps } from 'react'
 
 export type IconName =
   | 'search'
+  | 'explore'
   | 'feed'
   | 'shelf'
   | 'diary'
@@ -35,6 +36,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
 
   const paths: Record<IconName, ReactNode> = {
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+    explore: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z" /></>,
     feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
     diary: <><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M8 4v16" /><path d="M11 8h5" /><path d="M11 12h5" /></>,
