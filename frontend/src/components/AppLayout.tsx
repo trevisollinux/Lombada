@@ -148,6 +148,11 @@ export function AppLayout() {
                 <span>{t('quick_register')}</span>
                 <Icon name="arrow" size={18} />
               </Link>
+              <Link className="quick-action-card" to="/feed">
+                <Icon name="feed" />
+                <span>{t('nav_feed')}</span>
+                <Icon name="arrow" size={18} />
+              </Link>
               <Link className="quick-action-card" to="/diario">
                 <Icon name="diary" />
                 <span>{t('quick_diary')}</span>
