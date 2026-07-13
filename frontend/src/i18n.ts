@@ -10,6 +10,7 @@ export type TranslationKey =
   | 'nav_feed'
   | 'nav_shelf'
   | 'nav_diary'
+  | 'nav_memories'
   | 'nav_profile'
   | 'quick_action'
   | 'search_eyebrow'
@@ -27,6 +28,9 @@ export type TranslationKey =
   | 'diary_eyebrow'
   | 'diary_title'
   | 'diary_copy'
+  | 'memories_eyebrow'
+  | 'memories_title'
+  | 'memories_copy'
   | 'profile_eyebrow'
   | 'profile_title'
   | 'profile_copy'
@@ -56,6 +60,7 @@ export type TranslationKey =
   | 'quick_copy'
   | 'quick_register'
   | 'quick_diary'
+  | 'quick_memories'
   | 'quick_legacy'
   | 'route_not_found'
   | 'route_not_found_copy'
@@ -74,6 +79,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     nav_feed: 'Feed',
     nav_shelf: 'Estante',
     nav_diary: 'Diário',
+    nav_memories: 'Memórias',
     nav_profile: 'Perfil',
     quick_action: 'Adicionar',
     search_eyebrow: 'descobrir · registrar · lembrar',
@@ -91,6 +97,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     diary_eyebrow: 'durante a leitura',
     diary_title: 'Diário',
     diary_copy: 'Progresso, impressões e capítulos organizados ao longo da leitura.',
+    memories_eyebrow: 'memória de leitura',
+    memories_title: 'Memórias',
+    memories_copy: 'Cards, retrospectivas e imagens prontas para compartilhar ou guardar.',
     profile_eyebrow: 'sua identidade leitora',
     profile_title: 'Perfil',
     profile_copy: 'Os dados abaixo já vêm da conta e da sessão atuais do Lombada.',
@@ -120,6 +129,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     quick_copy: 'Busque a obra, escolha a edição ou registre uma anotação no diário.',
     quick_register: 'Buscar e adicionar',
     quick_diary: 'Abrir diário',
+    quick_memories: 'Criar card ou retrospectiva',
     quick_legacy: 'Abrir app atual',
     route_not_found: 'Página não encontrada',
     route_not_found_copy: 'Esta rota ainda não existe no Lombada v2.',
@@ -137,6 +147,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     nav_feed: 'Feed',
     nav_shelf: 'Shelf',
     nav_diary: 'Diary',
+    nav_memories: 'Memories',
     nav_profile: 'Profile',
     quick_action: 'Add',
     search_eyebrow: 'discover · log · remember',
@@ -154,6 +165,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     diary_eyebrow: 'while reading',
     diary_title: 'Diary',
     diary_copy: 'Progress, impressions and chapters organized throughout your reading.',
+    memories_eyebrow: 'reading memory',
+    memories_title: 'Memories',
+    memories_copy: 'Cards, recaps and images ready to share or keep.',
     profile_eyebrow: 'your reader identity',
     profile_title: 'Profile',
     profile_copy: 'The data below already comes from your current Lombada account and session.',
@@ -183,6 +197,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     quick_copy: 'Find the work, choose the edition or add a journal entry.',
     quick_register: 'Search and add',
     quick_diary: 'Open diary',
+    quick_memories: 'Create a card or recap',
     quick_legacy: 'Open current app',
     route_not_found: 'Page not found',
     route_not_found_copy: 'This route does not exist in Lombada v2 yet.',
