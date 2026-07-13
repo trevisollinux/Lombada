@@ -37,6 +37,9 @@ export interface CatalogWork {
   nota_media?: number | null
   criticas_publicas?: number
   lendo_agora_count?: number
+  generos?: string[]
+  literatura_pais?: string
+  literatura_regiao?: string
   edicao_isbn?: CatalogEdition | null
   edicoes?: CatalogEdition[]
   _fonte?: string
@@ -45,6 +48,37 @@ export interface CatalogWork {
 export interface PopularSearch {
   termo: string
   total: number
+}
+
+export interface CatalogPublisher {
+  editora: string
+  slug: string
+  obras_count: number
+  edicoes_count: number
+  com_capa_count: number
+  com_isbn_count: number
+}
+
+export interface CatalogLiterature {
+  slug: string
+  label: string
+  pais: string
+  regiao: string
+}
+
+export type CatalogSort = '' | 'popular' | 'avaliacao' | 'recentes'
+
+export interface ExploreCatalogOptions {
+  query?: string
+  publisher?: string
+  genre?: string
+  literature?: string
+  sort?: CatalogSort
+  withReviews?: boolean
+  readingNow?: boolean
+  withCover?: boolean
+  withIsbn?: boolean
+  portuguese?: boolean
 }
 
 export interface WorkSocialResponse {
