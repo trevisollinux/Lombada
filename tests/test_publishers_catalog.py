@@ -82,13 +82,13 @@ class PublisherCatalogValidationTest(unittest.TestCase):
         ):
             self.assertNotIn(european_form, raw)
 
-    def test_globo_remains_registered_but_direct_scrape_is_blocked(self):
+    def test_blocked_sources_remain_registered_without_direct_scrape(self):
         by_slug = {publisher["slug"]: publisher for publisher in self.publishers}
-        globo = by_slug["globo_livros"]
-
-        self.assertEqual(globo["status"], "active")
-        self.assertFalse(globo["scrape"]["enabled"])
-        self.assertEqual(globo["scrape"]["url_status"], "blocked")
+        for slug in ("global_editora", "globo_livros"):
+            publisher = by_slug[slug]
+            self.assertEqual(publisher["status"], "active")
+            self.assertFalse(publisher["scrape"]["enabled"])
+            self.assertEqual(publisher["scrape"]["url_status"], "blocked")
 
 
 class PublisherCatalogAdapterTest(unittest.TestCase):
@@ -110,7 +110,8 @@ class PublisherCatalogAdapterTest(unittest.TestCase):
         slugs = [source["slug"] for source in fake_module.SOURCES]
         self.assertEqual(slugs.count("ubu"), 1)
         self.assertGreater(added, 80)
-        self.assertIn("global_editora", slugs)
+        self.assertIn("editora_gente", slugs)
+        self.assertNotIn("global_editora", slugs)
         self.assertNotIn("globo_livros", slugs)
 
     def test_adapter_ignores_disabled_and_historical_entries(self):
@@ -153,14 +154,16 @@ class PublisherCatalogAdapterTest(unittest.TestCase):
 
         self.assertEqual([source["slug"] for source in sources], ["ativa"])
 
-    def test_global_uses_current_official_domain(self):
+    def test_global_keeps_current_official_domain_as_metadata(self):
         catalog = catalog_adapter.load_catalog(ROOT / "data" / "publishers")
-        sources = {source["slug"]: source for source in catalog_adapter.scraper_sources(catalog)}
+        publishers = {publisher["slug"]: publisher for publisher in catalog["publishers"]}
+        global_editora = publishers["global_editora"]
 
         self.assertEqual(
-            sources["global_editora"]["base_url"],
+            global_editora["scrape"]["base_url"],
             "https://grupoeditorialglobal.com.br",
         )
+        self.assertFalse(global_editora["scrape"]["enabled"])
 
 
 class PublisherCatalogPolicyTest(unittest.TestCase):
