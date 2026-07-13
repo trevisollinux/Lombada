@@ -26,6 +26,7 @@ export function App() {
               <Route path="estante" element={<ShelfPage />} />
               <Route path="diario" element={<DiaryPage />} />
               <Route path="perfil" element={<ProfilePage />} />
+              <Route path="perfil/:handle" element={<ProfilePage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
