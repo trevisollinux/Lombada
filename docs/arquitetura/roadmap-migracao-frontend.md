@@ -15,7 +15,7 @@ Este arquivo acompanha a execução prática da decisão registrada em [migracao
 - [x] Migrar explorar.
 - [x] Migrar feed.
 - [x] Migrar perfil.
-- [ ] Migrar cards, retrospectiva e compartilhamento.
+- [x] Migrar cards, retrospectiva e compartilhamento.
 - [ ] Adaptar service worker e PWA ao build versionado.
 - [ ] Promover o frontend React para `/` após paridade e estabilização.
 
@@ -50,6 +50,10 @@ O feed possui abas Seguindo e Descobrir, carrossel de leitores que estão lendo 
 ## Estado do perfil v2
 
 A rota `/app-v2/perfil` permite editar nome, usuário e bio, trocar ou remover o avatar e gerenciar textos públicos ou privados vinculados opcionalmente a uma obra da estante. Perfis públicos vivem em `/app-v2/perfil/{handle}` e exibem métricas, estante filtrável, favoritos, leituras em andamento, críticas com spoiler, textos e listas de seguidores e seguindo. O avatar é recortado e comprimido no navegador antes do envio, e mutações de identidade, relações sociais e textos só atualizam a interface após confirmação do servidor.
+
+## Estado das memórias v2
+
+A rota `/app-v2/memorias` reúne retrospectivas semanais e mensais baseadas no diário, com navegação pelos doze períodos anteriores, métricas, destaques e estados vazios. A mesma área calcula uma retrospectiva acumulada da estante a partir dos livros marcados como lidos. Um único renderer de canvas produz imagens verticais para leitura, crítica, entrada do diário e retrospectivas, com tema claro, escuro ou automático, capa original ou editorial, trecho opcional, proteção de spoiler, compartilhamento nativo e download como fallback. O detalhe da estante e cada entrada do diário abrem o mesmo editor de card.
 
 ## Regra de execução
 
