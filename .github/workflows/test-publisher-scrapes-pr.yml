@@ -39,7 +39,7 @@ jobs:
           - grupo_editorial_pensamento
           - martin_claret
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
@@ -55,6 +55,9 @@ jobs:
           python scripts/sync_publishers_catalog.py | tee scrape-output.txt
           count=$(sed -n 's/^DRY_RUN: \([0-9][0-9]*\) registros novos coletados.*/\1/p' scrape-output.txt | tail -1)
           if [[ -z "$count" || "$count" -lt 1 ]]; then
+            echo '' | tee -a scrape-output.txt
+            echo '--- DIAGNÓSTICO DE ENDPOINTS ---' | tee -a scrape-output.txt
+            PUBLISHER_DIAGNOSE=true python scripts/sync_publishers_catalog.py | tee -a scrape-output.txt || true
             echo "Nenhum livro foi extraído de $PUBLISHER_SLUGS"
             exit 1
           fi
