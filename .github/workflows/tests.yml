@@ -75,6 +75,7 @@ jobs:
           node --check ../static/feature-flags.js
           node --check ../static/product-analytics.js
           node --check ../static/activation-events.js
+          node --check ../static/progress-feedback-top.js
           node --check ../static/essential-books.js
           node --check ../static/period-recaps.js
 
