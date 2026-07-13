@@ -101,6 +101,8 @@ def install(sync_module: Any) -> None:
     original_valid_record = sync_module.valid_extracted_record
     original_extract_author = sync_module.extract_author_from_soup
     original_select_sources = sync_module.select_sources
+    original_collect_from_urls = sync_module._collect_from_urls
+    original_extract_page_parallel = sync_module._extract_page_parallel
 
     def fetch_url(url: str, accept: str | None = None, extra_headers: dict[str, str] | None = None):
         host = (urlparse(url).hostname or "").lower()
@@ -170,6 +172,34 @@ def install(sync_module: Any) -> None:
                 return False
         return True
 
+    def collect_from_urls(
+        book_urls: list[str],
+        publisher: dict[str, str],
+        max_urls: int,
+        sleep_seconds: float,
+        seen: set[str] | None = None,
+        offset: int | None = None,
+    ):
+        if publisher.get("slug") == "planeta_livros_brasil":
+            book_urls = [
+                url for url in book_urls
+                if "/autor/" not in url.lower() and "/autores/" not in url.lower()
+            ]
+        return original_collect_from_urls(
+            book_urls, publisher, max_urls, sleep_seconds, seen, offset
+        )
+
+    def extract_page_parallel(url: str, publisher: dict[str, str]):
+        extracted = original_extract_page_parallel(url, publisher)
+        if extracted is not None and not valid_extracted_record(extracted):
+            normalized, _raw = extracted
+            print(
+                f"  [filtro] descartado título não-livro: "
+                f"{normalized.get('title', '')!r} url={url}"
+            )
+            return None
+        return extracted
+
     def select_sources() -> list[dict[str, Any]]:
         # No scraper principal, um slug inexistente cai silenciosamente para TODAS
         # as fontes. No catálogo isso é perigoso (e mascara fonte desabilitada),
@@ -185,4 +215,6 @@ def install(sync_module: Any) -> None:
     sync_module.extract_author_from_soup = extract_author_from_soup
     sync_module.valid_extracted_record = valid_extracted_record
     sync_module.select_sources = select_sources
+    sync_module._collect_from_urls = collect_from_urls
+    sync_module._extract_page_parallel = extract_page_parallel
     sync_module._publisher_catalog_policies_installed = True
