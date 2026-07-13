@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 
 import type { Locale } from '../../i18n'
 import {
@@ -103,37 +104,40 @@ export function ReviewComments({ readingId, loggedIn, locale, onCountChange }: R
 
       {status === 'ready' && comments.length > 0 && (
         <div className="review-comments__list">
-          {comments.map((comment) => (
-            <article key={comment.id} className="review-comment">
-              <a href={`/u/${encodeURIComponent(comment.usuario.handle)}`} aria-label={`@${comment.usuario.handle}`}>
-                <FeedAvatar
-                  name={comment.usuario.nome}
-                  handle={comment.usuario.handle}
-                  url={comment.usuario.avatar_url}
-                  size="small"
-                />
-              </a>
-              <div>
-                <header>
-                  <a href={`/u/${encodeURIComponent(comment.usuario.handle)}`}>
-                    {comment.usuario.nome || `@${comment.usuario.handle}`}
-                  </a>
-                  <time dateTime={comment.criado_em}>{formatDate(comment.criado_em, locale)}</time>
-                </header>
-                <p>{comment.texto}</p>
-                {comment.is_me && (
-                  <button
-                    className="text-button review-comment__delete"
-                    type="button"
-                    disabled={deletingId === comment.id}
-                    onClick={() => void remove(comment.id)}
-                  >
-                    {deletingId === comment.id ? '…' : feedText(locale, 'comment_delete')}
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+          {comments.map((comment) => {
+            const profilePath = `/perfil/${encodeURIComponent(comment.usuario.handle)}`
+            return (
+              <article key={comment.id} className="review-comment">
+                <Link to={profilePath} aria-label={`@${comment.usuario.handle}`}>
+                  <FeedAvatar
+                    name={comment.usuario.nome}
+                    handle={comment.usuario.handle}
+                    url={comment.usuario.avatar_url}
+                    size="small"
+                  />
+                </Link>
+                <div>
+                  <header>
+                    <Link to={profilePath}>
+                      {comment.usuario.nome || `@${comment.usuario.handle}`}
+                    </Link>
+                    <time dateTime={comment.criado_em}>{formatDate(comment.criado_em, locale)}</time>
+                  </header>
+                  <p>{comment.texto}</p>
+                  {comment.is_me && (
+                    <button
+                      className="text-button review-comment__delete"
+                      type="button"
+                      disabled={deletingId === comment.id}
+                      onClick={() => void remove(comment.id)}
+                    >
+                      {deletingId === comment.id ? '…' : feedText(locale, 'comment_delete')}
+                    </button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
 
