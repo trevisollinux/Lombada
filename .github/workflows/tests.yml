@@ -78,6 +78,7 @@ jobs:
           node --check ../static/progress-feedback-top.js
           node --check ../static/essential-books.js
           node --check ../static/period-recaps.js
+          node --check ../static/literary-reactions.js
 
       - name: Type-check and build frontend
         run: npm run build

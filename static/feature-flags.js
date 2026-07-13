@@ -98,6 +98,9 @@
     if (isEnabled('period_recaps')) {
       loadScriptOnce('/static/period-recaps.js', 'period-recaps');
     }
+    if (isEnabled('literary_reactions')) {
+      loadScriptOnce('/static/literary-reactions.js', 'literary-reactions');
+    }
   }
 
   const api = Object.freeze({
