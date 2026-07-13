@@ -6,6 +6,7 @@ export type IconName =
   | 'feed'
   | 'shelf'
   | 'diary'
+  | 'memory'
   | 'profile'
   | 'people'
   | 'heart'
@@ -44,6 +45,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
     feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
     diary: <><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M8 4v16" /><path d="M11 8h5" /><path d="M11 12h5" /></>,
+    memory: <><path d="M5 4h14v16H5z" /><path d="M8 4v16" /><path d="m13 8 .7 1.5 1.6.2-1.2 1.1.3 1.7-1.4-.8-1.4.8.3-1.7-1.2-1.1 1.7-.2z" /></>,
     profile: <><circle cx="12" cy="8" r="3" /><path d="M5 20c.8-4 3-6 7-6s6.2 2 7 6" /></>,
     people: <><circle cx="9" cy="8" r="3" /><path d="M3 20c.7-4 2.7-6 6-6s5.3 2 6 6" /><path d="M16 5a3 3 0 0 1 0 6" /><path d="M18 14c1.8.7 2.8 2.7 3 6" /></>,
     heart: <path d="M20.8 5.8a5 5 0 0 0-7.1 0L12 7.5l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.1a5 5 0 0 0 0-7.1Z" />,
