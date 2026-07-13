@@ -25,11 +25,18 @@ class ProgressFeedbackFlagTest(TestCase):
         self.assertIn("'progress_feedback'", source)
         self.assertIn("state[name] = false", source)
 
+    def test_top_position_module_loads_only_with_feedback_flag(self):
+        source = (ROOT / "static" / "feature-flags.js").read_text(encoding="utf-8")
+        self.assertIn("isEnabled('progress_feedback')", source)
+        self.assertIn("/static/progress-feedback-top.js", source)
+        self.assertIn("'progress-feedback-top'", source)
+
 
 class ProgressFeedbackUxContractTest(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.source = (ROOT / "static" / "activation-events.js").read_text(encoding="utf-8")
+        cls.position_source = (ROOT / "static" / "progress-feedback-top.js").read_text(encoding="utf-8")
 
     def test_only_new_diary_entries_receive_feedback(self):
         self.assertIn("if (method !== 'POST') return null", self.source)
@@ -70,6 +77,18 @@ class ProgressFeedbackUxContractTest(TestCase):
         self.assertIn("navigator.vibrate(18)", self.source)
         self.assertIn("prefers-reduced-motion: reduce", self.source)
         self.assertNotIn("aria-modal", self.source)
+
+    def test_feedback_is_anchored_to_top_safe_area(self):
+        self.assertIn("top:calc(12px + env(safe-area-inset-top))!important", self.position_source)
+        self.assertIn("bottom:auto!important", self.position_source)
+        self.assertIn("transform:translateY(-18px)!important", self.position_source)
+        self.assertIn(".progress-feedback.show", self.position_source)
+        self.assertIn("transform:translateY(0)!important", self.position_source)
+        self.assertNotIn("safe-area-inset-bottom", self.position_source)
+
+    def test_top_position_preserves_reduced_motion(self):
+        self.assertIn("prefers-reduced-motion:reduce", self.position_source)
+        self.assertIn("transform:none!important", self.position_source)
 
     def test_old_toast_remains_the_fallback_when_flag_is_off(self):
         self.assertIn("features.isEnabled?.('progress_feedback')", self.source)

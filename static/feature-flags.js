@@ -89,6 +89,9 @@
 
   async function installFlaggedModules() {
     await api.ready;
+    if (isEnabled('progress_feedback')) {
+      loadScriptOnce('/static/progress-feedback-top.js', 'progress-feedback-top');
+    }
     if (isEnabled('favorite_books')) {
       loadScriptOnce('/static/essential-books.js', 'favorite-books');
     }
