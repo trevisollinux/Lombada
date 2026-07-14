@@ -17,6 +17,81 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 <link rel="stylesheet" href="/static/app.css?v={{APP_VERSION}}" />
 <link rel="stylesheet" href="/static/desktop-nav-fix.css?v={{APP_VERSION}}" />
+<script>
+(() => {
+  const allowedTabs = new Set(['buscar', 'feed', 'estante', 'perfil']);
+  const params = new URLSearchParams(location.search);
+  let tab = 'estante';
+  let shelfView = 'shelf';
+  let searchView = 'home';
+
+  try {
+    const deepLinkTab = params.get('aba');
+    if (deepLinkTab === 'diario') {
+      tab = 'estante';
+      shelfView = 'diario';
+    } else if (allowedTabs.has(deepLinkTab)) {
+      tab = deepLinkTab;
+    } else if (params.has('filtro')) {
+      tab = 'estante';
+    } else if (params.has('q') || params.has('obra') || params.has('t')) {
+      tab = 'buscar';
+      searchView = params.has('q') ? 'resultados' : 'edicoes';
+    } else {
+      const raw = sessionStorage.getItem('lombada_nav_state');
+      const saved = raw ? JSON.parse(raw) : null;
+      const fresh = saved?.lombada && Date.now() - (saved.timestamp || 0) <= 24 * 60 * 60 * 1000;
+      if (fresh && allowedTabs.has(saved.aba)) {
+        tab = saved.aba;
+        shelfView = saved.estanteSub === 'diario' ? 'diario' : 'shelf';
+        searchView = ['home', 'resultados', 'edicoes', 'form', 'manual'].includes(saved.busca)
+          ? saved.busca
+          : 'home';
+      }
+    }
+  } catch (_) {}
+
+  document.documentElement.dataset.initialTab = tab;
+  document.documentElement.dataset.initialShelfView = shelfView;
+  document.documentElement.dataset.initialSearchView = searchView;
+})();
+</script>
+<style>
+html[data-initial-tab="buscar"] #secFeed,
+html[data-initial-tab="buscar"] #secEstante,
+html[data-initial-tab="buscar"] #secPerfil,
+html[data-initial-tab="feed"] #secBuscar,
+html[data-initial-tab="feed"] #secEstante,
+html[data-initial-tab="feed"] #secPerfil,
+html[data-initial-tab="estante"] #secBuscar,
+html[data-initial-tab="estante"] #secFeed,
+html[data-initial-tab="estante"] #secPerfil,
+html[data-initial-tab="perfil"] #secBuscar,
+html[data-initial-tab="perfil"] #secFeed,
+html[data-initial-tab="perfil"] #secEstante {
+  display: none !important;
+}
+html[data-initial-tab="buscar"] #secBuscar,
+html[data-initial-tab="feed"] #secFeed,
+html[data-initial-tab="estante"] #secEstante,
+html[data-initial-tab="perfil"] #secPerfil {
+  display: block !important;
+}
+html[data-initial-shelf-view="diario"] #shelfView,
+html[data-initial-search-view="resultados"] #homeFeed,
+html[data-initial-search-view="edicoes"] #homeFeed,
+html[data-initial-search-view="form"] #homeFeed,
+html[data-initial-search-view="manual"] #homeFeed {
+  display: none !important;
+}
+html[data-initial-shelf-view="diario"] #diario,
+html[data-initial-search-view="resultados"] #resultados,
+html[data-initial-search-view="edicoes"] #edicoes,
+html[data-initial-search-view="form"] #form,
+html[data-initial-search-view="manual"] #manual {
+  display: block !important;
+}
+</style>
 </head>
 <body class="theme-dark" data-theme="dark">
 <div id="coldStartNotice" class="cold-start-notice" hidden role="status">
@@ -222,6 +297,63 @@
     <div id="editPanel" class="edit-panel" style="display:none"></div>
   </div>
 </div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const tab = root.dataset.initialTab || 'estante';
+  const shelfView = root.dataset.initialShelfView === 'diario' ? 'diario' : 'shelf';
+  const searchView = ['home', 'resultados', 'edicoes', 'form', 'manual'].includes(root.dataset.initialSearchView)
+    ? root.dataset.initialSearchView
+    : 'home';
+
+  const sections = {
+    buscar: document.getElementById('secBuscar'),
+    feed: document.getElementById('secFeed'),
+    estante: document.getElementById('secEstante'),
+    perfil: document.getElementById('secPerfil'),
+  };
+  Object.entries(sections).forEach(([name, element]) => {
+    if (element) element.style.display = name === tab ? '' : 'none';
+  });
+
+  const tabs = {
+    buscar: document.getElementById('tabBuscar'),
+    feed: document.getElementById('tabFeed'),
+    estante: document.getElementById('tabEstante'),
+    perfil: document.getElementById('tabPerfil'),
+  };
+  Object.entries(tabs).forEach(([name, element]) => element?.classList.toggle('active', name === tab));
+
+  const searchScreens = {
+    home: document.getElementById('homeFeed'),
+    resultados: document.getElementById('resultados'),
+    edicoes: document.getElementById('edicoes'),
+    form: document.getElementById('form'),
+    manual: document.getElementById('manual'),
+  };
+  Object.entries(searchScreens).forEach(([name, element]) => {
+    if (element) element.style.display = name === searchView ? '' : 'none';
+  });
+
+  const shelf = document.getElementById('shelfView');
+  const diary = document.getElementById('diario');
+  if (shelf) shelf.style.display = shelfView === 'shelf' ? '' : 'none';
+  if (diary) diary.style.display = shelfView === 'diario' ? '' : 'none';
+  document.getElementById('subtabShelf')?.classList.toggle('active', shelfView === 'shelf');
+  document.getElementById('subtabDiario')?.classList.toggle('active', shelfView === 'diario');
+  document.getElementById('subtabShelf')?.setAttribute('aria-selected', shelfView === 'shelf' ? 'true' : 'false');
+  document.getElementById('subtabDiario')?.setAttribute('aria-selected', shelfView === 'diario' ? 'true' : 'false');
+  const shelfTitle = document.getElementById('shelfPageTitle');
+  if (shelfTitle) shelfTitle.textContent = shelfView === 'diario' ? 'Diário' : 'Estante';
+  const shareButton = document.getElementById('shelfShareButton');
+  if (shareButton) shareButton.hidden = shelfView === 'diario';
+
+  delete root.dataset.initialTab;
+  delete root.dataset.initialShelfView;
+  delete root.dataset.initialSearchView;
+})();
+</script>
 
 <script src="/static/feature-flags.js?v={{APP_VERSION}}"></script>
 <script src="/static/product-analytics.js?v={{APP_VERSION}}"></script>
