@@ -1,11 +1,11 @@
-name: Sync publishers (trade)
+name: Sync publishers (trade lenta)
 
-# Mesmo pipeline do sync-publishers.yml, cobrindo o grupo "trade" do SOURCES
-# (editoras rápidas validadas por dry_run em jul/2026: Nova Fronteira, Editora
-# Gente, Melhoramentos, Martin Claret, Global Editora, Grupo Pensamento). A
-# Planeta ficou no grupo trade_lenta (sync-publishers-trade-lenta.yml) por ser
-# lenta. Roda em PARALELO aos outros syncs — concurrency group próprio; o
-# promote é serializado por advisory lock no Postgres.
+# Mesmo pipeline do sync-publishers.yml, cobrindo o grupo "trade_lenta" do
+# SOURCES: editoras trade que rodam lentas. Hoje só a Planeta, cujo catálogo é
+# grande (~2.834 livros) e o site derruba conexões (erros SSL UNEXPECTED_EOF),
+# fazendo o run demorar. Isolada num workflow próprio com sleep maior pra não
+# segurar as rápidas do grupo trade. Roda em PARALELO aos outros syncs —
+# concurrency group próprio; o promote é serializado por advisory lock.
 
 on:
   workflow_dispatch:
@@ -29,31 +29,30 @@ on:
         required: false
         default: ''
       slugs:
-        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo trade)'
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo trade_lenta)'
         required: false
         default: ''
       sleep_seconds:
         description: 'pausa entre páginas (segundos) — maior = mais gentil'
         required: false
-        default: '1.0'
+        default: '2.0'
       dump_url:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
   schedule:
-    # 1x/dia, madrugada BR (UTC-3), defasado dos demais. Só as 6 editoras
-    # rápidas do grupo trade (a Planeta foi isolada no grupo trade_lenta).
-    - cron: "5 8 * * *"
+    # 1x/dia, madrugada BR (UTC-3), defasado dos demais (trade rápido roda 05:08).
+    - cron: "25 9 * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: sync-publishers-trade
+  group: sync-publishers-trade-lenta
   cancel-in-progress: false
 
 jobs:
-  sync-publishers-trade:
+  sync-publishers-trade-lenta:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -69,17 +68,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
-      # Sem passo de Playwright: as fontes deste grupo usam platform=auto
-      # (shopify/vtex/sitemap/html via requests).
-
-      - name: Sync publisher source records (grupo trade)
+      - name: Sync publisher source records (grupo trade_lenta)
         run: |
           set -o pipefail
           status=0
           python scripts/init_ingestion_tables.py
           python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
           {
-            echo '### Sync de editoras trade -> source_records'
+            echo '### Sync de editoras trade (lentas) -> source_records'
             echo ''
             echo '```'
             cat sync_resultado.txt
@@ -94,8 +90,8 @@ jobs:
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
-          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
-          PUBLISHER_GROUP: 'trade'
+          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '2.0' }}
+          PUBLISHER_GROUP: 'trade_lenta'
 
       - name: Promote new records to catalog
         if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
