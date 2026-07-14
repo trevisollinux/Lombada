@@ -1,13 +1,19 @@
-name: Sync publisher source records
+name: Sync publishers (trade)
 
-# Raspa catálogos de editoras -> source_records e (quando não é dry-run) promove
-# para o catálogo que a busca do app lê. A ingestão é INCREMENTAL: cada execução
-# pula os livros já gravados e avança pelos próximos, então rodando aos poucos
-# (via cron) a base cresce sozinha, sem ser agressivo.
+# Mesmo pipeline do sync-publishers.yml, cobrindo o grupo "trade" do SOURCES
+# (leva de editoras trade / interesse geral: Planeta, Nova Fronteira, Gente,
+# Melhoramentos, Martin Claret, Benvirá, Global, Grupo Pensamento + as incertas
+# LeYa/Geração/Ediouro/Globo Livros). Roda em PARALELO aos outros syncs —
+# concurrency group próprio; o promote é serializado por advisory lock no
+# Postgres (scripts/promote_source_records.py).
 #
-# Dispare pela aba Actions (funciona do celular):
-#   dry_run=true  -> só coleta e mostra amostra/cobertura (não grava, não promove)
-#   dry_run=false -> grava o lote novo em source_records e promove pro catálogo
+# ESTE GRUPO AINDA NÃO FOI TESTADO. Bootstrap antes de agendar:
+#   1) diagnose=true  -> ver plataforma/status de cada site (quais raspam)
+#   2) dry_run=true   -> validar a coleta sem gravar
+#   3) dry_run=false  -> gravar + promover
+# Depois de saber quais são rápidas x lentas, dividir em 2 workflows (rápidas
+# neste, lentas num sync-publishers-trade-lentas.yml) e só então reativar o
+# schedule abaixo.
 
 on:
   workflow_dispatch:
@@ -31,7 +37,7 @@ on:
         required: false
         default: ''
       slugs:
-        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas)'
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo trade)'
         required: false
         default: ''
       sleep_seconds:
@@ -42,27 +48,20 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
-  schedule:
-    # 1x por dia, na madrugada (horário BR = UTC-3), lote de 100 livros/editora.
-    # Crescimento gradual do catálogo sem estourar o banco. Horários defasados
-    # entre os workflows pra espalhar a carga.
-    - cron: "13 3 * * *"
+  # schedule:
+  #   # DESATIVADO até testar (diagnose/dry_run) e dividir por velocidade.
+  #   # Reative depois com um horário defasado dos demais (ex.: "5 8 * * *").
+  #   - cron: "5 8 * * *"
 
 permissions:
   contents: read
 
-# Garante um run POR WORKFLOW por vez: se um ainda está rodando, o próximo espera
-# (não atropela nem duplica trabalho). O limite é deste grupo, não do GitHub —
-# sync-publishers-expansao.yml, sync-publishers-universitarias.yml,
-# sync-publishers-cia.yml e sync-publishers-editora34.yml têm grupos próprios e
-# rodam em PARALELO a este (cada um cobre um PUBLISHER_GROUP distinto; o promote é
-# serializado entre eles por advisory lock no Postgres).
 concurrency:
-  group: sync-publishers
+  group: sync-publishers-trade
   cancel-in-progress: false
 
 jobs:
-  sync-publishers:
+  sync-publishers-trade:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -78,20 +77,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-sync.txt
 
-      # Sem passo de Playwright: as fontes deste grupo usam platform=auto/id_range
-      # (shopify/vtex/sitemap/html via requests). O Chromium só era necessário pro
-      # debug de paginação da Cia das Letras, que agora vive no sync-publishers-cia.yml.
+      # Sem passo de Playwright: as fontes deste grupo usam platform=auto
+      # (shopify/vtex/sitemap/html via requests).
 
-      - name: Sync publisher source records
+      - name: Sync publisher source records (grupo trade)
         run: |
-          # pipefail + status: sem isto, o `| tee` engolia o código de saída e o job
-          # ficava VERDE mesmo quando o script morria no meio (ex.: SSL caído).
           set -o pipefail
           status=0
           python scripts/init_ingestion_tables.py
           python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
           {
-            echo '### Sync de editoras -> source_records'
+            echo '### Sync de editoras trade -> source_records'
             echo ''
             echo '```'
             cat sync_resultado.txt
@@ -106,16 +102,10 @@ jobs:
           PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
-          # Este workflow cobre só as fontes do grupo "principal"; as demais
-          # ficam com os workflows paralelos (expansao/universitarias/cia/editora34).
-          # PUBLISHER_SLUGS explícito vence o grupo (dá pra testar qualquer uma).
-          PUBLISHER_GROUP: 'principal'
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
+          PUBLISHER_GROUP: 'trade'
 
       - name: Promote new records to catalog
-        # Só promove em ingestão real (não em dry-run nem diagnose/dump). `always()`
-        # garante que promovemos o que JÁ foi coletado mesmo se uma editora falhou e
-        # o passo anterior saiu vermelho — o trabalho salvo não fica esperando.
         if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
         run: |
           set -o pipefail

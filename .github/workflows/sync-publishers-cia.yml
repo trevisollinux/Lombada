@@ -50,10 +50,10 @@ on:
         type: choice
         options: ['false', 'true']
         default: 'false'
-  # schedule:
-  #   # PAUSADO para interromper o consumo automático do banco no Railway.
-  #   # Para reativar, remova os comentários das duas linhas abaixo.
-  #   - cron: "51 */3 * * *"
+  schedule:
+    # 1x por dia, na madrugada (horário BR = UTC-3), lote de 100 livros/editora.
+    # Horário defasado dos demais syncs pra espalhar a carga.
+    - cron: "51 4 * * *"
 
 permissions:
   contents: read
@@ -105,7 +105,7 @@ jobs:
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_DEBUG_CATEGORIA_PAGINACAO: ${{ inputs.debug_categoria_paginacao || 'false' }}
-          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_GROUP: 'cia'
