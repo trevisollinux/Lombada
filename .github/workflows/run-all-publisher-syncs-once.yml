@@ -1,0 +1,41 @@
+name: Run all publisher syncs once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/run-all-publisher-syncs-once.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch all publisher workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          workflows=(
+            sync-publishers.yml
+            sync-publishers-expansao.yml
+            sync-publishers-universitarias.yml
+            sync-publishers-cia.yml
+            sync-publishers-editora34.yml
+            sync-publishers-trade.yml
+            sync-publishers-trade-lenta.yml
+          )
+
+          for workflow in "${workflows[@]}"; do
+            echo "Dispatching ${workflow} (dry_run=false, max_urls=100)"
+            gh workflow run "${workflow}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --ref main \
+              -f dry_run=false \
+              -f max_urls=100
+            sleep 2
+          done
