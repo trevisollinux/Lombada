@@ -1,0 +1,90 @@
+name: Migrar banco (origem → destino)
+
+# Workflow de uso único para copiar o banco de um Postgres para outro
+# (ex.: Railway → Supabase). Roda nos runners do GitHub, que têm rede liberada.
+# As duas connection strings vêm de SECRETS (nunca de inputs), pra não vazarem
+# nos logs. Pode ser apagado depois que a migração terminar.
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   SOURCE_DATABASE_URL  → banco ATUAL   (Railway, string do proxy: *.proxy.rlwy.net)
+#   DEST_DATABASE_URL    → banco NOVO    (Supabase, string do SESSION POOLER, IPv4)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = só testa conexão e conta tabelas; false = copia os dados de verdade'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-db
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar client do Postgres 17
+        run: |
+          set -euo pipefail
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Testar conexões e contar tabelas
+        env:
+          SOURCE: ${{ secrets.SOURCE_DATABASE_URL }}
+          DEST: ${{ secrets.DEST_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: '20'
+        run: |
+          set -euo pipefail
+          echo "== ORIGEM =="
+          psql "$SOURCE" -tAc "select 'db='||current_database()||' tabelas_public='||count(*) from information_schema.tables where table_schema='public';"
+          echo "== DESTINO =="
+          psql "$DEST" -tAc "select 'db='||current_database()||' tabelas_public='||count(*) from information_schema.tables where table_schema='public';"
+
+      - name: Dump da origem
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          SOURCE: ${{ secrets.SOURCE_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: '20'
+        run: |
+          set -euo pipefail
+          pg_dump --no-owner --no-privileges --clean --if-exists --schema=public \
+            --format=plain "$SOURCE" > dump.sql
+          echo "Tamanho do dump:"
+          ls -lh dump.sql
+          echo "Prévia (CREATE TABLE encontrados):"
+          grep -c '^CREATE TABLE' dump.sql || true
+
+      - name: Restaurar no destino
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          DEST: ${{ secrets.DEST_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: '20'
+        run: |
+          set -euo pipefail
+          psql "$DEST" -v ON_ERROR_STOP=1 -f dump.sql
+          echo "== Tabelas no destino após o restore =="
+          psql "$DEST" -tAc "select table_name from information_schema.tables where table_schema='public' order by 1;"
+
+      - name: Conferência de contagem (origem × destino)
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          SOURCE: ${{ secrets.SOURCE_DATABASE_URL }}
+          DEST: ${{ secrets.DEST_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: '20'
+        run: |
+          set -euo pipefail
+          for t in usuario obra edicao editora autor productevent; do
+            src=$(psql "$SOURCE" -tAc "select count(*) from public.$t;" 2>/dev/null || echo "n/a")
+            dst=$(psql "$DEST"   -tAc "select count(*) from public.$t;" 2>/dev/null || echo "n/a")
+            printf "%-14s origem=%-8s destino=%-8s\n" "$t" "$src" "$dst"
+          done
