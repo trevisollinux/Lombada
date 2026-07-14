@@ -388,8 +388,9 @@ SOURCES = [
         "group": "trade",
     },
     {
-        # NOTA: a coleta HTML só pegou 1 página (~4 livros) no dry_run. Funciona,
-        # mas está sub-coletando — vale aprofundar a paginação HTML depois.
+        # NOTA: no 1º dry_run a coleta HTML pegou só 1 página (~4 livros). O crawl
+        # agora semeia entradas de catálogo (/catalogo, /livros...) além da home
+        # (ver collect_via_html_crawl) — confirmar o ganho num run real.
         "slug": "melhoramentos",
         "name": "Editora Melhoramentos",
         "base_url": "https://www.editoramelhoramentos.com.br",
@@ -404,10 +405,10 @@ SOURCES = [
         "group": "trade",
     },
     {
-        # NOTA: sitemap grande (~1.263 livros), mas no dry_run vários ISBN vieram
-        # inválidos (pegou o telefone da loja, ex.: 5511947083691). Risco de
-        # dedup errado no promote — filtrar ISBN por prefixo 978/979 + checksum
-        # antes de confiar 100% (ver ISBN_RE / validação).
+        # NOTA: sitemap grande (~1.263 livros). No 1º dry_run vinham ISBN inválidos
+        # (o telefone da loja, ex.: 5511947083691); agora _valid_isbn/norm_isbn
+        # exigem prefixo 978/979 + checksum, então esses são descartados antes do
+        # dedup do promote.
         "slug": "global_editora",
         "name": "Global Editora",
         "base_url": "https://loja.globaleditora.com.br",
@@ -862,12 +863,28 @@ def isbn_from_jsonld(objects: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _isbn13_ok(s: str) -> bool:
+    """ISBN-13 válido: 13 dígitos, prefixo 978/979 e checksum correto. Rejeita
+    EAN/telefone/CNPJ de 13 dígitos (ex.: 5511947083691, telefone de loja) que
+    antes passavam só por ter o tamanho certo e sujavam o dedup do promote."""
+    if len(s) != 13 or not s.isdigit() or s[:3] not in {"978", "979"}:
+        return False
+    soma = sum((1 if i % 2 == 0 else 3) * int(d) for i, d in enumerate(s))
+    return soma % 10 == 0
+
+
+def _isbn10_ok(s: str) -> bool:
+    """ISBN-10 válido: 9 dígitos + dígito verificador (0-9 ou X) com checksum."""
+    if not re.fullmatch(r"[0-9]{9}[0-9X]", s):
+        return False
+    soma = sum((10 - i) * (10 if c == "X" else int(c)) for i, c in enumerate(s))
+    return soma % 11 == 0
+
+
 def _valid_isbn(raw: str) -> str:
-    """Validação estrita: o trecho limpo precisa ter exatamente 10 ou 13 dígitos."""
+    """Validação estrita por checksum (não só pelo tamanho)."""
     isbn = re.sub(r"[^0-9Xx]", "", raw).upper()
-    if len(isbn) == 13 and isbn.isdigit():
-        return isbn
-    if len(isbn) == 10 and re.fullmatch(r"[0-9]{9}[0-9X]", isbn):
+    if _isbn13_ok(isbn) or _isbn10_ok(isbn):
         return isbn
     return ""
 
@@ -876,9 +893,9 @@ def _isbn_prefix(raw: str) -> str:
     """Para trechos já rotulados como ISBN: tolera lixo no fim pegando o prefixo
     válido (o regex às vezes engole o ano seguinte: 'ISBN 978-...-1 2025')."""
     digits = re.sub(r"[^0-9Xx]", "", raw).upper()
-    if len(digits) >= 13 and digits[:3] in {"978", "979"} and digits[:13].isdigit():
+    if len(digits) >= 13 and _isbn13_ok(digits[:13]):
         return digits[:13]
-    if len(digits) >= 10 and re.fullmatch(r"[0-9]{9}[0-9X]", digits[:10]):
+    if len(digits) >= 10 and _isbn10_ok(digits[:10]):
         return digits[:10]
     return ""
 
@@ -1041,11 +1058,7 @@ def extract_page(url: str, publisher: dict[str, str]) -> tuple[dict[str, Any], d
 # ─── plataformas estruturadas ─────────────────────────────
 def norm_isbn(value: Any) -> str:
     c = re.sub(r"[^0-9Xx]", "", str(value or "")).upper()
-    if len(c) == 13 and c.isdigit():
-        return c
-    if len(c) == 10 and re.fullmatch(r"[0-9]{9}[0-9X]", c):
-        return c
-    return ""
+    return c if (_isbn13_ok(c) or _isbn10_ok(c)) else ""
 
 
 def _isbn_de_variantes(variants: list[dict[str, Any]]) -> str:
@@ -1496,6 +1509,16 @@ def collect_via_html_crawl(
         return len(book_urls) >= target if offset is not None else new_found >= needed
 
     absorb(home.text)
+    # Semeia a BFS com entradas comuns de catálogo além da home: alguns sites
+    # (ex.: melhoramentos) não linkam o catálogo inteiro na home, então o crawl
+    # que parte só da home encontra poucos livros. Paths inexistentes retornam
+    # None no fetch e são ignorados de graça; o dedup (enqueued/visited) evita
+    # repetir os que a própria home já apontou.
+    for _seed in ("catalogo", "catalogo-completo", "livros", "produtos", "loja"):
+        _seed_url = f"{base_url}/{_seed}"
+        if _seed_url not in enqueued:
+            enqueued.add(_seed_url)
+            queue.append(_seed_url)
     pages = 0
     while queue and pages < max_pages and not enough():
         listing_url = queue.popleft()
