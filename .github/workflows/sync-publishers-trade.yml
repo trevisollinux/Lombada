@@ -1,0 +1,127 @@
+name: Sync publishers (trade)
+
+# Mesmo pipeline do sync-publishers.yml, cobrindo o grupo "trade" do SOURCES
+# (leva de editoras trade / interesse geral: Planeta, Nova Fronteira, Gente,
+# Melhoramentos, Martin Claret, Benvirá, Global, Grupo Pensamento + as incertas
+# LeYa/Geração/Ediouro/Globo Livros). Roda em PARALELO aos outros syncs —
+# concurrency group próprio; o promote é serializado por advisory lock no
+# Postgres (scripts/promote_source_records.py).
+#
+# ESTE GRUPO AINDA NÃO FOI TESTADO. Bootstrap antes de agendar:
+#   1) diagnose=true  -> ver plataforma/status de cada site (quais raspam)
+#   2) dry_run=true   -> validar a coleta sem gravar
+#   3) dry_run=false  -> gravar + promover
+# Depois de saber quais são rápidas x lentas, dividir em 2 workflows (rápidas
+# neste, lentas num sync-publishers-trade-lentas.yml) e só então reativar o
+# schedule abaixo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true = só testa e mostra amostra; false = grava + promove'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      diagnose:
+        description: 'true = só mostra status/plataforma de cada editora (não coleta)'
+        type: choice
+        options: ['false', 'true']
+        default: 'false'
+      max_urls:
+        description: 'tamanho do lote: nº de livros por editora nesta execução'
+        required: false
+        default: '100'
+      offset:
+        description: 'faixa: começar do livro nº (ex.: 0, depois 100, 200...). Vazio = incremental automático'
+        required: false
+        default: ''
+      slugs:
+        description: 'filtrar editoras por slug, separadas por vírgula (vazio = todas do grupo trade)'
+        required: false
+        default: ''
+      sleep_seconds:
+        description: 'pausa entre páginas (segundos) — maior = mais gentil'
+        required: false
+        default: '1.0'
+      dump_url:
+        description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
+        required: false
+        default: ''
+  # schedule:
+  #   # DESATIVADO até testar (diagnose/dry_run) e dividir por velocidade.
+  #   # Reative depois com um horário defasado dos demais (ex.: "5 8 * * *").
+  #   - cron: "5 8 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-publishers-trade
+  cancel-in-progress: false
+
+jobs:
+  sync-publishers-trade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      # Sem passo de Playwright: as fontes deste grupo usam platform=auto
+      # (shopify/vtex/sitemap/html via requests).
+
+      - name: Sync publisher source records (grupo trade)
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/init_ingestion_tables.py
+          python scripts/sync_publishers.py | tee sync_resultado.txt || status=$?
+          {
+            echo '### Sync de editoras trade -> source_records'
+            echo ''
+            echo '```'
+            cat sync_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
+          PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
+          PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
+          PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
+          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
+          PUBLISHER_GROUP: 'trade'
+
+      - name: Promote new records to catalog
+        if: ${{ always() && (inputs.dry_run || 'false') != 'true' && (inputs.diagnose || 'false') != 'true' && (inputs.dump_url || '') == '' }}
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/init_ingestion_tables.py
+          python scripts/promote_source_records.py | tee promote_resultado.txt || status=$?
+          {
+            echo '### Promoção source_records -> catálogo'
+            echo ''
+            echo '```'
+            cat promote_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRY_RUN: 'false'
+          PROMOTE_MIN_CONFIDENCE: '0.5'
+          PROMOTE_LIMIT: '5000'

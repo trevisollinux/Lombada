@@ -367,6 +367,108 @@ SOURCES = [
         "platform": "auto",
         "group": "universitaria",
     },
+    # ------------------------------------------------------------------
+    # group=trade — leva de editoras trade / interesse geral (curadoria).
+    # Entram com platform=auto; a plataforma real de cada uma é confirmada
+    # rodando o workflow com diagnose=true (a rede do dev bloqueia os sites).
+    # As 4 últimas têm rasterabilidade INCERTA (loja B2B / redireciona pra
+    # marketplace / sem loja própria) — o diagnose dá o veredito; as que
+    # falharem saem ou viram import via API/varejo.
+    # ------------------------------------------------------------------
+    {
+        "slug": "planeta",
+        "name": "Editora Planeta do Brasil",
+        "base_url": "https://www.planetadelivros.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "nova_fronteira",
+        "name": "Nova Fronteira",
+        "base_url": "https://www.novafronteira.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "editora_gente",
+        "name": "Editora Gente",
+        "base_url": "https://www.editoragente.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "melhoramentos",
+        "name": "Editora Melhoramentos",
+        "base_url": "https://www.editoramelhoramentos.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "martin_claret",
+        "name": "Martin Claret",
+        "base_url": "https://www.martinclaret.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "benvira",
+        "name": "Benvirá",
+        "base_url": "https://www.benvira.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "global_editora",
+        "name": "Global Editora",
+        "base_url": "https://loja.globaleditora.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        "slug": "grupo_pensamento",
+        "name": "Grupo Editorial Pensamento (Pensamento/Cultrix/Jangada)",
+        "base_url": "https://www.grupopensamento.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        # INCERTA: no Brasil o catálogo vive em leyabrasil.com.br/nossos-livros;
+        # leyaonline.com é a loja de Portugal. Confirmar navegabilidade no diagnose.
+        "slug": "leya_brasil",
+        "name": "LeYa Brasil",
+        "base_url": "https://leyabrasil.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        # INCERTA: geracaoeditorial.com.br redireciona pra loja da Amazon; existe
+        # /catalogo/ em HTML. Rasterabilidade a confirmar no diagnose.
+        "slug": "geracao_editorial",
+        "name": "Geração Editorial",
+        "base_url": "https://geracaoeditorial.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        # INCERTA: loja da Ediouro é B2B (b2bediouro.com.br, exige CNPJ) e o site
+        # é institucional. A imprint Nova Fronteira (acima) é a porta trade real
+        # do grupo; Ediouro entra só pro diagnose confirmar.
+        "slug": "ediouro",
+        "name": "Ediouro",
+        "base_url": "https://www.ediouro.com.br",
+        "platform": "auto",
+        "group": "trade",
+    },
+    {
+        # INCERTA: Globo Livros não tem loja própria (vende via varejo). Provável
+        # que NÃO raspe por site — candidata a import via API/varejo. Incluída só
+        # pro diagnose dar o veredito definitivo.
+        "slug": "globo_livros",
+        "name": "Globo Livros",
+        "base_url": "https://globolivros.globo.com",
+        "platform": "auto",
+        "group": "trade",
+    },
 ]
 ISBN_RE = re.compile(r"((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])")
 LABELED_ISBN_RE = re.compile(r"ISBN(?:-1[03])?[:\s]*((?:97[89][\-\s]?)?[0-9][0-9\-\s]{8,}[0-9Xx])", re.I)
