@@ -42,10 +42,10 @@ on:
         description: 'depura UMA url de livro (mostra JSON-LD/meta/texto) e sai'
         required: false
         default: ''
-  # schedule:
-  #   # PAUSADO para interromper o consumo automático do banco no Railway.
-  #   # Para reativar, remova os comentários das duas linhas abaixo.
-  #   - cron: "43 */3 * * *"
+  schedule:
+    # 1x por dia, na madrugada (horário BR = UTC-3), lote de 100 livros/editora.
+    # Horário defasado dos demais syncs pra espalhar a carga.
+    - cron: "43 7 * * *"
 
 permissions:
   contents: read
@@ -93,7 +93,7 @@ jobs:
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
-          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '250' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds || '1.0' }}
