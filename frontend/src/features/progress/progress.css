@@ -1,0 +1,282 @@
+.onboarding-value,
+.reading-ritual {
+  display: grid;
+  grid-template-columns: minmax(0, 170px) minmax(0, 1fr);
+  gap: clamp(22px, 4vw, 52px);
+  align-items: center;
+  margin: 0 0 34px;
+  padding: clamp(24px, 4vw, 42px);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, var(--accent-soft), transparent 48%),
+    var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.onboarding-value__mark {
+  position: relative;
+  min-height: 190px;
+}
+
+.onboarding-value__mark span {
+  position: absolute;
+  bottom: 0;
+  width: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px 7px 2px 2px;
+  background: var(--surface-raised);
+  box-shadow: 7px 8px 0 var(--wine-soft);
+}
+
+.onboarding-value__mark span:nth-child(1) { left: 14px; height: 150px; transform: rotate(-5deg); }
+.onboarding-value__mark span:nth-child(2) { left: 63px; height: 182px; background: var(--wine); }
+.onboarding-value__mark span:nth-child(3) { left: 112px; height: 132px; background: var(--accent); transform: rotate(4deg); }
+
+.onboarding-value h2,
+.reading-ritual h2,
+.progress-dialog h2,
+.progress-dialog h3 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+}
+
+.onboarding-value h2,
+.reading-ritual h2 {
+  font-size: clamp(1.8rem, 4vw, 3.3rem);
+  line-height: 1.02;
+}
+
+.onboarding-value__copy > p:not(.eyebrow),
+.reading-ritual__copy > p {
+  max-width: 680px;
+  color: var(--text-soft);
+  line-height: 1.65;
+}
+
+.onboarding-value__actions,
+.reading-ritual__actions,
+.progress-dialog__actions,
+.progress-dialog__success > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 22px;
+}
+
+.reading-ritual__cover {
+  width: min(100%, 160px);
+  aspect-ratio: 2 / 3;
+  border-radius: 9px;
+  box-shadow: 14px 18px 30px rgba(0, 0, 0, .28);
+}
+
+.reading-ritual__author {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.reading-ritual__position {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--accent-strong);
+  font-family: "Space Mono", monospace;
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.reading-ritual__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reading-ritual__metrics span {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--bg-soft);
+  font-size: .8rem;
+}
+
+.progress-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.progress-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(8, 6, 5, .76);
+  backdrop-filter: blur(10px);
+}
+
+.progress-dialog {
+  position: relative;
+  width: min(100%, 620px);
+  max-height: calc(100vh - 40px);
+  padding: clamp(22px, 4vw, 34px);
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.progress-dialog > header {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.progress-dialog > header p:last-child {
+  margin: 7px 0 0;
+  color: var(--muted);
+}
+
+.progress-dialog__copy,
+.progress-dialog__context {
+  color: var(--text-soft);
+  line-height: 1.55;
+}
+
+.progress-dialog__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-soft);
+}
+
+.progress-dialog__modes button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.progress-dialog__modes button.is-active {
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .14);
+}
+
+.progress-dialog__field {
+  display: grid;
+  gap: 8px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.progress-dialog__field > div {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--bg-soft);
+}
+
+.progress-dialog__field input {
+  min-width: 0;
+  width: 100%;
+  padding: 18px;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: 1.35rem;
+}
+
+.progress-dialog__field > div > span {
+  padding-right: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.progress-dialog__context {
+  margin: 12px 0 0;
+  font-size: .86rem;
+}
+
+.progress-dialog__error {
+  margin: 14px 0 0;
+  color: var(--danger);
+}
+
+.progress-dialog__success {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 24px 0 8px;
+}
+
+.progress-dialog__success > svg {
+  color: var(--accent);
+}
+
+.progress-dialog__success h3 {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+}
+
+.progress-dialog__success p {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+@media (max-width: 680px) {
+  .onboarding-value,
+  .reading-ritual {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-value__mark {
+    min-height: 105px;
+    transform: scale(.65);
+    transform-origin: left bottom;
+    margin-bottom: -28px;
+  }
+
+  .reading-ritual__cover {
+    width: 112px;
+  }
+
+  .progress-dialog-layer {
+    align-items: end;
+    padding: 0;
+  }
+
+  .progress-dialog {
+    width: 100%;
+    max-height: min(88vh, 760px);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 24px 24px 0 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-value__mark span,
+  .reading-ritual__cover {
+    transform: none;
+  }
+}
