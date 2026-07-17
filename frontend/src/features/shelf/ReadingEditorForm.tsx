@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import type { Locale } from '../../i18n'
+import { trackProductEvent } from '../../services/analytics'
 import { deleteReading, getReadingStatuses, updateReading } from '../../services/api'
 import type { ReadingMutation, ShelfReading } from '../../types/reading'
 import { shelfText } from './shelfI18n'
@@ -18,6 +19,10 @@ const RATING_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) / 2)
 
 function uniqueStatuses(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+function statusForAnalytics(value: string): string {
+  return DEFAULT_STATUSES.includes(value) ? value : 'custom'
 }
 
 export function ReadingEditorForm({
@@ -93,6 +98,12 @@ export function ReadingEditorForm({
 
     try {
       const saved = await updateReading(reading.leitura_id, payload)
+      trackProductEvent('reading_updated', {
+        source: 'detail',
+        status: statusForAnalytics(payload.status),
+        has_rating: payload.nota !== null,
+        public: payload.publico,
+      })
       onSaved({ ...reading, ...saved })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : shelfText(locale, 'save_error'))
