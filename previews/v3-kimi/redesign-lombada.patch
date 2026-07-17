@@ -1194,6 +1194,26 @@ index 6d7d34d..5e320fb 100644
          </aside>
  
          <main className="app-content" id="main-content">
+diff --git a/frontend/src/components/Icon.tsx b/frontend/src/components/Icon.tsx
+index f99a58c..0e7436f 100644
+--- a/frontend/src/components/Icon.tsx
++++ b/frontend/src/components/Icon.tsx
+@@ -21,6 +21,7 @@ export type IconName =
+   | 'arrow'
+   | 'refresh'
+   | 'external'
++  | 'chevron-down'
+ 
+ interface IconProps extends SVGProps<SVGSVGElement> {
+   name: IconName
+@@ -42,6 +43,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
+ 
+   const paths: Record<IconName, ReactNode> = {
+     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
++    'chevron-down': <path d="m6 9 6 6 6-6" />,
+     explore: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z" /></>,
+     feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
+     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
 diff --git a/frontend/src/components/PageHeader.tsx b/frontend/src/components/PageHeader.tsx
 index 746cb2a..c42e2f6 100644
 --- a/frontend/src/components/PageHeader.tsx
@@ -7706,7 +7726,7 @@ index b32f7e8..5db2987 100644
    }
  }
 diff --git a/frontend/src/features/shelf/shelf.css b/frontend/src/features/shelf/shelf.css
-index 5aac522..fbb47a5 100644
+index 5aac522..a4fd8ca 100644
 --- a/frontend/src/features/shelf/shelf.css
 +++ b/frontend/src/features/shelf/shelf.css
 @@ -1,120 +1,179 @@
@@ -7950,7 +7970,7 @@ index 5aac522..fbb47a5 100644
  }
  
  .shelf-book {
-@@ -122,548 +181,642 @@
+@@ -122,548 +181,739 @@
  }
  
  .shelf-book__open {
@@ -8238,47 +8258,33 @@ index 5aac522..fbb47a5 100644
    border-radius: var(--radius-md);
 +  background: var(--surface);
 +  transition: border-color 0.24s var(--ease-out), background 0.24s var(--ease-out), transform 0.24s var(--ease-out);
- }
- 
--.shelf-book-skeleton__cover {
--  display: block;
--  aspect-ratio: 2 / 3;
--  border-radius: 5px 10px 10px 5px;
++}
++
 +.shelf-books--list .shelf-book:hover {
 +  border-color: var(--accent-line);
-   background: var(--surface-raised);
++  background: var(--surface-raised);
 +  transform: translateX(4px);
- }
- 
--.shelf-book-skeleton--list .shelf-book-skeleton__cover {
--  width: 68px;
++}
++
 +.shelf-books--list .shelf-book__open {
 +  align-items: center;
 +  gap: 18px;
 +  padding: 14px 18px 14px 14px;
- }
- 
--.shelf-book-skeleton__copy {
++}
++
 +.shelf-books--list .shelf-book__cover {
 +  width: 54px;
 +  flex: 0 0 auto;
 +}
 +
 +.shelf-books--list .shelf-book__body {
-   display: grid;
--  align-content: center;
--  gap: 9px;
++  display: grid;
 +  flex: 1;
 +  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
 +  align-items: center;
 +  gap: 8px 22px;
- }
- 
--.shelf-book-skeleton__copy i {
--  display: block;
--  height: 9px;
--  border-radius: 999px;
--  background: var(--line);
++}
++
 +.shelf-books--list .shelf-book__body strong {
 +  font-size: 17px;
 +  -webkit-line-clamp: 1;
@@ -8286,56 +8292,29 @@ index 5aac522..fbb47a5 100644
 +
 +.shelf-books--list .shelf-book__author {
 +  grid-column: 1;
- }
- 
--.shelf-book-skeleton__copy i:nth-child(2) { width: 72%; }
--.shelf-book-skeleton__copy i:nth-child(3) { width: 42%; }
++}
++
 +.shelf-books--list .shelf-book__meta {
 +  display: none;
 +}
- 
--@keyframes shelf-pulse {
--  to { opacity: 0.48; }
++
 +.shelf-books--list .shelf-book__status {
 +  grid-column: 2;
 +  grid-row: 1 / span 2;
 +  justify-self: start;
- }
- 
--.shelf-state {
--  display: grid;
--  min-height: 290px;
--  place-items: center;
--  align-content: center;
--  gap: 12px;
--  margin-top: 30px;
--  padding: 34px;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-lg);
--  background: var(--surface);
--  text-align: center;
++}
++
 +.shelf-books--list .shelf-book__footer {
 +  grid-column: 3;
 +  grid-row: 1 / span 2;
 +  margin-top: 0;
- }
- 
--.shelf-state h2 {
--  margin: 0;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(30px, 6vw, 48px);
--  font-style: italic;
--  font-weight: 400;
++}
++
 +.shelf-books--list .shelf-book__footer svg {
 +  opacity: 1;
 +  transform: none;
- }
- 
--.shelf-state p {
--  max-width: 540px;
--  margin: 0;
--  color: var(--muted);
--  line-height: 1.5;
++}
++
 +@media (max-width: 720px) {
 +  .shelf-books--list .shelf-book__body {
 +    grid-template-columns: minmax(0, 1fr) auto;
@@ -8349,11 +8328,8 @@ index 5aac522..fbb47a5 100644
 +  .shelf-books--list .shelf-book__footer {
 +    display: none;
 +  }
- }
- 
--.shelf-state--empty {
--  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
--  text-align: left;
++}
++
 +/* ---------------------------------------------------------- */
 +/* Esqueletos de carregamento                                 */
 +/* ---------------------------------------------------------- */
@@ -8361,47 +8337,187 @@ index 5aac522..fbb47a5 100644
 +.shelf-book-skeleton {
 +  display: flex;
 +  gap: 16px;
- }
- 
--.shelf-state--empty .book-spines {
--  width: 100%;
++}
++
 +.shelf-book-skeleton--grid {
 +  flex-direction: column;
  }
  
--.shelf-state--empty .button {
--  margin-top: 20px;
-+.shelf-book-skeleton__cover {
-+  display: block;
-+  aspect-ratio: 2 / 3;
+ .shelf-book-skeleton__cover {
+   display: block;
+   aspect-ratio: 2 / 3;
+-  border-radius: 5px 10px 10px 5px;
+-  background: var(--surface-raised);
 +  border-radius: 3px 9px 9px 3px;
  }
  
--.shelf-state--error > svg {
--  color: var(--danger);
-+.shelf-book-skeleton--list .shelf-book-skeleton__cover {
+ .shelf-book-skeleton--list .shelf-book-skeleton__cover {
+-  width: 68px;
 +  width: 54px;
 +  flex: 0 0 auto;
  }
  
--.shelf-state--filtered {
--  min-height: 170px;
-+.shelf-book-skeleton__copy {
+ .shelf-book-skeleton__copy {
+-  display: grid;
+-  align-content: center;
 +  display: flex;
 +  flex: 1;
 +  flex-direction: column;
-+  gap: 9px;
+   gap: 9px;
 +  padding-top: 4px;
+ }
+ 
+ .shelf-book-skeleton__copy i {
+   display: block;
+-  height: 9px;
+-  border-radius: 999px;
+-  background: var(--line);
++  height: 11px;
++  border-radius: 4px;
+ }
+ 
+-.shelf-book-skeleton__copy i:nth-child(2) { width: 72%; }
+-.shelf-book-skeleton__copy i:nth-child(3) { width: 42%; }
++.shelf-book-skeleton__copy i:nth-child(1) { width: 46%; }
++.shelf-book-skeleton__copy i:nth-child(2) { width: 88%; height: 15px; }
++.shelf-book-skeleton__copy i:nth-child(3) { width: 62%; }
+ 
+-@keyframes shelf-pulse {
+-  to { opacity: 0.48; }
++.shelf-book-skeleton__cover,
++.shelf-book-skeleton__copy i {
++  position: relative;
++  overflow: hidden;
++  background: var(--surface-raised);
+ }
+ 
+-.shelf-state {
++.shelf-book-skeleton__cover::after,
++.shelf-book-skeleton__copy i::after {
++  position: absolute;
++  inset: 0;
++  background: linear-gradient(100deg, transparent 30%, rgba(242, 233, 218, 0.07) 50%, transparent 70%);
++  content: "";
++  animation: shimmer 1.6s infinite;
++}
++
++/* ---------------------------------------------------------- */
++/* Estados vazios e de erro                                   */
++/* ---------------------------------------------------------- */
++
++.shelf-state,
++.catalog-state,
++.diary-state,
++.feed-empty {
+   display: grid;
+-  min-height: 290px;
+   place-items: center;
+-  align-content: center;
+-  gap: 12px;
+-  margin-top: 30px;
+-  padding: 34px;
+-  border: 1px solid var(--line);
++  gap: 14px;
++  padding: 64px 28px;
++  border: 1px dashed var(--line-strong);
+   border-radius: var(--radius-lg);
+-  background: var(--surface);
+   text-align: center;
+ }
+ 
+-.shelf-state h2 {
+-  margin: 0;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(30px, 6vw, 48px);
+-  font-style: italic;
+-  font-weight: 400;
++.shelf-state h2,
++.catalog-state h2,
++.diary-state h2 {
++  font-family: var(--font-display);
++  font-size: 27px;
++  font-weight: 600;
++  letter-spacing: -0.01em;
+ }
+ 
+-.shelf-state p {
+-  max-width: 540px;
+-  margin: 0;
++.shelf-state p,
++.catalog-state p,
++.diary-state p {
++  max-width: 44ch;
+   color: var(--muted);
+-  line-height: 1.5;
++  font-style: italic;
++}
++
++.shelf-state svg,
++.catalog-state svg {
++  color: var(--accent);
++}
++
++.shelf-state .button,
++.catalog-state .button {
++  margin-top: 8px;
+ }
+ 
+ .shelf-state--empty {
+-  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
++  grid-template-columns: auto minmax(0, 1fr);
++  gap: 40px;
++  padding: 58px 46px;
+   text-align: left;
+ }
+ 
+-.shelf-state--empty .book-spines {
+-  width: 100%;
++.shelf-state--empty > div {
++  display: grid;
++  justify-items: start;
++  gap: 12px;
+ }
+ 
+-.shelf-state--empty .button {
+-  margin-top: 20px;
++.shelf-state--empty h2 {
++  margin: 0;
+ }
+ 
+-.shelf-state--error > svg {
+-  color: var(--danger);
++@media (max-width: 720px) {
++  .shelf-state--empty {
++    grid-template-columns: 1fr;
++    justify-items: center;
++    text-align: center;
++  }
++
++  .shelf-state--empty > div {
++    justify-items: center;
++  }
+ }
+ 
+-.shelf-state--filtered {
+-  min-height: 170px;
++/* lombadas decorativas do estado vazio */
++.book-spines {
++  display: flex;
++  align-items: flex-end;
++  gap: 7px;
++  height: 150px;
  }
  
 -.reading-detail-layer {
 -  position: fixed;
 -  inset: 0;
 -  z-index: 100;
-+.shelf-book-skeleton__copy i {
++.book-spines span {
 +  display: block;
-+  height: 11px;
-+  border-radius: 4px;
++  width: 26px;
++  border-radius: 3px 5px 2px 2px;
++  background: linear-gradient(180deg, var(--surface-raised), var(--surface-solid));
++  box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 5px rgba(0, 0, 0, 0.3);
  }
  
 -.reading-detail-backdrop {
@@ -8411,21 +8527,19 @@ index 5aac522..fbb47a5 100644
 -  border: 0;
 -  background: rgba(7, 6, 5, 0.66);
 -  backdrop-filter: blur(6px);
-+.shelf-book-skeleton__copy i:nth-child(1) { width: 46%; }
-+.shelf-book-skeleton__copy i:nth-child(2) { width: 88%; height: 15px; }
-+.shelf-book-skeleton__copy i:nth-child(3) { width: 62%; }
++.book-spines span:nth-child(1) { height: 62%; }
++.book-spines span:nth-child(2) { height: 88%; background: linear-gradient(180deg, #6d2f33, #4d1f23); }
++.book-spines span:nth-child(3) { height: 74%; background: linear-gradient(180deg, #2c4038, #1c2b25); }
++.book-spines span:nth-child(4) { height: 96%; background: linear-gradient(180deg, #8a6a33, #5e4518); }
++.book-spines span:nth-child(5) { height: 58%; }
 +
-+.shelf-book-skeleton__cover,
-+.shelf-book-skeleton__copy i {
-+  position: relative;
-+  overflow: hidden;
-+  background: var(--surface-raised);
++.book-spines span {
++  animation: spine-sway 5s ease-in-out infinite;
++  transform-origin: bottom center;
  }
  
 -.reading-detail {
-+.shelf-book-skeleton__cover::after,
-+.shelf-book-skeleton__copy i::after {
-   position: absolute;
+-  position: absolute;
 -  right: 0;
 -  bottom: 0;
 -  left: 0;
@@ -8440,214 +8554,18 @@ index 5aac522..fbb47a5 100644
 -  background: var(--surface-solid);
 -  box-shadow: var(--shadow);
 -  animation: shelf-detail-enter 220ms ease both;
--}
--
--@keyframes shelf-detail-enter {
--  from { transform: translateY(100%); opacity: 0.6; }
--  to { transform: translateY(0); opacity: 1; }
--}
--
--.reading-detail__topbar {
--  display: flex;
--  align-items: center;
--  justify-content: space-between;
--  gap: 16px;
--  padding-bottom: 16px;
--  border-bottom: 1px solid var(--line);
-+  inset: 0;
-+  background: linear-gradient(100deg, transparent 30%, rgba(242, 233, 218, 0.07) 50%, transparent 70%);
-+  content: "";
-+  animation: shimmer 1.6s infinite;
- }
- 
--.reading-detail__status {
--  display: inline-flex;
--  min-height: 26px;
--  align-items: center;
--  padding: 0 9px;
--  border: 1px solid var(--accent);
--  border-radius: 999px;
--  color: var(--accent);
--  background: var(--accent-soft);
--  font-family: "Space Mono", monospace;
--  font-size: 8px;
--  letter-spacing: 0.08em;
--  text-transform: uppercase;
--}
-+/* ---------------------------------------------------------- */
-+/* Estados vazios e de erro                                   */
-+/* ---------------------------------------------------------- */
- 
--.reading-detail__hero {
-+.shelf-state,
-+.catalog-state,
-+.diary-state,
-+.feed-empty {
-   display: grid;
--  grid-template-columns: minmax(108px, 0.38fr) minmax(0, 1fr);
--  align-items: end;
--  gap: clamp(20px, 5vw, 40px);
--  padding: clamp(28px, 6vw, 48px) 0;
-+  place-items: center;
-+  gap: 14px;
-+  padding: 64px 28px;
-+  border: 1px dashed var(--line-strong);
-+  border-radius: var(--radius-lg);
-+  text-align: center;
- }
- 
--.reading-detail__cover {
--  width: min(100%, 210px);
-+.shelf-state h2,
-+.catalog-state h2,
-+.diary-state h2 {
-+  font-family: var(--font-display);
-+  font-size: 27px;
-+  font-weight: 600;
-+  letter-spacing: -0.01em;
- }
- 
--.reading-detail__hero h2 {
--  margin: 10px 0 8px;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(34px, 7vw, 62px);
-+.shelf-state p,
-+.catalog-state p,
-+.diary-state p {
-+  max-width: 44ch;
-+  color: var(--muted);
-   font-style: italic;
--  font-weight: 400;
--  line-height: 0.98;
--  letter-spacing: -0.035em;
- }
- 
--.reading-detail__author {
--  margin: 0;
--  color: var(--text-soft);
--  font-size: 18px;
-+.shelf-state svg,
-+.catalog-state svg {
-+  color: var(--accent);
- }
- 
--.reading-detail__edition-meta {
--  margin: 14px 0 0;
--  color: var(--muted);
--  font-family: "Space Mono", monospace;
--  font-size: 9px;
--  line-height: 1.7;
-+.shelf-state .button,
-+.catalog-state .button {
-+  margin-top: 8px;
-+}
-+
-+.shelf-state--empty {
-+  grid-template-columns: auto minmax(0, 1fr);
-+  gap: 40px;
-+  padding: 58px 46px;
-+  text-align: left;
- }
- 
--.reading-detail__facts {
-+.shelf-state--empty > div {
-   display: grid;
--  grid-template-columns: repeat(2, minmax(0, 1fr));
--  gap: 1px;
-+  justify-items: start;
-+  gap: 12px;
-+}
-+
-+.shelf-state--empty h2 {
-   margin: 0;
--  overflow: hidden;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-md);
--  background: var(--line);
- }
- 
--.reading-detail__facts div {
--  min-width: 0;
--  padding: 16px;
--  background: var(--surface);
-+@media (max-width: 720px) {
-+  .shelf-state--empty {
-+    grid-template-columns: 1fr;
-+    justify-items: center;
-+    text-align: center;
-+  }
-+
-+  .shelf-state--empty > div {
-+    justify-items: center;
-+  }
- }
- 
--.reading-detail__facts dt {
--  color: var(--muted);
--  font-family: "Space Mono", monospace;
--  font-size: 8px;
--  letter-spacing: 0.08em;
--  text-transform: uppercase;
-+/* lombadas decorativas do estado vazio */
-+.book-spines {
-+  display: flex;
-+  align-items: flex-end;
-+  gap: 7px;
-+  height: 150px;
- }
- 
--.reading-detail__facts dd {
--  overflow: hidden;
--  margin: 7px 0 0;
--  color: var(--text);
--  text-overflow: ellipsis;
--  white-space: nowrap;
-+.book-spines span {
-+  display: block;
-+  width: 26px;
-+  border-radius: 3px 5px 2px 2px;
-+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-solid));
-+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 5px rgba(0, 0, 0, 0.3);
- }
- 
--.reading-detail__review {
--  margin-top: 28px;
--  padding: 24px 0;
--  border-top: 1px solid var(--line);
--  border-bottom: 1px solid var(--line);
-+.book-spines span:nth-child(1) { height: 62%; }
-+.book-spines span:nth-child(2) { height: 88%; background: linear-gradient(180deg, #6d2f33, #4d1f23); }
-+.book-spines span:nth-child(3) { height: 74%; background: linear-gradient(180deg, #2c4038, #1c2b25); }
-+.book-spines span:nth-child(4) { height: 96%; background: linear-gradient(180deg, #8a6a33, #5e4518); }
-+.book-spines span:nth-child(5) { height: 58%; }
-+
-+.book-spines span {
-+  animation: spine-sway 5s ease-in-out infinite;
-+  transform-origin: bottom center;
- }
- 
--.reading-detail__section-heading {
--  display: flex;
--  align-items: center;
--  justify-content: space-between;
--  gap: 14px;
 +.book-spines span:nth-child(2n) {
 +  animation-delay: 0.7s;
- }
- 
--.reading-detail__section-heading h3 {
--  margin: 0;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: 26px;
--  font-style: italic;
--  font-weight: 400;
++}
++
 +@keyframes spine-sway {
 +  0%, 100% { transform: rotate(0deg); }
 +  50% { transform: rotate(1.6deg); }
  }
  
--.reading-detail__badges,
--.reading-detail__relations {
+-@keyframes shelf-detail-enter {
+-  from { transform: translateY(100%); opacity: 0.6; }
+-  to { transform: translateY(0); opacity: 1; }
 +/* ---------------------------------------------------------- */
 +/* Visão de lombadas: a estante física                        */
 +/* ---------------------------------------------------------- */
@@ -8660,9 +8578,8 @@ index 5aac522..fbb47a5 100644
 +  --wood-face-a: #3c2b1d;
 +  --wood-face-b: #2a1e13;
 +  --wood-inset: rgba(0, 0, 0, 0.45);
-   display: flex;
-   flex-wrap: wrap;
--  gap: 6px;
++  display: flex;
++  flex-wrap: wrap;
 +  align-items: flex-end;
 +  padding: 12px 16px 0;
 +  border-radius: var(--radius-lg);
@@ -8709,26 +8626,18 @@ index 5aac522..fbb47a5 100644
 +  padding: 0 1px;
  }
  
--.reading-detail__badges span,
--.reading-detail__relations span {
--  display: inline-flex;
--  min-height: 24px;
+-.reading-detail__topbar {
 +.spine {
 +  position: relative;
-+  display: flex;
+   display: flex;
 +  width: var(--w);
 +  height: var(--h);
 +  flex-direction: column;
    align-items: center;
--  padding: 0 8px;
--  border: 1px solid var(--line);
--  border-radius: 999px;
--  color: var(--muted);
--  font-family: "Space Mono", monospace;
--  font-size: 7px;
--  letter-spacing: 0.06em;
--  text-transform: uppercase;
-+  justify-content: space-between;
+   justify-content: space-between;
+-  gap: 16px;
+-  padding-bottom: 16px;
+-  border-bottom: 1px solid var(--line);
 +  margin-bottom: 16px;
 +  padding: 9px 3px 8px;
 +  overflow: hidden;
@@ -8757,9 +8666,19 @@ index 5aac522..fbb47a5 100644
 +  opacity: 0.5;
  }
  
--.reading-detail__badges span.is-warning {
--  border-color: color-mix(in srgb, var(--danger) 54%, var(--line));
--  color: var(--danger);
+-.reading-detail__status {
+-  display: inline-flex;
+-  min-height: 26px;
+-  align-items: center;
+-  padding: 0 9px;
+-  border: 1px solid var(--accent);
+-  border-radius: 999px;
+-  color: var(--accent);
+-  background: var(--accent-soft);
+-  font-family: "Space Mono", monospace;
+-  font-size: 8px;
+-  letter-spacing: 0.08em;
+-  text-transform: uppercase;
 +/* couro (clássicos): curvatura mais rica + nervuras em relevo */
 +.spine[data-era="couro"] {
 +  background-image:
@@ -8768,10 +8687,12 @@ index 5aac522..fbb47a5 100644
 +    linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0%, transparent 13%, rgba(255, 255, 255, 0.08) 48%, transparent 87%, rgba(0, 0, 0, 0.44) 100%);
  }
  
--.reading-detail__review > p {
--  margin: 20px 0 0;
--  color: var(--text-soft);
--  font-size: clamp(17px, 3vw, 21px);
+-.reading-detail__hero {
+-  display: grid;
+-  grid-template-columns: minmax(108px, 0.38fr) minmax(0, 1fr);
+-  align-items: end;
+-  gap: clamp(20px, 5vw, 40px);
+-  padding: clamp(28px, 6vw, 48px) 0;
 +.spine[data-era="couro"]::before {
 +  position: absolute;
 +  inset: 8px 0;
@@ -8788,13 +8709,11 @@ index 5aac522..fbb47a5 100644
 +}
 +
 +.spine[data-era="couro"] .spine__title {
-   font-style: italic;
--  line-height: 1.65;
--  white-space: pre-wrap;
++  font-style: italic;
  }
  
--.reading-detail__relations {
--  margin-top: 20px;
+-.reading-detail__cover {
+-  width: min(100%, 210px);
 +/* alguns livros tombam de leve, como numa estante de verdade */
 +.spine[data-lean="-1"] {
 +  margin-left: 12px;
@@ -8802,20 +8721,24 @@ index 5aac522..fbb47a5 100644
 +  transform-origin: bottom right;
  }
  
--.reading-detail__legacy {
--  width: 100%;
--  margin-top: 24px;
+-.reading-detail__hero h2 {
+-  margin: 10px 0 8px;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(34px, 7vw, 62px);
+-  font-style: italic;
+-  font-weight: 400;
+-  line-height: 0.98;
+-  letter-spacing: -0.035em;
 +.spine[data-lean="1"] {
 +  margin-right: 12px;
 +  transform: rotate(4.5deg);
 +  transform-origin: bottom left;
  }
  
--@media (min-width: 620px) {
--  .shelf-books--grid {
--    grid-template-columns: repeat(3, minmax(0, 1fr));
--    gap: 34px 22px;
--  }
+-.reading-detail__author {
+-  margin: 0;
+-  color: var(--text-soft);
+-  font-size: 18px;
 +.spine:hover,
 +.spine:focus-visible {
 +  z-index: 2;
@@ -8825,11 +8748,12 @@ index 5aac522..fbb47a5 100644
 +    inset 0 0 0 1px rgba(0, 0, 0, 0.22);
  }
  
--@media (min-width: 960px) {
--  .shelf-books--grid {
--    grid-template-columns: repeat(4, minmax(0, 1fr));
--    gap: 38px 26px;
--  }
+-.reading-detail__edition-meta {
+-  margin: 14px 0 0;
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
+-  font-size: 9px;
+-  line-height: 1.7;
 +.spine__author {
 +  position: relative;
 +  z-index: 2;
@@ -8846,26 +8770,22 @@ index 5aac522..fbb47a5 100644
 +  text-align: center;
 +  text-transform: uppercase;
 +  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-+}
+ }
  
--  .reading-detail {
--    top: 28px;
--    right: 28px;
--    bottom: 28px;
--    left: auto;
--    width: min(680px, calc(100% - 56px));
--    max-height: none;
--    padding: 22px 28px 30px;
--    border: 1px solid var(--line-strong);
--    border-radius: 26px;
--    animation-name: shelf-detail-desktop-enter;
--  }
+-.reading-detail__facts {
+-  display: grid;
+-  grid-template-columns: repeat(2, minmax(0, 1fr));
+-  gap: 1px;
+-  margin: 0;
 +.spine__title {
 +  position: relative;
 +  z-index: 2;
 +  max-height: var(--tmax);
 +  margin: auto 0;
-+  overflow: hidden;
+   overflow: hidden;
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-md);
+-  background: var(--line);
 +  color: var(--foil);
 +  writing-mode: vertical-rl;
 +  text-orientation: mixed;
@@ -8875,12 +8795,12 @@ index 5aac522..fbb47a5 100644
 +  line-height: 1.06;
 +  text-align: center;
 +  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-+}
+ }
  
--  @keyframes shelf-detail-desktop-enter {
--    from { transform: translateX(40px); opacity: 0; }
--    to { transform: translateX(0); opacity: 1; }
--  }
+-.reading-detail__facts div {
+-  min-width: 0;
+-  padding: 16px;
+-  background: var(--surface);
 +/* colofão: editora + nota, horizontais e miúdos como num paperback real */
 +.spine__foot {
 +  position: relative;
@@ -8893,10 +8813,12 @@ index 5aac522..fbb47a5 100644
 +  padding-top: 5px;
  }
  
--@media (max-width: 560px) {
--  .shelf-toolbar {
--    align-items: flex-start;
--  }
+-.reading-detail__facts dt {
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
+-  font-size: 8px;
+-  letter-spacing: 0.08em;
+-  text-transform: uppercase;
 +.spine__foot::before {
 +  content: "";
 +  width: 42%;
@@ -8904,14 +8826,15 @@ index 5aac522..fbb47a5 100644
 +  margin-bottom: 2px;
 +  background: currentColor;
 +  opacity: 0.24;
-+}
+ }
  
--  .shelf-view-toggle {
--    margin-top: 2px;
--  }
+-.reading-detail__facts dd {
 +.spine__publisher {
 +  max-height: 24px;
-+  overflow: hidden;
+   overflow: hidden;
+-  margin: 7px 0 0;
+-  color: var(--text);
+-  text-overflow: ellipsis;
 +  font-family: var(--font-mono);
 +  font-size: 6px;
 +  line-height: 1.25;
@@ -8919,22 +8842,20 @@ index 5aac522..fbb47a5 100644
 +  text-transform: uppercase;
 +  opacity: 0.72;
 +}
- 
--  .shelf-state--empty {
--    grid-template-columns: 1fr;
--    text-align: center;
--  }
++
 +.spine__stars {
 +  font-family: var(--font-mono);
 +  font-size: 8px;
 +  letter-spacing: 0.02em;
-+  white-space: nowrap;
+   white-space: nowrap;
 +  opacity: 0.9;
-+}
+ }
  
--  .shelf-state--empty .book-spines {
--    max-width: 230px;
--  }
+-.reading-detail__review {
+-  margin-top: 28px;
+-  padding: 24px 0;
+-  border-top: 1px solid var(--line);
+-  border-bottom: 1px solid var(--line);
 +/* fita marcador pendurada: o livro que está sendo lido agora */
 +.spine__ribbon {
 +  position: absolute;
@@ -8947,41 +8868,225 @@ index 5aac522..fbb47a5 100644
 +  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
 +  transform: translateX(-50%);
 +  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
-+}
+ }
  
--  .reading-detail__hero {
--    grid-template-columns: 100px minmax(0, 1fr);
--    align-items: start;
+-.reading-detail__section-heading {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 14px;
 +@media (max-width: 640px) {
 +  .spine-shelf {
 +    --slot-h: 212px;
 +    margin-inline: -6px;
 +    padding: 10px 10px 0;
-   }
++  }
+ }
+ 
+-.reading-detail__section-heading h3 {
+-  margin: 0;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: 26px;
+-  font-style: italic;
+-  font-weight: 400;
++.view-icon--spines {
++  display: inline-flex;
++  align-items: flex-end;
++  gap: 2px;
+ }
+ 
+-.reading-detail__badges,
+-.reading-detail__relations {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: 6px;
++.view-icon--spines i {
++  width: 3.5px;
++  border-radius: 1px;
+ }
+ 
+-.reading-detail__badges span,
+-.reading-detail__relations span {
++.view-icon--spines i:nth-child(1) { height: 12px; }
++.view-icon--spines i:nth-child(2) { height: 15px; }
++.view-icon--spines i:nth-child(3) { height: 10px; }
++.view-icon--spines i:nth-child(4) { height: 14px; }
++
++/* ---------------------------------------------------------- */
++/* Menu de status da estante (substitui a fileira de pílulas) */
++/* ---------------------------------------------------------- */
++
++.shelf-filter-menu {
++  position: relative;
++}
++
++.shelf-filter-menu__trigger {
+   display: inline-flex;
+-  min-height: 24px;
+   align-items: center;
+-  padding: 0 8px;
+-  border: 1px solid var(--line);
+-  border-radius: 999px;
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
+-  font-size: 7px;
+-  letter-spacing: 0.06em;
+-  text-transform: uppercase;
++  gap: 9px;
++  padding: 10px 14px;
++  border: 1px solid var(--line-strong);
++  border-radius: var(--radius-md);
++  color: var(--text);
++  background: var(--surface);
++  font-size: 14.5px;
++  transition: border-color 0.22s var(--ease-out), background 0.22s var(--ease-out);
+ }
+ 
+-.reading-detail__badges span.is-warning {
+-  border-color: color-mix(in srgb, var(--danger) 54%, var(--line));
+-  color: var(--danger);
++.shelf-filter-menu__trigger:hover,
++.shelf-filter-menu__trigger[aria-expanded="true"] {
++  border-color: var(--accent-line);
++  background: var(--surface-raised);
+ }
+ 
+-.reading-detail__review > p {
+-  margin: 20px 0 0;
+-  color: var(--text-soft);
+-  font-size: clamp(17px, 3vw, 21px);
+-  font-style: italic;
+-  line-height: 1.65;
+-  white-space: pre-wrap;
++.shelf-filter-menu__trigger small {
++  font-family: var(--font-mono);
++  font-size: 10px;
++  color: var(--accent);
+ }
+ 
+-.reading-detail__relations {
+-  margin-top: 20px;
++.shelf-filter-menu__trigger svg {
++  color: var(--muted);
++  transition: transform 0.22s var(--ease-out);
+ }
+ 
+-.reading-detail__legacy {
+-  width: 100%;
+-  margin-top: 24px;
++.shelf-filter-menu__trigger[aria-expanded="true"] svg {
++  transform: rotate(180deg);
+ }
+ 
+-@media (min-width: 620px) {
+-  .shelf-books--grid {
+-    grid-template-columns: repeat(3, minmax(0, 1fr));
+-    gap: 34px 22px;
+-  }
++.shelf-filter-menu__backdrop {
++  position: fixed;
++  inset: 0;
++  z-index: 30;
++  cursor: default;
++  background: transparent;
+ }
+ 
+-@media (min-width: 960px) {
+-  .shelf-books--grid {
+-    grid-template-columns: repeat(4, minmax(0, 1fr));
+-    gap: 38px 26px;
+-  }
+-
+-  .reading-detail {
+-    top: 28px;
+-    right: 28px;
+-    bottom: 28px;
+-    left: auto;
+-    width: min(680px, calc(100% - 56px));
+-    max-height: none;
+-    padding: 22px 28px 30px;
+-    border: 1px solid var(--line-strong);
+-    border-radius: 26px;
+-    animation-name: shelf-detail-desktop-enter;
+-  }
+-
+-  @keyframes shelf-detail-desktop-enter {
+-    from { transform: translateX(40px); opacity: 0; }
+-    to { transform: translateX(0); opacity: 1; }
+-  }
++.shelf-filter-menu__list {
++  position: absolute;
++  top: calc(100% + 6px);
++  left: 0;
++  z-index: 31;
++  display: grid;
++  min-width: 200px;
++  padding: 6px;
++  border: 1px solid var(--line-strong);
++  border-radius: var(--radius-lg);
++  background: var(--surface-solid);
++  box-shadow: var(--shadow-pop);
+ }
+ 
+-@media (max-width: 560px) {
+-  .shelf-toolbar {
+-    align-items: flex-start;
+-  }
+-
+-  .shelf-view-toggle {
+-    margin-top: 2px;
+-  }
+-
+-  .shelf-state--empty {
+-    grid-template-columns: 1fr;
+-    text-align: center;
+-  }
++.shelf-filter-menu__list button {
++  display: flex;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 18px;
++  padding: 10px 12px;
++  border-radius: var(--radius-sm);
++  color: var(--text-soft);
++  font-size: 14.5px;
++  text-align: left;
++  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out);
++}
+ 
+-  .shelf-state--empty .book-spines {
+-    max-width: 230px;
+-  }
++.shelf-filter-menu__list button:hover {
++  color: var(--text);
++  background: var(--surface-raised);
++}
+ 
+-  .reading-detail__hero {
+-    grid-template-columns: 100px minmax(0, 1fr);
+-    align-items: start;
+-  }
++.shelf-filter-menu__list button.is-active {
++  color: var(--accent-strong);
++  background: var(--accent-soft);
 +}
  
 -  .reading-detail__facts {
 -    grid-template-columns: 1fr;
 -  }
-+.view-icon--spines {
-+  display: inline-flex;
-+  align-items: flex-end;
-+  gap: 2px;
++.shelf-filter-menu__list button small {
++  font-family: var(--font-mono);
++  font-size: 10px;
++  color: var(--subtle);
 +}
  
 -  .reading-detail__section-heading {
 -    align-items: flex-start;
 -    flex-direction: column;
 -  }
-+.view-icon--spines i {
-+  width: 3.5px;
-+  border-radius: 1px;
++.shelf-filter-menu__list button.is-active small {
++  color: var(--accent);
  }
-+
-+.view-icon--spines i:nth-child(1) { height: 12px; }
-+.view-icon--spines i:nth-child(2) { height: 15px; }
-+.view-icon--spines i:nth-child(3) { height: 10px; }
-+.view-icon--spines i:nth-child(4) { height: 14px; }
 diff --git a/frontend/src/features/shelf/shelfI18n.ts b/frontend/src/features/shelf/shelfI18n.ts
 index 1c770db..12fffeb 100644
 --- a/frontend/src/features/shelf/shelfI18n.ts
@@ -9202,7 +9307,7 @@ index 80a6a74..4b0549c 100644
  
        {showOnboarding && (
 diff --git a/frontend/src/pages/ShelfPage.tsx b/frontend/src/pages/ShelfPage.tsx
-index e2b7e24..6d8b813 100644
+index e2b7e24..e10b718 100644
 --- a/frontend/src/pages/ShelfPage.tsx
 +++ b/frontend/src/pages/ShelfPage.tsx
 @@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
@@ -9227,7 +9332,31 @@ index e2b7e24..6d8b813 100644
  }
  
  export function ShelfPage() {
-@@ -90,7 +92,10 @@ export function ShelfPage() {
+@@ -44,6 +46,7 @@ export function ShelfPage() {
+   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+   const [error, setError] = useState<string | null>(null)
+   const [filter, setFilter] = useState<ShelfFilter>('all')
++  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+   const [view, setViewState] = useState<ShelfView>(initialView)
+   const [selected, setSelected] = useState<ShelfReading | null>(null)
+   const [notice, setNotice] = useState<string | null>(null)
+@@ -68,6 +71,15 @@ export function ShelfPage() {
+     return () => controller.abort()
+   }, [load])
+ 
++  useEffect(() => {
++    if (!filterMenuOpen) return
++    const onKeyDown = (event: KeyboardEvent) => {
++      if (event.key === 'Escape') setFilterMenuOpen(false)
++    }
++    document.addEventListener('keydown', onKeyDown)
++    return () => document.removeEventListener('keydown', onKeyDown)
++  }, [filterMenuOpen])
++
+   useEffect(() => {
+     if (!notice) return
+     const timer = window.setTimeout(() => setNotice(null), 3500)
+@@ -90,7 +102,10 @@ export function ShelfPage() {
  
    function setView(nextView: ShelfView) {
      setViewState(nextView)
@@ -9239,7 +9368,7 @@ index e2b7e24..6d8b813 100644
    }
  
    function handleUpdated(updated: ShelfReading) {
-@@ -117,7 +122,6 @@ export function ShelfPage() {
+@@ -117,7 +132,6 @@ export function ShelfPage() {
              ? `${readings.length} ${shelfText(locale, 'books_count')}`
              : t('shelf_copy')
          }
@@ -9247,7 +9376,73 @@ index e2b7e24..6d8b813 100644
        />
  
        {notice && (
-@@ -165,6 +169,15 @@ export function ShelfPage() {
+@@ -127,23 +141,50 @@ export function ShelfPage() {
+       )}
+ 
+       <div className="shelf-toolbar">
+-        <div className="shelf-filters" role="group" aria-label={t('shelf_title')}>
+-          {filters.map((option) => {
+-            const count = counts[option.id]
+-            if (option.id === 'other' && count === 0) return null
+-            return (
++        <div className="shelf-filter-menu">
++          <button
++            type="button"
++            className="shelf-filter-menu__trigger"
++            aria-haspopup="listbox"
++            aria-expanded={filterMenuOpen}
++            onClick={() => setFilterMenuOpen((current) => !current)}
++          >
++            <span>{shelfText(locale, (filters.find((option) => option.id === filter) ?? filters[0]).label)}</span>
++            <small>{counts[filter]}</small>
++            <Icon name="chevron-down" size={14} />
++          </button>
++          {filterMenuOpen && (
++            <>
+               <button
+-                key={option.id}
++                className="shelf-filter-menu__backdrop"
+                 type="button"
+-                className={filter === option.id ? 'is-active' : ''}
+-                aria-pressed={filter === option.id}
+-                onClick={() => setFilter(option.id)}
+-              >
+-                <span>{shelfText(locale, option.label)}</span>
+-                <small>{count}</small>
+-              </button>
+-            )
+-          })}
++                aria-label={t('close')}
++                onClick={() => setFilterMenuOpen(false)}
++              />
++              <div className="shelf-filter-menu__list" role="listbox" aria-label={t('shelf_title')}>
++                {filters.map((option) => {
++                  const count = counts[option.id]
++                  if (option.id === 'other' && count === 0) return null
++                  return (
++                    <button
++                      key={option.id}
++                      type="button"
++                      role="option"
++                      aria-selected={filter === option.id}
++                      className={filter === option.id ? 'is-active' : ''}
++                      onClick={() => {
++                        setFilter(option.id)
++                        setFilterMenuOpen(false)
++                      }}
++                    >
++                      <span>{shelfText(locale, option.label)}</span>
++                      <small>{count}</small>
++                    </button>
++                  )
++                })}
++              </div>
++            </>
++          )}
+         </div>
+ 
+         <div className="shelf-view-toggle" role="group" aria-label="Visualização">
+@@ -165,6 +206,15 @@ export function ShelfPage() {
              <span className="view-icon view-icon--list" aria-hidden="true"><i /><i /><i /></span>
              <span className="sr-only">{shelfText(locale, 'list')}</span>
            </button>
@@ -9263,7 +9458,7 @@ index e2b7e24..6d8b813 100644
          </div>
        </div>
  
-@@ -218,17 +231,21 @@ export function ShelfPage() {
+@@ -218,17 +268,21 @@ export function ShelfPage() {
        )}
  
        {status === 'ready' && visibleReadings.length > 0 && (
