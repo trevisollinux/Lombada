@@ -6997,6 +6997,38 @@ index fc9242a..5f41d49 100644
 -    grid-template-columns: repeat(2, minmax(0, 1fr));
 -  }
  }
+diff --git a/frontend/src/features/progress/progress.css b/frontend/src/features/progress/progress.css
+index c3d40ef..12c6cb4 100644
+--- a/frontend/src/features/progress/progress.css
++++ b/frontend/src/features/progress/progress.css
+@@ -247,13 +247,23 @@
+     grid-template-columns: 1fr;
+   }
+ 
++  /* no mobile as lombadas decorativas viram um bloco baixo e contido:
++     sem margem negativa (que sobrepunha o texto) e com altura suficiente
++     para as barras absolutas não vazarem para cima do título. */
+   .onboarding-value__mark {
+-    min-height: 105px;
+-    transform: scale(.65);
+-    transform-origin: left bottom;
+-    margin-bottom: -28px;
++    min-height: 96px;
++    margin-bottom: 6px;
++    transform: none;
++  }
++
++  .onboarding-value__mark span {
++    width: 26px;
+   }
+ 
++  .onboarding-value__mark span:nth-child(1) { left: 6px; height: 76px; }
++  .onboarding-value__mark span:nth-child(2) { left: 42px; height: 92px; }
++  .onboarding-value__mark span:nth-child(3) { left: 78px; height: 64px; }
++
+   .reading-ritual__cover {
+     width: 112px;
+   }
 diff --git a/frontend/src/features/shelf/ShelfBookCard.tsx b/frontend/src/features/shelf/ShelfBookCard.tsx
 index a73a692..f8d3c62 100644
 --- a/frontend/src/features/shelf/ShelfBookCard.tsx
@@ -10213,7 +10245,7 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..edb9f6e 100644
+index 990b8b9..c547067 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
 @@ -1,55 +1,111 @@
@@ -10372,7 +10404,7 @@ index 990b8b9..edb9f6e 100644
  
  * {
    box-sizing: border-box;
-@@ -67,38 +123,47 @@ body {
+@@ -67,38 +123,49 @@ body {
    min-height: 100vh;
    margin: 0;
    color: var(--text);
@@ -10387,7 +10419,7 @@ index 990b8b9..edb9f6e 100644
 +  background-attachment: fixed;
  }
  
-+/* grão de papel sutil por cima de tudo */
++/* grão de papel discreto: quase imperceptível no escuro, leve textura no claro */
  body::before {
    position: fixed;
    inset: 0;
@@ -10395,21 +10427,24 @@ index 990b8b9..edb9f6e 100644
    pointer-events: none;
    content: "";
 -  opacity: 0.16;
-+  opacity: 0.12;
-   background-image:
+-  background-image:
 -    radial-gradient(currentColor 0.55px, transparent 0.55px),
 -    radial-gradient(var(--accent) 0.45px, transparent 0.45px);
 -  background-position: 0 0, 4px 4px;
 -  background-size: 7px 7px, 11px 11px;
-+    radial-gradient(currentColor 0.5px, transparent 0.5px),
-+    radial-gradient(var(--accent) 0.4px, transparent 0.4px);
-+  background-position: 0 0, 5px 5px;
-+  background-size: 8px 8px, 13px 13px;
++  opacity: 0.04;
++  background-image: radial-gradient(currentColor 0.5px, transparent 0.5px);
++  background-position: 0 0;
++  background-size: 9px 9px;
  }
  
 -button,
 -input {
 -  font: inherit;
++:root[data-theme="light"] body::before {
++  opacity: 0.08;
++}
++
 +h1, h2, h3, h4, p {
 +  margin: 0;
  }
@@ -10433,7 +10468,7 @@ index 990b8b9..edb9f6e 100644
  }
  
  a {
-@@ -106,16 +171,48 @@ a {
+@@ -106,16 +173,48 @@ a {
    text-decoration: none;
  }
  
@@ -10484,7 +10519,7 @@ index 990b8b9..edb9f6e 100644
  }
  
  .sr-only {
-@@ -130,198 +227,371 @@ button:disabled {
+@@ -130,198 +229,371 @@ button:disabled {
    border: 0;
  }
  
@@ -10883,12 +10918,12 @@ index 990b8b9..edb9f6e 100644
 +  width: 64px;
 +  height: 64px;
 +  font-size: 23px;
- }
- 
-+.account-avatar--fallback {
-+  text-transform: uppercase;
 +}
 +
++.account-avatar--fallback {
++  text-transform: uppercase;
+ }
+ 
 +/* aviso global de erro de sessão */
  .global-notice {
 +  position: sticky;
@@ -10949,7 +10984,7 @@ index 990b8b9..edb9f6e 100644
  }
  
  .desktop-rail {
-@@ -329,1004 +599,797 @@ button:disabled {
+@@ -329,1004 +601,797 @@ button:disabled {
  }
  
  .app-content {
