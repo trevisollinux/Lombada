@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 
 import { BookCover } from '../../components/BookCover'
 import { Icon } from '../../components/Icon'
-import { memoriesText } from '../memories/memoriesI18n'
-import { ShareCardDialog } from '../memories/ShareCardDialog'
 import type { Locale } from '../../i18n'
+import { useFeatureFlags } from '../../providers/FeatureFlagsProvider'
 import { useSession } from '../../providers/SessionProvider'
 import type { ShelfReading } from '../../types/reading'
+import { memoriesText } from '../memories/memoriesI18n'
+import { ShareCardDialog } from '../memories/ShareCardDialog'
+import { ProgressQuickDialog } from '../progress/ProgressQuickDialog'
+import { progressText } from '../progress/progressI18n'
 import { ReadingEditorForm } from './ReadingEditorForm'
 import { shelfText } from './shelfI18n'
 
@@ -31,12 +34,16 @@ export function ReadingDetailPanel({
   onDeleted,
 }: ReadingDetailPanelProps) {
   const { account } = useSession()
+  const { enabled, status: featureStatus } = useFeatureFlags()
   const [editing, setEditing] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [progressOpen, setProgressOpen] = useState(false)
+  const progressEnabled = featureStatus === 'ready' && enabled('progress_sessions')
 
   useEffect(() => {
     setEditing(false)
     setSharing(false)
+    setProgressOpen(false)
   }, [reading?.leitura_id])
 
   useEffect(() => {
@@ -44,7 +51,7 @@ export function ReadingDetailPanel({
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || sharing) return
+      if (event.key !== 'Escape' || sharing || progressOpen) return
       if (editing) setEditing(false)
       else onClose()
     }
@@ -53,7 +60,7 @@ export function ReadingDetailPanel({
       document.body.style.overflow = previous
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [editing, onClose, reading, sharing])
+  }, [editing, onClose, progressOpen, reading, sharing])
 
   if (!reading) return null
 
@@ -161,7 +168,13 @@ export function ReadingDetailPanel({
               )}
 
               <div className="reading-detail__actions">
-                <button className="button button--primary" type="button" onClick={() => setSharing(true)}>
+                {progressEnabled && reading.status === 'Lendo' && (
+                  <button className="button button--primary" type="button" onClick={() => setProgressOpen(true)}>
+                    <Icon name="plus" size={17} />
+                    {progressText(locale, 'log_more')}
+                  </button>
+                )}
+                <button className="button button--secondary" type="button" onClick={() => setSharing(true)}>
                   <Icon name="memory" size={17} />
                   {memoriesText(locale, 'share_card')}
                 </button>
@@ -177,6 +190,12 @@ export function ReadingDetailPanel({
           )}
         </aside>
       </div>
+
+      <ProgressQuickDialog
+        reading={progressOpen ? reading : null}
+        locale={locale}
+        onClose={() => setProgressOpen(false)}
+      />
 
       <ShareCardDialog
         payload={sharing ? { kind: 'reading', reading, handle: account?.handle || '' } : null}

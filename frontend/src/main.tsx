@@ -11,6 +11,7 @@ import './features/explore/explore.css'
 import './features/feed/feed.css'
 import './features/profile/profile.css'
 import './features/memories/memories.css'
+import './features/progress/progress.css'
 
 const rootElement = document.getElementById('root')
 

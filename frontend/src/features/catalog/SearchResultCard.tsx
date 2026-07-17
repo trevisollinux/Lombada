@@ -3,15 +3,17 @@ import { Link } from 'react-router'
 import { BookCover } from '../../components/BookCover'
 import { Icon } from '../../components/Icon'
 import type { Locale } from '../../i18n'
+import { trackProductEvent } from '../../services/analytics'
 import type { CatalogWork } from '../../types/catalog'
 import { catalogText } from './catalogI18n'
 
 interface SearchResultCardProps {
   work: CatalogWork
   locale: Locale
+  source?: 'search' | 'explore' | 'profile' | 'onboarding'
 }
 
-export function SearchResultCard({ work, locale }: SearchResultCardProps) {
+export function SearchResultCard({ work, locale, source = 'search' }: SearchResultCardProps) {
   const params = new URLSearchParams({
     work_key: work.work_key,
     titulo: work.titulo,
@@ -25,6 +27,13 @@ export function SearchResultCard({ work, locale }: SearchResultCardProps) {
     work.lendo_agora_count ? `${work.lendo_agora_count} ${catalogText(locale, 'reading_now')}` : '',
   ].filter(Boolean)
 
+  function trackOpen() {
+    trackProductEvent('book_opened', {
+      source,
+      has_cover: Boolean(work.capa_url),
+    })
+  }
+
   return (
     <article className="catalog-result">
       <Link
@@ -32,6 +41,7 @@ export function SearchResultCard({ work, locale }: SearchResultCardProps) {
         to={`/obra?${params.toString()}`}
         state={{ work }}
         aria-label={`${catalogText(locale, 'open_work')}: ${work.titulo}`}
+        onClick={trackOpen}
       >
         <BookCover
           title={work.titulo}
@@ -56,7 +66,7 @@ export function SearchResultCard({ work, locale }: SearchResultCardProps) {
           </div>
         )}
 
-        <Link className="catalog-result__action" to={`/obra?${params.toString()}`} state={{ work }}>
+        <Link className="catalog-result__action" to={`/obra?${params.toString()}`} state={{ work }} onClick={trackOpen}>
           {catalogText(locale, 'open_work')}
           <Icon name="arrow" size={16} />
         </Link>

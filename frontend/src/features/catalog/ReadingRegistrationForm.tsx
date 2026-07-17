@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import type { Locale } from '../../i18n'
+import { trackProductEvent } from '../../services/analytics'
 import { ApiError, createReading, getReadingStatuses } from '../../services/api'
 import type {
   CatalogEdition,
   CatalogWork,
   ReadingCreateResponse,
 } from '../../types/catalog'
+import { ONBOARDING_MARKER } from '../progress/OnboardingValueCard'
 import { catalogText } from './catalogI18n'
 
 interface ReadingRegistrationFormProps {
@@ -22,6 +24,18 @@ const RATING_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) / 2)
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
+function statusForAnalytics(value: string): string {
+  return DEFAULT_STATUSES.includes(value) ? value : 'custom'
+}
+
+function onboardingActive(): boolean {
+  try {
+    return sessionStorage.getItem(ONBOARDING_MARKER) === 'active'
+  } catch {
+    return false
+  }
 }
 
 export function ReadingRegistrationForm({
@@ -67,6 +81,7 @@ export function ReadingRegistrationForm({
     setSaving(true)
     setError(null)
     try {
+      const fromOnboarding = onboardingActive()
       const result = await createReading({
         work_key: work.work_key,
         titulo: work.titulo,
@@ -90,6 +105,19 @@ export function ReadingRegistrationForm({
         tenho_edicao: ownsEdition,
         quero_edicao: wantsEdition,
       })
+      trackProductEvent('reading_created', {
+        source: fromOnboarding ? 'onboarding' : 'search',
+        status: statusForAnalytics(status),
+        has_rating: rating !== null,
+        public: isPublic,
+      })
+      if (fromOnboarding) {
+        try {
+          sessionStorage.removeItem(ONBOARDING_MARKER)
+        } catch {
+          // A leitura já foi salva; o armazenamento efêmero não pode bloquear o fluxo.
+        }
+      }
       onRegistered(result)
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
