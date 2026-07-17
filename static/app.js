@@ -2906,7 +2906,9 @@ const ICON_VIEW={
    obra) muda o acabamento — clássicos ganham couro escuro com nervuras e
    letra dourada; modernos ficam vivos e limpos — pra a prateleira parecer
    uma estante real de livros variados. */
-function spineHTML(l,i){
+/* medidas/cores de uma lombada, compartilhadas entre a estante (DOM) e o card
+   de compartilhamento (canvas), pra os dois ficarem idênticos. */
+function spineSpec(l){
   const hue=bookHue(l.titulo,l.autor);
   const pags=Number(l.paginas)>0?Number(l.paginas):0;
   const np=pags?Math.max(0,Math.min(1,(pags-80)/620)):0.45;    // 0..1; sem dado = médio
@@ -2914,13 +2916,17 @@ function spineHTML(l,i){
   const h=Math.round(Math.min(210,154+(hue%100)/100*54+np*8));  // altura 154..210
   const ano=Number(l.ano_obra||l.ano)||0;
   const antigo=ano>0&&ano<1970, vintage=ano>=1970&&ano<2000;
-  const sat=antigo?30:vintage?42:54;                            // clássicos dessaturados
-  const lig=antigo?26:vintage?33:42;                            // clássicos mais escuros
-  const foil=antigo?'#E7C877':vintage?'#F0E6C8':'#F6F1E6';      // letra: dourada→creme
-  const page=antigo?'#cdbd92':vintage?'#e2d9bd':'#efe9d6';      // topo (corte das folhas)
-  // acabamento: clássicos (<1970) em couro; o resto, paperback fosco — como
-  // as lombadas de referência (cor chapada, autor no topo, editora no pé).
-  const estilo=antigo?'couro':'matte';
+  return {
+    hue, w, h, antigo, vintage,
+    sat:antigo?30:vintage?42:54,                                // clássicos dessaturados
+    lig:antigo?26:vintage?33:42,                                // clássicos mais escuros
+    foil:antigo?'#E7C877':vintage?'#F0E6C8':'#F6F1E6',          // letra: dourada→creme
+    page:antigo?'#cdbd92':vintage?'#e2d9bd':'#efe9d6',          // topo (corte das folhas)
+    estilo:antigo?'couro':'matte',                              // couro (clássico) ou paperback fosco
+  };
+}
+function spineHTML(l,i){
+  const {hue,w,h,antigo,sat,lig,foil,page,estilo}=spineSpec(l);
   const saved=livroEstaDestacado(l)?' data-saved="1"':'';
   const titulo=(l.titulo||t('untitled')).trim();
   const autor=(l.autor||'').trim();
@@ -4008,7 +4014,25 @@ async function compartilharPerfil(){
   if(copied) toast(t('share_unavailable_copied'));
 }
 async function compartilharEstante(){
-  await compartilharPerfil();
+  const lista=estanteParaCard();
+  if(!lista.length){ await compartilharPerfil(); return; }   // estante vazia → só o link
+  const btn=document.getElementById('shelfShareButton');
+  if(btn) btn.disabled=true;
+  let blob=null;
+  try{ const cv=await renderShelfCardCanvas(); blob=cv?await canvasToPngBlob(cv):null; }
+  catch(e){ console.error('erro ao gerar card da estante',e); }
+  if(btn) btn.disabled=false;
+  if(!blob){ await compartilharPerfil(); return; }
+  const url=urlPerfilPublico()||location.origin;
+  const texto=t('shelf_share_text',{count:lista.length,url});
+  const file=new File([blob],'lombada-estante.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({text:texto,files:[file]}); return; }
+    catch(e){ if(e?.name==='AbortError') return; }
+  }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='lombada-estante.png'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  toast(t('shelf_card_downloaded'));
 }
 
 function posLeituraAberto(){
@@ -4198,6 +4222,105 @@ async function renderRetroCardCanvas(){
   ctx.fillText('lombada.',W/2,H-76);
   return cv;
 }
+/* ── card compartilhável da estante: a prateleira de lombadas em imagem ── */
+function drawCardSpine(ctx,l,x,baseY,scale){
+  const s=spineSpec(l);
+  const w=Math.round(s.w*scale), h=Math.round(s.h*scale), yTop=baseY-h, r=Math.max(2,3*scale);
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,.42)';ctx.shadowBlur=9;ctx.shadowOffsetX=2;ctx.shadowOffsetY=5;
+  ctx.fillStyle=`hsl(${s.hue} ${s.sat}% ${s.lig}%)`;
+  retroRoundRectPath(ctx,x,yTop,w,h,r); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  retroRoundRectPath(ctx,x,yTop,w,h,r); ctx.clip();
+  ctx.fillStyle=s.page; ctx.fillRect(x,yTop,w,Math.max(2,Math.round(3*scale)));               // corte das folhas
+  const g=ctx.createLinearGradient(x,0,x+w,0);                                                  // curvatura
+  g.addColorStop(0,'rgba(0,0,0,.36)');g.addColorStop(.14,'rgba(0,0,0,0)');g.addColorStop(.86,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.38)');
+  ctx.fillStyle=g; ctx.fillRect(x,yTop,w,h);
+  if(s.antigo){                                                                                 // nervuras
+    const band=Math.max(1,Math.round(1.6*scale));
+    for(let ry=yTop+h*0.22; ry<yTop+h*0.86; ry+=h*0.24){
+      ctx.fillStyle='rgba(0,0,0,.30)'; ctx.fillRect(x,ry,w,band);
+      ctx.fillStyle='rgba(255,255,255,.11)'; ctx.fillRect(x,ry+band,w,Math.max(1,Math.round(band*0.7)));
+    }
+  }
+  ctx.restore();
+  // título vertical, centrado na lombada (auto-ajustado + reticências se não couber)
+  ctx.save();
+  ctx.translate(x+w/2, baseY-h/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=s.foil;
+  const avail=h-Math.round(44*scale);   // margem no topo (folhas) e no pé (nota)
+  fitFontSize(ctx,l.titulo||'',sz=>`600 ${s.antigo?'italic ':''}${sz}px Fraunces, serif`,avail,Math.round(19*scale),11);
+  let titulo=(l.titulo||'').trim();
+  if(ctx.measureText(titulo).width>avail){
+    while(titulo.length>1 && ctx.measureText(titulo+'…').width>avail) titulo=titulo.slice(0,-1);
+    titulo=titulo.trimEnd()+'…';
+  }
+  ctx.fillText(titulo,0,0);
+  ctx.restore();
+  if(l.nota){                                                                                    // nota no pé
+    ctx.save();
+    ctx.fillStyle=s.foil; ctx.globalAlpha=.9; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.font=`${Math.round(10*scale)}px 'Space Mono', monospace`;
+    ctx.fillText('★'+l.nota.toLocaleString(getLocale()),x+w/2,baseY-Math.round(6*scale));
+    ctx.restore();
+  }
+}
+function estanteParaCard(){
+  return prateleira.filter(l=>filtroEstante==='Todos'||l.status===filtroEstante);
+}
+async function renderShelfCardCanvas(){
+  const lista=estanteParaCard(); if(!lista.length) return null;
+  try{ await document.fonts.ready; }catch(e){}
+  const cv=document.createElement('canvas'); cv.width=1080; cv.height=1920;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const marfim='#F4EFE6', dourado='#E7C877';
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#3c2b1d'); g.addColorStop(1,'#241a11');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  drawPaperTexture(ctx,0,0,W,H,'rgba(0,0,0,.05)',40);
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=dourado; ctx.font="700 30px 'Space Mono', monospace";
+  ctx.fillText(('LOMBADA · '+t('shelf_card_kicker')).toUpperCase(),W/2,132);
+  const bignum=String(lista.length);
+  fitFontSize(ctx,bignum,s=>`600 ${s}px Fraunces, serif`,W-300,180,90);
+  ctx.fillStyle=marfim; ctx.fillText(bignum,W/2,300);
+  ctx.fillStyle='rgba(244,239,230,.8)'; ctx.font="400 30px 'Space Mono', monospace";
+  const sub=filtroEstante==='Todos'?t('shelf_card_total'):statusLabel(filtroEstante);
+  ctx.fillText(sub.toUpperCase(),W/2,352);
+  // monta as prateleiras
+  const scale=1.45, marginX=70, usableW=W-2*marginX, gap=Math.round(7*scale), plankH=22, rowGap=26;
+  const rows=[]; let cur=[], curW=0;
+  for(const l of lista){
+    const wpx=Math.round(spineSpec(l).w*scale);
+    if(curW+wpx+gap>usableW && cur.length){ rows.push(cur); cur=[]; curW=0; }
+    cur.push(l); curW+=wpx+gap;
+  }
+  if(cur.length) rows.push(cur);
+  let extra=0; const maxRows=4;
+  if(rows.length>maxRows){ extra=rows.slice(maxRows).reduce((a,r)=>a+r.length,0); rows.length=maxRows; }
+  // centraliza as prateleiras no espaço entre o cabeçalho e o rodapé
+  const totalH=rows.reduce((a,r)=>a+Math.round(Math.max(...r.map(l=>spineSpec(l).h*scale)))+plankH+rowGap,0)-rowGap;
+  const headerBottom=410, footerTop=H-180;
+  let y=Math.max(headerBottom,Math.round(headerBottom+(footerTop-headerBottom-totalH)/2));
+  for(const row of rows){
+    const rowH=Math.round(Math.max(...row.map(l=>spineSpec(l).h*scale)));
+    const totalW=row.reduce((a,l)=>a+Math.round(spineSpec(l).w*scale)+gap,0)-gap;
+    let x=Math.round((W-totalW)/2); const baseY=y+rowH;
+    const pg=ctx.createLinearGradient(0,baseY,0,baseY+plankH);
+    pg.addColorStop(0,'#7a5636'); pg.addColorStop(.5,'#5a3d24'); pg.addColorStop(1,'#33220f');
+    ctx.fillStyle=pg; ctx.fillRect(marginX-24,baseY,usableW+48,plankH);
+    ctx.fillStyle='rgba(0,0,0,.42)'; ctx.fillRect(marginX-24,baseY+plankH,usableW+48,3);
+    for(const l of row){ drawCardSpine(ctx,l,x,baseY,scale); x+=Math.round(spineSpec(l).w*scale)+gap; }
+    y=baseY+plankH+rowGap;
+  }
+  if(extra>0){ ctx.fillStyle='rgba(244,239,230,.72)'; ctx.textAlign='center'; ctx.font="400 28px 'Space Mono', monospace"; ctx.fillText('+ '+t('shelf_card_more',{count:extra}),W/2,Math.min(H-150,y+34)); }
+  if(meuHandle){ ctx.fillStyle='rgba(244,239,230,.8)'; ctx.textAlign='center'; ctx.font="400 28px 'Space Mono', monospace"; ctx.fillText('@'+meuHandle,W/2,H-118); }
+  ctx.fillStyle=dourado; ctx.textAlign='center'; ctx.font="600 italic 48px Fraunces, serif";
+  ctx.fillText('lombada.',W/2,H-54);
+  return cv;
+}
+
 async function compartilharRetrospectiva(){
   const d=dadosRetrospectiva(); if(!d) return;
   const btn=document.querySelector('.retro-share');
