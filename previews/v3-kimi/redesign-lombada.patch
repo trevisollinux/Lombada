@@ -1062,20 +1062,20 @@ index 0000000..b80587a
 +  }
 +}
 diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
-index 542e20c..6f229e5 100644
+index c23ab7d..6fc9f89 100644
 --- a/frontend/src/App.tsx
 +++ b/frontend/src/App.tsx
-@@ -17,7 +17,7 @@ export function App() {
-   return (
-     <PreferencesProvider>
-       <SessionProvider>
--        <BrowserRouter basename="/app-v2">
-+        <BrowserRouter basename={import.meta.env.VITE_BASENAME || '/app-v2'}>
-           <Routes>
-             <Route element={<AppLayout />}>
-               <Route index element={<SearchPage />} />
+@@ -21,7 +21,7 @@ export function App() {
+       <FeatureFlagsProvider>
+         <SessionProvider>
+           <ProductAnalyticsBridge />
+-          <BrowserRouter basename="/app-v2">
++          <BrowserRouter basename={import.meta.env.VITE_BASENAME || '/app-v2'}>
+             <Routes>
+               <Route element={<AppLayout />}>
+                 <Route index element={<SearchPage />} />
 diff --git a/frontend/src/components/AppLayout.tsx b/frontend/src/components/AppLayout.tsx
-index 6d7d34d..5e320fb 100644
+index 6d7d34d..6cd26a8 100644
 --- a/frontend/src/components/AppLayout.tsx
 +++ b/frontend/src/components/AppLayout.tsx
 @@ -7,6 +7,24 @@ import { AccountAvatar } from './AccountAvatar'
@@ -1117,7 +1117,7 @@ index 6d7d34d..5e320fb 100644
 -          <span className="brand-mark" aria-hidden="true">L</span>
 -          <span className="wordmark">lombada<span>.</span></span>
 +          <BrandGlyph />
-+          <span className="wordmark">lombada<i>.</i></span>
++          <span className="wordmark">ombada<i>.</i></span>
          </Link>
  
          <div className="app-header__meta">
@@ -1138,16 +1138,18 @@ index 6d7d34d..5e320fb 100644
            </button>
          </div>
        </header>
-@@ -88,7 +104,18 @@ export function AppLayout() {
+@@ -88,7 +104,20 @@ export function AppLayout() {
  
        <div className="desktop-layout">
          <aside className="desktop-rail" aria-label="Navegação principal">
 -          <nav>
 +          <div className="rail-head">
 +            <Link className="brand" to="/" aria-label={t('app_v2')}>
-+              <BrandGlyph />
 +              <span className="rail-brand__text">
-+                <span className="wordmark">lombada<i>.</i></span>
++                <span className="brand-lockup">
++                  <BrandGlyph />
++                  <span className="wordmark">ombada<i>.</i></span>
++                </span>
 +                <small className="rail-tagline">diário de leituras</small>
 +              </span>
 +            </Link>
@@ -1158,7 +1160,7 @@ index 6d7d34d..5e320fb 100644
              {navigationItems.map((item) => (
                <NavLink
                  key={item.to}
-@@ -96,15 +123,33 @@ export function AppLayout() {
+@@ -96,15 +125,33 @@ export function AppLayout() {
                  to={item.to}
                  end={item.end}
                >
@@ -1194,6 +1196,26 @@ index 6d7d34d..5e320fb 100644
          </aside>
  
          <main className="app-content" id="main-content">
+diff --git a/frontend/src/components/Icon.tsx b/frontend/src/components/Icon.tsx
+index f99a58c..0e7436f 100644
+--- a/frontend/src/components/Icon.tsx
++++ b/frontend/src/components/Icon.tsx
+@@ -21,6 +21,7 @@ export type IconName =
+   | 'arrow'
+   | 'refresh'
+   | 'external'
++  | 'chevron-down'
+ 
+ interface IconProps extends SVGProps<SVGSVGElement> {
+   name: IconName
+@@ -42,6 +43,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
+ 
+   const paths: Record<IconName, ReactNode> = {
+     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
++    'chevron-down': <path d="m6 9 6 6 6-6" />,
+     explore: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z" /></>,
+     feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
+     shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
 diff --git a/frontend/src/components/PageHeader.tsx b/frontend/src/components/PageHeader.tsx
 index 746cb2a..c42e2f6 100644
 --- a/frontend/src/components/PageHeader.tsx
@@ -1220,10 +1242,10 @@ index 746cb2a..c42e2f6 100644
        {aside && <div className="page-header__aside">{aside}</div>}
      </header>
 diff --git a/frontend/src/features/catalog/catalog.css b/frontend/src/features/catalog/catalog.css
-index 3844aaf..02ad42f 100644
+index 3844aaf..b29d743 100644
 --- a/frontend/src/features/catalog/catalog.css
 +++ b/frontend/src/features/catalog/catalog.css
-@@ -1,55 +1,150 @@
+@@ -1,55 +1,147 @@
 +/* ============================================================
 +   Catálogo — busca, resultados, registro de leitura, obra
 +   ============================================================ */
@@ -1274,14 +1296,11 @@ index 3844aaf..02ad42f 100644
 +}
 +
 +.catalog-search-form button {
++  display: grid;
 +  flex: 0 0 auto;
-+  padding: 14px 26px;
++  place-items: center;
++  padding: 13px 22px;
 +  border-radius: var(--radius-md);
-+  font-family: var(--font-mono);
-+  font-size: 11.5px;
-+  font-weight: 700;
-+  letter-spacing: 0.14em;
-+  text-transform: uppercase;
 +  color: var(--on-accent);
 +  background: linear-gradient(165deg, var(--accent-strong), var(--accent) 55%, var(--accent-deep));
 +  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -1399,7 +1418,7 @@ index 3844aaf..02ad42f 100644
  }
  
  .catalog-result__cover-link {
-@@ -58,611 +153,443 @@
+@@ -58,611 +150,443 @@
  }
  
  .catalog-result__cover {
@@ -7008,6 +7027,124 @@ index a73a692..f8d3c62 100644
            <strong>{reading.titulo}</strong>
            <span className="shelf-book__author">{reading.autor || '—'}</span>
            {meta.length > 0 && <span className="shelf-book__meta">{meta.join(' · ')}</span>}
+diff --git a/frontend/src/features/shelf/SpineShelf.tsx b/frontend/src/features/shelf/SpineShelf.tsx
+new file mode 100644
+index 0000000..e3fa004
+--- /dev/null
++++ b/frontend/src/features/shelf/SpineShelf.tsx
+@@ -0,0 +1,112 @@
++import type { CSSProperties } from 'react'
++
++import type { Locale } from '../../i18n'
++import type { ShelfReading } from '../../types/reading'
++
++interface SpineShelfProps {
++  readings: ShelfReading[]
++  locale: Locale
++  onOpen: (reading: ShelfReading) => void
++}
++
++/* Mesmo hash do app legado: cor estável por título+autor, para a mesma
++   lombada aparecer igual na estante, no share card e no v1. */
++function bookHue(title: string, author: string): number {
++  const text = `${title} ${author}`
++  let hash = 0
++  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) % 360
++  return hash
++}
++
++type SpineEra = 'couro' | 'vintage' | 'matte'
++
++interface SpineSpec {
++  hue: number
++  width: number
++  height: number
++  era: SpineEra
++  lean: number
++  sat: number
++  lig: number
++  foil: string
++  page: string
++}
++
++function spineSpec(reading: ShelfReading): SpineSpec {
++  const hue = bookHue(reading.titulo || '', reading.autor || '')
++  const pages = reading.paginas && reading.paginas > 0 ? reading.paginas : 0
++  const np = pages ? Math.max(0, Math.min(1, (pages - 80) / 620)) : 0.45
++  const width = Math.round(34 + np * 28)
++  const height = Math.round(Math.min(216, 158 + ((hue % 100) / 100) * 54 + np * 8))
++  const year = reading.ano ?? 0
++  const era: SpineEra =
++    year > 0 && year < 1970 ? 'couro' : year >= 1970 && year < 2000 ? 'vintage' : 'matte'
++  // de vez em quando um livro tomba de leve, como numa estante de verdade
++  const lean = hue % 11 === 4 ? (hue % 2 === 0 ? -1 : 1) : 0
++  return {
++    hue,
++    width,
++    height,
++    era,
++    lean,
++    sat: era === 'couro' ? 30 : era === 'vintage' ? 40 : 52,
++    lig: era === 'couro' ? 27 : era === 'vintage' ? 34 : 42,
++    foil: era === 'couro' ? '#e7c877' : era === 'vintage' ? '#f0e6c8' : '#f6f1e6',
++    page: era === 'couro' ? '#cdbd92' : era === 'vintage' ? '#e2d9bd' : '#efe9d6',
++  }
++}
++
++export function SpineShelf({ readings, locale, onOpen }: SpineShelfProps) {
++  return (
++    <div className="spine-shelf" role="list">
++      {readings.map((reading) => {
++        const spec = spineSpec(reading)
++        const titulo = (reading.titulo || '').trim() || '—'
++        const autor = (reading.autor || '').trim()
++        const editora = (reading.editora || '').trim()
++        // título auto-ajustado pela altura livre, como nas lombadas reais:
++        // título longo fica com letra menor pra caber inteiro
++        const zonaAutor = autor ? Math.min(44, Math.round(spec.height * 0.24)) : 10
++        const zonaFoot = (editora ? 20 : 0) + (reading.nota ? 14 : 6)
++        const tmax = Math.max(40, spec.height - zonaAutor - zonaFoot - 16)
++        const tfs = Math.max(8, Math.min(13, Math.round(tmax / Math.max(1, titulo.length) / 0.62)))
++        const style = {
++          '--w': `${spec.width}px`,
++          '--h': `${spec.height}px`,
++          '--hue': spec.hue,
++          '--sat': `${spec.sat}%`,
++          '--lig': `${spec.lig}%`,
++          '--foil': spec.foil,
++          '--page': spec.page,
++          '--tfs': `${tfs}px`,
++          '--tmax': `${tmax}px`,
++        } as CSSProperties
++        return (
++          <span className="spine-slot" role="listitem" key={reading.leitura_id}>
++            <button
++              type="button"
++              className="spine"
++              data-era={spec.era}
++              data-lean={spec.lean !== 0 ? spec.lean : undefined}
++              style={style}
++              title={autor ? `${titulo} — ${autor}` : titulo}
++              onClick={() => onOpen(reading)}
++            >
++              {autor && <span className="spine__author">{autor}</span>}
++              <span className="spine__title">{titulo}</span>
++              {(editora || reading.nota) && (
++                <span className="spine__foot">
++                  {editora && <span className="spine__publisher">{editora}</span>}
++                  {reading.nota ? (
++                    <span className="spine__stars">★ {reading.nota.toLocaleString(locale)}</span>
++                  ) : null}
++                </span>
++              )}
++              {reading.status === 'Lendo' && <span className="spine__ribbon" aria-hidden="true" />}
++            </button>
++          </span>
++        )
++      })}
++    </div>
++  )
++}
 diff --git a/frontend/src/features/shelf/reading-editor.css b/frontend/src/features/shelf/reading-editor.css
 index b32f7e8..5db2987 100644
 --- a/frontend/src/features/shelf/reading-editor.css
@@ -7588,7 +7725,7 @@ index b32f7e8..5db2987 100644
    }
  }
 diff --git a/frontend/src/features/shelf/shelf.css b/frontend/src/features/shelf/shelf.css
-index 5aac522..01ae68e 100644
+index 5aac522..7cece28 100644
 --- a/frontend/src/features/shelf/shelf.css
 +++ b/frontend/src/features/shelf/shelf.css
 @@ -1,120 +1,179 @@
@@ -7832,7 +7969,7 @@ index 5aac522..01ae68e 100644
  }
  
  .shelf-book {
-@@ -122,548 +181,384 @@
+@@ -122,548 +181,747 @@
  }
  
  .shelf-book__open {
@@ -8106,80 +8243,185 @@ index 5aac522..01ae68e 100644
 -  grid-template-columns: 76px minmax(0, 1fr);
 -  gap: 16px;
 -  padding: 12px;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-md);
--}
 +/* ---------------------------------------------------------- */
 +/* Lista de livros                                            */
 +/* ---------------------------------------------------------- */
- 
--.shelf-book-skeleton__cover {
--  display: block;
--  aspect-ratio: 2 / 3;
--  border-radius: 5px 10px 10px 5px;
--  background: var(--surface-raised);
++
 +.shelf-books--list {
 +  display: grid;
 +  gap: 10px;
- }
- 
--.shelf-book-skeleton--list .shelf-book-skeleton__cover {
--  width: 68px;
++}
++
 +.shelf-books--list .shelf-book {
-+  border: 1px solid var(--line);
-+  border-radius: var(--radius-md);
+   border: 1px solid var(--line);
+   border-radius: var(--radius-md);
 +  background: var(--surface);
 +  transition: border-color 0.24s var(--ease-out), background 0.24s var(--ease-out), transform 0.24s var(--ease-out);
- }
- 
--.shelf-book-skeleton__copy {
--  display: grid;
--  align-content: center;
--  gap: 9px;
++}
++
 +.shelf-books--list .shelf-book:hover {
 +  border-color: var(--accent-line);
 +  background: var(--surface-raised);
 +  transform: translateX(4px);
- }
- 
--.shelf-book-skeleton__copy i {
--  display: block;
--  height: 9px;
--  border-radius: 999px;
--  background: var(--line);
++}
++
 +.shelf-books--list .shelf-book__open {
 +  align-items: center;
 +  gap: 18px;
 +  padding: 14px 18px 14px 14px;
++}
++
++.shelf-books--list .shelf-book__cover {
++  width: 54px;
++  flex: 0 0 auto;
++}
++
++.shelf-books--list .shelf-book__body {
++  display: grid;
++  flex: 1;
++  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
++  align-items: center;
++  gap: 8px 22px;
++}
++
++.shelf-books--list .shelf-book__body strong {
++  font-size: 17px;
++  -webkit-line-clamp: 1;
++}
++
++.shelf-books--list .shelf-book__author {
++  grid-column: 1;
++}
++
++.shelf-books--list .shelf-book__meta {
++  display: none;
++}
++
++.shelf-books--list .shelf-book__status {
++  grid-column: 2;
++  grid-row: 1 / span 2;
++  justify-self: start;
++}
++
++.shelf-books--list .shelf-book__footer {
++  grid-column: 3;
++  grid-row: 1 / span 2;
++  margin-top: 0;
++}
++
++.shelf-books--list .shelf-book__footer svg {
++  opacity: 1;
++  transform: none;
++}
++
++@media (max-width: 720px) {
++  .shelf-books--list .shelf-book__body {
++    grid-template-columns: minmax(0, 1fr) auto;
++  }
++
++  .shelf-books--list .shelf-book__status {
++    grid-column: 2;
++    grid-row: 1;
++  }
++
++  .shelf-books--list .shelf-book__footer {
++    display: none;
++  }
++}
++
++/* ---------------------------------------------------------- */
++/* Esqueletos de carregamento                                 */
++/* ---------------------------------------------------------- */
++
++.shelf-book-skeleton {
++  display: flex;
++  gap: 16px;
++}
++
++.shelf-book-skeleton--grid {
++  flex-direction: column;
  }
  
--.shelf-book-skeleton__copy i:nth-child(2) { width: 72%; }
--.shelf-book-skeleton__copy i:nth-child(3) { width: 42%; }
--
--@keyframes shelf-pulse {
--  to { opacity: 0.48; }
-+.shelf-books--list .shelf-book__cover {
+ .shelf-book-skeleton__cover {
+   display: block;
+   aspect-ratio: 2 / 3;
+-  border-radius: 5px 10px 10px 5px;
+-  background: var(--surface-raised);
++  border-radius: 3px 9px 9px 3px;
+ }
+ 
+ .shelf-book-skeleton--list .shelf-book-skeleton__cover {
+-  width: 68px;
 +  width: 54px;
 +  flex: 0 0 auto;
  }
  
+ .shelf-book-skeleton__copy {
+-  display: grid;
+-  align-content: center;
++  display: flex;
++  flex: 1;
++  flex-direction: column;
+   gap: 9px;
++  padding-top: 4px;
+ }
+ 
+ .shelf-book-skeleton__copy i {
+   display: block;
+-  height: 9px;
+-  border-radius: 999px;
+-  background: var(--line);
++  height: 11px;
++  border-radius: 4px;
+ }
+ 
+-.shelf-book-skeleton__copy i:nth-child(2) { width: 72%; }
+-.shelf-book-skeleton__copy i:nth-child(3) { width: 42%; }
++.shelf-book-skeleton__copy i:nth-child(1) { width: 46%; }
++.shelf-book-skeleton__copy i:nth-child(2) { width: 88%; height: 15px; }
++.shelf-book-skeleton__copy i:nth-child(3) { width: 62%; }
+ 
+-@keyframes shelf-pulse {
+-  to { opacity: 0.48; }
++.shelf-book-skeleton__cover,
++.shelf-book-skeleton__copy i {
++  position: relative;
++  overflow: hidden;
++  background: var(--surface-raised);
+ }
+ 
 -.shelf-state {
-+.shelf-books--list .shelf-book__body {
++.shelf-book-skeleton__cover::after,
++.shelf-book-skeleton__copy i::after {
++  position: absolute;
++  inset: 0;
++  background: linear-gradient(100deg, transparent 30%, rgba(242, 233, 218, 0.07) 50%, transparent 70%);
++  content: "";
++  animation: shimmer 1.6s infinite;
++}
++
++/* ---------------------------------------------------------- */
++/* Estados vazios e de erro                                   */
++/* ---------------------------------------------------------- */
++
++.shelf-state,
++.catalog-state,
++.diary-state,
++.feed-empty {
    display: grid;
 -  min-height: 290px;
--  place-items: center;
+   place-items: center;
 -  align-content: center;
 -  gap: 12px;
 -  margin-top: 30px;
 -  padding: 34px;
 -  border: 1px solid var(--line);
--  border-radius: var(--radius-lg);
++  gap: 14px;
++  padding: 64px 28px;
++  border: 1px dashed var(--line-strong);
+   border-radius: var(--radius-lg);
 -  background: var(--surface);
--  text-align: center;
-+  flex: 1;
-+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto;
-+  align-items: center;
-+  gap: 8px 22px;
+   text-align: center;
  }
  
 -.shelf-state h2 {
@@ -8188,67 +8430,94 @@ index 5aac522..01ae68e 100644
 -  font-size: clamp(30px, 6vw, 48px);
 -  font-style: italic;
 -  font-weight: 400;
-+.shelf-books--list .shelf-book__body strong {
-+  font-size: 17px;
-+  -webkit-line-clamp: 1;
++.shelf-state h2,
++.catalog-state h2,
++.diary-state h2 {
++  font-family: var(--font-display);
++  font-size: 27px;
++  font-weight: 600;
++  letter-spacing: -0.01em;
  }
  
 -.shelf-state p {
 -  max-width: 540px;
 -  margin: 0;
--  color: var(--muted);
++.shelf-state p,
++.catalog-state p,
++.diary-state p {
++  max-width: 44ch;
+   color: var(--muted);
 -  line-height: 1.5;
-+.shelf-books--list .shelf-book__author {
-+  grid-column: 1;
++  font-style: italic;
++}
++
++.shelf-state svg,
++.catalog-state svg {
++  color: var(--accent);
++}
++
++.shelf-state .button,
++.catalog-state .button {
++  margin-top: 8px;
  }
  
--.shelf-state--empty {
+ .shelf-state--empty {
 -  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
--  text-align: left;
-+.shelf-books--list .shelf-book__meta {
-+  display: none;
++  grid-template-columns: auto minmax(0, 1fr);
++  gap: 40px;
++  padding: 58px 46px;
+   text-align: left;
  }
  
 -.shelf-state--empty .book-spines {
 -  width: 100%;
-+.shelf-books--list .shelf-book__status {
-+  grid-column: 2;
-+  grid-row: 1 / span 2;
-+  justify-self: start;
++.shelf-state--empty > div {
++  display: grid;
++  justify-items: start;
++  gap: 12px;
  }
  
 -.shelf-state--empty .button {
 -  margin-top: 20px;
-+.shelf-books--list .shelf-book__footer {
-+  grid-column: 3;
-+  grid-row: 1 / span 2;
-+  margin-top: 0;
++.shelf-state--empty h2 {
++  margin: 0;
  }
  
 -.shelf-state--error > svg {
 -  color: var(--danger);
-+.shelf-books--list .shelf-book__footer svg {
-+  opacity: 1;
-+  transform: none;
++@media (max-width: 720px) {
++  .shelf-state--empty {
++    grid-template-columns: 1fr;
++    justify-items: center;
++    text-align: center;
++  }
++
++  .shelf-state--empty > div {
++    justify-items: center;
++  }
  }
  
 -.shelf-state--filtered {
 -  min-height: 170px;
--}
-+@media (max-width: 720px) {
-+  .shelf-books--list .shelf-book__body {
-+    grid-template-columns: minmax(0, 1fr) auto;
-+  }
++/* lombadas decorativas do estado vazio */
++.book-spines {
++  display: flex;
++  align-items: flex-end;
++  gap: 7px;
++  height: 150px;
+ }
  
 -.reading-detail-layer {
 -  position: fixed;
 -  inset: 0;
 -  z-index: 100;
--}
-+  .shelf-books--list .shelf-book__status {
-+    grid-column: 2;
-+    grid-row: 1;
-+  }
++.book-spines span {
++  display: block;
++  width: 26px;
++  border-radius: 3px 5px 2px 2px;
++  background: linear-gradient(180deg, var(--surface-raised), var(--surface-solid));
++  box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 5px rgba(0, 0, 0, 0.3);
+ }
  
 -.reading-detail-backdrop {
 -  position: absolute;
@@ -8257,9 +8526,15 @@ index 5aac522..01ae68e 100644
 -  border: 0;
 -  background: rgba(7, 6, 5, 0.66);
 -  backdrop-filter: blur(6px);
-+  .shelf-books--list .shelf-book__footer {
-+    display: none;
-+  }
++.book-spines span:nth-child(1) { height: 62%; }
++.book-spines span:nth-child(2) { height: 88%; background: linear-gradient(180deg, #6d2f33, #4d1f23); }
++.book-spines span:nth-child(3) { height: 74%; background: linear-gradient(180deg, #2c4038, #1c2b25); }
++.book-spines span:nth-child(4) { height: 96%; background: linear-gradient(180deg, #8a6a33, #5e4518); }
++.book-spines span:nth-child(5) { height: 58%; }
++
++.book-spines span {
++  animation: spine-sway 5s ease-in-out infinite;
++  transform-origin: bottom center;
  }
  
 -.reading-detail {
@@ -8278,25 +8553,116 @@ index 5aac522..01ae68e 100644
 -  background: var(--surface-solid);
 -  box-shadow: var(--shadow);
 -  animation: shelf-detail-enter 220ms ease both;
--}
--
++.book-spines span:nth-child(2n) {
++  animation-delay: 0.7s;
+ }
+ 
 -@keyframes shelf-detail-enter {
 -  from { transform: translateY(100%); opacity: 0.6; }
 -  to { transform: translateY(0); opacity: 1; }
--}
--
--.reading-detail__topbar {
++@keyframes spine-sway {
++  0%, 100% { transform: rotate(0deg); }
++  50% { transform: rotate(1.6deg); }
++}
++
 +/* ---------------------------------------------------------- */
-+/* Esqueletos de carregamento                                 */
++/* Visão de lombadas: a estante física                        */
 +/* ---------------------------------------------------------- */
 +
-+.shelf-book-skeleton {
++.spine-shelf {
++  --slot-h: 240px;
++  --plank-hi: #7a5636;
++  --plank-mid: #5a3d24;
++  --plank-dark: #33220f;
++  --wood-face-a: #3c2b1d;
++  --wood-face-b: #2a1e13;
++  --wood-inset: rgba(0, 0, 0, 0.45);
++  display: flex;
++  flex-wrap: wrap;
++  align-items: flex-end;
++  padding: 12px 16px 0;
++  border-radius: var(--radius-lg);
++  overflow: hidden;
++  background:
++    repeating-linear-gradient(
++      to bottom,
++      transparent 0,
++      transparent calc(var(--slot-h) - 16px),
++      var(--plank-hi) calc(var(--slot-h) - 16px),
++      var(--plank-mid) calc(var(--slot-h) - 9px),
++      var(--plank-dark) calc(var(--slot-h) - 2px),
++      var(--plank-dark) var(--slot-h)
++    ),
++    repeating-linear-gradient(
++      90deg,
++      rgba(0, 0, 0, 0.14) 0 2px,
++      transparent 2px 7px,
++      rgba(255, 255, 255, 0.03) 7px 8px,
++      transparent 8px 15px
++    ),
++    linear-gradient(var(--wood-face-a), var(--wood-face-b));
++  box-shadow:
++    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
++    inset 0 3px 22px var(--wood-inset),
++    var(--shadow-card);
++}
++
++/* madeira clara (carvalho) no tema claro */
++:root[data-theme="light"] .spine-shelf {
++  --plank-hi: #c9a878;
++  --plank-mid: #a8845a;
++  --plank-dark: #77593a;
++  --wood-face-a: #e4cda9;
++  --wood-face-b: #d3b98f;
++  --wood-inset: rgba(90, 61, 36, 0.3);
++}
++
++.spine-slot {
++  display: flex;
++  height: var(--slot-h);
++  align-items: flex-end;
++  justify-content: center;
++  padding: 0 1px;
+ }
+ 
+-.reading-detail__topbar {
++.spine {
++  position: relative;
    display: flex;
--  align-items: center;
--  justify-content: space-between;
-   gap: 16px;
++  width: var(--w);
++  height: var(--h);
++  flex-direction: column;
+   align-items: center;
+   justify-content: space-between;
+-  gap: 16px;
 -  padding-bottom: 16px;
 -  border-bottom: 1px solid var(--line);
++  margin-bottom: 16px;
++  padding: 9px 3px 8px;
++  overflow: hidden;
++  border-radius: 2px 3px 3px 2px;
++  color: var(--foil);
++  background-color: hsl(var(--hue) var(--sat) var(--lig));
++  background-image:
++    linear-gradient(to bottom, var(--page) 0 3px, rgba(0, 0, 0, 0.24) 3px 4px, transparent 4px),
++    linear-gradient(to top, rgba(0, 0, 0, 0.26) 0 2px, transparent 2px),
++    linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0%, transparent 15%, transparent 85%, rgba(0, 0, 0, 0.32) 100%);
++  box-shadow:
++    1px 4px 9px rgba(0, 0, 0, 0.4),
++    inset 0 0 0 1px rgba(0, 0, 0, 0.22);
++  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
++}
++
++/* grão de papel bem sutil */
++.spine::after {
++  position: absolute;
++  inset: 0;
++  z-index: 1;
++  pointer-events: none;
++  content: "";
++  border-radius: inherit;
++  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 3px);
++  opacity: 0.5;
  }
  
 -.reading-detail__status {
@@ -8312,8 +8678,12 @@ index 5aac522..01ae68e 100644
 -  font-size: 8px;
 -  letter-spacing: 0.08em;
 -  text-transform: uppercase;
-+.shelf-book-skeleton--grid {
-+  flex-direction: column;
++/* couro (clássicos): curvatura mais rica + nervuras em relevo */
++.spine[data-era="couro"] {
++  background-image:
++    linear-gradient(to bottom, var(--page) 0 3px, rgba(0, 0, 0, 0.3) 3px 5px, transparent 5px),
++    linear-gradient(to top, rgba(0, 0, 0, 0.36) 0 3px, transparent 3px),
++    linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0%, transparent 13%, rgba(255, 255, 255, 0.08) 48%, transparent 87%, rgba(0, 0, 0, 0.44) 100%);
  }
  
 -.reading-detail__hero {
@@ -8322,17 +8692,32 @@ index 5aac522..01ae68e 100644
 -  align-items: end;
 -  gap: clamp(20px, 5vw, 40px);
 -  padding: clamp(28px, 6vw, 48px) 0;
-+.shelf-book-skeleton__cover {
-+  display: block;
-+  aspect-ratio: 2 / 3;
-+  border-radius: 3px 9px 9px 3px;
++.spine[data-era="couro"]::before {
++  position: absolute;
++  inset: 8px 0;
++  z-index: 0;
++  pointer-events: none;
++  content: "";
++  background: repeating-linear-gradient(
++    to bottom,
++    transparent 0 30px,
++    rgba(0, 0, 0, 0.3) 30px 32px,
++    rgba(255, 255, 255, 0.11) 32px 35px,
++    transparent 35px 62px
++  );
++}
++
++.spine[data-era="couro"] .spine__title {
++  font-style: italic;
  }
  
 -.reading-detail__cover {
 -  width: min(100%, 210px);
-+.shelf-book-skeleton--list .shelf-book-skeleton__cover {
-+  width: 54px;
-+  flex: 0 0 auto;
++/* alguns livros tombam de leve, como numa estante de verdade */
++.spine[data-lean="-1"] {
++  margin-left: 12px;
++  transform: rotate(-4.5deg);
++  transform-origin: bottom right;
  }
  
 -.reading-detail__hero h2 {
@@ -8343,22 +8728,23 @@ index 5aac522..01ae68e 100644
 -  font-weight: 400;
 -  line-height: 0.98;
 -  letter-spacing: -0.035em;
-+.shelf-book-skeleton__copy {
-+  display: flex;
-+  flex: 1;
-+  flex-direction: column;
-+  gap: 9px;
-+  padding-top: 4px;
++.spine[data-lean="1"] {
++  margin-right: 12px;
++  transform: rotate(4.5deg);
++  transform-origin: bottom left;
  }
  
 -.reading-detail__author {
 -  margin: 0;
 -  color: var(--text-soft);
 -  font-size: 18px;
-+.shelf-book-skeleton__copy i {
-+  display: block;
-+  height: 11px;
-+  border-radius: 4px;
++.spine:hover,
++.spine:focus-visible {
++  z-index: 2;
++  transform: translateY(-7px);
++  box-shadow:
++    2px 12px 20px rgba(0, 0, 0, 0.45),
++    inset 0 0 0 1px rgba(0, 0, 0, 0.22);
  }
  
 -.reading-detail__edition-meta {
@@ -8367,53 +8753,101 @@ index 5aac522..01ae68e 100644
 -  font-family: "Space Mono", monospace;
 -  font-size: 9px;
 -  line-height: 1.7;
--}
-+.shelf-book-skeleton__copy i:nth-child(1) { width: 46%; }
-+.shelf-book-skeleton__copy i:nth-child(2) { width: 88%; height: 15px; }
-+.shelf-book-skeleton__copy i:nth-child(3) { width: 62%; }
++.spine__author {
++  position: relative;
++  z-index: 2;
++  max-height: calc(var(--h) * 0.26);
++  overflow: hidden;
++  color: var(--foil);
++  opacity: 0.6;
++  writing-mode: vertical-rl;
++  text-orientation: mixed;
++  font-family: var(--font-mono);
++  font-size: 8px;
++  letter-spacing: 0.02em;
++  line-height: 1.15;
++  text-align: center;
++  text-transform: uppercase;
++  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+ }
  
 -.reading-detail__facts {
 -  display: grid;
 -  grid-template-columns: repeat(2, minmax(0, 1fr));
 -  gap: 1px;
 -  margin: 0;
-+.shelf-book-skeleton__cover,
-+.shelf-book-skeleton__copy i {
++.spine__title {
 +  position: relative;
++  z-index: 2;
++  max-height: var(--tmax);
++  margin: auto 0;
    overflow: hidden;
 -  border: 1px solid var(--line);
 -  border-radius: var(--radius-md);
 -  background: var(--line);
--}
--
++  color: var(--foil);
++  writing-mode: vertical-rl;
++  text-orientation: mixed;
++  font-family: var(--font-display);
++  font-size: var(--tfs, 12px);
++  font-weight: 600;
++  line-height: 1.06;
++  text-align: center;
++  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+ }
+ 
 -.reading-detail__facts div {
 -  min-width: 0;
 -  padding: 16px;
 -  background: var(--surface);
--}
--
++/* colofão: editora + nota, horizontais e miúdos como num paperback real */
++.spine__foot {
++  position: relative;
++  z-index: 2;
++  display: flex;
++  width: 100%;
++  flex-direction: column;
++  align-items: center;
++  gap: 2px;
++  padding-top: 5px;
+ }
+ 
 -.reading-detail__facts dt {
 -  color: var(--muted);
 -  font-family: "Space Mono", monospace;
 -  font-size: 8px;
 -  letter-spacing: 0.08em;
 -  text-transform: uppercase;
-+  background: var(--surface-raised);
++.spine__foot::before {
++  content: "";
++  width: 42%;
++  height: 1px;
++  margin-bottom: 2px;
++  background: currentColor;
++  opacity: 0.24;
  }
  
 -.reading-detail__facts dd {
--  overflow: hidden;
++.spine__publisher {
++  max-height: 24px;
+   overflow: hidden;
 -  margin: 7px 0 0;
 -  color: var(--text);
 -  text-overflow: ellipsis;
--  white-space: nowrap;
-+.shelf-book-skeleton__cover::after,
-+.shelf-book-skeleton__copy i::after {
-+  position: absolute;
-+  inset: 0;
-+  background: linear-gradient(100deg, transparent 30%, rgba(242, 233, 218, 0.07) 50%, transparent 70%);
-+  content: "";
-+  animation: shimmer 1.6s infinite;
++  font-family: var(--font-mono);
++  font-size: 6px;
++  line-height: 1.25;
++  text-align: center;
++  text-transform: uppercase;
++  opacity: 0.72;
++}
++
++.spine__stars {
++  font-family: var(--font-mono);
++  font-size: 8px;
++  letter-spacing: 0.02em;
+   white-space: nowrap;
++  opacity: 0.9;
  }
  
 -.reading-detail__review {
@@ -8421,26 +8855,31 @@ index 5aac522..01ae68e 100644
 -  padding: 24px 0;
 -  border-top: 1px solid var(--line);
 -  border-bottom: 1px solid var(--line);
--}
-+/* ---------------------------------------------------------- */
-+/* Estados vazios e de erro                                   */
-+/* ---------------------------------------------------------- */
++/* fita marcador pendurada: o livro que está sendo lido agora */
++.spine__ribbon {
++  position: absolute;
++  bottom: -1px;
++  left: 50%;
++  z-index: 3;
++  width: 7px;
++  height: 16px;
++  background: linear-gradient(var(--accent-strong), var(--accent-deep));
++  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
++  transform: translateX(-50%);
++  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+ }
  
 -.reading-detail__section-heading {
 -  display: flex;
 -  align-items: center;
 -  justify-content: space-between;
-+.shelf-state,
-+.catalog-state,
-+.diary-state,
-+.feed-empty {
-+  display: grid;
-+  place-items: center;
-   gap: 14px;
-+  padding: 64px 28px;
-+  border: 1px dashed var(--line-strong);
-+  border-radius: var(--radius-lg);
-+  text-align: center;
+-  gap: 14px;
++@media (max-width: 640px) {
++  .spine-shelf {
++    --slot-h: 212px;
++    margin-inline: -6px;
++    padding: 10px 10px 0;
++  }
  }
  
 -.reading-detail__section-heading h3 {
@@ -8449,48 +8888,66 @@ index 5aac522..01ae68e 100644
 -  font-size: 26px;
 -  font-style: italic;
 -  font-weight: 400;
--}
--
++.view-icon--spines {
++  display: inline-flex;
++  align-items: flex-end;
++  gap: 2px;
+ }
+ 
 -.reading-detail__badges,
 -.reading-detail__relations {
 -  display: flex;
 -  flex-wrap: wrap;
 -  gap: 6px;
-+.shelf-state h2,
-+.catalog-state h2,
-+.diary-state h2 {
-+  font-family: var(--font-display);
-+  font-size: 27px;
-+  font-weight: 600;
-+  letter-spacing: -0.01em;
++.view-icon--spines i {
++  width: 3.5px;
++  border-radius: 1px;
  }
  
 -.reading-detail__badges span,
 -.reading-detail__relations span {
--  display: inline-flex;
++.view-icon--spines i:nth-child(1) { height: 12px; }
++.view-icon--spines i:nth-child(2) { height: 15px; }
++.view-icon--spines i:nth-child(3) { height: 10px; }
++.view-icon--spines i:nth-child(4) { height: 14px; }
++
++/* ---------------------------------------------------------- */
++/* Menu de status da estante (substitui a fileira de pílulas) */
++/* ---------------------------------------------------------- */
++
++.shelf-filter-menu {
++  position: relative;
++}
++
++.shelf-filter-menu__trigger {
+   display: inline-flex;
 -  min-height: 24px;
--  align-items: center;
+   align-items: center;
 -  padding: 0 8px;
 -  border: 1px solid var(--line);
 -  border-radius: 999px;
-+.shelf-state p,
-+.catalog-state p,
-+.diary-state p {
-+  max-width: 44ch;
-   color: var(--muted);
+-  color: var(--muted);
 -  font-family: "Space Mono", monospace;
 -  font-size: 7px;
 -  letter-spacing: 0.06em;
 -  text-transform: uppercase;
-+  font-style: italic;
++  gap: 9px;
++  padding: 10px 14px;
++  border: 1px solid var(--line-strong);
++  border-radius: var(--radius-md);
++  color: var(--text);
++  background: var(--surface);
++  font-size: 14.5px;
++  transition: border-color 0.22s var(--ease-out), background 0.22s var(--ease-out);
  }
  
 -.reading-detail__badges span.is-warning {
 -  border-color: color-mix(in srgb, var(--danger) 54%, var(--line));
 -  color: var(--danger);
-+.shelf-state svg,
-+.catalog-state svg {
-+  color: var(--accent);
++.shelf-filter-menu__trigger:hover,
++.shelf-filter-menu__trigger[aria-expanded="true"] {
++  border-color: var(--accent-line);
++  background: var(--surface-raised);
  }
  
 -.reading-detail__review > p {
@@ -8500,27 +8957,24 @@ index 5aac522..01ae68e 100644
 -  font-style: italic;
 -  line-height: 1.65;
 -  white-space: pre-wrap;
-+.shelf-state .button,
-+.catalog-state .button {
-+  margin-top: 8px;
++.shelf-filter-menu__trigger small {
++  font-family: var(--font-mono);
++  font-size: 10px;
++  color: var(--accent);
  }
  
 -.reading-detail__relations {
 -  margin-top: 20px;
-+.shelf-state--empty {
-+  grid-template-columns: auto minmax(0, 1fr);
-+  gap: 40px;
-+  padding: 58px 46px;
-+  text-align: left;
++.shelf-filter-menu__trigger svg {
++  color: var(--muted);
++  transition: transform 0.22s var(--ease-out);
  }
  
 -.reading-detail__legacy {
 -  width: 100%;
 -  margin-top: 24px;
-+.shelf-state--empty > div {
-+  display: grid;
-+  justify-items: start;
-+  gap: 12px;
++.shelf-filter-menu__trigger[aria-expanded="true"] svg {
++  transform: rotate(180deg);
  }
  
 -@media (min-width: 620px) {
@@ -8528,8 +8982,12 @@ index 5aac522..01ae68e 100644
 -    grid-template-columns: repeat(3, minmax(0, 1fr));
 -    gap: 34px 22px;
 -  }
-+.shelf-state--empty h2 {
-+  margin: 0;
++.shelf-filter-menu__backdrop {
++  position: fixed;
++  inset: 0;
++  z-index: 30;
++  cursor: default;
++  background: transparent;
  }
  
 -@media (min-width: 960px) {
@@ -8549,19 +9007,24 @@ index 5aac522..01ae68e 100644
 -    border: 1px solid var(--line-strong);
 -    border-radius: 26px;
 -    animation-name: shelf-detail-desktop-enter;
-+@media (max-width: 720px) {
-+  .shelf-state--empty {
-+    grid-template-columns: 1fr;
-+    justify-items: center;
-+    text-align: center;
-   }
- 
+-  }
+-
 -  @keyframes shelf-detail-desktop-enter {
 -    from { transform: translateX(40px); opacity: 0; }
 -    to { transform: translateX(0); opacity: 1; }
-+  .shelf-state--empty > div {
-+    justify-items: center;
-   }
+-  }
++.shelf-filter-menu__list {
++  position: absolute;
++  top: calc(100% + 6px);
++  left: 0;
++  z-index: 31;
++  display: grid;
++  min-width: 200px;
++  padding: 6px;
++  border: 1px solid var(--line-strong);
++  border-radius: var(--radius-lg);
++  background: var(--surface-solid);
++  box-shadow: var(--shadow-pop);
  }
  
 -@media (max-width: 560px) {
@@ -8572,59 +9035,92 @@ index 5aac522..01ae68e 100644
 -  .shelf-view-toggle {
 -    margin-top: 2px;
 -  }
-+/* lombadas decorativas do estado vazio */
-+.book-spines {
++.shelf-filter-menu__list button {
 +  display: flex;
-+  align-items: flex-end;
-+  gap: 7px;
-+  height: 150px;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 18px;
++  padding: 10px 12px;
++  border-radius: var(--radius-sm);
++  color: var(--text-soft);
++  font-size: 14.5px;
++  text-align: left;
++  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out);
 +}
  
 -  .shelf-state--empty {
 -    grid-template-columns: 1fr;
 -    text-align: center;
 -  }
-+.book-spines span {
-+  display: block;
-+  width: 26px;
-+  border-radius: 3px 5px 2px 2px;
-+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-solid));
-+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 5px rgba(0, 0, 0, 0.3);
++.shelf-filter-menu__list button:hover {
++  color: var(--text);
++  background: var(--surface-raised);
 +}
  
 -  .shelf-state--empty .book-spines {
 -    max-width: 230px;
 -  }
-+.book-spines span:nth-child(1) { height: 62%; }
-+.book-spines span:nth-child(2) { height: 88%; background: linear-gradient(180deg, #6d2f33, #4d1f23); }
-+.book-spines span:nth-child(3) { height: 74%; background: linear-gradient(180deg, #2c4038, #1c2b25); }
-+.book-spines span:nth-child(4) { height: 96%; background: linear-gradient(180deg, #8a6a33, #5e4518); }
-+.book-spines span:nth-child(5) { height: 58%; }
++.shelf-filter-menu__list button.is-active {
++  color: var(--accent-strong);
++  background: var(--accent-soft);
++}
  
 -  .reading-detail__hero {
 -    grid-template-columns: 100px minmax(0, 1fr);
 -    align-items: start;
 -  }
-+.book-spines span {
-+  animation: spine-sway 5s ease-in-out infinite;
-+  transform-origin: bottom center;
++.shelf-filter-menu__list button small {
++  font-family: var(--font-mono);
++  font-size: 10px;
++  color: var(--subtle);
 +}
  
 -  .reading-detail__facts {
 -    grid-template-columns: 1fr;
 -  }
-+.book-spines span:nth-child(2n) {
-+  animation-delay: 0.7s;
++.shelf-filter-menu__list button.is-active small {
++  color: var(--accent);
 +}
  
 -  .reading-detail__section-heading {
 -    align-items: flex-start;
 -    flex-direction: column;
 -  }
-+@keyframes spine-sway {
-+  0%, 100% { transform: rotate(0deg); }
-+  50% { transform: rotate(1.6deg); }
++/* resumo da estante, como no v1: serifado, itálico, discreto */
++.shelf-summary {
++  margin: -12px 0 20px;
++  color: var(--muted);
++  font-size: 15px;
++  font-style: italic;
  }
+diff --git a/frontend/src/features/shelf/shelfI18n.ts b/frontend/src/features/shelf/shelfI18n.ts
+index 1c770db..12fffeb 100644
+--- a/frontend/src/features/shelf/shelfI18n.ts
++++ b/frontend/src/features/shelf/shelfI18n.ts
+@@ -8,6 +8,7 @@ export type ShelfTextKey =
+   | 'other'
+   | 'grid'
+   | 'list'
++  | 'spines'
+   | 'loading'
+   | 'error'
+   | 'empty_title'
+@@ -65,6 +66,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
+     other: 'Outros',
+     grid: 'Grade',
+     list: 'Lista',
++    spines: 'Lombadas',
+     loading: 'Carregando sua estante…',
+     error: 'Não foi possível carregar sua estante.',
+     empty_title: 'Sua estante ainda está vazia',
+@@ -121,6 +123,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
+     other: 'Other',
+     grid: 'Grid',
+     list: 'List',
++    spines: 'Spines',
+     loading: 'Loading your shelf…',
+     error: 'Your shelf could not be loaded.',
+     empty_title: 'Your shelf is still empty',
 diff --git a/frontend/src/i18n.ts b/frontend/src/i18n.ts
 index 556d021..ec24935 100644
 --- a/frontend/src/i18n.ts
@@ -8805,29 +9301,232 @@ index 918782d..b5eb077 100644
  
        {status === 'loading' && <ProfileLoading />}
 diff --git a/frontend/src/pages/SearchPage.tsx b/frontend/src/pages/SearchPage.tsx
-index 13ad1fa..b8e88ce 100644
+index 80a6a74..4af744e 100644
 --- a/frontend/src/pages/SearchPage.tsx
 +++ b/frontend/src/pages/SearchPage.tsx
-@@ -101,7 +101,6 @@ export function SearchPage() {
+@@ -193,7 +193,6 @@ export function SearchPage() {
              ? `${results.length} ${catalogText(locale, 'results')}`
              : t('search_copy')
          }
 -        aside={<span className="stage-stamp">06 · catálogo</span>}
        />
  
+       {showOnboarding && (
+@@ -203,7 +202,6 @@ export function SearchPage() {
+       {showRitual && readingNow && <ReadingRitualCard reading={readingNow} locale={locale} />}
+ 
        <form className="search-form catalog-search-form" onSubmit={submit} role="search">
+-        <Icon name="search" size={24} />
+         <input
+           ref={inputRef}
+           value={query}
+@@ -212,7 +210,9 @@ export function SearchPage() {
+           aria-label={t('search_placeholder')}
+           autoComplete="off"
+         />
+-        <button type="submit">{t('search_button')}</button>
++        <button type="submit" aria-label={t('search_button')}>
++          <Icon name="search" size={21} />
++        </button>
+       </form>
+ 
+       {!activeQuery && (
 diff --git a/frontend/src/pages/ShelfPage.tsx b/frontend/src/pages/ShelfPage.tsx
-index e2b7e24..41d609b 100644
+index e2b7e24..546fb76 100644
 --- a/frontend/src/pages/ShelfPage.tsx
 +++ b/frontend/src/pages/ShelfPage.tsx
-@@ -117,7 +117,6 @@ export function ShelfPage() {
+@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
+ import { PageHeader } from '../components/PageHeader'
+ import { ReadingDetailPanel } from '../features/shelf/ReadingDetailPanel'
+ import { ShelfBookCard } from '../features/shelf/ShelfBookCard'
++import { SpineShelf } from '../features/shelf/SpineShelf'
+ import { shelfText, type ShelfTextKey } from '../features/shelf/shelfI18n'
+ import { usePreferences } from '../providers/PreferencesProvider'
+ import { getShelf } from '../services/api'
+@@ -33,9 +34,10 @@ const filters: FilterOption[] = [
+ ]
+ 
+ function initialView(): ShelfView {
+-  return localStorage.getItem(VIEW_KEY) === 'list' || localStorage.getItem(VIEW_KEY) === 'lista'
+-    ? 'list'
+-    : 'grid'
++  const stored = localStorage.getItem(VIEW_KEY)
++  if (stored === 'list' || stored === 'lista') return 'list'
++  if (stored === 'spines' || stored === 'lombadas') return 'spines'
++  return 'grid'
+ }
+ 
+ export function ShelfPage() {
+@@ -44,6 +46,7 @@ export function ShelfPage() {
+   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+   const [error, setError] = useState<string | null>(null)
+   const [filter, setFilter] = useState<ShelfFilter>('all')
++  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
+   const [view, setViewState] = useState<ShelfView>(initialView)
+   const [selected, setSelected] = useState<ShelfReading | null>(null)
+   const [notice, setNotice] = useState<string | null>(null)
+@@ -68,6 +71,15 @@ export function ShelfPage() {
+     return () => controller.abort()
+   }, [load])
+ 
++  useEffect(() => {
++    if (!filterMenuOpen) return
++    const onKeyDown = (event: KeyboardEvent) => {
++      if (event.key === 'Escape') setFilterMenuOpen(false)
++    }
++    document.addEventListener('keydown', onKeyDown)
++    return () => document.removeEventListener('keydown', onKeyDown)
++  }, [filterMenuOpen])
++
+   useEffect(() => {
+     if (!notice) return
+     const timer = window.setTimeout(() => setNotice(null), 3500)
+@@ -90,7 +102,10 @@ export function ShelfPage() {
+ 
+   function setView(nextView: ShelfView) {
+     setViewState(nextView)
+-    localStorage.setItem(VIEW_KEY, nextView === 'list' ? 'lista' : 'grade')
++    localStorage.setItem(
++      VIEW_KEY,
++      nextView === 'list' ? 'lista' : nextView === 'spines' ? 'lombadas' : 'grade',
++    )
+   }
+ 
+   function handleUpdated(updated: ShelfReading) {
+@@ -117,9 +132,17 @@ export function ShelfPage() {
              ? `${readings.length} ${shelfText(locale, 'books_count')}`
              : t('shelf_copy')
          }
 -        aside={<span className="stage-stamp">04 · edição</span>}
        />
  
++      {status === 'ready' && readings.length > 0 && (
++        <p className="shelf-summary">
++          {readings.length} {shelfText(locale, 'books_count')}
++          {' · '}{counts.read} {shelfText(locale, 'read').toLocaleLowerCase(locale)}
++          {' · '}{counts.reading} {shelfText(locale, 'reading').toLocaleLowerCase(locale)}
++          {' · '}{counts.want} {shelfText(locale, 'want').toLocaleLowerCase(locale)}
++        </p>
++      )}
++
        {notice && (
+         <div className="shelf-notice" role="status" aria-live="polite">
+           {notice}
+@@ -127,23 +150,50 @@ export function ShelfPage() {
+       )}
+ 
+       <div className="shelf-toolbar">
+-        <div className="shelf-filters" role="group" aria-label={t('shelf_title')}>
+-          {filters.map((option) => {
+-            const count = counts[option.id]
+-            if (option.id === 'other' && count === 0) return null
+-            return (
++        <div className="shelf-filter-menu">
++          <button
++            type="button"
++            className="shelf-filter-menu__trigger"
++            aria-haspopup="listbox"
++            aria-expanded={filterMenuOpen}
++            onClick={() => setFilterMenuOpen((current) => !current)}
++          >
++            <span>{shelfText(locale, (filters.find((option) => option.id === filter) ?? filters[0]).label)}</span>
++            <small>{counts[filter]}</small>
++            <Icon name="chevron-down" size={14} />
++          </button>
++          {filterMenuOpen && (
++            <>
+               <button
+-                key={option.id}
++                className="shelf-filter-menu__backdrop"
+                 type="button"
+-                className={filter === option.id ? 'is-active' : ''}
+-                aria-pressed={filter === option.id}
+-                onClick={() => setFilter(option.id)}
+-              >
+-                <span>{shelfText(locale, option.label)}</span>
+-                <small>{count}</small>
+-              </button>
+-            )
+-          })}
++                aria-label={t('close')}
++                onClick={() => setFilterMenuOpen(false)}
++              />
++              <div className="shelf-filter-menu__list" role="listbox" aria-label={t('shelf_title')}>
++                {filters.map((option) => {
++                  const count = counts[option.id]
++                  if (option.id === 'other' && count === 0) return null
++                  return (
++                    <button
++                      key={option.id}
++                      type="button"
++                      role="option"
++                      aria-selected={filter === option.id}
++                      className={filter === option.id ? 'is-active' : ''}
++                      onClick={() => {
++                        setFilter(option.id)
++                        setFilterMenuOpen(false)
++                      }}
++                    >
++                      <span>{shelfText(locale, option.label)}</span>
++                      <small>{count}</small>
++                    </button>
++                  )
++                })}
++              </div>
++            </>
++          )}
+         </div>
+ 
+         <div className="shelf-view-toggle" role="group" aria-label="Visualização">
+@@ -165,6 +215,15 @@ export function ShelfPage() {
+             <span className="view-icon view-icon--list" aria-hidden="true"><i /><i /><i /></span>
+             <span className="sr-only">{shelfText(locale, 'list')}</span>
+           </button>
++          <button
++            type="button"
++            className={view === 'spines' ? 'is-active' : ''}
++            aria-pressed={view === 'spines'}
++            onClick={() => setView('spines')}
++          >
++            <span className="view-icon view-icon--spines" aria-hidden="true"><i /><i /><i /><i /></span>
++            <span className="sr-only">{shelfText(locale, 'spines')}</span>
++          </button>
+         </div>
+       </div>
+ 
+@@ -218,17 +277,21 @@ export function ShelfPage() {
+       )}
+ 
+       {status === 'ready' && visibleReadings.length > 0 && (
+-        <div className={`shelf-books shelf-books--${view}`}>
+-          {visibleReadings.map((reading) => (
+-            <ShelfBookCard
+-              key={reading.leitura_id}
+-              reading={reading}
+-              view={view}
+-              locale={locale}
+-              onOpen={setSelected}
+-            />
+-          ))}
+-        </div>
++        view === 'spines' ? (
++          <SpineShelf readings={visibleReadings} locale={locale} onOpen={setSelected} />
++        ) : (
++          <div className={`shelf-books shelf-books--${view}`}>
++            {visibleReadings.map((reading) => (
++              <ShelfBookCard
++                key={reading.leitura_id}
++                reading={reading}
++                view={view}
++                locale={locale}
++                onOpen={setSelected}
++              />
++            ))}
++          </div>
++        )
+       )}
+ 
+       <ReadingDetailPanel
 diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
 index 2161ecf..3c9e7d6 100644
 --- a/frontend/src/services/api.ts
@@ -9514,10 +10213,10 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..b135a21 100644
+index 990b8b9..edb9f6e 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
-@@ -1,56 +1,108 @@
+@@ -1,55 +1,111 @@
 +/* ============================================================
 +   Lombada — design system
 +   "escuro literário": tinta quente, papel, ouro e vinho.
@@ -9572,6 +10271,8 @@ index 990b8b9..b135a21 100644
 +
 +  --wine: #6b1f1f;
 +  --wine-soft: rgba(107, 31, 31, 0.28);
++  --glow-a: rgba(107, 31, 31, 0.09);
++  --glow-b: rgba(139, 46, 31, 0.05);
    --danger: #e59a94;
 -  --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
 -  --radius-sm: 10px;
@@ -9623,6 +10324,7 @@ index 990b8b9..b135a21 100644
 -  --wine-soft: rgba(113, 31, 39, 0.11);
 -  --danger: #a23834;
 -  --shadow: 0 28px 80px rgba(70, 54, 38, 0.16);
+-}
 +  color: #1a1714;
 +  background: #f4efe6;
 +
@@ -9650,6 +10352,8 @@ index 990b8b9..b135a21 100644
 +
 +  --wine: #6b1f1f;
 +  --wine-soft: rgba(107, 31, 31, 0.12);
++  --glow-a: rgba(107, 31, 31, 0.1);
++  --glow-b: rgba(107, 31, 31, 0.07);
 +  --danger: #8b2e1f;
 +
 +  --status-lido: #5d814f;
@@ -9660,16 +10364,15 @@ index 990b8b9..b135a21 100644
 +  --shadow-card: 0 16px 34px rgba(26, 23, 20, 0.1), 0 1px 0 rgba(26, 23, 20, 0.14);
 +  --shadow-pop: 0 30px 70px rgba(26, 23, 20, 0.2);
 +  --shadow-cover: 0 10px 22px rgba(26, 23, 20, 0.18), 0 1px 0 rgba(26, 23, 20, 0.12);
- }
- 
++}
++
 +/* ---------------------------------------------------------- */
 +/* Base                                                       */
 +/* ---------------------------------------------------------- */
-+
+ 
  * {
    box-sizing: border-box;
- }
-@@ -67,38 +119,47 @@ body {
+@@ -67,38 +123,47 @@ body {
    min-height: 100vh;
    margin: 0;
    color: var(--text);
@@ -9678,8 +10381,8 @@ index 990b8b9..b135a21 100644
    background:
 -    radial-gradient(circle at 92% 0%, var(--wine-soft), transparent 32rem),
 -    radial-gradient(circle at 6% 22%, var(--accent-soft), transparent 28rem),
-+    radial-gradient(52rem 34rem at 105% -8%, var(--wine-soft), transparent 62%),
-+    radial-gradient(46rem 30rem at -12% 14%, var(--accent-soft), transparent 60%),
++    radial-gradient(52rem 34rem at 105% -8%, var(--glow-a), transparent 62%),
++    radial-gradient(46rem 30rem at -12% 14%, var(--glow-b), transparent 60%),
      var(--bg);
 +  background-attachment: fixed;
  }
@@ -9730,7 +10433,7 @@ index 990b8b9..b135a21 100644
  }
  
  a {
-@@ -106,16 +167,48 @@ a {
+@@ -106,16 +171,48 @@ a {
    text-decoration: none;
  }
  
@@ -9781,7 +10484,7 @@ index 990b8b9..b135a21 100644
  }
  
  .sr-only {
-@@ -130,27 +223,176 @@ button:disabled {
+@@ -130,198 +227,371 @@ button:disabled {
    border: 0;
  }
  
@@ -9947,56 +10650,58 @@ index 990b8b9..b135a21 100644
 +  padding: 0 18px;
    border-bottom: 1px solid var(--line);
 -  background: color-mix(in srgb, var(--bg) 82%, transparent);
-+  background: color-mix(in srgb, var(--bg) 84%, transparent);
++  background: color-mix(in srgb, var(--bg) 96%, transparent);
    backdrop-filter: blur(18px);
 +  -webkit-backdrop-filter: blur(18px);
-+}
-+
+ }
+ 
+-.brand {
 +.app-header__meta {
-+  display: inline-flex;
-+  align-items: center;
-+  gap: 12px;
+   display: inline-flex;
+   align-items: center;
+   gap: 12px;
 +}
 +
 +/* no mobile o topo fica só com a marca e o avatar; o aviso de migração
 +   continua disponível no painel de configurações e no trilho desktop */
 +.app-header .migration-chip {
 +  display: none;
++}
++
++.brand {
++  display: inline-flex;
++  align-items: center;
++  gap: 2px;
+   min-width: 0;
  }
  
- .brand {
-@@ -162,166 +404,189 @@ button:disabled {
- 
  .brand-mark {
-   display: grid;
+-  display: grid;
 -  width: 40px;
 -  height: 40px;
-+  width: 38px;
-+  height: 38px;
++  display: flex;
++  height: 34px;
    flex: 0 0 auto;
-   place-items: center;
+-  place-items: center;
 -  border: 1px solid var(--text);
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: 23px;
 -  font-style: italic;
 -  line-height: 1;
 -  box-shadow: 4px 5px 0 var(--accent-soft);
-+  border: 1.5px solid var(--text);
-+  border-radius: 2px;
-+  background: var(--surface-solid);
-+  box-shadow: 3px 4px 0 var(--accent-soft);
-+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
++  align-items: center;
++  color: var(--text);
++  transition: transform 0.3s var(--ease-out);
 +}
 +
 +.brand-mark svg {
 +  display: block;
 +  width: auto;
-+  height: 62%;
++  height: 100%;
 +}
 +
 +.brand:hover .brand-mark {
-+  transform: rotate(-4deg) translateY(-1px);
-+  box-shadow: 5px 6px 0 var(--accent-soft);
++  transform: translateY(-1px);
  }
  
  .wordmark {
@@ -10021,11 +10726,16 @@ index 990b8b9..b135a21 100644
 -.app-header__meta {
 +.rail-brand__text {
    display: flex;
--  align-items: center;
--  gap: 12px;
 +  flex-direction: column;
 +  gap: 5px;
 +  min-width: 0;
++}
++
++.brand-lockup {
++  display: inline-flex;
+   align-items: center;
+-  gap: 12px;
++  gap: 2px;
  }
  
 -.migration-chip,
@@ -10173,12 +10883,12 @@ index 990b8b9..b135a21 100644
 +  width: 64px;
 +  height: 64px;
 +  font-size: 23px;
-+}
-+
-+.account-avatar--fallback {
-+  text-transform: uppercase;
  }
  
++.account-avatar--fallback {
++  text-transform: uppercase;
++}
++
 +/* aviso global de erro de sessão */
  .global-notice {
 +  position: sticky;
@@ -10239,7 +10949,7 @@ index 990b8b9..b135a21 100644
  }
  
  .desktop-rail {
-@@ -329,1004 +594,801 @@ button:disabled {
+@@ -329,1004 +599,797 @@ button:disabled {
  }
  
  .app-content {
@@ -10514,9 +11224,9 @@ index 990b8b9..b135a21 100644
 +
 +.bottom-navigation {
 +  position: fixed;
-+  right: 14px;
-+  bottom: 14px;
-+  left: 14px;
++  right: 0;
++  bottom: 0;
++  left: 0;
 +  z-index: 45;
    display: flex;
 -  flex-wrap: wrap;
@@ -10525,13 +11235,9 @@ index 990b8b9..b135a21 100644
 +  align-items: center;
 +  justify-content: space-around;
 +  gap: 4px;
-+  padding: 9px 12px;
-+  border: 1px solid var(--line-strong);
-+  border-radius: 999px;
-+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-+  box-shadow: var(--shadow-pop);
-+  backdrop-filter: blur(20px);
-+  -webkit-backdrop-filter: blur(20px);
++  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
++  border-top: 1px solid var(--line);
++  background: var(--bg);
  }
  
 -.suggestion-row button {
@@ -10546,7 +11252,7 @@ index 990b8b9..b135a21 100644
 +  align-items: center;
 +  gap: 4px;
 +  padding: 7px 8px 6px;
-+  border-radius: 16px;
++  border-radius: var(--radius-md);
    color: var(--muted);
 -  background: transparent;
 -  cursor: pointer;
@@ -10561,10 +11267,10 @@ index 990b8b9..b135a21 100644
  
 -.suggestion-row button:hover {
 -  border-color: var(--accent);
--  color: var(--text);
 +.bottom-navigation__item.is-active {
-+  color: var(--accent-strong);
-   background: var(--accent-soft);
+   color: var(--text);
+-  background: var(--accent-soft);
++  background: var(--surface-raised);
  }
  
 -.migration-preview {
@@ -11816,6 +12522,16 @@ index 990b8b9..b135a21 100644
 +    transition-duration: 0.01ms !important;
    }
  }
+diff --git a/frontend/src/types/reading.ts b/frontend/src/types/reading.ts
+index 35fd421..dec1a14 100644
+--- a/frontend/src/types/reading.ts
++++ b/frontend/src/types/reading.ts
+@@ -45,4 +45,4 @@ export interface ReadingStatusesResponse {
+   custom: CustomReadingStatus[]
+ }
+ 
+-export type ShelfView = 'grid' | 'list'
++export type ShelfView = 'grid' | 'list' | 'spines'
 diff --git a/frontend/vite.config.ts b/frontend/vite.config.ts
 index 84e32f1..ab2b633 100644
 --- a/frontend/vite.config.ts
