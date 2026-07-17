@@ -1,0 +1,7 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+bloch_editores,Bloch Editores,,,historica,"Espólio de enciclopédias, revistas e ficção seriada.",historical,historical_publisher,,false,,missing,auto,,2
+circulo_do_livro,Círculo do Livro,,,historica,"Espólio de edições por catálogo, frequentemente em capa dura.",historical,historical_publisher,"Cobertura deve vir de ISBNs, bibliotecas e acervos, não de site editorial ativo.",false,,missing,auto,,2
+ebal,EBAL,Editora Brasil-América,,historica,Espólio histórico de quadrinhos e publicações de super-heróis.,historical,historical_publisher,,false,,missing,auto,,2
+editora_vecchi,Editora Vecchi,,,historica,"Espólio de quadrinhos, terror, revistas e publicações populares.",historical,historical_publisher,,false,,missing,auto,,2
+grafipar,Grafipar,,,historica,Espólio de quadrinhos adultos e produção de contracultura.,historical,historical_publisher,,false,,missing,auto,,2
+livraria_martins_editora,Livraria Martins Editora,,,historica,Espólio de obras ligadas ao modernismo e à literatura brasileira.,historical,historical_publisher,,false,,missing,auto,,2

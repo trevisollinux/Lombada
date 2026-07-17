@@ -1,0 +1,82 @@
+name: Publisher scrape smoke tests
+
+on:
+  pull_request:
+    paths:
+      - 'data/publishers/**'
+      - 'scripts/sync_publishers.py'
+      - 'scripts/sync_publishers_catalog.py'
+      - 'scripts/publisher_catalog_policies.py'
+      - 'scripts/diagnose_publisher_spa.py'
+      - 'tests/test_publishers_catalog.py'
+      - '.github/workflows/test-publisher-scrapes-pr.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  catalog-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
+      - run: pip install -r requirements-sync.txt
+      - run: python tests/test_publishers_catalog.py
+
+  scrape-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        slug:
+          - nova_fronteira
+          - editora_gente
+          - editora_melhoramentos
+          - planeta_livros_brasil
+          - grupo_editorial_pensamento
+          - martin_claret
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
+      - run: pip install -r requirements-sync.txt
+      - name: Collect two books in dry-run
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/sync_publishers_catalog.py | tee scrape-output.txt
+          count=$(sed -n 's/^DRY_RUN: \([0-9][0-9]*\) registros novos coletados.*/\1/p' scrape-output.txt | tail -1)
+          if [[ -z "$count" || "$count" -lt 1 ]]; then
+            echo '' | tee -a scrape-output.txt
+            echo '--- DIAGNÓSTICO DE ENDPOINTS ---' | tee -a scrape-output.txt
+            PUBLISHER_DIAGNOSE=true python scripts/sync_publishers_catalog.py | tee -a scrape-output.txt || true
+            echo "Nenhum livro foi extraído de $PUBLISHER_SLUGS"
+            exit 1
+          fi
+          if grep -Eiq 'Outros livros de|Mais livros de|&(#0*39|apos);' scrape-output.txt; then
+            echo "A coleta de $PUBLISHER_SLUGS contém título genérico ou entidade HTML não normalizada"
+            exit 1
+          fi
+        env:
+          PUBLISHER_SLUGS: ${{ matrix.slug }}
+          PUBLISHER_DRY_RUN: 'true'
+          PUBLISHER_DIAGNOSE: 'false'
+          PUBLISHER_MAX_URLS: '2'
+          PUBLISHER_SLEEP_SECONDS: '0.2'
+          PUBLISHER_FETCH_CONCURRENCY: '2'
+      - name: Upload scrape output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-output-${{ matrix.slug }}
+          path: scrape-output.txt
+          if-no-files-found: error
+          retention-days: 3

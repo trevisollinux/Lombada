@@ -1,0 +1,130 @@
+name: Diagnose publisher catalog
+
+# Amplia o scraper para o cadastro normalizado em data/publishers/*.csv.
+# O fluxo nasce manual e conservador: diagnose=true e dry_run=true por padrão.
+# Depois que uma fonte estiver estável, ela pode ser promovida para um workflow
+# agendado ou receber configuração especializada em sync_publishers.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      group:
+        description: 'grupo a testar; all executa os oito grupos em paralelo'
+        type: choice
+        options:
+          - all
+          - catalogo_a
+          - catalogo_b
+          - catalogo_c
+          - catalogo_d
+          - catalogo_e
+          - catalogo_f
+          - catalogo_g
+          - catalogo_h
+        default: all
+      dry_run:
+        description: 'true = coleta amostra sem gravar; false = grava e promove'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      diagnose:
+        description: 'true = testa home, robots, Shopify, VTEX e sitemaps sem coletar'
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      max_urls:
+        description: 'máximo de livros por editora nesta execução'
+        required: false
+        default: '20'
+      slugs:
+        description: 'slugs separados por vírgula; quando preenchido, vence o grupo'
+        required: false
+        default: ''
+      sleep_seconds:
+        description: 'pausa entre páginas em segundos'
+        required: false
+        default: '1.0'
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    if: ${{ (inputs.slugs != '' && matrix.group == 'catalogo_a') || (inputs.slugs == '' && (inputs.group == 'all' || inputs.group == matrix.group)) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - catalogo_a
+          - catalogo_b
+          - catalogo_c
+          - catalogo_d
+          - catalogo_e
+          - catalogo_f
+          - catalogo_g
+          - catalogo_h
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sync-publisher-${{ matrix.group }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-sync.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-sync.txt
+
+      - name: Validate publisher catalog
+        run: python tests/test_publishers_catalog.py
+
+      - name: Diagnose or sync catalog group
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/init_ingestion_tables.py
+          python scripts/sync_publishers_catalog.py | tee sync_resultado.txt || status=$?
+          {
+            echo "### Catálogo de editoras — ${{ matrix.group }}"
+            echo ''
+            echo '```'
+            cat sync_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PUBLISHER_DRY_RUN: ${{ inputs.dry_run }}
+          PUBLISHER_DIAGNOSE: ${{ inputs.diagnose }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls }}
+          PUBLISHER_SLUGS: ${{ inputs.slugs }}
+          PUBLISHER_SLEEP_SECONDS: ${{ inputs.sleep_seconds }}
+          PUBLISHER_GROUP: ${{ matrix.group }}
+
+      - name: Promote new records to catalog
+        if: ${{ always() && inputs.dry_run == 'false' && inputs.diagnose == 'false' }}
+        run: |
+          set -o pipefail
+          status=0
+          python scripts/init_ingestion_tables.py
+          python scripts/promote_source_records.py | tee promote_resultado.txt || status=$?
+          {
+            echo '### Promoção source_records -> catálogo'
+            echo ''
+            echo '```'
+            cat promote_resultado.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DRY_RUN: 'false'
+          PROMOTE_MIN_CONFIDENCE: '0.5'
+          PROMOTE_LIMIT: '5000'

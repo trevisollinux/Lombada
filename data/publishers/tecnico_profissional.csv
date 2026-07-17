@@ -1,0 +1,16 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+crv,CRV,,,tecnico_profissional,"Obras acadêmicas e profissionais em direito, educação e ciências humanas.",active,publisher,,true,https://www.editoracrv.com.br,candidate,auto,catalogo_b,1
+d_placido,D'Plácido,,,tecnico_profissional,"Direito, filosofia, argumentação jurídica e ciências humanas.",active,publisher,,true,https://www.editoradplacido.com.br,candidate,auto,catalogo_c,1
+dialetica,Dialética,,,tecnico_profissional,"Direito, humanidades, ciências sociais e publicação acadêmica.",active,publisher,,true,https://editoradialetica.com,candidate,auto,catalogo_d,1
+editora_rubio,Editora Rubio,,,tecnico_profissional,Livros médicos e tratados de especialidades clínicas.,active,publisher,,true,https://www.rubio.com.br,candidate,auto,catalogo_e,1
+forum,Fórum,,,tecnico_profissional,"Direito público, administrativo, constitucional e gestão pública.",active,publisher,,true,https://www.editoraforum.com.br,candidate,auto,catalogo_f,1
+grupo_editorial_nacional,Grupo Editorial Nacional,GEN,,tecnico_profissional,"Grupo de selos técnicos e profissionais, incluindo Forense, Método, Atlas e Guanabara Koogan.",active,group,,true,https://www.grupogen.com.br,candidate,auto,catalogo_g,1
+jurua_editora,Juruá Editora,,,tecnico_profissional,"Direito civil, processo civil, direito de família e áreas profissionais.",active,publisher,,true,https://www.jurua.com.br,candidate,auto,catalogo_h,1
+juspodivm,Juspodivm,,,tecnico_profissional,"Manuais jurídicos, concursos públicos e preparação para carreiras.",active,publisher,,true,https://www.editorajuspodivm.com.br,candidate,auto,catalogo_a,1
+malheiros_editores,Malheiros Editores,,,tecnico_profissional,"Direito constitucional, tributário, administrativo e doutrina jurídica.",active,publisher,,true,https://www.malheiroseditores.com.br,candidate,auto,catalogo_b,1
+manole,Manole,,,tecnico_profissional,"Medicina, saúde, educação e formação profissional.",active,publisher,,true,https://www.manole.com.br,candidate,auto,catalogo_c,1
+mizuno,Mizuno,,,tecnico_profissional,"Direito aplicado, perícias, medicina legal e ferramentas profissionais.",active,publisher,,true,https://www.editoramizuno.com.br,candidate,auto,catalogo_d,1
+revista_dos_tribunais,Revista dos Tribunais,,,tecnico_profissional,"Doutrina jurídica, periódicos e bases de jurisprudência.",active,imprint,Marca da Thomson Reuters; o catálogo não parece exposto como loja independente adequada ao scraper genérico.,false,,missing,auto,,1
+rideel,Rideel,,,tecnico_profissional,"Códigos, legislação, concursos, educação e materiais profissionais.",active,publisher,,true,https://www.rideel.com.br,candidate,auto,catalogo_e,1
+saraiva_jur,Saraiva Jur,,,tecnico_profissional,"Vade Mecum, manuais jurídicos e materiais preparatórios.",active,imprint,,true,https://www.editorasaraiva.com.br,candidate,auto,catalogo_f,1
+tirant_brasil,Tirant Brasil,,,tecnico_profissional,"Direito, ciências sociais e produção acadêmica jurídica.",active,publisher,,true,https://www.tirant.com/br,candidate,auto,catalogo_g,1

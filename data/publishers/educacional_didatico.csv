@@ -1,0 +1,13 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+dsop_educacao_financeira,DSOP Educação Financeira,,,educacional_didatico,Livros e materiais de educação financeira.,active,publisher,,true,https://www.dsop.com.br,candidate,auto,catalogo_h,2
+editora_do_brasil,Editora do Brasil,,,educacional_didatico,"Livros didáticos, literatura escolar e coleções alinhadas à BNCC.",active,publisher,,true,https://www.editoradobrasil.com.br,candidate,auto,catalogo_f,1
+editora_ftd,Editora FTD,,,educacional_didatico,"Livros didáticos, sistemas de ensino e soluções digitais de aprendizagem.",active,publisher,,true,https://ftd.com.br,candidate,auto,catalogo_g,1
+editora_moderna,Editora Moderna,,,educacional_didatico,"Sistemas de ensino, livros didáticos, literatura escolar e recursos digitais.",active,publisher,,true,https://www.moderna.com.br,candidate,auto,catalogo_h,1
+editora_positivo,Editora Positivo,,,educacional_didatico,"Sistemas de ensino, livros didáticos e soluções para escolas.",active,publisher,,true,https://www.editorapositivo.com.br,candidate,auto,catalogo_a,1
+editora_scipione,Editora Scipione,,,educacional_didatico,"Livros didáticos, materiais de apoio e literatura escolar.",active,imprint,Catálogo compartilhado com Ática; deduplicação por ISBN é obrigatória.,true,https://www.aticascipione.com.br,candidate,auto,catalogo_b,1
+editora_atica,Editora Ática,,,educacional_didatico,"Livros didáticos, paradidáticos e literatura escolar.",active,imprint,Catálogo compartilhado com Scipione; deduplicação por ISBN é obrigatória.,true,https://www.aticascipione.com.br,candidate,auto,catalogo_c,1
+edicoes_sm,Edições SM,,,educacional_didatico,"Livros didáticos, literatura infantil e juvenil e soluções educacionais.",active,publisher,,true,https://www.grupo-sm.com/br,candidate,auto,catalogo_d,1
+ibep_nacional,IBEP / Nacional,IBEP|Companhia Editora Nacional,,educacional_didatico,"Alfabetização, livros didáticos e soluções educacionais integradas.",active,group,,true,https://www.ibep-nacional.com.br,candidate,auto,catalogo_e,1
+macmillan,Macmillan,,,educacional_didatico,"Materiais, métodos e plataformas para o ensino de língua inglesa.",active,group,,true,https://www.macmillaneducation.com/br,candidate,auto,catalogo_f,1
+rede_salesiana_edebe,Rede Salesiana (Edebe),Edebe,,educacional_didatico,Material educacional confessional e formação humanista cristã.,active,network,,true,https://www.edebe.com.br,candidate,auto,catalogo_a,2
+saraiva_educacao,Saraiva Educação,,,educacional_didatico,"Sistemas de ensino, educação básica, técnica e profissional.",active,publisher,,true,https://www.saraivaeducacao.com.br,candidate,auto,catalogo_g,1

@@ -1,0 +1,10 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+editora_unicamp,Editora da Unicamp,,,academico_universitario,"Ciências, filosofia, humanidades, linguística e obras derivadas de pesquisa acadêmica.",active,university_press,,true,https://www.editoraunicamp.com.br,candidate,auto,catalogo_b,1
+editora_fiocruz,Editora Fiocruz,,,academico_universitario,"Saúde pública, epidemiologia, ciências sociais em saúde e história da medicina.",active,university_press,,true,https://editora.fiocruz.br,candidate,auto,catalogo_c,1
+editora_ifsul,Editora IFSul,,,academico_universitario,"Pesquisa aplicada, educação técnica e produção institucional.",active,university_press,Não foi identificado catálogo comercial próprio e estável; avaliar repositório institucional ou ISBNs por outra fonte.,false,,missing,auto,,3
+editora_ufg,Editora UFG,,,academico_universitario,"Ciências, cerrado, artes, educação e produção acadêmica da UFG.",active,university_press,,true,https://cegraf.ufg.br,candidate,auto,catalogo_g,2
+editora_ufpr,Editora UFPR,,,academico_universitario,"Ciências agrárias, linguística, humanidades e traduções acadêmicas.",active,university_press,,true,https://www.editora.ufpr.br,candidate,auto,catalogo_d,1
+editora_ufrj,Editora UFRJ,,,academico_universitario,"Arquitetura, história, ciências sociais, saúde e ciências naturais.",active,university_press,,true,https://editora.ufrj.br,candidate,auto,catalogo_e,1
+editora_unb,Editora UnB,,,academico_universitario,"Ciência política, sociologia, relações internacionais, direito e humanidades.",active,university_press,,true,https://editora.unb.br,candidate,auto,catalogo_f,1
+eduerj,EdUERJ,,,academico_universitario,"Literatura, teoria crítica, história social, comunicação e urbanismo.",active,university_press,,true,https://eduerj.com,candidate,auto,catalogo_h,2
+edufu,EDUFU,,,academico_universitario,Pesquisa multidisciplinar da Universidade Federal de Uberlândia.,active,university_press,,true,https://www.edufu.ufu.br,candidate,auto,catalogo_a,2

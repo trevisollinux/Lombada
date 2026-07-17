@@ -1,0 +1,14 @@
+slug,name,aliases,previous_names,category,focus,status,entity_type,notes,scrape_enabled,base_url,url_status,platform,group,priority
+comix_zone,Comix Zone,,,quadrinhos_cultura_pop,"Quadrinhos franco-belgas, latino-americanos e graphic novels.",active,publisher,,true,https://comixzone.com.br,candidate,auto,catalogo_a,2
+conrad_editora,Conrad Editora,,,quadrinhos_cultura_pop,"Quadrinhos, mangás, livros ilustrados e autores brasileiros.",active,publisher,,true,https://editoraconrad.com.br,candidate,auto,catalogo_h,1
+devir,Devir,,,quadrinhos_cultura_pop,"Quadrinhos independentes, RPG de mesa e jogos.",active,publisher,,true,https://devir.com.br,candidate,auto,catalogo_a,1
+editora_mino,Editora Mino,,,quadrinhos_cultura_pop,Quadrinhos brasileiros e estrangeiros de curadoria autoral.,active,publisher,,true,https://editoramino.com,candidate,auto,catalogo_b,1
+jambo_editora,Jambô Editora,,,quadrinhos_cultura_pop,"RPG, fantasia, quadrinhos e universos de ficção seriada.",active,publisher,,true,https://jamboeditora.com.br,candidate,auto,catalogo_c,1
+jbc,JBC,Editora JBC,,quadrinhos_cultura_pop,"Mangás, light novels e publicações de cultura japonesa.",active,publisher,,true,https://editorajbc.com.br,candidate,auto,catalogo_d,1
+mpeg,MPEG,,,quadrinhos_cultura_pop,Mangás japoneses e linhas editoriais alternativas.,unknown,publisher,A sigla não foi associada com segurança a uma editora brasileira ativa. Confirmar o nome antes de criar fonte.,false,,missing,auto,,3
+newpop_editora,NewPOP Editora,,,quadrinhos_cultura_pop,"Mangás, manhwas, Boys Love, light novels e títulos alternativos asiáticos.",active,publisher,,true,https://www.newpop.com.br,candidate,auto,catalogo_e,1
+panini_comics,Panini Comics,,,quadrinhos_cultura_pop,"Quadrinhos licenciados, mangás, publicações de cultura pop e Turma da Mônica.",active,imprint,,true,https://panini.com.br,candidate,auto,catalogo_f,1
+pipoca_nanquim,Pipoca & Nanquim,,,quadrinhos_cultura_pop,"Quadrinhos autorais, edições de luxo e obras brasileiras e estrangeiras.",active,publisher,,true,https://pipocaenanquim.com.br,candidate,auto,catalogo_g,1
+universo_guara,Universo Guará,,,quadrinhos_cultura_pop,"Quadrinhos brasileiros, fantasia e narrativas ligadas ao folclore nacional.",active,publisher,,true,https://universoguara.com.br,candidate,auto,catalogo_b,2
+veneta,Veneta,,,quadrinhos_cultura_pop,"Quadrinhos autorais, jornalismo gráfico, contracultura e ensaio.",active,publisher,,true,https://veneta.com.br,candidate,auto,catalogo_h,1
+zarabatana_books,Zarabatana Books,,,quadrinhos_cultura_pop,"Graphic novels europeias, latino-americanas e brasileiras.",active,publisher,,true,https://zarabatanabooks.com.br,candidate,auto,catalogo_c,2
