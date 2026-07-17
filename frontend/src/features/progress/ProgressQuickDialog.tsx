@@ -26,6 +26,11 @@ function initialMode(summary: ReadingProgressSummary | null, reading: ShelfReadi
   return 'porcentagem'
 }
 
+function feedbackInsight(entry: DiaryEntry, mode: ProgressMode): 'page_delta' | 'page_reached' | 'percent_reached' {
+  if (entry.paginas_delta && entry.paginas_delta > 0) return 'page_delta'
+  return mode === 'pagina' ? 'page_reached' : 'percent_reached'
+}
+
 export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: ProgressQuickDialogProps) {
   const [summary, setSummary] = useState<ReadingProgressSummary | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -35,23 +40,35 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
   const [saved, setSaved] = useState<DiaryEntry | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  function close() {
+    if (saved) {
+      trackProductEvent('progress_feedback', {
+        source: 'quick_action',
+        insight_type: feedbackInsight(saved, mode),
+        action: 'closed',
+      })
+    }
+    onClose()
+  }
+
   useEffect(() => {
     if (!reading) return
+    const activeReading = reading
     const controller = new AbortController()
     setSummary(null)
     setStatus('loading')
     setValue('')
     setSaved(null)
     setError(null)
-    void getReadingProgress(reading.leitura_id, controller.signal)
+    void getReadingProgress(activeReading.leitura_id, controller.signal)
       .then((payload) => {
         setSummary(payload)
-        setMode(initialMode(payload, reading))
+        setMode(initialMode(payload, activeReading))
         setStatus('ready')
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
-        setMode(reading.paginas ? 'pagina' : 'porcentagem')
+        setMode(activeReading.paginas ? 'pagina' : 'porcentagem')
         setError(cause instanceof Error ? cause.message : progressText(locale, 'load_error'))
         setStatus('error')
       })
@@ -70,25 +87,15 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
       document.body.style.overflow = previous
       document.removeEventListener('keydown', onKeyDown)
     }
-  })
+  }, [mode, onClose, reading, saved, saving])
 
   if (!reading) return null
-
-  function close() {
-    if (saved) {
-      trackProductEvent('progress_feedback', {
-        source: 'quick_action',
-        insight_type: saved.paginas_delta && saved.paginas_delta > 0 ? 'page_delta' : mode === 'pagina' ? 'page_reached' : 'percent_reached',
-        action: 'closed',
-      })
-    }
-    onClose()
-  }
+  const activeReading = reading
 
   function validationMessage(): string | null {
     const numeric = Number(value)
     if (mode === 'pagina') {
-      const total = summary?.paginas_total ?? reading.paginas
+      const total = summary?.paginas_total ?? activeReading.paginas
       if (!Number.isInteger(numeric) || numeric <= 0 || (total !== null && total !== undefined && numeric > total)) {
         return progressText(locale, 'validation_page')
       }
@@ -113,14 +120,14 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
     setSaving(true)
     setError(null)
     try {
-      const entry = await createDiaryEntry(reading.leitura_id, {
+      const entry = await createDiaryEntry(activeReading.leitura_id, {
         progresso_tipo: mode,
         pagina: mode === 'pagina' ? numeric : null,
         porcentagem: mode === 'porcentagem' ? numeric : null,
         nota: '',
         publico: false,
         spoiler: false,
-        paginas_total: summary?.paginas_total ?? reading.paginas,
+        paginas_total: summary?.paginas_total ?? activeReading.paginas,
         origem: 'li_mais',
       })
       setSaved(entry)
@@ -139,7 +146,7 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
       })
       trackProductEvent('progress_feedback', {
         source: 'quick_action',
-        insight_type: entry.paginas_delta && entry.paginas_delta > 0 ? 'page_delta' : mode === 'pagina' ? 'page_reached' : 'percent_reached',
+        insight_type: feedbackInsight(entry, mode),
         action: 'viewed',
       })
       onLogged?.(entry)
@@ -150,7 +157,7 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
     }
   }
 
-  const totalPages = summary?.paginas_total ?? reading.paginas
+  const totalPages = summary?.paginas_total ?? activeReading.paginas
   const currentValue = mode === 'pagina' ? summary?.pagina_atual : summary?.porcentagem
   const successMessage = saved?.paginas_delta && saved.paginas_delta > 0
     ? progressText(locale, 'success_delta', { value: saved.paginas_delta })
@@ -166,7 +173,7 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
           <div>
             <p className="eyebrow">{progressText(locale, 'log_more')}</p>
             <h2 id="progress-dialog-title">{progressText(locale, 'quick_title')}</h2>
-            <p>{reading.titulo}</p>
+            <p>{activeReading.titulo}</p>
           </div>
           <button className="icon-button" type="button" onClick={close} disabled={saving}>
             <Icon name="close" />
@@ -189,7 +196,7 @@ export function ProgressQuickDialog({ reading, locale, onClose, onLogged }: Prog
                 onClick={() => {
                   trackProductEvent('progress_feedback', {
                     source: 'quick_action',
-                    insight_type: saved.paginas_delta && saved.paginas_delta > 0 ? 'page_delta' : mode === 'pagina' ? 'page_reached' : 'percent_reached',
+                    insight_type: feedbackInsight(saved, mode),
                     action: 'open_diary',
                   })
                   onClose()
