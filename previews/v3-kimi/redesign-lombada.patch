@@ -1075,7 +1075,7 @@ index c23ab7d..6fc9f89 100644
                <Route element={<AppLayout />}>
                  <Route index element={<SearchPage />} />
 diff --git a/frontend/src/components/AppLayout.tsx b/frontend/src/components/AppLayout.tsx
-index 6d7d34d..5e320fb 100644
+index 6d7d34d..6cd26a8 100644
 --- a/frontend/src/components/AppLayout.tsx
 +++ b/frontend/src/components/AppLayout.tsx
 @@ -7,6 +7,24 @@ import { AccountAvatar } from './AccountAvatar'
@@ -1117,7 +1117,7 @@ index 6d7d34d..5e320fb 100644
 -          <span className="brand-mark" aria-hidden="true">L</span>
 -          <span className="wordmark">lombada<span>.</span></span>
 +          <BrandGlyph />
-+          <span className="wordmark">lombada<i>.</i></span>
++          <span className="wordmark">ombada<i>.</i></span>
          </Link>
  
          <div className="app-header__meta">
@@ -1138,16 +1138,18 @@ index 6d7d34d..5e320fb 100644
            </button>
          </div>
        </header>
-@@ -88,7 +104,18 @@ export function AppLayout() {
+@@ -88,7 +104,20 @@ export function AppLayout() {
  
        <div className="desktop-layout">
          <aside className="desktop-rail" aria-label="Navegação principal">
 -          <nav>
 +          <div className="rail-head">
 +            <Link className="brand" to="/" aria-label={t('app_v2')}>
-+              <BrandGlyph />
 +              <span className="rail-brand__text">
-+                <span className="wordmark">lombada<i>.</i></span>
++                <span className="brand-lockup">
++                  <BrandGlyph />
++                  <span className="wordmark">ombada<i>.</i></span>
++                </span>
 +                <small className="rail-tagline">diário de leituras</small>
 +              </span>
 +            </Link>
@@ -1158,7 +1160,7 @@ index 6d7d34d..5e320fb 100644
              {navigationItems.map((item) => (
                <NavLink
                  key={item.to}
-@@ -96,15 +123,33 @@ export function AppLayout() {
+@@ -96,15 +125,33 @@ export function AppLayout() {
                  to={item.to}
                  end={item.end}
                >
@@ -1240,10 +1242,10 @@ index 746cb2a..c42e2f6 100644
        {aside && <div className="page-header__aside">{aside}</div>}
      </header>
 diff --git a/frontend/src/features/catalog/catalog.css b/frontend/src/features/catalog/catalog.css
-index 3844aaf..02ad42f 100644
+index 3844aaf..b29d743 100644
 --- a/frontend/src/features/catalog/catalog.css
 +++ b/frontend/src/features/catalog/catalog.css
-@@ -1,55 +1,150 @@
+@@ -1,55 +1,147 @@
 +/* ============================================================
 +   Catálogo — busca, resultados, registro de leitura, obra
 +   ============================================================ */
@@ -1294,14 +1296,11 @@ index 3844aaf..02ad42f 100644
 +}
 +
 +.catalog-search-form button {
++  display: grid;
 +  flex: 0 0 auto;
-+  padding: 14px 26px;
++  place-items: center;
++  padding: 13px 22px;
 +  border-radius: var(--radius-md);
-+  font-family: var(--font-mono);
-+  font-size: 11.5px;
-+  font-weight: 700;
-+  letter-spacing: 0.14em;
-+  text-transform: uppercase;
 +  color: var(--on-accent);
 +  background: linear-gradient(165deg, var(--accent-strong), var(--accent) 55%, var(--accent-deep));
 +  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -1419,7 +1418,7 @@ index 3844aaf..02ad42f 100644
  }
  
  .catalog-result__cover-link {
-@@ -58,611 +153,443 @@
+@@ -58,611 +150,443 @@
  }
  
  .catalog-result__cover {
@@ -7726,7 +7725,7 @@ index b32f7e8..5db2987 100644
    }
  }
 diff --git a/frontend/src/features/shelf/shelf.css b/frontend/src/features/shelf/shelf.css
-index 5aac522..a4fd8ca 100644
+index 5aac522..7cece28 100644
 --- a/frontend/src/features/shelf/shelf.css
 +++ b/frontend/src/features/shelf/shelf.css
 @@ -1,120 +1,179 @@
@@ -7970,7 +7969,7 @@ index 5aac522..a4fd8ca 100644
  }
  
  .shelf-book {
-@@ -122,548 +181,739 @@
+@@ -122,548 +181,747 @@
  }
  
  .shelf-book__open {
@@ -8556,16 +8555,16 @@ index 5aac522..a4fd8ca 100644
 -  animation: shelf-detail-enter 220ms ease both;
 +.book-spines span:nth-child(2n) {
 +  animation-delay: 0.7s;
-+}
-+
-+@keyframes spine-sway {
-+  0%, 100% { transform: rotate(0deg); }
-+  50% { transform: rotate(1.6deg); }
  }
  
 -@keyframes shelf-detail-enter {
 -  from { transform: translateY(100%); opacity: 0.6; }
 -  to { transform: translateY(0); opacity: 1; }
++@keyframes spine-sway {
++  0%, 100% { transform: rotate(0deg); }
++  50% { transform: rotate(1.6deg); }
++}
++
 +/* ---------------------------------------------------------- */
 +/* Visão de lombadas: a estante física                        */
 +/* ---------------------------------------------------------- */
@@ -9036,11 +9035,6 @@ index 5aac522..a4fd8ca 100644
 -  .shelf-view-toggle {
 -    margin-top: 2px;
 -  }
--
--  .shelf-state--empty {
--    grid-template-columns: 1fr;
--    text-align: center;
--  }
 +.shelf-filter-menu__list button {
 +  display: flex;
 +  align-items: baseline;
@@ -9054,25 +9048,26 @@ index 5aac522..a4fd8ca 100644
 +  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out);
 +}
  
--  .shelf-state--empty .book-spines {
--    max-width: 230px;
+-  .shelf-state--empty {
+-    grid-template-columns: 1fr;
+-    text-align: center;
 -  }
 +.shelf-filter-menu__list button:hover {
 +  color: var(--text);
 +  background: var(--surface-raised);
 +}
  
--  .reading-detail__hero {
--    grid-template-columns: 100px minmax(0, 1fr);
--    align-items: start;
+-  .shelf-state--empty .book-spines {
+-    max-width: 230px;
 -  }
 +.shelf-filter-menu__list button.is-active {
 +  color: var(--accent-strong);
 +  background: var(--accent-soft);
 +}
  
--  .reading-detail__facts {
--    grid-template-columns: 1fr;
+-  .reading-detail__hero {
+-    grid-template-columns: 100px minmax(0, 1fr);
+-    align-items: start;
 -  }
 +.shelf-filter-menu__list button small {
 +  font-family: var(--font-mono);
@@ -9080,12 +9075,23 @@ index 5aac522..a4fd8ca 100644
 +  color: var(--subtle);
 +}
  
+-  .reading-detail__facts {
+-    grid-template-columns: 1fr;
+-  }
++.shelf-filter-menu__list button.is-active small {
++  color: var(--accent);
++}
+ 
 -  .reading-detail__section-heading {
 -    align-items: flex-start;
 -    flex-direction: column;
 -  }
-+.shelf-filter-menu__list button.is-active small {
-+  color: var(--accent);
++/* resumo da estante, como no v1: serifado, itálico, discreto */
++.shelf-summary {
++  margin: -12px 0 20px;
++  color: var(--muted);
++  font-size: 15px;
++  font-style: italic;
  }
 diff --git a/frontend/src/features/shelf/shelfI18n.ts b/frontend/src/features/shelf/shelfI18n.ts
 index 1c770db..12fffeb 100644
@@ -9295,7 +9301,7 @@ index 918782d..b5eb077 100644
  
        {status === 'loading' && <ProfileLoading />}
 diff --git a/frontend/src/pages/SearchPage.tsx b/frontend/src/pages/SearchPage.tsx
-index 80a6a74..4b0549c 100644
+index 80a6a74..4af744e 100644
 --- a/frontend/src/pages/SearchPage.tsx
 +++ b/frontend/src/pages/SearchPage.tsx
 @@ -193,7 +193,6 @@ export function SearchPage() {
@@ -9306,8 +9312,27 @@ index 80a6a74..4b0549c 100644
        />
  
        {showOnboarding && (
+@@ -203,7 +202,6 @@ export function SearchPage() {
+       {showRitual && readingNow && <ReadingRitualCard reading={readingNow} locale={locale} />}
+ 
+       <form className="search-form catalog-search-form" onSubmit={submit} role="search">
+-        <Icon name="search" size={24} />
+         <input
+           ref={inputRef}
+           value={query}
+@@ -212,7 +210,9 @@ export function SearchPage() {
+           aria-label={t('search_placeholder')}
+           autoComplete="off"
+         />
+-        <button type="submit">{t('search_button')}</button>
++        <button type="submit" aria-label={t('search_button')}>
++          <Icon name="search" size={21} />
++        </button>
+       </form>
+ 
+       {!activeQuery && (
 diff --git a/frontend/src/pages/ShelfPage.tsx b/frontend/src/pages/ShelfPage.tsx
-index e2b7e24..e10b718 100644
+index e2b7e24..546fb76 100644
 --- a/frontend/src/pages/ShelfPage.tsx
 +++ b/frontend/src/pages/ShelfPage.tsx
 @@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
@@ -9368,15 +9393,26 @@ index e2b7e24..e10b718 100644
    }
  
    function handleUpdated(updated: ShelfReading) {
-@@ -117,7 +132,6 @@ export function ShelfPage() {
+@@ -117,9 +132,17 @@ export function ShelfPage() {
              ? `${readings.length} ${shelfText(locale, 'books_count')}`
              : t('shelf_copy')
          }
 -        aside={<span className="stage-stamp">04 · edição</span>}
        />
  
++      {status === 'ready' && readings.length > 0 && (
++        <p className="shelf-summary">
++          {readings.length} {shelfText(locale, 'books_count')}
++          {' · '}{counts.read} {shelfText(locale, 'read').toLocaleLowerCase(locale)}
++          {' · '}{counts.reading} {shelfText(locale, 'reading').toLocaleLowerCase(locale)}
++          {' · '}{counts.want} {shelfText(locale, 'want').toLocaleLowerCase(locale)}
++        </p>
++      )}
++
        {notice && (
-@@ -127,23 +141,50 @@ export function ShelfPage() {
+         <div className="shelf-notice" role="status" aria-live="polite">
+           {notice}
+@@ -127,23 +150,50 @@ export function ShelfPage() {
        )}
  
        <div className="shelf-toolbar">
@@ -9442,7 +9478,7 @@ index e2b7e24..e10b718 100644
          </div>
  
          <div className="shelf-view-toggle" role="group" aria-label="Visualização">
-@@ -165,6 +206,15 @@ export function ShelfPage() {
+@@ -165,6 +215,15 @@ export function ShelfPage() {
              <span className="view-icon view-icon--list" aria-hidden="true"><i /><i /><i /></span>
              <span className="sr-only">{shelfText(locale, 'list')}</span>
            </button>
@@ -9458,7 +9494,7 @@ index e2b7e24..e10b718 100644
          </div>
        </div>
  
-@@ -218,17 +268,21 @@ export function ShelfPage() {
+@@ -218,17 +277,21 @@ export function ShelfPage() {
        )}
  
        {status === 'ready' && visibleReadings.length > 0 && (
@@ -10177,10 +10213,10 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..b135a21 100644
+index 990b8b9..edb9f6e 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
-@@ -1,56 +1,108 @@
+@@ -1,55 +1,111 @@
 +/* ============================================================
 +   Lombada — design system
 +   "escuro literário": tinta quente, papel, ouro e vinho.
@@ -10235,6 +10271,8 @@ index 990b8b9..b135a21 100644
 +
 +  --wine: #6b1f1f;
 +  --wine-soft: rgba(107, 31, 31, 0.28);
++  --glow-a: rgba(107, 31, 31, 0.09);
++  --glow-b: rgba(139, 46, 31, 0.05);
    --danger: #e59a94;
 -  --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
 -  --radius-sm: 10px;
@@ -10286,6 +10324,7 @@ index 990b8b9..b135a21 100644
 -  --wine-soft: rgba(113, 31, 39, 0.11);
 -  --danger: #a23834;
 -  --shadow: 0 28px 80px rgba(70, 54, 38, 0.16);
+-}
 +  color: #1a1714;
 +  background: #f4efe6;
 +
@@ -10313,6 +10352,8 @@ index 990b8b9..b135a21 100644
 +
 +  --wine: #6b1f1f;
 +  --wine-soft: rgba(107, 31, 31, 0.12);
++  --glow-a: rgba(107, 31, 31, 0.1);
++  --glow-b: rgba(107, 31, 31, 0.07);
 +  --danger: #8b2e1f;
 +
 +  --status-lido: #5d814f;
@@ -10323,16 +10364,15 @@ index 990b8b9..b135a21 100644
 +  --shadow-card: 0 16px 34px rgba(26, 23, 20, 0.1), 0 1px 0 rgba(26, 23, 20, 0.14);
 +  --shadow-pop: 0 30px 70px rgba(26, 23, 20, 0.2);
 +  --shadow-cover: 0 10px 22px rgba(26, 23, 20, 0.18), 0 1px 0 rgba(26, 23, 20, 0.12);
- }
- 
++}
++
 +/* ---------------------------------------------------------- */
 +/* Base                                                       */
 +/* ---------------------------------------------------------- */
-+
+ 
  * {
    box-sizing: border-box;
- }
-@@ -67,38 +119,47 @@ body {
+@@ -67,38 +123,47 @@ body {
    min-height: 100vh;
    margin: 0;
    color: var(--text);
@@ -10341,8 +10381,8 @@ index 990b8b9..b135a21 100644
    background:
 -    radial-gradient(circle at 92% 0%, var(--wine-soft), transparent 32rem),
 -    radial-gradient(circle at 6% 22%, var(--accent-soft), transparent 28rem),
-+    radial-gradient(52rem 34rem at 105% -8%, var(--wine-soft), transparent 62%),
-+    radial-gradient(46rem 30rem at -12% 14%, var(--accent-soft), transparent 60%),
++    radial-gradient(52rem 34rem at 105% -8%, var(--glow-a), transparent 62%),
++    radial-gradient(46rem 30rem at -12% 14%, var(--glow-b), transparent 60%),
      var(--bg);
 +  background-attachment: fixed;
  }
@@ -10393,7 +10433,7 @@ index 990b8b9..b135a21 100644
  }
  
  a {
-@@ -106,16 +167,48 @@ a {
+@@ -106,16 +171,48 @@ a {
    text-decoration: none;
  }
  
@@ -10444,7 +10484,7 @@ index 990b8b9..b135a21 100644
  }
  
  .sr-only {
-@@ -130,27 +223,176 @@ button:disabled {
+@@ -130,198 +227,371 @@ button:disabled {
    border: 0;
  }
  
@@ -10610,56 +10650,58 @@ index 990b8b9..b135a21 100644
 +  padding: 0 18px;
    border-bottom: 1px solid var(--line);
 -  background: color-mix(in srgb, var(--bg) 82%, transparent);
-+  background: color-mix(in srgb, var(--bg) 84%, transparent);
++  background: color-mix(in srgb, var(--bg) 96%, transparent);
    backdrop-filter: blur(18px);
 +  -webkit-backdrop-filter: blur(18px);
-+}
-+
+ }
+ 
+-.brand {
 +.app-header__meta {
-+  display: inline-flex;
-+  align-items: center;
-+  gap: 12px;
+   display: inline-flex;
+   align-items: center;
+   gap: 12px;
 +}
 +
 +/* no mobile o topo fica só com a marca e o avatar; o aviso de migração
 +   continua disponível no painel de configurações e no trilho desktop */
 +.app-header .migration-chip {
 +  display: none;
++}
++
++.brand {
++  display: inline-flex;
++  align-items: center;
++  gap: 2px;
+   min-width: 0;
  }
  
- .brand {
-@@ -162,166 +404,189 @@ button:disabled {
- 
  .brand-mark {
-   display: grid;
+-  display: grid;
 -  width: 40px;
 -  height: 40px;
-+  width: 38px;
-+  height: 38px;
++  display: flex;
++  height: 34px;
    flex: 0 0 auto;
-   place-items: center;
+-  place-items: center;
 -  border: 1px solid var(--text);
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: 23px;
 -  font-style: italic;
 -  line-height: 1;
 -  box-shadow: 4px 5px 0 var(--accent-soft);
-+  border: 1.5px solid var(--text);
-+  border-radius: 2px;
-+  background: var(--surface-solid);
-+  box-shadow: 3px 4px 0 var(--accent-soft);
-+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
++  align-items: center;
++  color: var(--text);
++  transition: transform 0.3s var(--ease-out);
 +}
 +
 +.brand-mark svg {
 +  display: block;
 +  width: auto;
-+  height: 62%;
++  height: 100%;
 +}
 +
 +.brand:hover .brand-mark {
-+  transform: rotate(-4deg) translateY(-1px);
-+  box-shadow: 5px 6px 0 var(--accent-soft);
++  transform: translateY(-1px);
  }
  
  .wordmark {
@@ -10684,11 +10726,16 @@ index 990b8b9..b135a21 100644
 -.app-header__meta {
 +.rail-brand__text {
    display: flex;
--  align-items: center;
--  gap: 12px;
 +  flex-direction: column;
 +  gap: 5px;
 +  min-width: 0;
++}
++
++.brand-lockup {
++  display: inline-flex;
+   align-items: center;
+-  gap: 12px;
++  gap: 2px;
  }
  
 -.migration-chip,
@@ -10836,12 +10883,12 @@ index 990b8b9..b135a21 100644
 +  width: 64px;
 +  height: 64px;
 +  font-size: 23px;
-+}
-+
-+.account-avatar--fallback {
-+  text-transform: uppercase;
  }
  
++.account-avatar--fallback {
++  text-transform: uppercase;
++}
++
 +/* aviso global de erro de sessão */
  .global-notice {
 +  position: sticky;
@@ -10902,7 +10949,7 @@ index 990b8b9..b135a21 100644
  }
  
  .desktop-rail {
-@@ -329,1004 +594,801 @@ button:disabled {
+@@ -329,1004 +599,797 @@ button:disabled {
  }
  
  .app-content {
@@ -11177,9 +11224,9 @@ index 990b8b9..b135a21 100644
 +
 +.bottom-navigation {
 +  position: fixed;
-+  right: 14px;
-+  bottom: 14px;
-+  left: 14px;
++  right: 0;
++  bottom: 0;
++  left: 0;
 +  z-index: 45;
    display: flex;
 -  flex-wrap: wrap;
@@ -11188,13 +11235,9 @@ index 990b8b9..b135a21 100644
 +  align-items: center;
 +  justify-content: space-around;
 +  gap: 4px;
-+  padding: 9px 12px;
-+  border: 1px solid var(--line-strong);
-+  border-radius: 999px;
-+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-+  box-shadow: var(--shadow-pop);
-+  backdrop-filter: blur(20px);
-+  -webkit-backdrop-filter: blur(20px);
++  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
++  border-top: 1px solid var(--line);
++  background: var(--bg);
  }
  
 -.suggestion-row button {
@@ -11209,7 +11252,7 @@ index 990b8b9..b135a21 100644
 +  align-items: center;
 +  gap: 4px;
 +  padding: 7px 8px 6px;
-+  border-radius: 16px;
++  border-radius: var(--radius-md);
    color: var(--muted);
 -  background: transparent;
 -  cursor: pointer;
@@ -11224,10 +11267,10 @@ index 990b8b9..b135a21 100644
  
 -.suggestion-row button:hover {
 -  border-color: var(--accent);
--  color: var(--text);
 +.bottom-navigation__item.is-active {
-+  color: var(--accent-strong);
-   background: var(--accent-soft);
+   color: var(--text);
+-  background: var(--accent-soft);
++  background: var(--surface-raised);
  }
  
 -.migration-preview {
