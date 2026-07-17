@@ -6,9 +6,12 @@ import { PageHeader } from '../components/PageHeader'
 import { DiaryEntryCard } from '../features/diary/DiaryEntryCard'
 import { DiaryEntryForm } from '../features/diary/DiaryEntryForm'
 import { diaryText } from '../features/diary/diaryI18n'
+import { ShareCardDialog } from '../features/memories/ShareCardDialog'
 import { usePreferences } from '../providers/PreferencesProvider'
+import { useSession } from '../providers/SessionProvider'
 import { getDiary, getShelf } from '../services/api'
 import type { DiaryEntry } from '../types/diary'
+import type { ShareCardPayload } from '../types/memories'
 import type { ShelfReading } from '../types/reading'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
@@ -30,6 +33,7 @@ function sortEntries(entries: DiaryEntry[]): DiaryEntry[] {
 
 export function DiaryPage() {
   const { locale, t } = usePreferences()
+  const { account } = useSession()
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [readings, setReadings] = useState<ShelfReading[]>([])
   const [status, setStatus] = useState<LoadStatus>('loading')
@@ -37,6 +41,7 @@ export function DiaryPage() {
   const [filterReadingId, setFilterReadingId] = useState<number | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null)
+  const [shareEntry, setShareEntry] = useState<DiaryEntry | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -74,6 +79,18 @@ export function DiaryPage() {
     return entries.filter((entry) => entry.leitura_id === filterReadingId)
   }, [entries, filterReadingId])
 
+  const shareReading = shareEntry
+    ? readings.find((reading) => reading.leitura_id === shareEntry.leitura_id) || null
+    : null
+  const sharePayload: ShareCardPayload | null = shareEntry && shareReading
+    ? {
+        kind: 'diary',
+        reading: shareReading,
+        entry: shareEntry,
+        handle: account?.handle || '',
+      }
+    : null
+
   function openCreate() {
     setEditingEntry(null)
     setEditorOpen(true)
@@ -107,6 +124,7 @@ export function DiaryPage() {
   function handleDeleted(entryId: number) {
     setEntries((current) => current.filter((entry) => entry.id !== entryId))
     if (editingEntry?.id === entryId) closeEditor()
+    if (shareEntry?.id === entryId) setShareEntry(null)
     setNotice(diaryText(locale, 'deleted'))
   }
 
@@ -240,11 +258,14 @@ export function DiaryPage() {
               entry={entry}
               locale={locale}
               onEdit={openEdit}
+              onShare={setShareEntry}
               onDeleted={handleDeleted}
             />
           ))}
         </div>
       )}
+
+      <ShareCardDialog payload={sharePayload} locale={locale} onClose={() => setShareEntry(null)} />
     </section>
   )
 }

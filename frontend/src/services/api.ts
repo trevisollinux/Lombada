@@ -25,6 +25,7 @@ import type {
   ReviewSavedResponse,
   ReviewStateResponse,
 } from '../types/feed'
+import type { PeriodRecap, RecapPeriod } from '../types/memories'
 import type {
   AvatarMutationResponse,
   ProfileMutation,
@@ -333,4 +334,13 @@ export function getProfileFollowers(handle: string, signal?: AbortSignal): Promi
 
 export function getProfileFollowing(handle: string, signal?: AbortSignal): Promise<ProfilePerson[]> {
   return apiGet<ProfilePerson[]>(`/api/u/${encodeURIComponent(handle)}/following`, signal)
+}
+
+export function getPeriodRecap(
+  period: RecapPeriod,
+  offset = 0,
+  signal?: AbortSignal,
+): Promise<PeriodRecap> {
+  const params = new URLSearchParams({ period, offset: String(offset) })
+  return apiGet<PeriodRecap>(`/api/eu/retrospectiva?${params.toString()}`, signal)
 }

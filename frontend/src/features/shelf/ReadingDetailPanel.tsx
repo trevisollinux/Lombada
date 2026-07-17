@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 
 import { BookCover } from '../../components/BookCover'
 import { Icon } from '../../components/Icon'
+import { memoriesText } from '../memories/memoriesI18n'
+import { ShareCardDialog } from '../memories/ShareCardDialog'
 import type { Locale } from '../../i18n'
+import { useSession } from '../../providers/SessionProvider'
 import type { ShelfReading } from '../../types/reading'
 import { ReadingEditorForm } from './ReadingEditorForm'
 import { shelfText } from './shelfI18n'
@@ -27,10 +30,13 @@ export function ReadingDetailPanel({
   onUpdated,
   onDeleted,
 }: ReadingDetailPanelProps) {
+  const { account } = useSession()
   const [editing, setEditing] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   useEffect(() => {
     setEditing(false)
+    setSharing(false)
   }, [reading?.leitura_id])
 
   useEffect(() => {
@@ -38,17 +44,16 @@ export function ReadingDetailPanel({
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (editing) setEditing(false)
-        else onClose()
-      }
+      if (event.key !== 'Escape' || sharing) return
+      if (editing) setEditing(false)
+      else onClose()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = previous
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [editing, onClose, reading])
+  }, [editing, onClose, reading, sharing])
 
   if (!reading) return null
 
@@ -59,113 +64,125 @@ export function ReadingDetailPanel({
   ].filter(Boolean)
 
   return (
-    <div className="reading-detail-layer">
-      <button
-        className="reading-detail-backdrop"
-        type="button"
-        aria-label={shelfText(locale, 'close_detail')}
-        onClick={onClose}
-      />
-      <aside
-        className={`reading-detail${editing ? ' reading-detail--editing' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reading-detail-title"
-      >
-        <div className="reading-detail__topbar">
-          <span className="reading-detail__status">{reading.status}</span>
-          <div className="reading-detail__topbar-actions">
-            {!editing && (
-              <button className="reading-detail__edit-trigger" type="button" onClick={() => setEditing(true)}>
-                {shelfText(locale, 'edit_reading')}
+    <>
+      <div className="reading-detail-layer">
+        <button
+          className="reading-detail-backdrop"
+          type="button"
+          aria-label={shelfText(locale, 'close_detail')}
+          onClick={onClose}
+        />
+        <aside
+          className={`reading-detail${editing ? ' reading-detail--editing' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reading-detail-title"
+        >
+          <div className="reading-detail__topbar">
+            <span className="reading-detail__status">{reading.status}</span>
+            <div className="reading-detail__topbar-actions">
+              {!editing && (
+                <button className="reading-detail__edit-trigger" type="button" onClick={() => setEditing(true)}>
+                  {shelfText(locale, 'edit_reading')}
+                </button>
+              )}
+              <button className="icon-button" type="button" onClick={onClose}>
+                <Icon name="close" />
+                <span className="sr-only">{shelfText(locale, 'close_detail')}</span>
               </button>
-            )}
-            <button className="icon-button" type="button" onClick={onClose}>
-              <Icon name="close" />
-              <span className="sr-only">{shelfText(locale, 'close_detail')}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="reading-detail__hero">
-          <BookCover
-            title={reading.titulo}
-            author={reading.autor}
-            url={reading.capa_url}
-            className="reading-detail__cover"
-          />
-          <div>
-            <p className="eyebrow">{shelfText(locale, 'edition')}</p>
-            <h2 id="reading-detail-title">{reading.titulo}</h2>
-            <p className="reading-detail__author">{reading.autor || '—'}</p>
-            {editionMeta.length > 0 && (
-              <p className="reading-detail__edition-meta">{editionMeta.join(' · ')}</p>
-            )}
-          </div>
-        </div>
-
-        {editing ? (
-          <ReadingEditorForm
-            reading={reading}
-            locale={locale}
-            onCancel={() => setEditing(false)}
-            onSaved={(updated) => {
-              onUpdated(updated)
-              setEditing(false)
-            }}
-            onDeleted={onDeleted}
-          />
-        ) : (
-          <>
-            <dl className="reading-detail__facts">
-              <div>
-                <dt>{shelfText(locale, 'rating')}</dt>
-                <dd>{ratingLabel(reading.nota)}</dd>
-              </div>
-              <div>
-                <dt>{shelfText(locale, 'publisher')}</dt>
-                <dd>{reading.editora || '—'}</dd>
-              </div>
-              <div>
-                <dt>{shelfText(locale, 'translator')}</dt>
-                <dd>{reading.tradutor || '—'}</dd>
-              </div>
-              <div>
-                <dt>{shelfText(locale, 'isbn')}</dt>
-                <dd>{reading.isbn || '—'}</dd>
-              </div>
-            </dl>
-
-            <section className="reading-detail__review">
-              <div className="reading-detail__section-heading">
-                <h3>{shelfText(locale, 'review')}</h3>
-                <div className="reading-detail__badges">
-                  <span>{reading.publico ? shelfText(locale, 'public_review') : shelfText(locale, 'private_review')}</span>
-                  {reading.spoiler && <span className="is-warning">{shelfText(locale, 'spoiler')}</span>}
-                </div>
-              </div>
-              <p>{reading.relato || shelfText(locale, 'no_review')}</p>
-            </section>
-
-            {(reading.tenho_edicao || reading.quero_edicao) && (
-              <div className="reading-detail__relations">
-                {reading.tenho_edicao && <span>{shelfText(locale, 'owned')}</span>}
-                {reading.quero_edicao && <span>{shelfText(locale, 'wanted')}</span>}
-              </div>
-            )}
-
-            <div className="reading-detail__actions">
-              <button className="button button--primary" type="button" onClick={() => setEditing(true)}>
-                {shelfText(locale, 'edit_reading')}
-              </button>
-              <a className="button button--secondary reading-detail__legacy" href="/">
-                {shelfText(locale, 'open_legacy')}
-                <Icon name="external" size={16} />
-              </a>
             </div>
-          </>
-        )}
-      </aside>
-    </div>
+          </div>
+
+          <div className="reading-detail__hero">
+            <BookCover
+              title={reading.titulo}
+              author={reading.autor}
+              url={reading.capa_url}
+              className="reading-detail__cover"
+            />
+            <div>
+              <p className="eyebrow">{shelfText(locale, 'edition')}</p>
+              <h2 id="reading-detail-title">{reading.titulo}</h2>
+              <p className="reading-detail__author">{reading.autor || '—'}</p>
+              {editionMeta.length > 0 && (
+                <p className="reading-detail__edition-meta">{editionMeta.join(' · ')}</p>
+              )}
+            </div>
+          </div>
+
+          {editing ? (
+            <ReadingEditorForm
+              reading={reading}
+              locale={locale}
+              onCancel={() => setEditing(false)}
+              onSaved={(updated) => {
+                onUpdated(updated)
+                setEditing(false)
+              }}
+              onDeleted={onDeleted}
+            />
+          ) : (
+            <>
+              <dl className="reading-detail__facts">
+                <div>
+                  <dt>{shelfText(locale, 'rating')}</dt>
+                  <dd>{ratingLabel(reading.nota)}</dd>
+                </div>
+                <div>
+                  <dt>{shelfText(locale, 'publisher')}</dt>
+                  <dd>{reading.editora || '—'}</dd>
+                </div>
+                <div>
+                  <dt>{shelfText(locale, 'translator')}</dt>
+                  <dd>{reading.tradutor || '—'}</dd>
+                </div>
+                <div>
+                  <dt>{shelfText(locale, 'isbn')}</dt>
+                  <dd>{reading.isbn || '—'}</dd>
+                </div>
+              </dl>
+
+              <section className="reading-detail__review">
+                <div className="reading-detail__section-heading">
+                  <h3>{shelfText(locale, 'review')}</h3>
+                  <div className="reading-detail__badges">
+                    <span>{reading.publico ? shelfText(locale, 'public_review') : shelfText(locale, 'private_review')}</span>
+                    {reading.spoiler && <span className="is-warning">{shelfText(locale, 'spoiler')}</span>}
+                  </div>
+                </div>
+                <p>{reading.relato || shelfText(locale, 'no_review')}</p>
+              </section>
+
+              {(reading.tenho_edicao || reading.quero_edicao) && (
+                <div className="reading-detail__relations">
+                  {reading.tenho_edicao && <span>{shelfText(locale, 'owned')}</span>}
+                  {reading.quero_edicao && <span>{shelfText(locale, 'wanted')}</span>}
+                </div>
+              )}
+
+              <div className="reading-detail__actions">
+                <button className="button button--primary" type="button" onClick={() => setSharing(true)}>
+                  <Icon name="memory" size={17} />
+                  {memoriesText(locale, 'share_card')}
+                </button>
+                <button className="button button--secondary" type="button" onClick={() => setEditing(true)}>
+                  {shelfText(locale, 'edit_reading')}
+                </button>
+                <a className="button button--ghost reading-detail__legacy" href="/">
+                  {shelfText(locale, 'open_legacy')}
+                  <Icon name="external" size={16} />
+                </a>
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
+
+      <ShareCardDialog
+        payload={sharing ? { kind: 'reading', reading, handle: account?.handle || '' } : null}
+        locale={locale}
+        onClose={() => setSharing(false)}
+      />
+    </>
   )
 }
