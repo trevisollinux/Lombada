@@ -23,17 +23,23 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import select, Session
+from sqlmodel import or_, select, Session
 
+from analytics_models import ProductEvent
 from models import (
     CatalogSuggestion,
     Follow,
     Leitura,
+    Notificacao,
+    ProfileReport,
     ReadingJournalEntry,
+    ReviewComment,
     ReviewLike,
     ReviewReport,
     SavedReview,
+    TextoUsuario,
     UserEdition,
+    UserReadingStatus,
     Usuario,
     get_session,
 )
@@ -206,7 +212,10 @@ def _mover_diario_usuario(s: Session, de: int, para: int) -> None:
 def _migrar_interacoes_leitura(s: Session, leitura_de: int, leitura_para: int) -> None:
     if leitura_de == leitura_para:
         return
-    for modelo in (ReviewLike, SavedReview, ReviewReport):
+    # import adiado: literary_reactions importa auth (usuario_sessao)
+    from literary_reactions import LiteraryReaction
+
+    for modelo in (ReviewLike, SavedReview, ReviewReport, LiteraryReaction):
         rows = s.exec(select(modelo).where(modelo.leitura_id == leitura_de)).all()
         for row in rows:
             duplicado = s.exec(
@@ -220,6 +229,14 @@ def _migrar_interacoes_leitura(s: Session, leitura_de: int, leitura_para: int) -
             else:
                 row.leitura_id = leitura_para
                 s.add(row)
+
+    # comentários e notificações não têm unicidade por usuário: basta apontar
+    # para a leitura destino antes da leitura de origem ser apagada.
+    for modelo in (ReviewComment, Notificacao):
+        rows = s.exec(select(modelo).where(modelo.leitura_id == leitura_de)).all()
+        for row in rows:
+            row.leitura_id = leitura_para
+            s.add(row)
 
 
 def _mover_leituras(s: Session, de: int, para: int) -> int:
@@ -333,6 +350,109 @@ def _mover_follows(s: Session, de: int, para: int) -> None:
             s.add(follow)
 
 
+def _mover_referencias_usuario(s: Session, modelo, campo: str, de: int, para: int) -> None:
+    """Move referências simples (sem unicidade por usuário) para o destino."""
+    rows = s.exec(select(modelo).where(getattr(modelo, campo) == de)).all()
+    for row in rows:
+        setattr(row, campo, para)
+        s.add(row)
+
+
+def _mover_status_personalizados(s: Session, de: int, para: int) -> None:
+    rows = s.exec(select(UserReadingStatus).where(UserReadingStatus.usuario_id == de)).all()
+    for row in rows:
+        duplicado = s.exec(
+            select(UserReadingStatus).where(
+                UserReadingStatus.usuario_id == para,
+                UserReadingStatus.nome == row.nome,
+            )
+        ).first()
+        if duplicado:
+            s.delete(row)
+        else:
+            row.usuario_id = para
+            s.add(row)
+
+
+def _mover_notificacoes(s: Session, de: int, para: int) -> None:
+    rows = s.exec(
+        select(Notificacao).where(
+            or_(Notificacao.usuario_id == de, Notificacao.ator_id == de)
+        )
+    ).all()
+    for row in rows:
+        if row.usuario_id == de:
+            row.usuario_id = para
+        if row.ator_id == de:
+            row.ator_id = para
+        # notificação de si mesmo só surge do merge; não faz sentido manter
+        if row.usuario_id == row.ator_id:
+            s.delete(row)
+        else:
+            s.add(row)
+
+
+def _mover_profile_reports(s: Session, de: int, para: int) -> None:
+    rows = s.exec(
+        select(ProfileReport).where(
+            or_(ProfileReport.target_id == de, ProfileReport.reporter_id == de)
+        )
+    ).all()
+    for row in rows:
+        if row.target_id == de:
+            row.target_id = para
+        if row.reporter_id == de:
+            row.reporter_id = para
+        # denúncia de si mesmo só surge do merge; descarta
+        if row.target_id == row.reporter_id:
+            s.delete(row)
+        else:
+            s.add(row)
+
+
+def _mover_livros_essenciais(s: Session, de: int, para: int) -> None:
+    # import adiado: essential_books importa auth (usuario_sessao)
+    from essential_books import UserEssentialBook
+
+    rows = s.exec(select(UserEssentialBook).where(UserEssentialBook.usuario_id == de)).all()
+    if not rows:
+        return
+    existentes = s.exec(
+        select(UserEssentialBook).where(UserEssentialBook.usuario_id == para)
+    ).first()
+    if existentes:
+        # a curadoria da conta Google prevalece (posições 1-4 são únicas)
+        for row in rows:
+            s.delete(row)
+        return
+    for row in rows:
+        row.usuario_id = para
+        row.updated_at = datetime.utcnow()
+        s.add(row)
+
+
+def _mover_reacoes_literarias(s: Session, de: int, para: int) -> None:
+    # import adiado: literary_reactions importa auth (usuario_sessao)
+    from literary_reactions import LiteraryReaction, LiteraryReactionInboxState
+
+    _mover_relacao_unica_por_usuario(s, LiteraryReaction, de, para)
+
+    estados = s.exec(
+        select(LiteraryReactionInboxState).where(LiteraryReactionInboxState.usuario_id == de)
+    ).all()
+    for estado in estados:
+        existente = s.exec(
+            select(LiteraryReactionInboxState).where(
+                LiteraryReactionInboxState.usuario_id == para
+            )
+        ).first()
+        if existente:
+            s.delete(estado)
+        else:
+            estado.usuario_id = para
+            s.add(estado)
+
+
 def _merge_usuario_orfao(s: Session, de_id: int, para_id: int) -> None:
     if de_id == para_id:
         return
@@ -347,6 +467,14 @@ def _merge_usuario_orfao(s: Session, de_id: int, para_id: int) -> None:
     for modelo in (ReviewLike, SavedReview, ReviewReport):
         _mover_relacao_unica_por_usuario(s, modelo, de_id, para_id)
     _mover_follows(s, de_id, para_id)
+    _mover_reacoes_literarias(s, de_id, para_id)
+    _mover_status_personalizados(s, de_id, para_id)
+    _mover_livros_essenciais(s, de_id, para_id)
+    _mover_notificacoes(s, de_id, para_id)
+    _mover_profile_reports(s, de_id, para_id)
+    _mover_referencias_usuario(s, TextoUsuario, "usuario_id", de_id, para_id)
+    _mover_referencias_usuario(s, ReviewComment, "usuario_id", de_id, para_id)
+    _mover_referencias_usuario(s, ProductEvent, "user_id", de_id, para_id)
 
 
 # ─── rotas Google OAuth ───────────────────────────────────
