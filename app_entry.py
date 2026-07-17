@@ -24,6 +24,7 @@ from period_recaps import (
     install_product_analytics_contract as install_recap_analytics_contract,
     router as period_recaps_router,
 )
+from preview_v3_kimi import install_preview_v3_kimi
 from product_analytics import router as product_analytics_router
 from retention_dashboard import router as retention_dashboard_router
 
@@ -69,6 +70,7 @@ busca_module._CACHE_SCHEMA_VERSION = max(
 app = main.app
 
 install_frontend_v2(app)
+install_preview_v3_kimi(app)
 
 if not getattr(app.state, "feature_flags_router_installed", False):
     app.include_router(feature_flags_router)
