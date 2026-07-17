@@ -1194,8 +1194,33 @@ index 6d7d34d..5e320fb 100644
          </aside>
  
          <main className="app-content" id="main-content">
+diff --git a/frontend/src/components/PageHeader.tsx b/frontend/src/components/PageHeader.tsx
+index 746cb2a..c42e2f6 100644
+--- a/frontend/src/components/PageHeader.tsx
++++ b/frontend/src/components/PageHeader.tsx
+@@ -3,17 +3,17 @@ import type { ReactNode } from 'react'
+ interface PageHeaderProps {
+   eyebrow: string
+   title: string
+-  description: string
++  /** Exibida como tooltip no título, nunca como texto corrido na tela. */
++  description?: string
+   aside?: ReactNode
+ }
+ 
+ export function PageHeader({ eyebrow, title, description, aside }: PageHeaderProps) {
+   return (
+     <header className="page-header">
+-      <div>
++      <div title={description || undefined}>
+         <p className="eyebrow">{eyebrow}</p>
+         <h1>{title}</h1>
+-        <p className="page-header__description">{description}</p>
+       </div>
+       {aside && <div className="page-header__aside">{aside}</div>}
+     </header>
 diff --git a/frontend/src/features/catalog/catalog.css b/frontend/src/features/catalog/catalog.css
-index 3844aaf..e9fd648 100644
+index 3844aaf..02ad42f 100644
 --- a/frontend/src/features/catalog/catalog.css
 +++ b/frontend/src/features/catalog/catalog.css
 @@ -1,55 +1,150 @@
@@ -1347,9 +1372,10 @@ index 3844aaf..e9fd648 100644
 -  grid-template-columns: 112px minmax(0, 1fr);
 -  min-width: 0;
 -  gap: 18px;
-+  grid-template-columns: 78px minmax(0, 1fr);
-+  gap: 20px;
-   padding: 18px;
+-  padding: 18px;
++  grid-template-columns: 96px minmax(0, 1fr);
++  gap: 16px;
++  padding: 14px;
    border: 1px solid var(--line);
 -  border-radius: 18px;
 +  border-radius: var(--radius-md);
@@ -1380,7 +1406,7 @@ index 3844aaf..e9fd648 100644
 -  width: 112px;
 -  aspect-ratio: 2 / 3;
 -  border-radius: 7px;
-+  width: 78px;
++  width: 96px;
 +  transition: transform 0.32s var(--ease-out), box-shadow 0.32s var(--ease-out);
 +}
 +
@@ -3168,10 +3194,10 @@ index 3359bdd..3bd048f 100644
    }
  }
 diff --git a/frontend/src/features/explore/explore.css b/frontend/src/features/explore/explore.css
-index 4631d21..c68880b 100644
+index 4631d21..d5a77e6 100644
 --- a/frontend/src/features/explore/explore.css
 +++ b/frontend/src/features/explore/explore.css
-@@ -1,40 +1,37 @@
+@@ -1,40 +1,67 @@
 -.page--explore {
 -  position: relative;
 -}
@@ -3184,9 +3210,9 @@ index 4631d21..c68880b 100644
 -  gap: 20px;
 -  margin: 28px 0 38px;
 -  padding: clamp(18px, 4vw, 28px);
-+  gap: 22px;
-+  margin-bottom: 38px;
-+  padding: 24px 26px;
++  gap: 16px;
++  margin-bottom: 26px;
++  padding: 14px 16px;
    border: 1px solid var(--line);
 -  border-radius: 22px;
 -  background:
@@ -3202,7 +3228,7 @@ index 4631d21..c68880b 100644
 +.explore-filter-panel__heading {
    display: flex;
 -  align-items: flex-end;
-+  align-items: flex-start;
++  align-items: center;
    justify-content: space-between;
 -  gap: 18px;
 +  gap: 16px;
@@ -3215,12 +3241,42 @@ index 4631d21..c68880b 100644
 -  font-size: clamp(25px, 4vw, 38px);
 -  font-weight: 500;
 -  line-height: 1.05;
-+.explore-filter-panel__heading h2 {
-+  margin-top: 10px;
-+  font-family: var(--font-display);
-+  font-size: 23px;
-+  font-weight: 600;
-+  letter-spacing: -0.01em;
++.explore-filter-panel__toggle {
++  display: inline-flex;
++  align-items: center;
++  gap: 9px;
++  padding: 6px 4px;
++  font-family: var(--font-mono);
++  font-size: 10.5px;
++  font-weight: 700;
++  letter-spacing: 0.2em;
++  text-transform: uppercase;
++  color: var(--accent);
++}
++
++.explore-filter-panel__toggle strong {
++  min-width: 18px;
++  padding: 2px 5px;
++  border-radius: var(--radius-sm);
++  background: var(--accent-soft);
++  color: var(--accent-strong);
++  font-size: 10px;
++  text-align: center;
++}
++
++.explore-filter-panel__toggle i {
++  font-style: normal;
++  font-size: 14px;
++  color: var(--muted);
++}
++
++.explore-results-count {
++  margin-bottom: 12px;
++  font-family: var(--font-mono);
++  font-size: 10.5px;
++  letter-spacing: 0.18em;
++  text-transform: uppercase;
++  color: var(--muted);
  }
  
  .explore-filter-grid {
@@ -3231,7 +3287,7 @@ index 4631d21..c68880b 100644
  }
  
  .explore-filter-grid label {
-@@ -43,331 +40,350 @@
+@@ -43,331 +70,350 @@
  }
  
  .explore-filter-grid label > span {
@@ -3356,8 +3412,12 @@ index 4631d21..c68880b 100644
 +.explore-toggle-row button:hover {
 +  color: var(--text);
 +  border-color: var(--accent-line);
-+}
-+
+ }
+ 
+-.explore-toggle-row button.is-active > span {
+-  border-color: var(--accent-strong);
+-  background: var(--accent-strong);
+-  color: var(--surface);
 +.explore-toggle-row button.is-active {
 +  border-style: solid;
 +  color: var(--accent-strong);
@@ -3365,14 +3425,10 @@ index 4631d21..c68880b 100644
 +  background: var(--accent-soft);
  }
  
--.explore-toggle-row button.is-active > span {
--  border-color: var(--accent-strong);
--  background: var(--accent-strong);
--  color: var(--surface);
 +.explore-toggle-row button.is-active span {
 +  color: var(--accent-strong);
- }
- 
++}
++
 +/* filtros ativos */
  .explore-active-filters {
    display: flex;
@@ -3534,22 +3590,22 @@ index 4631d21..c68880b 100644
 +.explore-path-grid button svg {
 +  color: var(--subtle);
 +  transition: color 0.24s var(--ease-out), transform 0.24s var(--ease-out);
-+}
-+
+ }
+ 
+-.explore-path-grid svg {
+-  grid-column: 3;
+-  grid-row: 1 / span 2;
 +.explore-path-grid button:hover {
 +  border-color: var(--accent-line);
 +  background: var(--surface-raised);
 +  transform: translateX(4px);
  }
  
--.explore-path-grid svg {
--  grid-column: 3;
--  grid-row: 1 / span 2;
 +.explore-path-grid button:hover svg {
 +  color: var(--accent-strong);
 +  transform: translateX(3px);
- }
- 
++}
++
 +/* muro de gêneros */
  .explore-genre-wall {
 -  display: grid;
@@ -3673,8 +3729,12 @@ index 4631d21..c68880b 100644
 +.explore-publisher-grid button small {
 +  color: var(--subtle);
 +  font-size: 12px;
-+}
-+
+ }
+ 
+-.explore-publisher-grid svg {
+-  grid-column: 2;
+-  grid-row: 1 / span 3;
+-  align-self: center;
 +.explore-publisher-grid button svg {
 +  position: absolute;
 +  top: 16px;
@@ -3688,12 +3748,8 @@ index 4631d21..c68880b 100644
 +  border-color: var(--accent-line);
 +  background: var(--surface-raised);
 +  transform: translateY(-3px);
- }
- 
--.explore-publisher-grid svg {
--  grid-column: 2;
--  grid-row: 1 / span 3;
--  align-self: center;
++}
++
 +.explore-publisher-grid button:hover svg {
 +  color: var(--accent-strong);
 +  opacity: 1;
@@ -3770,6 +3826,19 @@ index 4631d21..c68880b 100644
 +    padding: 20px 18px;
    }
  }
+diff --git a/frontend/src/features/feed/FeedDiscoveryPanels.tsx b/frontend/src/features/feed/FeedDiscoveryPanels.tsx
+index aa8e856..248e57c 100644
+--- a/frontend/src/features/feed/FeedDiscoveryPanels.tsx
++++ b/frontend/src/features/feed/FeedDiscoveryPanels.tsx
+@@ -20,7 +20,7 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
+     <section className="feed-panel feed-panel--reading-now" aria-labelledby="reading-now-title">
+       <div className="feed-panel__heading">
+         <div>
+-          <p className="eyebrow">{feedText(locale, 'reading_now')}</p>
++          <p className="eyebrow eyebrow--rule-only" />
+           <h2 id="reading-now-title">{feedText(locale, 'reading_now')}</h2>
+         </div>
+         <span>{items.length}</span>
 diff --git a/frontend/src/features/feed/feed.css b/frontend/src/features/feed/feed.css
 index 07610d0..29f6f2f 100644
 --- a/frontend/src/features/feed/feed.css
@@ -8584,6 +8653,181 @@ index 556d021..ec24935 100644
      nav_search: 'Search',
      nav_explore: 'Explore',
      nav_feed: 'Feed',
+diff --git a/frontend/src/pages/DiaryPage.tsx b/frontend/src/pages/DiaryPage.tsx
+index 9e03940..14fdb59 100644
+--- a/frontend/src/pages/DiaryPage.tsx
++++ b/frontend/src/pages/DiaryPage.tsx
+@@ -140,7 +140,6 @@ export function DiaryPage() {
+             ? `${entries.length} ${diaryText(locale, 'entries')}`
+             : t('diary_copy')
+         }
+-        aside={<span className="stage-stamp">05 · memória real</span>}
+       />
+ 
+       {notice && (
+diff --git a/frontend/src/pages/ExplorePage.tsx b/frontend/src/pages/ExplorePage.tsx
+index 8636a71..451bfd4 100644
+--- a/frontend/src/pages/ExplorePage.tsx
++++ b/frontend/src/pages/ExplorePage.tsx
+@@ -40,6 +40,10 @@ function validSort(value: string): CatalogSort {
+ export function ExplorePage() {
+   const { locale } = usePreferences()
+   const [searchParams, setSearchParams] = useSearchParams()
++  // filtros abertos por padrão só no desktop; no mobile o painel ocupa a tela
++  const [filtersOpen, setFiltersOpen] = useState(
++    () => window.matchMedia('(min-width: 1024px)').matches,
++  )
+   const [popularWorks, setPopularWorks] = useState<CatalogWork[]>([])
+   const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
+   const [literatures, setLiteratures] = useState<CatalogLiterature[]>([])
+@@ -149,20 +153,23 @@ export function ExplorePage() {
+       <PageHeader
+         eyebrow={exploreText(locale, 'eyebrow')}
+         title={exploreText(locale, 'title')}
+-        description={
+-          hasFilters && resultsStatus === 'ready'
+-            ? `${results.length} ${exploreText(locale, 'results')}`
+-            : exploreText(locale, 'copy')
+-        }
+-        aside={<span className="stage-stamp">07 · descoberta</span>}
++        description={exploreText(locale, 'copy')}
+       />
+ 
+       <section className="explore-filter-panel" aria-labelledby="explore-filter-title">
+         <div className="explore-filter-panel__heading">
+-          <div>
+-            <p className="eyebrow">{exploreText(locale, 'filters')}</p>
+-            <h2 id="explore-filter-title">{exploreText(locale, 'filter_copy')}</h2>
+-          </div>
++          <button
++            id="explore-filter-title"
++            className="explore-filter-panel__toggle"
++            type="button"
++            aria-expanded={filtersOpen}
++            onClick={() => setFiltersOpen((current) => !current)}
++          >
++            <Icon name="explore" size={15} />
++            <span>{exploreText(locale, 'filters')}</span>
++            {activeLabels.length > 0 && <strong>{activeLabels.length}</strong>}
++            <i aria-hidden="true">{filtersOpen ? '−' : '+'}</i>
++          </button>
+           {hasFilters && (
+             <button className="text-button" type="button" onClick={() => setSearchParams({})}>
+               {exploreText(locale, 'clear')}
+@@ -170,6 +177,7 @@ export function ExplorePage() {
+           )}
+         </div>
+ 
++        {filtersOpen && (<>
+         <div className="explore-filter-grid">
+           <label>
+             <span>{exploreText(locale, 'publisher')}</span>
+@@ -221,6 +229,7 @@ export function ExplorePage() {
+           <Toggle active={withIsbn} label={exploreText(locale, 'with_isbn')} onClick={() => setParam('isbn', !withIsbn)} />
+           <Toggle active={portuguese} label={exploreText(locale, 'portuguese')} onClick={() => setParam('pt', !portuguese)} />
+         </div>
++        </>)}
+ 
+         {activeLabels.length > 0 && (
+           <div className="explore-active-filters" aria-label={exploreText(locale, 'active_filters')}>
+@@ -287,11 +296,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
+     )
+   }
+   return (
+-    <div className="catalog-results explore-results">
+-      {results.map((work) => (
+-        <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} />
+-      ))}
+-    </div>
++    <>
++      <p className="explore-results-count">
++        {results.length} {exploreText(locale, 'results')}
++      </p>
++      <div className="catalog-results explore-results">
++        {results.map((work) => (
++          <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} />
++        ))}
++      </div>
++    </>
+   )
+ }
+ 
+@@ -385,9 +399,14 @@ function DiscoveryHome({
+ }
+ 
+ function SectionHeading({ eyebrow, title, count }: { eyebrow: string; title: string; count?: number }) {
++  // eyebrow igual ao título vira só o filete decorativo, sem repetir o texto
++  const repetido = eyebrow.trim().toLowerCase() === title.trim().toLowerCase()
+   return (
+     <div className="explore-section__heading">
+-      <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
++      <div>
++        <p className={`eyebrow${repetido ? ' eyebrow--rule-only' : ''}`}>{repetido ? '' : eyebrow}</p>
++        <h2>{title}</h2>
++      </div>
+       {count !== undefined && <span>{count}</span>}
+     </div>
+   )
+diff --git a/frontend/src/pages/FeedPage.tsx b/frontend/src/pages/FeedPage.tsx
+index 8bfcedd..3373c7e 100644
+--- a/frontend/src/pages/FeedPage.tsx
++++ b/frontend/src/pages/FeedPage.tsx
+@@ -104,7 +104,6 @@ export function FeedPage() {
+         eyebrow={t('feed_eyebrow')}
+         title={t('feed_title')}
+         description={t('feed_copy')}
+-        aside={<span className="stage-stamp">08 · social</span>}
+       />
+ 
+       <div className="feed-toolbar">
+diff --git a/frontend/src/pages/MemoriesPage.tsx b/frontend/src/pages/MemoriesPage.tsx
+index 1cd3e53..74d8dd7 100644
+--- a/frontend/src/pages/MemoriesPage.tsx
++++ b/frontend/src/pages/MemoriesPage.tsx
+@@ -93,7 +93,6 @@ export function MemoriesPage() {
+         eyebrow={memoriesText(locale, 'eyebrow')}
+         title={memoriesText(locale, 'title')}
+         description={memoriesText(locale, 'copy')}
+-        aside={<span className="stage-stamp">10 · compartilhar</span>}
+       />
+ 
+       <section className="memories-period" aria-labelledby="memories-period-title">
+diff --git a/frontend/src/pages/ProfilePage.tsx b/frontend/src/pages/ProfilePage.tsx
+index 918782d..b5eb077 100644
+--- a/frontend/src/pages/ProfilePage.tsx
++++ b/frontend/src/pages/ProfilePage.tsx
+@@ -106,7 +106,6 @@ export function ProfilePage() {
+         eyebrow={owner ? t('profile_eyebrow') : profileText(locale, 'public_profile')}
+         title={owner ? t('profile_title') : profile?.nome || profileText(locale, 'public_profile')}
+         description={owner ? t('profile_copy') : profile?.bio || `@${targetHandle}`}
+-        aside={<span className="stage-stamp">09 · identidade</span>}
+       />
+ 
+       {status === 'loading' && <ProfileLoading />}
+diff --git a/frontend/src/pages/SearchPage.tsx b/frontend/src/pages/SearchPage.tsx
+index 13ad1fa..b8e88ce 100644
+--- a/frontend/src/pages/SearchPage.tsx
++++ b/frontend/src/pages/SearchPage.tsx
+@@ -101,7 +101,6 @@ export function SearchPage() {
+             ? `${results.length} ${catalogText(locale, 'results')}`
+             : t('search_copy')
+         }
+-        aside={<span className="stage-stamp">06 · catálogo</span>}
+       />
+ 
+       <form className="search-form catalog-search-form" onSubmit={submit} role="search">
+diff --git a/frontend/src/pages/ShelfPage.tsx b/frontend/src/pages/ShelfPage.tsx
+index e2b7e24..41d609b 100644
+--- a/frontend/src/pages/ShelfPage.tsx
++++ b/frontend/src/pages/ShelfPage.tsx
+@@ -117,7 +117,6 @@ export function ShelfPage() {
+             ? `${readings.length} ${shelfText(locale, 'books_count')}`
+             : t('shelf_copy')
+         }
+-        aside={<span className="stage-stamp">04 · edição</span>}
+       />
+ 
+       {notice && (
 diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
 index 2161ecf..3c9e7d6 100644
 --- a/frontend/src/services/api.ts
@@ -9270,7 +9514,7 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..75270ed 100644
+index 990b8b9..b135a21 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
 @@ -1,56 +1,108 @@
@@ -9352,7 +9596,7 @@ index 990b8b9..75270ed 100644
 +  --font-body: "Spectral", Georgia, serif;
 +  --font-mono: "Space Mono", ui-monospace, monospace;
 +
-+  --rail-width: 272px;
++  --rail-width: 236px;
 +  --content-width: 1100px;
 +
 +  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -9429,7 +9673,7 @@ index 990b8b9..75270ed 100644
    min-height: 100vh;
    margin: 0;
    color: var(--text);
-+  font-size: 16.5px;
++  font-size: 15.5px;
 +  line-height: 1.55;
    background:
 -    radial-gradient(circle at 92% 0%, var(--wine-soft), transparent 32rem),
@@ -9537,7 +9781,7 @@ index 990b8b9..75270ed 100644
  }
  
  .sr-only {
-@@ -130,27 +223,165 @@ button:disabled {
+@@ -130,27 +223,176 @@ button:disabled {
    border: 0;
  }
  
@@ -9562,6 +9806,11 @@ index 990b8b9..75270ed 100644
 +  width: 26px;
 +  height: 1px;
 +  background: var(--accent-line);
++}
++
++/* variação sem texto: só o filete, para não repetir o título ao lado */
++.eyebrow--rule-only {
++  min-height: 11px;
 +}
 +
 +/* ---------------------------------------------------------- */
@@ -9707,10 +9956,16 @@ index 990b8b9..75270ed 100644
 +  display: inline-flex;
 +  align-items: center;
 +  gap: 12px;
++}
++
++/* no mobile o topo fica só com a marca e o avatar; o aviso de migração
++   continua disponível no painel de configurações e no trilho desktop */
++.app-header .migration-chip {
++  display: none;
  }
  
  .brand {
-@@ -162,166 +393,189 @@ button:disabled {
+@@ -162,166 +404,189 @@ button:disabled {
  
  .brand-mark {
    display: grid;
@@ -9984,7 +10239,7 @@ index 990b8b9..75270ed 100644
  }
  
  .desktop-rail {
-@@ -329,1004 +583,801 @@ button:disabled {
+@@ -329,1004 +594,801 @@ button:disabled {
  }
  
  .app-content {
@@ -9992,7 +10247,7 @@ index 990b8b9..75270ed 100644
 -  min-width: 0;
 +  width: min(100% - 36px, var(--content-width));
    margin: 0 auto;
-+  padding: 30px 0 130px;
++  padding: 22px 0 120px;
  }
  
 -.page {
@@ -10024,8 +10279,8 @@ index 990b8b9..75270ed 100644
 +    display: flex;
 +    height: 100vh;
 +    flex-direction: column;
-+    gap: 26px;
-+    padding: 30px 20px 22px 26px;
++    gap: 18px;
++    padding: 24px 16px 18px 20px;
 +    border-right: 1px solid var(--line);
 +    background:
 +      linear-gradient(180deg, color-mix(in srgb, var(--bg-soft) 72%, transparent), transparent 34%),
@@ -10042,7 +10297,7 @@ index 990b8b9..75270ed 100644
 -  border-bottom: 1px solid var(--line);
 -}
 +  .rail-head {
-+    padding-bottom: 24px;
++    padding-bottom: 16px;
 +    border-bottom: 1px solid var(--line);
 +  }
  
@@ -10088,11 +10343,11 @@ index 990b8b9..75270ed 100644
 +    position: relative;
 +    display: flex;
 +    align-items: center;
-+    gap: 13px;
-+    padding: 11px 14px;
-+    border-radius: 12px;
++    gap: 11px;
++    padding: 8px 12px;
++    border-radius: var(--radius-md);
 +    color: var(--muted);
-+    font-size: 15px;
++    font-size: 14px;
 +    transition:
 +      color 0.22s var(--ease-out),
 +      background 0.22s var(--ease-out),
@@ -10418,16 +10673,16 @@ index 990b8b9..75270ed 100644
 +  align-items: flex-start;
 +  justify-content: space-between;
 +  gap: 28px;
-+  margin-bottom: 36px;
++  margin-bottom: 22px;
  }
  
 -.preview-lines {
 -  display: grid;
 -  gap: 9px;
 +.page-header h1 {
-+  margin: 16px 0 12px;
++  margin: 10px 0 0;
 +  font-family: var(--font-display);
-+  font-size: clamp(34px, 4.8vw, 54px);
++  font-size: clamp(30px, 3.2vw, 40px);
 +  font-weight: 600;
 +  letter-spacing: -0.045em;
 +  line-height: 1.02;
@@ -10907,16 +11162,6 @@ index 990b8b9..75270ed 100644
 -  gap: 4px;
 -  border-radius: 17px;
 -  color: var(--subtle);
--}
--
--.bottom-navigation__item span {
--  overflow: hidden;
--  max-width: 100%;
--  font-family: "Space Mono", monospace;
--  font-size: 8px;
--  letter-spacing: 0.01em;
--  text-overflow: ellipsis;
--  white-space: nowrap;
 +  gap: 15px;
 +  padding: 15px 17px;
 +  border: 1px solid var(--line);
@@ -10928,11 +11173,24 @@ index 990b8b9..75270ed 100644
 +    transform 0.24s var(--ease-out);
  }
  
+-.bottom-navigation__item span {
+-  overflow: hidden;
+-  max-width: 100%;
+-  font-family: "Space Mono", monospace;
+-  font-size: 8px;
+-  letter-spacing: 0.01em;
+-  text-overflow: ellipsis;
+-  white-space: nowrap;
++.quick-action-card svg:first-child {
++  color: var(--accent);
+ }
+ 
 -.bottom-navigation__item.is-active {
 -  color: var(--accent-strong);
 -  background: var(--accent-soft);
-+.quick-action-card svg:first-child {
-+  color: var(--accent);
++.quick-action-card span {
++  flex: 1;
++  font-size: 15.5px;
  }
  
 -.bottom-navigation__add {
@@ -10948,16 +11206,17 @@ index 990b8b9..75270ed 100644
 -  box-shadow: 0 10px 30px var(--accent-soft);
 -  cursor: pointer;
 -  transition: transform 180ms ease;
-+.quick-action-card span {
-+  flex: 1;
-+  font-size: 15.5px;
++.quick-action-card svg:last-child {
++  color: var(--subtle);
++  transition: color 0.24s var(--ease-out), transform 0.24s var(--ease-out);
  }
  
 -.bottom-navigation__add.is-active {
 -  transform: rotate(90deg);
-+.quick-action-card svg:last-child {
-+  color: var(--subtle);
-+  transition: color 0.24s var(--ease-out), transform 0.24s var(--ease-out);
++.quick-action-card:hover {
++  border-color: var(--accent-line);
++  background: var(--accent-soft);
++  transform: translateX(3px);
  }
  
 -.panel-layer,
@@ -10965,9 +11224,8 @@ index 990b8b9..75270ed 100644
 -  position: fixed;
 -  inset: 0;
 -  z-index: 90;
-+.quick-action-card:hover {
-+  border-color: var(--accent-line);
-+  background: var(--accent-soft);
++.quick-action-card:hover svg:last-child {
++  color: var(--accent-strong);
 +  transform: translateX(3px);
  }
  
@@ -10980,11 +11238,6 @@ index 990b8b9..75270ed 100644
 -  background: rgba(8, 7, 6, 0.58);
 -  cursor: default;
 -  backdrop-filter: blur(5px);
-+.quick-action-card:hover svg:last-child {
-+  color: var(--accent-strong);
-+  transform: translateX(3px);
-+}
-+
 +/* ---------------------------------------------------------- */
 +/* Painel de configurações                                    */
 +/* ---------------------------------------------------------- */
