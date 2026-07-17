@@ -444,6 +444,11 @@ const I18N = {
     retro_copied: 'retrospectiva copiada!',
     retro_generating: 'gerando card…',
     retro_card_downloaded: 'card salvo! agora é só postar 📚',
+    shelf_card_kicker: 'minha estante',
+    shelf_card_total: 'livros na estante',
+    shelf_card_more: 'mais {count}',
+    shelf_share_text: 'Minha estante no Lombada: {count} livros. {url}',
+    shelf_card_downloaded: 'estante salva! agora é só postar 📚',
     li_mais: 'Li mais',
     open_full_diary: 'abrir o diário completo',
     li_mais_delta: '+{count} páginas nessa sessão 📖',
@@ -1380,6 +1385,8 @@ Object.assign(I18N['en'], {
   retro_shelf_sub: '{count} readings that became stories', retro_tap_hint: 'tap to continue',
   retro_share_text: 'My Lombada recap: {books} books read, {pages} pages turned. {url}', retro_copied: 'recap copied!',
   retro_generating: 'making your card…', retro_card_downloaded: 'card saved! ready to post 📚',
+  shelf_card_kicker: 'my shelf', shelf_card_total: 'books on the shelf', shelf_card_more: '{count} more',
+  shelf_share_text: 'My shelf on Lombada: {count} books. {url}', shelf_card_downloaded: 'shelf saved! ready to post 📚',
   li_mais: 'I read more', open_full_diary: 'open the full diary', li_mais_delta: '+{count} pages this session 📖',
   last_session_pages: '+{count} pages in your last session', week_pages: '{count} pages in the last 7 days'
 });
@@ -1405,6 +1412,8 @@ Object.assign(I18N['es'], {
   retro_shelf_sub: '{count} lecturas que se volvieron historia', retro_tap_hint: 'toca para continuar',
   retro_share_text: 'Mi retrospectiva en Lombada: {books} libros leídos, {pages} páginas pasadas. {url}', retro_copied: '¡retrospectiva copiada!',
   retro_generating: 'generando tarjeta…', retro_card_downloaded: '¡tarjeta guardada! lista para publicar 📚',
+  shelf_card_kicker: 'mi estantería', shelf_card_total: 'libros en la estantería', shelf_card_more: '{count} más',
+  shelf_share_text: 'Mi estantería en Lombada: {count} libros. {url}', shelf_card_downloaded: '¡estantería guardada! lista para publicar 📚',
   li_mais: 'Leí más', open_full_diary: 'abrir el diario completo', li_mais_delta: '+{count} páginas en esta sesión 📖',
   last_session_pages: '+{count} páginas en tu última sesión', week_pages: '{count} páginas en los últimos 7 días'
 });
