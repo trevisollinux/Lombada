@@ -22,7 +22,7 @@ index 337ff9b..eabed0c 100644
      <title>Lombada v2 — diário de leituras</title>
 diff --git a/frontend/package-lock.json b/frontend/package-lock.json
 new file mode 100644
-index 0000000..b80587a
+index 0000000..0595ebd
 --- /dev/null
 +++ b/frontend/package-lock.json
 @@ -0,0 +1,1035 @@
@@ -53,7 +53,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@emnapi/core": {
 +      "version": "1.11.1",
-+      "resolved": "https://npm.mirrors.msh.team/@emnapi/core/-/core-1.11.1.tgz",
++      "resolved": "https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz",
 +      "integrity": "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==",
 +      "dev": true,
 +      "license": "MIT",
@@ -65,7 +65,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@emnapi/runtime": {
 +      "version": "1.11.1",
-+      "resolved": "https://npm.mirrors.msh.team/@emnapi/runtime/-/runtime-1.11.1.tgz",
++      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz",
 +      "integrity": "sha512-vgj7R3y3Wgx24IQaGPA/R6YFXLHVMOZ0uVEyIQPaWs+rd1AzfEMXlAC22FYwO1XkKR6NPsq7mUandH8oIRdZFw==",
 +      "dev": true,
 +      "license": "MIT",
@@ -76,7 +76,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@emnapi/wasi-threads": {
 +      "version": "1.2.2",
-+      "resolved": "https://npm.mirrors.msh.team/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz",
++      "resolved": "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz",
 +      "integrity": "sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==",
 +      "dev": true,
 +      "license": "MIT",
@@ -87,7 +87,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@napi-rs/wasm-runtime": {
 +      "version": "1.1.6",
-+      "resolved": "https://npm.mirrors.msh.team/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
++      "resolved": "https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz",
 +      "integrity": "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==",
 +      "dev": true,
 +      "license": "MIT",
@@ -106,7 +106,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@oxc-project/types": {
 +      "version": "0.139.0",
-+      "resolved": "https://npm.mirrors.msh.team/@oxc-project/types/-/types-0.139.0.tgz",
++      "resolved": "https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz",
 +      "integrity": "sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw==",
 +      "dev": true,
 +      "license": "MIT",
@@ -116,7 +116,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-android-arm64": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz",
 +      "integrity": "sha512-lZg8fqIv2v7FF237bwMgzGZEJvGL79/s5knJ/i6FmsGF4XXlzccZ4jb+TrFIxtSSxFtIpdsgrPZeMk1I9AFcyQ==",
 +      "cpu": [
 +        "arm64"
@@ -133,7 +133,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-darwin-arm64": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz",
 +      "integrity": "sha512-51Bnx9pNiMRKSUNtBfySkNJ9vMU9Hh3I1ozDd6gyPPYzaXCfnptUcEZxXGYFn+ul2dtcMUiqGR1Yai2K10uoTw==",
 +      "cpu": [
 +        "arm64"
@@ -150,7 +150,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-darwin-x64": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz",
 +      "integrity": "sha512-Tm+gbfC0aHu1tBA/JvKQh32S0K6YgCHkiAF4/W6xX0K0RmNuc94VeK419dJoE65R5aRxmo+noZQSWrAMF6yb6g==",
 +      "cpu": [
 +        "x64"
@@ -167,7 +167,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-freebsd-x64": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz",
 +      "integrity": "sha512-JMzDKCCXq93YccG5gz3hvOs1oXRKAf0XYpfOS88e+wZrC8Iugj6j68867vrYZkvpDDpKn/KoKORThmchMpF6TA==",
 +      "cpu": [
 +        "x64"
@@ -184,7 +184,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-arm-gnueabihf": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz",
 +      "integrity": "sha512-uML21j2K5TfPGutKxub+M+nLjZIrWjXQ5Grx4lCe/nimTj9B4L63zHpjXLl4y0L3mcm2htEQIb06oCG/szerNw==",
 +      "cpu": [
 +        "arm"
@@ -201,7 +201,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-arm64-gnu": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz",
 +      "integrity": "sha512-navSiuTMogvnQoZoM/v+l3ZWo50/NTwSHSzheABx/RCnmUPaKwq9qSo4Br2OYRs21+Fz8uFqITZM3H4opOB0/Q==",
 +      "cpu": [
 +        "arm64"
@@ -221,7 +221,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-arm64-musl": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz",
 +      "integrity": "sha512-lAryqH7IteztmCXQXk0etKj4wBQ7Gx5S6LjKhsgp9zb8I5bsuvU/2llH1hDQcjsFeqIsovMVN339/8pUDDBXxA==",
 +      "cpu": [
 +        "arm64"
@@ -241,7 +241,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-ppc64-gnu": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.1.5.tgz",
 +      "integrity": "sha512-fsK/sNBnxzBlL4O1JNrZakVQxPspqpED5dLtNsZS9oOKmtSpdNIzxH2kkol5HYTWJN47sE20ztMJPxfZ89qGOg==",
 +      "cpu": [
 +        "ppc64"
@@ -261,7 +261,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-s390x-gnu": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.1.5.tgz",
 +      "integrity": "sha512-gLYb4BIadlfTOYT5gO503n8zQjXflgzpD0FcyKh0Mzx3rqCZKnHoJWV9xe1KXUJ5lx2JfcSHr/mhzS0PC/McAA==",
 +      "cpu": [
 +        "s390x"
@@ -281,7 +281,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-x64-gnu": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz",
 +      "integrity": "sha512-FjcpEKUyJygHgs1o50VYNvkt5+7Le/VEdYt0AkRpkL33MnyQfwr8l5mXwMmfmTbyMPr5vJLC+8/Gd9gXnwU1QQ==",
 +      "cpu": [
 +        "x64"
@@ -301,7 +301,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-linux-x64-musl": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz",
 +      "integrity": "sha512-Me+PfPI2TMeOQk0gYWfLQZtTktrmzbr8cDboqX83XKc7UrgAi55gF+2dUkWdxd19n55Essp2yeca+O9N5rBxHg==",
 +      "cpu": [
 +        "x64"
@@ -321,7 +321,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-openharmony-arm64": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-openharmony-arm64/-/binding-openharmony-arm64-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-openharmony-arm64/-/binding-openharmony-arm64-1.1.5.tgz",
 +      "integrity": "sha512-yc5WrLzXks6zCQfn9Oxr8pORKyl/pF+QjHmW/Qx3qu0oyrrNC+y2JLTU1E2rcWYAmzlnqngWXHQjy51VzW70Vw==",
 +      "cpu": [
 +        "arm64"
@@ -338,7 +338,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-wasm32-wasi": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz",
 +      "integrity": "sha512-VbQGPX2b4r48TAMIM2cjgluIM1HYutm4pcTEJsle7iEP7sB1dFqtPLBVbdLAZCxy1txCcPxf4QFf4v8uvltPqA==",
 +      "cpu": [
 +        "wasm32"
@@ -357,7 +357,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-win32-arm64-msvc": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz",
 +      "integrity": "sha512-gHv82k63z4qpV5+Q1y/12KrK0ltWBukVDI8nZcbT7Tt/ZlOIVwppazneq0F93oDxTo3IgAMEDIoQh3E2n6mVsw==",
 +      "cpu": [
 +        "arm64"
@@ -374,7 +374,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/binding-win32-x64-msvc": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz",
 +      "integrity": "sha512-tTZuDBPw85tEN5PQi1pnEBzDy0Z49HtScLAbD5t6hyeU92A95pRWaSMw1GZZi/RwgSgUIl0xrSlXIT/9QzvYSA==",
 +      "cpu": [
 +        "x64"
@@ -391,14 +391,14 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@rolldown/pluginutils": {
 +      "version": "1.0.1",
-+      "resolved": "https://npm.mirrors.msh.team/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
++      "resolved": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz",
 +      "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==",
 +      "dev": true,
 +      "license": "MIT"
 +    },
 +    "node_modules/@tybys/wasm-util": {
 +      "version": "0.10.3",
-+      "resolved": "https://npm.mirrors.msh.team/@tybys/wasm-util/-/wasm-util-0.10.3.tgz",
++      "resolved": "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz",
 +      "integrity": "sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==",
 +      "dev": true,
 +      "license": "MIT",
@@ -409,7 +409,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@types/react": {
 +      "version": "19.2.17",
-+      "resolved": "https://npm.mirrors.msh.team/@types/react/-/react-19.2.17.tgz",
++      "resolved": "https://registry.npmjs.org/@types/react/-/react-19.2.17.tgz",
 +      "integrity": "sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==",
 +      "dev": true,
 +      "license": "MIT",
@@ -419,7 +419,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@types/react-dom": {
 +      "version": "19.2.3",
-+      "resolved": "https://npm.mirrors.msh.team/@types/react-dom/-/react-dom-19.2.3.tgz",
++      "resolved": "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.3.tgz",
 +      "integrity": "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==",
 +      "dev": true,
 +      "license": "MIT",
@@ -429,7 +429,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/@vitejs/plugin-react": {
 +      "version": "6.0.3",
-+      "resolved": "https://npm.mirrors.msh.team/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
++      "resolved": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
 +      "integrity": "sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg==",
 +      "dev": true,
 +      "license": "MIT",
@@ -455,20 +455,20 @@ index 0000000..b80587a
 +    },
 +    "node_modules/cookie-es": {
 +      "version": "3.1.1",
-+      "resolved": "https://npm.mirrors.msh.team/cookie-es/-/cookie-es-3.1.1.tgz",
++      "resolved": "https://registry.npmjs.org/cookie-es/-/cookie-es-3.1.1.tgz",
 +      "integrity": "sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==",
 +      "license": "MIT"
 +    },
 +    "node_modules/csstype": {
 +      "version": "3.2.3",
-+      "resolved": "https://npm.mirrors.msh.team/csstype/-/csstype-3.2.3.tgz",
++      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
 +      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
 +      "dev": true,
 +      "license": "MIT"
 +    },
 +    "node_modules/detect-libc": {
 +      "version": "2.1.2",
-+      "resolved": "https://npm.mirrors.msh.team/detect-libc/-/detect-libc-2.1.2.tgz",
++      "resolved": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
 +      "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==",
 +      "dev": true,
 +      "license": "Apache-2.0",
@@ -478,7 +478,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/fdir": {
 +      "version": "6.5.0",
-+      "resolved": "https://npm.mirrors.msh.team/fdir/-/fdir-6.5.0.tgz",
++      "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
 +      "integrity": "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==",
 +      "dev": true,
 +      "license": "MIT",
@@ -496,7 +496,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/fsevents": {
 +      "version": "2.3.3",
-+      "resolved": "https://npm.mirrors.msh.team/fsevents/-/fsevents-2.3.3.tgz",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
 +      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
 +      "dev": true,
 +      "hasInstallScript": true,
@@ -511,7 +511,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss/-/lightningcss-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
 +      "integrity": "sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==",
 +      "dev": true,
 +      "license": "MPL-2.0",
@@ -541,7 +541,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-android-arm64": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz",
 +      "integrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
 +      "cpu": [
 +        "arm64"
@@ -562,7 +562,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-darwin-arm64": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz",
 +      "integrity": "sha512-RzeG9Ju5bag2Bv1/lwlVJvBE3q6TtXskdZLLCyfg5pt+HLz9BqlICO7LZM7VHNTTn/5PRhHFBSjk5lc4cmscPQ==",
 +      "cpu": [
 +        "arm64"
@@ -583,7 +583,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-darwin-x64": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz",
 +      "integrity": "sha512-U+QsBp2m/s2wqpUYT/6wnlagdZbtZdndSmut/NJqlCcMLTWp5muCrID+K5UJ6jqD2BFshejCYXniPDbNh73V8w==",
 +      "cpu": [
 +        "x64"
@@ -604,7 +604,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-freebsd-x64": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz",
 +      "integrity": "sha512-JCTigedEksZk3tHTTthnMdVfGf61Fky8Ji2E4YjUTEQX14xiy/lTzXnu1vwiZe3bYe0q+SpsSH/CTeDXK6WHig==",
 +      "cpu": [
 +        "x64"
@@ -625,7 +625,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-linux-arm-gnueabihf": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz",
 +      "integrity": "sha512-x6rnnpRa2GL0zQOkt6rts3YDPzduLpWvwAF6EMhXFVZXD4tPrBkEFqzGowzCsIWsPjqSK+tyNEODUBXeeVHSkw==",
 +      "cpu": [
 +        "arm"
@@ -646,7 +646,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-linux-arm64-gnu": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz",
 +      "integrity": "sha512-0nnMyoyOLRJXfbMOilaSRcLH3Jw5z9HDNGfT/gwCPgaDjnx0i8w7vBzFLFR1f6CMLKF8gVbebmkUN3fa/kQJpQ==",
 +      "cpu": [
 +        "arm64"
@@ -670,7 +670,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-linux-arm64-musl": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz",
 +      "integrity": "sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==",
 +      "cpu": [
 +        "arm64"
@@ -694,7 +694,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-linux-x64-gnu": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz",
 +      "integrity": "sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==",
 +      "cpu": [
 +        "x64"
@@ -718,7 +718,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-linux-x64-musl": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz",
 +      "integrity": "sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==",
 +      "cpu": [
 +        "x64"
@@ -742,7 +742,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-win32-arm64-msvc": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz",
 +      "integrity": "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==",
 +      "cpu": [
 +        "arm64"
@@ -763,7 +763,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/lightningcss-win32-x64-msvc": {
 +      "version": "1.32.0",
-+      "resolved": "https://npm.mirrors.msh.team/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
++      "resolved": "https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz",
 +      "integrity": "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q==",
 +      "cpu": [
 +        "x64"
@@ -784,7 +784,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/nanoid": {
 +      "version": "3.3.16",
-+      "resolved": "https://npm.mirrors.msh.team/nanoid/-/nanoid-3.3.16.tgz",
++      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.16.tgz",
 +      "integrity": "sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==",
 +      "dev": true,
 +      "funding": [
@@ -803,14 +803,14 @@ index 0000000..b80587a
 +    },
 +    "node_modules/picocolors": {
 +      "version": "1.1.1",
-+      "resolved": "https://npm.mirrors.msh.team/picocolors/-/picocolors-1.1.1.tgz",
++      "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
 +      "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
 +      "dev": true,
 +      "license": "ISC"
 +    },
 +    "node_modules/picomatch": {
 +      "version": "4.0.5",
-+      "resolved": "https://npm.mirrors.msh.team/picomatch/-/picomatch-4.0.5.tgz",
++      "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz",
 +      "integrity": "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==",
 +      "dev": true,
 +      "license": "MIT",
@@ -823,7 +823,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/postcss": {
 +      "version": "8.5.19",
-+      "resolved": "https://npm.mirrors.msh.team/postcss/-/postcss-8.5.19.tgz",
++      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.19.tgz",
 +      "integrity": "sha512-Mz8SaolMd8nB+G13WkORcxQKHZ/NE4xXevtkJHVuG+guo9/wYKlIMTKAqGdEmYOXR2ijPjTYNHssizdaVSUNdQ==",
 +      "dev": true,
 +      "funding": [
@@ -852,7 +852,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/react": {
 +      "version": "19.2.7",
-+      "resolved": "https://npm.mirrors.msh.team/react/-/react-19.2.7.tgz",
++      "resolved": "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
 +      "integrity": "sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==",
 +      "license": "MIT",
 +      "engines": {
@@ -861,7 +861,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/react-dom": {
 +      "version": "19.2.7",
-+      "resolved": "https://npm.mirrors.msh.team/react-dom/-/react-dom-19.2.7.tgz",
++      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz",
 +      "integrity": "sha512-t0BRVXvbiE/o20Hfw669rLbMCDWtYZLvmJigy2f0MxsXF+71pxhR3xOkspmsO8h3ZlNzyibAmtCa3l4lYKk6gQ==",
 +      "license": "MIT",
 +      "dependencies": {
@@ -873,7 +873,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/react-router": {
 +      "version": "8.2.0",
-+      "resolved": "https://npm.mirrors.msh.team/react-router/-/react-router-8.2.0.tgz",
++      "resolved": "https://registry.npmjs.org/react-router/-/react-router-8.2.0.tgz",
 +      "integrity": "sha512-uP1LgGNHyilL1u+ZkecQk74DJOKOb6q4NLNYLRJcD/fjoogftNb5/Rj/07o/QBFsY/5MbAKPm1peTCQuVPv9cQ==",
 +      "license": "MIT",
 +      "dependencies": {
@@ -894,7 +894,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/rolldown": {
 +      "version": "1.1.5",
-+      "resolved": "https://npm.mirrors.msh.team/rolldown/-/rolldown-1.1.5.tgz",
++      "resolved": "https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz",
 +      "integrity": "sha512-t9z29cJjXf/vxQ8dyhCSpt6H6aSwHTk8cT5I3iy6SMXuFpk5mB6PL6XfC8PCwrPTx93udwKUm9HRteAlTGBLiA==",
 +      "dev": true,
 +      "license": "MIT",
@@ -928,13 +928,13 @@ index 0000000..b80587a
 +    },
 +    "node_modules/scheduler": {
 +      "version": "0.27.0",
-+      "resolved": "https://npm.mirrors.msh.team/scheduler/-/scheduler-0.27.0.tgz",
++      "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
 +      "integrity": "sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==",
 +      "license": "MIT"
 +    },
 +    "node_modules/source-map-js": {
 +      "version": "1.2.1",
-+      "resolved": "https://npm.mirrors.msh.team/source-map-js/-/source-map-js-1.2.1.tgz",
++      "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
 +      "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==",
 +      "dev": true,
 +      "license": "BSD-3-Clause",
@@ -944,7 +944,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/tinyglobby": {
 +      "version": "0.2.17",
-+      "resolved": "https://npm.mirrors.msh.team/tinyglobby/-/tinyglobby-0.2.17.tgz",
++      "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
 +      "integrity": "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==",
 +      "dev": true,
 +      "license": "MIT",
@@ -961,7 +961,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/tslib": {
 +      "version": "2.8.1",
-+      "resolved": "https://npm.mirrors.msh.team/tslib/-/tslib-2.8.1.tgz",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
 +      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
 +      "dev": true,
 +      "license": "0BSD",
@@ -969,7 +969,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/typescript": {
 +      "version": "6.0.2",
-+      "resolved": "https://npm.mirrors.msh.team/typescript/-/typescript-6.0.2.tgz",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-6.0.2.tgz",
 +      "integrity": "sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ==",
 +      "dev": true,
 +      "license": "Apache-2.0",
@@ -983,7 +983,7 @@ index 0000000..b80587a
 +    },
 +    "node_modules/vite": {
 +      "version": "8.1.3",
-+      "resolved": "https://npm.mirrors.msh.team/vite/-/vite-8.1.3.tgz",
++      "resolved": "https://registry.npmjs.org/vite/-/vite-8.1.3.tgz",
 +      "integrity": "sha512-Ds+gBRbj0lwRO2Y5hwnUBdxSwlAve9LeRyU4sNnAr0ewW0gWF0n5bgXgUzbgZ49MV9BVUAQUFYVcDUcilUExMA==",
 +      "dev": true,
 +      "license": "MIT",
@@ -1075,7 +1075,7 @@ index c23ab7d..6fc9f89 100644
                <Route element={<AppLayout />}>
                  <Route index element={<SearchPage />} />
 diff --git a/frontend/src/components/AppLayout.tsx b/frontend/src/components/AppLayout.tsx
-index 6d7d34d..6cd26a8 100644
+index 6d7d34d..92ffd34 100644
 --- a/frontend/src/components/AppLayout.tsx
 +++ b/frontend/src/components/AppLayout.tsx
 @@ -7,6 +7,24 @@ import { AccountAvatar } from './AccountAvatar'
@@ -1103,7 +1103,32 @@ index 6d7d34d..6cd26a8 100644
  interface NavigationItem {
    to: string
    label: 'nav_search' | 'nav_explore' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_memories' | 'nav_profile'
-@@ -50,28 +68,26 @@ export function AppLayout() {
+@@ -24,7 +42,9 @@ const navigationItems: NavigationItem[] = [
+   { to: '/perfil', label: 'nav_profile', icon: 'profile' },
+ ]
+ 
+-const mobileNavigationItems = ['/', '/feed', '/explorar', '/estante'].map((path) => (
++/* mesma barra do v1: Estante · Buscar · [+] · Explorar · Perfil
++   (feed, diário e memórias seguem acessíveis pelo Explorar e pelo botão +) */
++const mobileNavigationItems = ['/estante', '/', '/explorar', '/perfil'].map((path) => (
+   navigationItems.find((item) => item.to === path) as NavigationItem
+ ))
+ 
+@@ -41,6 +61,13 @@ export function AppLayout() {
+     window.scrollTo({ top: 0, behavior: 'auto' })
+   }, [location.pathname])
+ 
++  // páginas (ex.: engrenagem do Perfil) podem pedir o painel de ajustes
++  useEffect(() => {
++    const open = () => setSettingsOpen(true)
++    window.addEventListener('lombada:open-settings', open)
++    return () => window.removeEventListener('lombada:open-settings', open)
++  }, [])
++
+   useEffect(() => {
+     if (!quickOpen) return
+     const onKeyDown = (event: KeyboardEvent) => {
+@@ -50,30 +77,17 @@ export function AppLayout() {
      return () => document.removeEventListener('keydown', onKeyDown)
    }, [quickOpen])
  
@@ -1113,32 +1138,34 @@ index 6d7d34d..6cd26a8 100644
    return (
      <div className="app-frame">
        <header className="app-header">
++        {/* topo do v1: só a marca — ajustes ficam na engrenagem do Perfil */}
          <Link className="brand" to="/" aria-label={t('app_v2')}>
 -          <span className="brand-mark" aria-hidden="true">L</span>
 -          <span className="wordmark">lombada<span>.</span></span>
 +          <BrandGlyph />
 +          <span className="wordmark">ombada<i>.</i></span>
          </Link>
- 
-         <div className="app-header__meta">
-           <span className="migration-chip">{t('migration_badge')}</span>
-           <button
+-
+-        <div className="app-header__meta">
+-          <span className="migration-chip">{t('migration_badge')}</span>
+-          <button
 -            className="account-trigger"
-+            className="account-trigger account-trigger--compact"
-             type="button"
-             onClick={() => setSettingsOpen(true)}
-             aria-label={t('settings')}
-           >
-             <AccountAvatar account={account} size="small" />
+-            type="button"
+-            onClick={() => setSettingsOpen(true)}
+-            aria-label={t('settings')}
+-          >
+-            <AccountAvatar account={account} size="small" />
 -            <span className="account-trigger__copy">
 -              <strong>{status === 'ready' && account ? account.nome || `@${account.handle}` : t('app_v2')}</strong>
 -              <small>{t('settings')}</small>
 -            </span>
 -            <Icon name="settings" size={19} />
-           </button>
-         </div>
+-          </button>
+-        </div>
        </header>
-@@ -88,7 +104,20 @@ export function AppLayout() {
+ 
+       {status === 'error' && (
+@@ -88,7 +102,20 @@ export function AppLayout() {
  
        <div className="desktop-layout">
          <aside className="desktop-rail" aria-label="Navegação principal">
@@ -1160,7 +1187,7 @@ index 6d7d34d..6cd26a8 100644
              {navigationItems.map((item) => (
                <NavLink
                  key={item.to}
-@@ -96,15 +125,33 @@ export function AppLayout() {
+@@ -96,15 +123,33 @@ export function AppLayout() {
                  to={item.to}
                  end={item.end}
                >
@@ -1196,6 +1223,87 @@ index 6d7d34d..6cd26a8 100644
          </aside>
  
          <main className="app-content" id="main-content">
+diff --git a/frontend/src/components/BookCover.tsx b/frontend/src/components/BookCover.tsx
+index 014ba5e..7bad6a3 100644
+--- a/frontend/src/components/BookCover.tsx
++++ b/frontend/src/components/BookCover.tsx
+@@ -7,23 +7,36 @@ interface BookCoverProps {
+   className?: string
+ }
+ 
+-const palettes = [
+-  ['#68272b', '#d7aa61'],
+-  ['#243c48', '#d8c49a'],
+-  ['#52402e', '#d7b56f'],
+-  ['#353251', '#d0b8de'],
+-  ['#315041', '#d9c58c'],
+-] as const
++/* Arte de capa idêntica à do app legado (capaArteDados): mesmo hash FNV-1a
++   sem acentos, mesmas tintas sobre papel creme e mesmos cinco layouts, para
++   o mesmo livro ganhar a mesma capa no v1 e aqui. */
++const COVER_INKS = ['#8B0E20', '#11100E', '#1E2F3F', '#1F3A2E', '#9A4A2F', '#DCCEB6'] as const
++const COVER_PAPER = '#F1E6D2'
++const COVER_LAYOUTS = ['classic', 'modern', 'minimal', 'bold', 'stripe'] as const
+ 
+-function hash(value: string): number {
+-  return Array.from(value).reduce((total, character) => {
+-    return (total * 31 + character.charCodeAt(0)) >>> 0
+-  }, 7)
++function bookHash(title: string, author: string): number {
++  const text = `${title || ''}|${author || ''}`
++    .toLowerCase()
++    .normalize('NFD')
++    .replace(/[\u0300-\u036f]/g, '')
++  let hash = 2166136261
++  for (let i = 0; i < text.length; i += 1) {
++    hash ^= text.charCodeAt(i)
++    hash = Math.imul(hash, 16777619)
++  }
++  return hash >>> 0
+ }
+ 
+ export function BookCover({ title, author, url, className = '' }: BookCoverProps) {
+   const [failed, setFailed] = useState(false)
+-  const palette = useMemo(() => palettes[hash(`${title}|${author}`) % palettes.length], [author, title])
++  const art = useMemo(() => {
++    const hash = bookHash(title, author)
++    return {
++      layout: COVER_LAYOUTS[hash % COVER_LAYOUTS.length],
++      ink: COVER_INKS[hash % COVER_INKS.length],
++      ink2: COVER_INKS[Math.floor(hash / 7) % COVER_INKS.length],
++    }
++  }, [author, title])
+   const safeUrl = url?.trim()
+ 
+   if (safeUrl && !failed) {
+@@ -42,17 +55,22 @@ export function BookCover({ title, author, url, className = '' }: BookCoverProps
+   return (
+     <span
+       className={`book-cover book-cover--generated ${className}`.trim()}
++      data-layout={art.layout}
++      data-initial={(title || '?').charAt(0).toUpperCase()}
+       style={{
+-        '--cover-primary': palette[0],
+-        '--cover-accent': palette[1],
++        '--cover-ink': art.ink,
++        '--cover-ink-2': art.ink2,
++        '--cover-paper': COVER_PAPER,
+       } as CSSProperties}
+       role="img"
+       aria-label={`Capa gerada para ${title}`}
+     >
+       <span className="book-cover__rule" />
+-      <strong>{title}</strong>
+-      <small>{author || 'Lombada'}</small>
+-      <span className="book-cover__brand">lombada.</span>
++      <span className="book-cover__copy">
++        <strong>{title}</strong>
++        {author && <small>{author}</small>}
++      </span>
++      <span className="book-cover__brand">Lombada</span>
+     </span>
+   )
+ }
 diff --git a/frontend/src/components/Icon.tsx b/frontend/src/components/Icon.tsx
 index f99a58c..0e7436f 100644
 --- a/frontend/src/components/Icon.tsx
@@ -1217,12 +1325,16 @@ index f99a58c..0e7436f 100644
      feed: <><path d="M5 5h14" /><path d="M5 12h10" /><path d="M5 19h7" /></>,
      shelf: <><path d="M4 5h4v14H4z" /><path d="M10 5h4v14h-4z" /><path d="m16 6 3-1 3 13-3 1z" /></>,
 diff --git a/frontend/src/components/PageHeader.tsx b/frontend/src/components/PageHeader.tsx
-index 746cb2a..c42e2f6 100644
+index 746cb2a..8e47bf3 100644
 --- a/frontend/src/components/PageHeader.tsx
 +++ b/frontend/src/components/PageHeader.tsx
-@@ -3,17 +3,17 @@ import type { ReactNode } from 'react'
+@@ -1,19 +1,19 @@
+ import type { ReactNode } from 'react'
+ 
++/* Como no app legado: o cabeçalho de página é só o título serif —
++   sem eyebrow/tagline por cima. */
  interface PageHeaderProps {
-   eyebrow: string
+-  eyebrow: string
    title: string
 -  description: string
 +  /** Exibida como tooltip no título, nunca como texto corrido na tela. */
@@ -1230,22 +1342,23 @@ index 746cb2a..c42e2f6 100644
    aside?: ReactNode
  }
  
- export function PageHeader({ eyebrow, title, description, aside }: PageHeaderProps) {
+-export function PageHeader({ eyebrow, title, description, aside }: PageHeaderProps) {
++export function PageHeader({ title, description, aside }: PageHeaderProps) {
    return (
      <header className="page-header">
 -      <div>
+-        <p className="eyebrow">{eyebrow}</p>
 +      <div title={description || undefined}>
-         <p className="eyebrow">{eyebrow}</p>
          <h1>{title}</h1>
 -        <p className="page-header__description">{description}</p>
        </div>
        {aside && <div className="page-header__aside">{aside}</div>}
      </header>
 diff --git a/frontend/src/features/catalog/catalog.css b/frontend/src/features/catalog/catalog.css
-index 3844aaf..b29d743 100644
+index 3844aaf..5869083 100644
 --- a/frontend/src/features/catalog/catalog.css
 +++ b/frontend/src/features/catalog/catalog.css
-@@ -1,55 +1,147 @@
+@@ -1,55 +1,145 @@
 +/* ============================================================
 +   Catálogo — busca, resultados, registro de leitura, obra
 +   ============================================================ */
@@ -1254,6 +1367,7 @@ index 3844aaf..b29d743 100644
 +/* Busca em destaque                                          */
 +/* ---------------------------------------------------------- */
 +
++/* barra de busca como no v1: pílula com o botão acoplado à direita */
  .catalog-search-form {
 -  margin-bottom: 24px;
 +  position: relative;
@@ -1261,9 +1375,9 @@ index 3844aaf..b29d743 100644
 +  align-items: center;
 +  gap: 14px;
 +  margin-bottom: 34px;
-+  padding: 10px 10px 10px 22px;
++  padding: 6px 6px 6px 22px;
 +  border: 1px solid var(--line-strong);
-+  border-radius: var(--radius-md);
++  border-radius: 999px;
 +  background: var(--surface);
 +  box-shadow: var(--shadow-card);
 +  transition: border-color 0.26s var(--ease-out), box-shadow 0.26s var(--ease-out);
@@ -1299,21 +1413,18 @@ index 3844aaf..b29d743 100644
 +  display: grid;
 +  flex: 0 0 auto;
 +  place-items: center;
-+  padding: 13px 22px;
-+  border-radius: var(--radius-md);
-+  color: var(--on-accent);
-+  background: linear-gradient(165deg, var(--accent-strong), var(--accent) 55%, var(--accent-deep));
-+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-+  transition: transform 0.24s var(--ease-out), box-shadow 0.24s var(--ease-out);
-+}
-+
-+.catalog-search-form button:hover {
-+  transform: translateY(-1px);
-+  box-shadow:
-+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-+    0 10px 24px rgba(139, 46, 31, 0.32);
++  align-self: stretch;
++  padding: 13px 24px;
++  border-radius: 12px 999px 999px 12px;
++  color: var(--button-primary-ink, var(--on-accent));
++  background: var(--button-primary-bg, var(--accent));
++  transition: background 0.24s var(--ease-out);
  }
  
++.catalog-search-form button:hover {
++  background: var(--button-primary-bg-hover, var(--accent-strong));
++}
++
 +/* ---------------------------------------------------------- */
 +/* Descoberta (buscas populares + obras em destaque)          */
 +/* ---------------------------------------------------------- */
@@ -1418,7 +1529,7 @@ index 3844aaf..b29d743 100644
  }
  
  .catalog-result__cover-link {
-@@ -58,611 +150,443 @@
+@@ -58,611 +148,443 @@
  }
  
  .catalog-result__cover {
@@ -1673,6 +1784,16 @@ index 3844aaf..b29d743 100644
 -
 -.work-hero__copy {
 -  min-width: 0;
+-}
+-
+-.work-hero h1 {
+-  max-width: 860px;
+-  margin: 10px 0 10px;
+-  font-family: "Fraunces", serif;
+-  font-size: clamp(42px, 8vw, 88px);
+-  font-weight: 500;
+-  letter-spacing: -0.035em;
+-  line-height: 0.96;
 +.catalog-results--loading article > span::after,
 +.catalog-results--loading i::after {
 +  position: absolute;
@@ -1682,26 +1803,16 @@ index 3844aaf..b29d743 100644
 +  animation: shimmer 1.6s infinite;
  }
  
--.work-hero h1 {
--  max-width: 860px;
--  margin: 10px 0 10px;
--  font-family: "Fraunces", serif;
--  font-size: clamp(42px, 8vw, 88px);
--  font-weight: 500;
--  letter-spacing: -0.035em;
--  line-height: 0.96;
--}
-+/* ---------------------------------------------------------- */
-+/* Registro de leitura                                        */
-+/* ---------------------------------------------------------- */
- 
 -.work-hero__author {
 -  margin: 0;
 -  color: var(--muted);
 -  font-family: "Spectral", serif;
 -  font-size: clamp(18px, 3vw, 26px);
 -}
--
++/* ---------------------------------------------------------- */
++/* Registro de leitura                                        */
++/* ---------------------------------------------------------- */
+ 
 -.work-hero__stats {
 -  display: flex;
 -  flex-wrap: wrap;
@@ -3846,15 +3957,14 @@ index 4631d21..d5a77e6 100644
    }
  }
 diff --git a/frontend/src/features/feed/FeedDiscoveryPanels.tsx b/frontend/src/features/feed/FeedDiscoveryPanels.tsx
-index aa8e856..248e57c 100644
+index aa8e856..ff98dcd 100644
 --- a/frontend/src/features/feed/FeedDiscoveryPanels.tsx
 +++ b/frontend/src/features/feed/FeedDiscoveryPanels.tsx
-@@ -20,7 +20,7 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
+@@ -20,7 +20,6 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
      <section className="feed-panel feed-panel--reading-now" aria-labelledby="reading-now-title">
        <div className="feed-panel__heading">
          <div>
 -          <p className="eyebrow">{feedText(locale, 'reading_now')}</p>
-+          <p className="eyebrow eyebrow--rule-only" />
            <h2 id="reading-now-title">{feedText(locale, 'reading_now')}</h2>
          </div>
          <span>{items.length}</span>
@@ -7061,10 +7171,10 @@ index a73a692..f8d3c62 100644
            {meta.length > 0 && <span className="shelf-book__meta">{meta.join(' · ')}</span>}
 diff --git a/frontend/src/features/shelf/SpineShelf.tsx b/frontend/src/features/shelf/SpineShelf.tsx
 new file mode 100644
-index 0000000..e3fa004
+index 0000000..2f10756
 --- /dev/null
 +++ b/frontend/src/features/shelf/SpineShelf.tsx
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,114 @@
 +import type { CSSProperties } from 'react'
 +
 +import type { Locale } from '../../i18n'
@@ -7103,9 +7213,11 @@ index 0000000..e3fa004
 +  const hue = bookHue(reading.titulo || '', reading.autor || '')
 +  const pages = reading.paginas && reading.paginas > 0 ? reading.paginas : 0
 +  const np = pages ? Math.max(0, Math.min(1, (pages - 80) / 620)) : 0.45
-+  const width = Math.round(34 + np * 28)
-+  const height = Math.round(Math.min(216, 158 + ((hue % 100) / 100) * 54 + np * 8))
-+  const year = reading.ano ?? 0
++  const width = Math.round(33 + np * 26)
++  const height = Math.round(Math.min(210, 154 + ((hue % 100) / 100) * 54 + np * 8))
++  // ano da OBRA primeiro, como no v1 — é ele que decide couro/vintage/matte;
++  // sem ele toda lombada caía em "matte" (viva demais perto do legado)
++  const year = reading.ano_obra ?? reading.ano ?? 0
 +  const era: SpineEra =
 +    year > 0 && year < 1970 ? 'couro' : year >= 1970 && year < 2000 ? 'vintage' : 'matte'
 +  // de vez em quando um livro tomba de leve, como numa estante de verdade
@@ -7116,8 +7228,8 @@ index 0000000..e3fa004
 +    height,
 +    era,
 +    lean,
-+    sat: era === 'couro' ? 30 : era === 'vintage' ? 40 : 52,
-+    lig: era === 'couro' ? 27 : era === 'vintage' ? 34 : 42,
++    sat: era === 'couro' ? 30 : era === 'vintage' ? 42 : 54,
++    lig: era === 'couro' ? 26 : era === 'vintage' ? 33 : 42,
 +    foil: era === 'couro' ? '#e7c877' : era === 'vintage' ? '#f0e6c8' : '#f6f1e6',
 +    page: era === 'couro' ? '#cdbd92' : era === 'vintage' ? '#e2d9bd' : '#efe9d6',
 +  }
@@ -7757,10 +7869,10 @@ index b32f7e8..5db2987 100644
    }
  }
 diff --git a/frontend/src/features/shelf/shelf.css b/frontend/src/features/shelf/shelf.css
-index 5aac522..7cece28 100644
+index 5aac522..8e677b9 100644
 --- a/frontend/src/features/shelf/shelf.css
 +++ b/frontend/src/features/shelf/shelf.css
-@@ -1,120 +1,179 @@
+@@ -1,120 +1,213 @@
 -.shelf-toolbar {
 +/* ============================================================
 +   Estante — prateleira, filtros, cards de leitura
@@ -7768,6 +7880,40 @@ index 5aac522..7cece28 100644
 +
 +.page--shelf {
 +  position: relative;
++}
++
++/* segmento Estante|Diário logo abaixo do título, como no v1 */
++.shelf-diary-segment {
++  display: inline-flex;
++  gap: 4px;
++  margin-bottom: 20px;
++  padding: 4px;
++  border: 1px solid var(--line-strong);
++  border-radius: 999px;
++  background: var(--surface);
++}
++
++.shelf-diary-segment__btn {
++  display: inline-flex;
++  align-items: center;
++  padding: 8px 18px;
++  border-radius: 999px;
++  font-family: var(--font-mono);
++  font-size: 11px;
++  font-weight: 700;
++  letter-spacing: 0.14em;
++  text-transform: uppercase;
++  color: var(--muted);
++  transition: color 0.2s var(--ease-out), background 0.2s var(--ease-out);
++}
++
++.shelf-diary-segment__btn:hover {
++  color: var(--text);
++}
++
++.shelf-diary-segment__btn.is-active {
++  color: var(--bg);
++  background: var(--text);
 +}
 +
 +/* aviso flutuante (salvo/removido) */
@@ -8001,7 +8147,7 @@ index 5aac522..7cece28 100644
  }
  
  .shelf-book {
-@@ -122,548 +181,747 @@
+@@ -122,548 +215,747 @@
  }
  
  .shelf-book__open {
@@ -8412,17 +8558,16 @@ index 5aac522..7cece28 100644
 +.shelf-book-skeleton__copy i:nth-child(1) { width: 46%; }
 +.shelf-book-skeleton__copy i:nth-child(2) { width: 88%; height: 15px; }
 +.shelf-book-skeleton__copy i:nth-child(3) { width: 62%; }
- 
--@keyframes shelf-pulse {
--  to { opacity: 0.48; }
++
 +.shelf-book-skeleton__cover,
 +.shelf-book-skeleton__copy i {
 +  position: relative;
 +  overflow: hidden;
 +  background: var(--surface-raised);
- }
++}
  
--.shelf-state {
+-@keyframes shelf-pulse {
+-  to { opacity: 0.48; }
 +.shelf-book-skeleton__cover::after,
 +.shelf-book-skeleton__copy i::after {
 +  position: absolute;
@@ -8430,8 +8575,9 @@ index 5aac522..7cece28 100644
 +  background: linear-gradient(100deg, transparent 30%, rgba(242, 233, 218, 0.07) 50%, transparent 70%);
 +  content: "";
 +  animation: shimmer 1.6s infinite;
-+}
-+
+ }
+ 
+-.shelf-state {
 +/* ---------------------------------------------------------- */
 +/* Estados vazios e de erro                                   */
 +/* ---------------------------------------------------------- */
@@ -8507,16 +8653,14 @@ index 5aac522..7cece28 100644
 +  display: grid;
 +  justify-items: start;
 +  gap: 12px;
- }
- 
--.shelf-state--empty .button {
--  margin-top: 20px;
++}
++
 +.shelf-state--empty h2 {
 +  margin: 0;
  }
  
--.shelf-state--error > svg {
--  color: var(--danger);
+-.shelf-state--empty .button {
+-  margin-top: 20px;
 +@media (max-width: 720px) {
 +  .shelf-state--empty {
 +    grid-template-columns: 1fr;
@@ -8529,8 +8673,8 @@ index 5aac522..7cece28 100644
 +  }
  }
  
--.shelf-state--filtered {
--  min-height: 170px;
+-.shelf-state--error > svg {
+-  color: var(--danger);
 +/* lombadas decorativas do estado vazio */
 +.book-spines {
 +  display: flex;
@@ -8539,10 +8683,8 @@ index 5aac522..7cece28 100644
 +  height: 150px;
  }
  
--.reading-detail-layer {
--  position: fixed;
--  inset: 0;
--  z-index: 100;
+-.shelf-state--filtered {
+-  min-height: 170px;
 +.book-spines span {
 +  display: block;
 +  width: 26px;
@@ -8551,13 +8693,10 @@ index 5aac522..7cece28 100644
 +  box-shadow: inset 0 0 0 1px var(--line-strong), inset 3px 0 5px rgba(0, 0, 0, 0.3);
  }
  
--.reading-detail-backdrop {
--  position: absolute;
+-.reading-detail-layer {
+-  position: fixed;
 -  inset: 0;
--  width: 100%;
--  border: 0;
--  background: rgba(7, 6, 5, 0.66);
--  backdrop-filter: blur(6px);
+-  z-index: 100;
 +.book-spines span:nth-child(1) { height: 62%; }
 +.book-spines span:nth-child(2) { height: 88%; background: linear-gradient(180deg, #6d2f33, #4d1f23); }
 +.book-spines span:nth-child(3) { height: 74%; background: linear-gradient(180deg, #2c4038, #1c2b25); }
@@ -8567,6 +8706,17 @@ index 5aac522..7cece28 100644
 +.book-spines span {
 +  animation: spine-sway 5s ease-in-out infinite;
 +  transform-origin: bottom center;
+ }
+ 
+-.reading-detail-backdrop {
+-  position: absolute;
+-  inset: 0;
+-  width: 100%;
+-  border: 0;
+-  background: rgba(7, 6, 5, 0.66);
+-  backdrop-filter: blur(6px);
++.book-spines span:nth-child(2n) {
++  animation-delay: 0.7s;
  }
  
 -.reading-detail {
@@ -8585,18 +8735,14 @@ index 5aac522..7cece28 100644
 -  background: var(--surface-solid);
 -  box-shadow: var(--shadow);
 -  animation: shelf-detail-enter 220ms ease both;
-+.book-spines span:nth-child(2n) {
-+  animation-delay: 0.7s;
++@keyframes spine-sway {
++  0%, 100% { transform: rotate(0deg); }
++  50% { transform: rotate(1.6deg); }
  }
  
 -@keyframes shelf-detail-enter {
 -  from { transform: translateY(100%); opacity: 0.6; }
 -  to { transform: translateY(0); opacity: 1; }
-+@keyframes spine-sway {
-+  0%, 100% { transform: rotate(0deg); }
-+  50% { transform: rotate(1.6deg); }
-+}
-+
 +/* ---------------------------------------------------------- */
 +/* Visão de lombadas: a estante física                        */
 +/* ---------------------------------------------------------- */
@@ -8880,13 +9026,8 @@ index 5aac522..7cece28 100644
 +  letter-spacing: 0.02em;
    white-space: nowrap;
 +  opacity: 0.9;
- }
- 
--.reading-detail__review {
--  margin-top: 28px;
--  padding: 24px 0;
--  border-top: 1px solid var(--line);
--  border-bottom: 1px solid var(--line);
++}
++
 +/* fita marcador pendurada: o livro que está sendo lido agora */
 +.spine__ribbon {
 +  position: absolute;
@@ -8901,11 +9042,11 @@ index 5aac522..7cece28 100644
 +  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
  }
  
--.reading-detail__section-heading {
--  display: flex;
--  align-items: center;
--  justify-content: space-between;
--  gap: 14px;
+-.reading-detail__review {
+-  margin-top: 28px;
+-  padding: 24px 0;
+-  border-top: 1px solid var(--line);
+-  border-bottom: 1px solid var(--line);
 +@media (max-width: 640px) {
 +  .spine-shelf {
 +    --slot-h: 212px;
@@ -8914,16 +9055,26 @@ index 5aac522..7cece28 100644
 +  }
  }
  
+-.reading-detail__section-heading {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 14px;
++.view-icon--spines {
++  display: inline-flex;
++  align-items: flex-end;
++  gap: 2px;
+ }
+ 
 -.reading-detail__section-heading h3 {
 -  margin: 0;
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: 26px;
 -  font-style: italic;
 -  font-weight: 400;
-+.view-icon--spines {
-+  display: inline-flex;
-+  align-items: flex-end;
-+  gap: 2px;
++.view-icon--spines i {
++  width: 3.5px;
++  border-radius: 1px;
  }
  
 -.reading-detail__badges,
@@ -8931,13 +9082,6 @@ index 5aac522..7cece28 100644
 -  display: flex;
 -  flex-wrap: wrap;
 -  gap: 6px;
-+.view-icon--spines i {
-+  width: 3.5px;
-+  border-radius: 1px;
- }
- 
--.reading-detail__badges span,
--.reading-detail__relations span {
 +.view-icon--spines i:nth-child(1) { height: 12px; }
 +.view-icon--spines i:nth-child(2) { height: 15px; }
 +.view-icon--spines i:nth-child(3) { height: 10px; }
@@ -8949,8 +9093,10 @@ index 5aac522..7cece28 100644
 +
 +.shelf-filter-menu {
 +  position: relative;
-+}
-+
+ }
+ 
+-.reading-detail__badges span,
+-.reading-detail__relations span {
 +.shelf-filter-menu__trigger {
    display: inline-flex;
 -  min-height: 24px;
@@ -9126,7 +9272,7 @@ index 5aac522..7cece28 100644
 +  font-style: italic;
  }
 diff --git a/frontend/src/features/shelf/shelfI18n.ts b/frontend/src/features/shelf/shelfI18n.ts
-index 1c770db..12fffeb 100644
+index 1c770db..36ba889 100644
 --- a/frontend/src/features/shelf/shelfI18n.ts
 +++ b/frontend/src/features/shelf/shelfI18n.ts
 @@ -8,6 +8,7 @@ export type ShelfTextKey =
@@ -9137,7 +9283,7 @@ index 1c770db..12fffeb 100644
    | 'loading'
    | 'error'
    | 'empty_title'
-@@ -65,6 +66,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
+@@ -65,13 +66,14 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
      other: 'Outros',
      grid: 'Grade',
      list: 'Lista',
@@ -9145,7 +9291,15 @@ index 1c770db..12fffeb 100644
      loading: 'Carregando sua estante…',
      error: 'Não foi possível carregar sua estante.',
      empty_title: 'Sua estante ainda está vazia',
-@@ -121,6 +123,7 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
+     empty_copy: 'Registre uma leitura para começar a construir sua biblioteca pessoal.',
+     empty_filtered: 'Nenhuma leitura corresponde a este filtro.',
+     register: 'Buscar um livro',
+-    books_count: 'leituras',
++    books_count: 'livros',
+     status: 'Status',
+     rating: 'Sua nota',
+     no_rating: 'sem nota',
+@@ -121,13 +123,14 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
      other: 'Other',
      grid: 'Grid',
      list: 'List',
@@ -9153,8 +9307,16 @@ index 1c770db..12fffeb 100644
      loading: 'Loading your shelf…',
      error: 'Your shelf could not be loaded.',
      empty_title: 'Your shelf is still empty',
+     empty_copy: 'Log a reading to start building your personal library.',
+     empty_filtered: 'No reading matches this filter.',
+     register: 'Find a book',
+-    books_count: 'readings',
++    books_count: 'books',
+     status: 'Status',
+     rating: 'Your rating',
+     no_rating: 'not rated',
 diff --git a/frontend/src/i18n.ts b/frontend/src/i18n.ts
-index 556d021..ec24935 100644
+index 556d021..23e0e25 100644
 --- a/frontend/src/i18n.ts
 +++ b/frontend/src/i18n.ts
 @@ -5,6 +5,7 @@ export type TranslationKey =
@@ -9173,6 +9335,15 @@ index 556d021..ec24935 100644
      nav_search: 'Buscar',
      nav_explore: 'Explorar',
      nav_feed: 'Feed',
+@@ -85,7 +87,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
+     search_eyebrow: 'descobrir · registrar · lembrar',
+     search_title: 'O que você está lendo?',
+     search_copy: 'Busque por título, autor ou ISBN e escolha a edição que entrou na sua história.',
+-    search_placeholder: 'título, autor ou ISBN…',
++    search_placeholder: 'que livro você está lendo agora?',
+     search_button: 'buscar',
+     search_preview: 'Consulte o catálogo e registre a edição certa na sua estante.',
+     feed_eyebrow: 'comunidade',
 @@ -142,6 +144,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
      development_label: 'React frontend migration',
      settings: 'Settings',
@@ -9181,20 +9352,64 @@ index 556d021..ec24935 100644
      nav_search: 'Search',
      nav_explore: 'Explore',
      nav_feed: 'Feed',
+@@ -153,7 +156,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
+     search_eyebrow: 'discover · log · remember',
+     search_title: 'What are you reading?',
+     search_copy: 'Search by title, author or ISBN and choose the edition that became part of your story.',
+-    search_placeholder: 'title, author or ISBN…',
++    search_placeholder: 'what book are you reading right now?',
+     search_button: 'search',
+     search_preview: 'Search the catalog and log the right edition on your shelf.',
+     feed_eyebrow: 'community',
 diff --git a/frontend/src/pages/DiaryPage.tsx b/frontend/src/pages/DiaryPage.tsx
-index 9e03940..14fdb59 100644
+index 9e03940..ce50075 100644
 --- a/frontend/src/pages/DiaryPage.tsx
 +++ b/frontend/src/pages/DiaryPage.tsx
-@@ -140,7 +140,6 @@ export function DiaryPage() {
+@@ -133,16 +133,24 @@ export function DiaryPage() {
+   return (
+     <section className="page page--diary">
+       <PageHeader
+-        eyebrow={t('diary_eyebrow')}
+         title={t('diary_title')}
+         description={
+           status === 'ready'
              ? `${entries.length} ${diaryText(locale, 'entries')}`
              : t('diary_copy')
          }
 -        aside={<span className="stage-stamp">05 · memória real</span>}
        />
  
++      {/* como no v1, estante e diário são irmãos no mesmo segmento */}
++      <div className="shelf-diary-segment" role="tablist" aria-label={t('shelf_title')}>
++        <Link className="shelf-diary-segment__btn" role="tab" aria-selected="false" to="/estante">
++          {t('shelf_title')}
++        </Link>
++        <span className="shelf-diary-segment__btn is-active" role="tab" aria-selected="true">
++          {t('diary_title')}
++        </span>
++      </div>
++
        {notice && (
+         <div className="diary-notice" role="status" aria-live="polite">
+           {notice}
+@@ -215,7 +223,6 @@ export function DiaryPage() {
+         <section className="diary-state diary-state--empty">
+           <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
+           <div>
+-            <p className="eyebrow">{t('diary_eyebrow')}</p>
+             <h2>{diaryText(locale, 'empty_title')}</h2>
+             <p>{diaryText(locale, 'no_readings')}</p>
+             <Link className="button button--primary" to="/">
+@@ -230,7 +237,6 @@ export function DiaryPage() {
+         <section className="diary-state diary-state--empty">
+           <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
+           <div>
+-            <p className="eyebrow">{t('diary_eyebrow')}</p>
+             <h2>{diaryText(locale, 'empty_title')}</h2>
+             <p>{diaryText(locale, 'empty_copy')}</p>
+             <button className="button button--primary" type="button" onClick={openCreate}>
 diff --git a/frontend/src/pages/ExplorePage.tsx b/frontend/src/pages/ExplorePage.tsx
-index 8636a71..451bfd4 100644
+index 8636a71..41c2cc3 100644
 --- a/frontend/src/pages/ExplorePage.tsx
 +++ b/frontend/src/pages/ExplorePage.tsx
 @@ -40,6 +40,10 @@ function validSort(value: string): CatalogSort {
@@ -9208,9 +9423,11 @@ index 8636a71..451bfd4 100644
    const [popularWorks, setPopularWorks] = useState<CatalogWork[]>([])
    const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
    const [literatures, setLiteratures] = useState<CatalogLiterature[]>([])
-@@ -149,20 +153,23 @@ export function ExplorePage() {
+@@ -147,22 +151,24 @@ export function ExplorePage() {
+   return (
+     <section className="page page--explore">
        <PageHeader
-         eyebrow={exploreText(locale, 'eyebrow')}
+-        eyebrow={exploreText(locale, 'eyebrow')}
          title={exploreText(locale, 'title')}
 -        description={
 -          hasFilters && resultsStatus === 'ready'
@@ -9242,7 +9459,7 @@ index 8636a71..451bfd4 100644
            {hasFilters && (
              <button className="text-button" type="button" onClick={() => setSearchParams({})}>
                {exploreText(locale, 'clear')}
-@@ -170,6 +177,7 @@ export function ExplorePage() {
+@@ -170,6 +176,7 @@ export function ExplorePage() {
            )}
          </div>
  
@@ -9250,7 +9467,7 @@ index 8636a71..451bfd4 100644
          <div className="explore-filter-grid">
            <label>
              <span>{exploreText(locale, 'publisher')}</span>
-@@ -221,6 +229,7 @@ export function ExplorePage() {
+@@ -221,6 +228,7 @@ export function ExplorePage() {
            <Toggle active={withIsbn} label={exploreText(locale, 'with_isbn')} onClick={() => setParam('isbn', !withIsbn)} />
            <Toggle active={portuguese} label={exploreText(locale, 'portuguese')} onClick={() => setParam('pt', !portuguese)} />
          </div>
@@ -9258,7 +9475,7 @@ index 8636a71..451bfd4 100644
  
          {activeLabels.length > 0 && (
            <div className="explore-active-filters" aria-label={exploreText(locale, 'active_filters')}>
-@@ -287,11 +296,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
+@@ -287,11 +295,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
      )
    }
    return (
@@ -9280,28 +9497,31 @@ index 8636a71..451bfd4 100644
    )
  }
  
-@@ -385,9 +399,14 @@ function DiscoveryHome({
+@@ -385,9 +398,14 @@ function DiscoveryHome({
  }
  
  function SectionHeading({ eyebrow, title, count }: { eyebrow: string; title: string; count?: number }) {
-+  // eyebrow igual ao título vira só o filete decorativo, sem repetir o texto
++  // eyebrow igual ao título não repete o texto
 +  const repetido = eyebrow.trim().toLowerCase() === title.trim().toLowerCase()
    return (
      <div className="explore-section__heading">
 -      <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
 +      <div>
-+        <p className={`eyebrow${repetido ? ' eyebrow--rule-only' : ''}`}>{repetido ? '' : eyebrow}</p>
++        {!repetido && <p className="eyebrow">{eyebrow}</p>}
 +        <h2>{title}</h2>
 +      </div>
        {count !== undefined && <span>{count}</span>}
      </div>
    )
 diff --git a/frontend/src/pages/FeedPage.tsx b/frontend/src/pages/FeedPage.tsx
-index 8bfcedd..3373c7e 100644
+index 8bfcedd..968df1f 100644
 --- a/frontend/src/pages/FeedPage.tsx
 +++ b/frontend/src/pages/FeedPage.tsx
-@@ -104,7 +104,6 @@ export function FeedPage() {
-         eyebrow={t('feed_eyebrow')}
+@@ -101,10 +101,8 @@ export function FeedPage() {
+   return (
+     <section className="page page--feed">
+       <PageHeader
+-        eyebrow={t('feed_eyebrow')}
          title={t('feed_title')}
          description={t('feed_copy')}
 -        aside={<span className="stage-stamp">08 · social</span>}
@@ -9309,11 +9529,14 @@ index 8bfcedd..3373c7e 100644
  
        <div className="feed-toolbar">
 diff --git a/frontend/src/pages/MemoriesPage.tsx b/frontend/src/pages/MemoriesPage.tsx
-index 1cd3e53..74d8dd7 100644
+index 1cd3e53..e3afd8c 100644
 --- a/frontend/src/pages/MemoriesPage.tsx
 +++ b/frontend/src/pages/MemoriesPage.tsx
-@@ -93,7 +93,6 @@ export function MemoriesPage() {
-         eyebrow={memoriesText(locale, 'eyebrow')}
+@@ -90,10 +90,8 @@ export function MemoriesPage() {
+   return (
+     <section className="page page--memories">
+       <PageHeader
+-        eyebrow={memoriesText(locale, 'eyebrow')}
          title={memoriesText(locale, 'title')}
          description={memoriesText(locale, 'copy')}
 -        aside={<span className="stage-stamp">10 · compartilhar</span>}
@@ -9321,22 +9544,45 @@ index 1cd3e53..74d8dd7 100644
  
        <section className="memories-period" aria-labelledby="memories-period-title">
 diff --git a/frontend/src/pages/ProfilePage.tsx b/frontend/src/pages/ProfilePage.tsx
-index 918782d..b5eb077 100644
+index 918782d..5f0a128 100644
 --- a/frontend/src/pages/ProfilePage.tsx
 +++ b/frontend/src/pages/ProfilePage.tsx
-@@ -106,7 +106,6 @@ export function ProfilePage() {
-         eyebrow={owner ? t('profile_eyebrow') : profileText(locale, 'public_profile')}
+@@ -103,10 +103,21 @@ export function ProfilePage() {
+   return (
+     <section className="page page--profile">
+       <PageHeader
+-        eyebrow={owner ? t('profile_eyebrow') : profileText(locale, 'public_profile')}
          title={owner ? t('profile_title') : profile?.nome || profileText(locale, 'public_profile')}
          description={owner ? t('profile_copy') : profile?.bio || `@${targetHandle}`}
 -        aside={<span className="stage-stamp">09 · identidade</span>}
++        aside={
++          owner ? (
++            /* engrenagem no topo do perfil, como no v1 */
++            <button
++              className="icon-button"
++              type="button"
++              aria-label={t('settings')}
++              onClick={() => window.dispatchEvent(new Event('lombada:open-settings'))}
++            >
++              <Icon name="settings" size={19} />
++            </button>
++          ) : undefined
++        }
        />
  
        {status === 'loading' && <ProfileLoading />}
 diff --git a/frontend/src/pages/SearchPage.tsx b/frontend/src/pages/SearchPage.tsx
-index 80a6a74..4af744e 100644
+index 80a6a74..dc3bded 100644
 --- a/frontend/src/pages/SearchPage.tsx
 +++ b/frontend/src/pages/SearchPage.tsx
-@@ -193,7 +193,6 @@ export function SearchPage() {
+@@ -186,14 +186,12 @@ export function SearchPage() {
+   return (
+     <section className="page page--search">
+       <PageHeader
+-        eyebrow={t('search_eyebrow')}
+         title={t('search_title')}
+         description={
+           status === 'ready' && activeQuery
              ? `${results.length} ${catalogText(locale, 'results')}`
              : t('search_copy')
          }
@@ -9344,7 +9590,7 @@ index 80a6a74..4af744e 100644
        />
  
        {showOnboarding && (
-@@ -203,7 +202,6 @@ export function SearchPage() {
+@@ -203,7 +201,6 @@ export function SearchPage() {
        {showRitual && readingNow && <ReadingRitualCard reading={readingNow} locale={locale} />}
  
        <form className="search-form catalog-search-form" onSubmit={submit} role="search">
@@ -9352,7 +9598,7 @@ index 80a6a74..4af744e 100644
          <input
            ref={inputRef}
            value={query}
-@@ -212,7 +210,9 @@ export function SearchPage() {
+@@ -212,7 +209,9 @@ export function SearchPage() {
            aria-label={t('search_placeholder')}
            autoComplete="off"
          />
@@ -9364,7 +9610,7 @@ index 80a6a74..4af744e 100644
  
        {!activeQuery && (
 diff --git a/frontend/src/pages/ShelfPage.tsx b/frontend/src/pages/ShelfPage.tsx
-index e2b7e24..546fb76 100644
+index e2b7e24..039c3cf 100644
 --- a/frontend/src/pages/ShelfPage.tsx
 +++ b/frontend/src/pages/ShelfPage.tsx
 @@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
@@ -9425,13 +9671,30 @@ index e2b7e24..546fb76 100644
    }
  
    function handleUpdated(updated: ShelfReading) {
-@@ -117,9 +132,17 @@ export function ShelfPage() {
+@@ -110,16 +125,33 @@ export function ShelfPage() {
+   return (
+     <section className="page page--shelf">
+       <PageHeader
+-        eyebrow={t('shelf_eyebrow')}
+         title={t('shelf_title')}
+         description={
+           status === 'ready'
              ? `${readings.length} ${shelfText(locale, 'books_count')}`
              : t('shelf_copy')
          }
 -        aside={<span className="stage-stamp">04 · edição</span>}
        />
  
++      {/* como no v1, estante e diário são irmãos no mesmo segmento */}
++      <div className="shelf-diary-segment" role="tablist" aria-label={t('shelf_title')}>
++        <span className="shelf-diary-segment__btn is-active" role="tab" aria-selected="true">
++          {t('shelf_title')}
++        </span>
++        <Link className="shelf-diary-segment__btn" role="tab" aria-selected="false" to="/diario">
++          {t('diary_title')}
++        </Link>
++      </div>
++
 +      {status === 'ready' && readings.length > 0 && (
 +        <p className="shelf-summary">
 +          {readings.length} {shelfText(locale, 'books_count')}
@@ -9444,7 +9707,7 @@ index e2b7e24..546fb76 100644
        {notice && (
          <div className="shelf-notice" role="status" aria-live="polite">
            {notice}
-@@ -127,23 +150,50 @@ export function ShelfPage() {
+@@ -127,23 +159,50 @@ export function ShelfPage() {
        )}
  
        <div className="shelf-toolbar">
@@ -9510,7 +9773,7 @@ index e2b7e24..546fb76 100644
          </div>
  
          <div className="shelf-view-toggle" role="group" aria-label="Visualização">
-@@ -165,6 +215,15 @@ export function ShelfPage() {
+@@ -165,6 +224,15 @@ export function ShelfPage() {
              <span className="view-icon view-icon--list" aria-hidden="true"><i /><i /><i /></span>
              <span className="sr-only">{shelfText(locale, 'list')}</span>
            </button>
@@ -9526,7 +9789,7 @@ index e2b7e24..546fb76 100644
          </div>
        </div>
  
-@@ -218,17 +277,21 @@ export function ShelfPage() {
+@@ -218,17 +286,21 @@ export function ShelfPage() {
        )}
  
        {status === 'ready' && visibleReadings.length > 0 && (
@@ -10245,10 +10508,10 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..c547067 100644
+index 990b8b9..cd8972e 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
-@@ -1,55 +1,111 @@
+@@ -1,55 +1,121 @@
 +/* ============================================================
 +   Lombada — design system
 +   "escuro literário": tinta quente, papel, ouro e vinho.
@@ -10311,6 +10574,11 @@ index 990b8b9..c547067 100644
 -  --radius-md: 18px;
 -  --radius-lg: 28px;
 -  --content-width: 1120px;
++
++  /* CTA pílula do v1: salmão com tinta escura no tema escuro */
++  --button-primary-bg: #c65a4b;
++  --button-primary-bg-hover: #d16c5c;
++  --button-primary-ink: #1a1714;
 +
 +  --status-lido: #9db78d;
 +  --status-lendo: #c97258;
@@ -10388,6 +10656,11 @@ index 990b8b9..c547067 100644
 +  --glow-b: rgba(107, 31, 31, 0.07);
 +  --danger: #8b2e1f;
 +
++  /* CTA pílula do v1: vinho com creme no tema claro */
++  --button-primary-bg: #6b1f1f;
++  --button-primary-bg-hover: #8b2e1f;
++  --button-primary-ink: #f4efe6;
++
 +  --status-lido: #5d814f;
 +  --status-lendo: #8b2e1f;
 +  --status-quero: #5b6f92;
@@ -10404,7 +10677,7 @@ index 990b8b9..c547067 100644
  
  * {
    box-sizing: border-box;
-@@ -67,38 +123,49 @@ body {
+@@ -67,38 +133,49 @@ body {
    min-height: 100vh;
    margin: 0;
    color: var(--text);
@@ -10468,7 +10741,7 @@ index 990b8b9..c547067 100644
  }
  
  a {
-@@ -106,16 +173,48 @@ a {
+@@ -106,16 +183,48 @@ a {
    text-decoration: none;
  }
  
@@ -10519,7 +10792,7 @@ index 990b8b9..c547067 100644
  }
  
  .sr-only {
-@@ -130,198 +229,371 @@ button:disabled {
+@@ -130,198 +239,357 @@ button:disabled {
    border: 0;
  }
  
@@ -10539,17 +10812,7 @@ index 990b8b9..c547067 100644
 +  color: var(--accent);
 +}
 +
-+.eyebrow::before {
-+  content: "";
-+  width: 26px;
-+  height: 1px;
-+  background: var(--accent-line);
-+}
-+
-+/* variação sem texto: só o filete, para não repetir o título ao lado */
-+.eyebrow--rule-only {
-+  min-height: 11px;
-+}
++/* sem o filete antes do label: no v1 os rótulos de seção são só o texto */
 +
 +/* ---------------------------------------------------------- */
 +/* Botões                                                     */
@@ -10561,7 +10824,7 @@ index 990b8b9..c547067 100644
 +  justify-content: center;
 +  gap: 10px;
 +  padding: 14px 24px;
-+  border-radius: var(--radius-md);
++  border-radius: 999px;
 +  border: 1px solid transparent;
 +  font-family: var(--font-mono);
 +  font-size: 11.5px;
@@ -10576,23 +10839,19 @@ index 990b8b9..c547067 100644
 +    color 0.28s var(--ease-out);
 +}
 +
++/* CTA como no v1: pílula chapada — salmão com tinta escura no escuro,
++   vinho com creme no claro; sem gradiente, sombra ou "lift" no hover */
 +.button--primary {
-+  color: var(--on-accent);
-+  background: linear-gradient(165deg, var(--accent-strong), var(--accent) 55%, var(--accent-deep));
-+  box-shadow:
-+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-+    0 12px 28px rgba(107, 31, 31, 0.3);
++  color: var(--button-primary-ink, var(--on-accent));
++  background: var(--button-primary-bg, var(--accent));
 +}
 +
 +.button--primary:hover {
-+  transform: translateY(-2px);
-+  box-shadow:
-+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-+    0 18px 38px rgba(107, 31, 31, 0.38);
++  background: var(--button-primary-bg-hover, var(--accent-strong));
 +}
 +
 +.button--primary:active {
-+  transform: translateY(0);
++  transform: translateY(1px);
 +}
 +
 +.button--secondary {
@@ -10984,7 +11243,7 @@ index 990b8b9..c547067 100644
  }
  
  .desktop-rail {
-@@ -329,1004 +601,797 @@ button:disabled {
+@@ -329,1004 +597,912 @@ button:disabled {
  }
  
  .app-content {
@@ -11157,46 +11416,21 @@ index 990b8b9..c547067 100644
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: clamp(20px, 3vw, 28px);
 -  font-style: italic;
--}
 +  .rail-link.is-active {
 +    color: var(--accent-strong);
 +    background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
 +    font-weight: 500;
 +  }
- 
--.search-form input::placeholder {
--  color: var(--subtle);
--}
++
 +  .rail-link.is-active::before {
 +    height: 22px;
 +  }
- 
--.search-form button,
--.button {
--  display: inline-flex;
--  min-height: 44px;
--  align-items: center;
--  justify-content: center;
--  gap: 8px;
--  padding: 0 16px;
--  border: 1px solid transparent;
--  border-radius: 999px;
--  cursor: pointer;
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
--  letter-spacing: 0.1em;
--  text-transform: uppercase;
--}
++
 +  .rail-link.is-active svg {
 +    opacity: 1;
 +    transform: scale(1.06);
 +  }
- 
--.search-form button,
--.button--primary {
--  color: var(--bg);
--  background: var(--accent-strong);
--}
++
 +  .rail-add {
 +    display: flex;
 +    align-items: center;
@@ -11216,24 +11450,14 @@ index 990b8b9..c547067 100644
 +      0 12px 30px rgba(139, 46, 31, 0.26);
 +    transition: transform 0.26s var(--ease-out), box-shadow 0.26s var(--ease-out);
 +  }
- 
--.button--secondary {
--  border-color: var(--line-strong);
--  color: var(--text);
--  background: var(--surface-raised);
--}
++
 +  .rail-add:hover {
 +    transform: translateY(-2px);
 +    box-shadow:
 +      inset 0 1px 0 rgba(255, 255, 255, 0.4),
 +      0 18px 40px rgba(107, 31, 31, 0.38);
 +  }
- 
--.button--ghost {
--  border-color: var(--line);
--  color: var(--text-soft);
--  background: transparent;
--}
++
 +  .rail-foot {
 +    display: flex;
 +    flex-direction: column;
@@ -11242,17 +11466,15 @@ index 990b8b9..c547067 100644
 +    padding-top: 16px;
 +    border-top: 1px solid var(--line);
 +  }
- 
--.search-form button:hover,
--.button--primary:hover {
--  filter: brightness(1.06);
++
 +  .app-content {
 +    width: min(100% - 64px, var(--content-width));
 +    padding: 52px 0 120px;
 +  }
  }
  
--.suggestion-row {
+-.search-form input::placeholder {
+-  color: var(--subtle);
 +/* ---------------------------------------------------------- */
 +/* Navegação inferior (mobile)                                */
 +/* ---------------------------------------------------------- */
@@ -11263,10 +11485,7 @@ index 990b8b9..c547067 100644
 +  bottom: 0;
 +  left: 0;
 +  z-index: 45;
-   display: flex;
--  flex-wrap: wrap;
--  gap: 8px;
--  margin-top: 14px;
++  display: flex;
 +  align-items: center;
 +  justify-content: space-around;
 +  gap: 4px;
@@ -11275,50 +11494,53 @@ index 990b8b9..c547067 100644
 +  background: var(--bg);
  }
  
--.suggestion-row button {
--  min-height: 34px;
--  padding: 0 12px;
--  border: 1px solid var(--line);
--  border-radius: 999px;
+-.search-form button,
+-.button {
+-  display: inline-flex;
+-  min-height: 44px;
 +.bottom-navigation__item {
 +  display: flex;
 +  min-width: 62px;
 +  flex-direction: column;
-+  align-items: center;
+   align-items: center;
+-  justify-content: center;
+-  gap: 8px;
+-  padding: 0 16px;
+-  border: 1px solid transparent;
+-  border-radius: 999px;
+-  cursor: pointer;
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
 +  gap: 4px;
 +  padding: 7px 8px 6px;
 +  border-radius: var(--radius-md);
-   color: var(--muted);
--  background: transparent;
--  cursor: pointer;
--  font-family: "Space Mono", monospace;
++  color: var(--muted);
 +  font-family: var(--font-mono);
-   font-size: 9px;
--  letter-spacing: 0.03em;
-+  letter-spacing: 0.1em;
-+  text-transform: uppercase;
++  font-size: 9px;
+   letter-spacing: 0.1em;
+   text-transform: uppercase;
 +  transition: color 0.22s var(--ease-out), background 0.22s var(--ease-out);
  }
  
--.suggestion-row button:hover {
--  border-color: var(--accent);
+-.search-form button,
+-.button--primary {
+-  color: var(--bg);
+-  background: var(--accent-strong);
+-}
+-
+-.button--secondary {
+-  border-color: var(--line-strong);
 +.bottom-navigation__item.is-active {
    color: var(--text);
--  background: var(--accent-soft);
-+  background: var(--surface-raised);
+   background: var(--surface-raised);
  }
  
--.migration-preview {
+-.button--ghost {
+-  border-color: var(--line);
+-  color: var(--text-soft);
+-  background: transparent;
 +.bottom-navigation__add {
-   display: grid;
--  grid-template-columns: auto minmax(0, 1fr) auto;
--  align-items: center;
--  gap: clamp(18px, 4vw, 34px);
--  margin-top: clamp(48px, 9vw, 84px);
--  padding: clamp(24px, 5vw, 42px);
--  border-top: 1px solid var(--line);
--  border-bottom: 1px solid var(--line);
--  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
++  display: grid;
 +  width: 52px;
 +  height: 52px;
 +  flex: 0 0 auto;
@@ -11333,15 +11555,82 @@ index 990b8b9..c547067 100644
 +  transition: transform 0.3s var(--ease-out);
  }
  
+-.search-form button:hover,
+-.button--primary:hover {
+-  filter: brightness(1.06);
++.bottom-navigation__add:hover,
++.bottom-navigation__add.is-active {
++  transform: rotate(90deg);
+ }
+ 
+-.suggestion-row {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: 8px;
+-  margin-top: 14px;
++@media (min-width: 1024px) {
++  .bottom-navigation {
++    display: none;
++  }
+ }
+ 
+-.suggestion-row button {
+-  min-height: 34px;
+-  padding: 0 12px;
+-  border: 1px solid var(--line);
+-  border-radius: 999px;
+-  color: var(--muted);
+-  background: transparent;
+-  cursor: pointer;
+-  font-family: "Space Mono", monospace;
+-  font-size: 9px;
+-  letter-spacing: 0.03em;
+-}
++/* ---------------------------------------------------------- */
++/* Cabeçalho de página + carimbo                              */
++/* ---------------------------------------------------------- */
+ 
+-.suggestion-row button:hover {
+-  border-color: var(--accent);
+-  color: var(--text);
+-  background: var(--accent-soft);
++.page {
++  animation: page-in 0.5s var(--ease-out) both;
+ }
+ 
+-.migration-preview {
+-  display: grid;
+-  grid-template-columns: auto minmax(0, 1fr) auto;
+-  align-items: center;
+-  gap: clamp(18px, 4vw, 34px);
+-  margin-top: clamp(48px, 9vw, 84px);
+-  padding: clamp(24px, 5vw, 42px);
+-  border-top: 1px solid var(--line);
+-  border-bottom: 1px solid var(--line);
+-  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
++@keyframes page-in {
++  from {
++    opacity: 0;
++    transform: translateY(14px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
+ }
+ 
 -.migration-preview__number {
 -  color: var(--accent);
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: clamp(54px, 8vw, 92px);
 -  font-style: italic;
 -  line-height: 1;
-+.bottom-navigation__add:hover,
-+.bottom-navigation__add.is-active {
-+  transform: rotate(90deg);
++.page-header {
++  display: flex;
++  align-items: flex-start;
++  justify-content: space-between;
++  gap: 28px;
++  margin-bottom: 22px;
  }
  
 -.migration-preview h2,
@@ -11353,29 +11642,35 @@ index 990b8b9..c547067 100644
 -  font-style: italic;
 -  font-weight: 400;
 -  line-height: 1.08;
-+@media (min-width: 1024px) {
-+  .bottom-navigation {
-+    display: none;
-+  }
++.page-header h1 {
++  margin: 10px 0 0;
++  font-family: var(--font-display);
++  font-size: clamp(30px, 3.2vw, 40px);
++  font-weight: 600;
++  letter-spacing: -0.045em;
++  line-height: 1.02;
  }
  
 -.migration-preview p:last-child,
 -.empty-library p:last-child,
 -.diary-preview__entry p:last-child {
 -  margin: 0;
--  color: var(--muted);
++.page-header__description {
++  max-width: 58ch;
+   color: var(--muted);
 -  line-height: 1.5;
--}
-+/* ---------------------------------------------------------- */
-+/* Cabeçalho de página + carimbo                              */
-+/* ---------------------------------------------------------- */
++  font-size: 16.5px;
++  font-style: italic;
++  line-height: 1.6;
+ }
  
 -.preview-list {
 -  display: grid;
 -  gap: 14px;
 -  margin-top: 42px;
-+.page {
-+  animation: page-in 0.5s var(--ease-out) both;
++.page-header__aside {
++  flex: 0 0 auto;
++  padding-top: 18px;
  }
  
 -.feed-preview-card {
@@ -11388,79 +11683,6 @@ index 990b8b9..c547067 100644
 -  border: 1px solid var(--line);
 -  border-radius: var(--radius-md);
 -  background: var(--surface);
-+@keyframes page-in {
-+  from {
-+    opacity: 0;
-+    transform: translateY(14px);
-+  }
-+  to {
-+    opacity: 1;
-+    transform: none;
-+  }
- }
- 
--.preview-avatar {
--  display: grid;
--  width: 44px;
--  height: 44px;
--  place-items: center;
--  border: 1px solid var(--line-strong);
--  border-radius: 50%;
--  color: var(--accent);
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
-+.page-header {
-+  display: flex;
-+  align-items: flex-start;
-+  justify-content: space-between;
-+  gap: 28px;
-+  margin-bottom: 22px;
- }
- 
--.preview-lines {
--  display: grid;
--  gap: 9px;
-+.page-header h1 {
-+  margin: 10px 0 0;
-+  font-family: var(--font-display);
-+  font-size: clamp(30px, 3.2vw, 40px);
-+  font-weight: 600;
-+  letter-spacing: -0.045em;
-+  line-height: 1.02;
- }
- 
--.preview-lines span,
--.profile-skeleton {
--  display: block;
--  height: 9px;
--  border-radius: 999px;
--  background: linear-gradient(90deg, var(--line), var(--line-strong), var(--line));
--  background-size: 200% 100%;
--  animation: shimmer 1.8s linear infinite;
-+.page-header__description {
-+  max-width: 58ch;
-+  color: var(--muted);
-+  font-size: 16.5px;
-+  font-style: italic;
-+  line-height: 1.6;
- }
- 
--.preview-cover {
--  width: 48px;
--  height: 74px;
--  justify-self: end;
--  border: 1px solid var(--line);
--  border-radius: 4px 8px 8px 4px;
--  background:
--    linear-gradient(120deg, var(--wine), color-mix(in srgb, var(--wine) 65%, var(--accent)));
--  box-shadow: 4px 5px 0 var(--accent-soft);
-+.page-header__aside {
-+  flex: 0 0 auto;
-+  padding-top: 18px;
- }
- 
--@keyframes shimmer {
--  to { background-position: -200% 0; }
 +.stage-stamp {
 +  display: inline-block;
 +  padding: 11px 15px;
@@ -11477,60 +11699,49 @@ index 990b8b9..c547067 100644
 +  transition: transform 0.3s var(--ease-out);
  }
  
--.migration-note {
--  margin: 24px 0 0;
--  color: var(--subtle);
--  text-align: center;
+-.preview-avatar {
+-  display: grid;
+-  width: 44px;
+-  height: 44px;
+-  place-items: center;
+-  border: 1px solid var(--line-strong);
+-  border-radius: 50%;
+-  color: var(--accent);
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
 +.stage-stamp:hover {
 +  transform: rotate(0deg) scale(1.04);
  }
  
--.stat-grid {
+-.preview-lines {
 -  display: grid;
--  grid-template-columns: repeat(2, minmax(0, 1fr));
--  gap: 12px;
--  margin-top: 36px;
--}
+-  gap: 9px;
++/* no mobile o aside fica ao lado do título (engrenagem do perfil, como no v1) */
 +@media (max-width: 640px) {
 +  .page-header {
-+    flex-direction: column;
-+    gap: 6px;
++    align-items: center;
++    gap: 12px;
 +  }
- 
--.stat-card {
--  min-height: 126px;
--  padding: 20px;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-md);
--  background: var(--surface);
++
 +  .page-header__aside {
-+    display: none;
++    padding-top: 6px;
 +  }
  }
  
--.stat-card strong {
--  display: block;
--  color: var(--accent);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(36px, 6vw, 56px);
--  font-style: italic;
--  font-weight: 400;
--  line-height: 1;
--}
+-.preview-lines span,
+-.profile-skeleton {
 +/* ---------------------------------------------------------- */
 +/* Capa de livro                                              */
 +/* ---------------------------------------------------------- */
- 
--.stat-card span {
++
 +.book-cover {
 +  position: relative;
    display: block;
--  margin-top: 12px;
--  color: var(--muted);
--  font-family: "Space Mono", monospace;
--  font-size: 9px;
--  letter-spacing: 0.08em;
--  text-transform: uppercase;
+-  height: 9px;
+-  border-radius: 999px;
+-  background: linear-gradient(90deg, var(--line), var(--line-strong), var(--line));
+-  background-size: 200% 100%;
+-  animation: shimmer 1.8s linear infinite;
 +  overflow: hidden;
 +  aspect-ratio: 2 / 3;
 +  border-radius: 3px 9px 9px 3px;
@@ -11538,16 +11749,15 @@ index 990b8b9..c547067 100644
 +  box-shadow: var(--shadow-cover);
  }
  
--.empty-library {
--  display: grid;
--  grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr);
--  align-items: end;
--  gap: clamp(28px, 6vw, 68px);
--  margin-top: 40px;
--  padding: clamp(28px, 6vw, 54px);
+-.preview-cover {
+-  width: 48px;
+-  height: 74px;
+-  justify-self: end;
 -  border: 1px solid var(--line);
--  border-radius: var(--radius-lg);
--  background: var(--surface);
+-  border-radius: 4px 8px 8px 4px;
+-  background:
+-    linear-gradient(120deg, var(--wine), color-mix(in srgb, var(--wine) 65%, var(--accent)));
+-  box-shadow: 4px 5px 0 var(--accent-soft);
 +.book-cover::before {
 +  position: absolute;
 +  inset: 0 auto 0 0;
@@ -11564,13 +11774,8 @@ index 990b8b9..c547067 100644
 +  pointer-events: none;
  }
  
--.book-spines {
--  display: flex;
--  min-height: 180px;
--  align-items: end;
--  justify-content: center;
--  gap: 5px;
--  border-bottom: 1px solid var(--line-strong);
+-@keyframes shimmer {
+-  to { background-position: -200% 0; }
 +.book-cover::after {
 +  position: absolute;
 +  inset: 0;
@@ -11580,16 +11785,146 @@ index 990b8b9..c547067 100644
 +  pointer-events: none;
  }
  
+-.migration-note {
+-  margin: 24px 0 0;
+-  color: var(--subtle);
+-  text-align: center;
++.book-cover img {
++  width: 100%;
++  height: 100%;
++  object-fit: cover;
+ }
+ 
+-.stat-grid {
+-  display: grid;
+-  grid-template-columns: repeat(2, minmax(0, 1fr));
+-  gap: 12px;
+-  margin-top: 36px;
++/* capa gerada: mesma arte "papel creme + tinta" do app legado (.cover-art) */
++.book-cover--generated {
++  display: flex;
++  flex-direction: column;
++  justify-content: space-between;
++  gap: 8px;
++  padding: 14px 12px;
++  isolation: isolate;
++  color: var(--cover-ink, #1a1714);
++  background: var(--cover-paper, #f1e6d2);
+ }
+ 
+-.stat-card {
+-  min-height: 126px;
+-  padding: 20px;
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-md);
+-  background: var(--surface);
++.book-cover--generated::before {
++  position: absolute;
++  inset: 0;
++  z-index: -1;
++  width: auto;
++  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.1));
++  mix-blend-mode: multiply;
++  content: "";
+ }
+ 
+-.stat-card strong {
+-  display: block;
+-  color: var(--accent);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(36px, 6vw, 56px);
++.book-cover--generated .book-cover__rule {
++  width: 38%;
++  height: 5px;
++  margin-bottom: 8px;
++  background: currentColor;
++}
++
++.book-cover--generated .book-cover__copy {
++  display: flex;
++  flex: 1;
++  flex-direction: column;
++  gap: 8px;
++  justify-content: center;
++  min-height: 0;
++}
++
++.book-cover--generated strong {
++  font-family: var(--font-display);
++  font-size: 15.5px;
+   font-style: italic;
+-  font-weight: 400;
+-  line-height: 1;
++  font-weight: 700;
++  line-height: 1.08;
++  letter-spacing: -0.02em;
++  overflow-wrap: anywhere;
++  display: -webkit-box;
++  overflow: hidden;
++  -webkit-box-orient: vertical;
++  -webkit-line-clamp: 4;
+ }
+ 
+-.stat-card span {
+-  display: block;
+-  margin-top: 12px;
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
++.book-cover--generated small {
++  font-family: var(--font-mono);
+   font-size: 9px;
+-  letter-spacing: 0.08em;
++  line-height: 1.25;
++  letter-spacing: 0.12em;
+   text-transform: uppercase;
++  display: -webkit-box;
++  overflow: hidden;
++  -webkit-box-orient: vertical;
++  -webkit-line-clamp: 2;
+ }
+ 
+-.empty-library {
+-  display: grid;
+-  grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr);
+-  align-items: end;
+-  gap: clamp(28px, 6vw, 68px);
+-  margin-top: 40px;
+-  padding: clamp(28px, 6vw, 54px);
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-lg);
+-  background: var(--surface);
++.book-cover--generated .book-cover__brand {
++  font-family: var(--font-mono);
++  font-size: 8px;
++  letter-spacing: 0.08em;
++  text-transform: uppercase;
++  white-space: nowrap;
++  opacity: 0.72;
+ }
+ 
+-.book-spines {
+-  display: flex;
+-  min-height: 180px;
+-  align-items: end;
+-  justify-content: center;
+-  gap: 5px;
+-  border-bottom: 1px solid var(--line-strong);
++.book-cover--generated[data-layout="classic"] {
++  align-items: center;
++  text-align: center;
++  border: 8px solid var(--cover-paper);
++  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cover-ink), transparent 35%);
+ }
+ 
 -.book-spines span {
 -  display: block;
 -  width: clamp(18px, 3vw, 28px);
 -  border: 1px solid var(--line-strong);
 -  border-radius: 3px 3px 0 0;
 -  background: var(--wine);
-+.book-cover img {
-+  width: 100%;
-+  height: 100%;
-+  object-fit: cover;
++.book-cover--generated[data-layout="modern"] {
++  align-items: stretch;
++  text-align: left;
  }
  
 -.book-spines span:nth-child(1) { height: 116px; }
@@ -11597,20 +11932,16 @@ index 990b8b9..c547067 100644
 -.book-spines span:nth-child(3) { height: 132px; background: var(--surface-raised); }
 -.book-spines span:nth-child(4) { height: 164px; background: color-mix(in srgb, var(--wine) 75%, var(--accent)); }
 -.book-spines span:nth-child(5) { height: 126px; background: var(--text-soft); }
--
++.book-cover--generated[data-layout="modern"] small {
++  text-align: right;
++}
+ 
 -.diary-preview {
 -  margin-top: 36px;
 -  border-top: 1px solid var(--line);
-+.book-cover--generated {
-+  display: flex;
-+  flex-direction: column;
-+  justify-content: flex-end;
-+  gap: 8px;
-+  padding: 16px 13px 13px 17px;
-+  color: #f6efdf;
-+  background:
-+    radial-gradient(130% 100% at 100% 0%, color-mix(in srgb, var(--cover-accent, #d7aa61) 26%, transparent), transparent 55%),
-+    linear-gradient(160deg, color-mix(in srgb, var(--cover-primary, #68272b) 88%, #000 12%), var(--cover-primary, #68272b));
++.book-cover--generated[data-layout="modern"] strong {
++  font-weight: 500;
++  font-style: normal;
  }
  
 -.diary-preview__entry {
@@ -11620,55 +11951,40 @@ index 990b8b9..c547067 100644
 -  gap: 20px;
 -  min-height: 144px;
 -  border-bottom: 1px solid var(--line);
-+.book-cover--generated .book-cover__rule {
-+  width: 30px;
-+  height: 2px;
-+  margin-bottom: auto;
-+  background: var(--cover-accent, #d7aa61);
++.book-cover--generated[data-layout="modern"] .book-cover__rule {
++  width: 8px;
++  height: 8px;
++  margin: 0;
++  border-radius: 50%;
++  background: var(--cover-ink-2, currentColor);
  }
  
 -.diary-preview__entry time {
--  text-align: center;
-+.book-cover--generated strong {
-+  font-family: var(--font-display);
-+  font-size: 15.5px;
-+  font-weight: 600;
-+  line-height: 1.18;
-+  display: -webkit-box;
-+  overflow: hidden;
-+  -webkit-box-orient: vertical;
-+  -webkit-line-clamp: 4;
++.book-cover--generated[data-layout="minimal"] {
++  align-items: center;
+   text-align: center;
  }
  
 -.diary-preview__entry time strong,
 -.diary-preview__entry time span {
 -  display: block;
-+.book-cover--generated small {
-+  font-family: var(--font-mono);
-+  font-size: 9px;
-+  letter-spacing: 0.08em;
-+  text-transform: uppercase;
-+  opacity: 0.85;
-+  display: -webkit-box;
-+  overflow: hidden;
-+  -webkit-box-orient: vertical;
-+  -webkit-line-clamp: 2;
++.book-cover--generated[data-layout="minimal"] .book-cover__rule {
++  width: 28px;
++  height: 2px;
++  margin: 0;
++  background: var(--cover-ink-2, currentColor);
  }
  
 -.diary-preview__entry time strong {
 -  color: var(--accent);
 -  font-family: "Fraunces", Georgia, serif;
 -  font-size: 36px;
-+.book-cover--generated .book-cover__brand {
-+  margin-top: 6px;
-+  padding-top: 7px;
-+  border-top: 1px solid rgba(255, 255, 255, 0.28);
-+  font-family: var(--font-display);
-+  font-size: 10px;
-   font-style: italic;
+-  font-style: italic;
 -  font-weight: 400;
 -  line-height: 1;
-+  opacity: 0.75;
++.book-cover--generated[data-layout="bold"] {
++  color: var(--cover-paper);
++  background: var(--cover-ink);
  }
  
 -.diary-preview__entry time span {
@@ -11677,22 +11993,26 @@ index 990b8b9..c547067 100644
 -  font-family: "Space Mono", monospace;
 -  font-size: 9px;
 -  text-transform: uppercase;
--}
-+/* ---------------------------------------------------------- */
-+/* Estados de carregamento                                    */
-+/* ---------------------------------------------------------- */
++.book-cover--generated[data-layout="bold"]::before {
++  content: attr(data-initial);
++  display: grid;
++  place-items: center;
++  font-family: var(--font-display);
++  font-size: 92px;
++  font-weight: 900;
++  color: var(--cover-ink-2);
++  background: none;
++  mix-blend-mode: normal;
++  opacity: 0.1;
+ }
  
 -.diary-preview__line {
 -  width: 1px;
 -  height: 76px;
 -  background: var(--line-strong);
-+.loading-dot {
-+  display: inline-block;
-+  width: 9px;
-+  height: 9px;
-+  border-radius: 50%;
-+  background: var(--accent);
-+  animation: loading-pulse 1s ease-in-out infinite;
++.book-cover--generated[data-layout="bold"] strong {
++  font-weight: 800;
++  font-style: normal;
  }
  
 -.profile-card {
@@ -11706,6 +12026,80 @@ index 990b8b9..c547067 100644
 -  border-radius: var(--radius-lg);
 -  background: var(--surface);
 -  box-shadow: var(--shadow);
++.book-cover--generated[data-layout="bold"] .book-cover__rule {
++  width: 100%;
++  height: 4px;
++  background: var(--cover-ink-2);
+ }
+ 
+-.profile-card__identity h2 {
+-  margin: 8px 0 2px;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(30px, 5vw, 48px);
+-  font-style: italic;
+-  font-weight: 400;
+-  line-height: 1;
++.book-cover--generated[data-layout="stripe"] {
++  color: var(--cover-ink);
++  background: linear-gradient(to bottom, var(--cover-ink-2) 0 25%, var(--cover-paper) 25%);
+ }
+ 
+-.profile-handle {
+-  margin: 0;
+-  color: var(--accent);
+-  font-family: "Space Mono", monospace;
+-  font-size: 11px;
++.book-cover--generated[data-layout="stripe"] .book-cover__rule {
++  display: none;
+ }
+ 
+-.profile-bio {
+-  max-width: 580px;
+-  margin: 18px 0 0;
+-  color: var(--text-soft);
+-  line-height: 1.5;
++.book-cover--generated[data-layout="stripe"] .book-cover__copy {
++  text-align: center;
+ }
+ 
+-.profile-card__actions,
+-.account-card__actions {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: flex-end;
+-  gap: 8px;
++.book-cover--generated[data-layout="stripe"] strong {
++  margin: auto 0;
+ }
+ 
+-.profile-card--loading {
+-  min-height: 160px;
++.book-cover--generated[data-layout="stripe"] small {
++  order: -1;
++  font-weight: 700;
++  color: var(--cover-paper);
+ }
+ 
+-.profile-skeleton--avatar {
+-  width: 82px;
+-  height: 82px;
++/* ---------------------------------------------------------- */
++/* Estados de carregamento                                    */
++/* ---------------------------------------------------------- */
++
++.loading-dot {
++  display: inline-block;
++  width: 9px;
++  height: 9px;
+   border-radius: 50%;
++  background: var(--accent);
++  animation: loading-pulse 1s ease-in-out infinite;
+ }
+ 
+-.profile-skeleton-group {
+-  display: grid;
+-  width: min(100%, 420px);
+-  gap: 12px;
 +@keyframes loading-pulse {
 +  0%, 100% {
 +    opacity: 0.3;
@@ -11717,24 +12111,17 @@ index 990b8b9..c547067 100644
 +  }
  }
  
--.profile-card__identity h2 {
--  margin: 8px 0 2px;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(30px, 5vw, 48px);
--  font-style: italic;
--  font-weight: 400;
--  line-height: 1;
+-.profile-skeleton--short {
+-  width: 56%;
 +.skeleton-shimmer {
 +  position: relative;
 +  overflow: hidden;
 +  background: var(--surface-raised);
  }
  
--.profile-handle {
--  margin: 0;
--  color: var(--accent);
--  font-family: "Space Mono", monospace;
--  font-size: 11px;
+-.profile-card--error {
+-  grid-template-columns: 1fr auto;
+-  color: var(--danger);
 +.skeleton-shimmer::after {
 +  position: absolute;
 +  inset: 0;
@@ -11743,21 +12130,11 @@ index 990b8b9..c547067 100644
 +  animation: shimmer 1.6s infinite;
  }
  
--.profile-bio {
--  max-width: 580px;
--  margin: 18px 0 0;
--  color: var(--text-soft);
--  line-height: 1.5;
+-.not-found-page {
 +:root[data-theme="light"] .skeleton-shimmer::after {
 +  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
- }
- 
--.profile-card__actions,
--.account-card__actions {
--  display: flex;
--  flex-wrap: wrap;
--  justify-content: flex-end;
--  gap: 8px;
++}
++
 +@keyframes shimmer {
 +  from {
 +    transform: translateX(-100%);
@@ -11765,10 +12142,8 @@ index 990b8b9..c547067 100644
 +  to {
 +    transform: translateX(100%);
 +  }
- }
- 
--.profile-card--loading {
--  min-height: 160px;
++}
++
 +/* ---------------------------------------------------------- */
 +/* Folha de ações rápidas                                     */
 +/* ---------------------------------------------------------- */
@@ -11778,14 +12153,20 @@ index 990b8b9..c547067 100644
 +  position: fixed;
 +  inset: 0;
 +  z-index: 60;
-+  display: grid;
+   display: grid;
+-  min-height: calc(100vh - 190px);
+-  align-content: center;
+-  justify-items: start;
 +  place-items: end center;
  }
  
--.profile-skeleton--avatar {
--  width: 82px;
--  height: 82px;
--  border-radius: 50%;
+-.not-found-page__code {
+-  margin: 0 0 -24px;
+-  color: var(--accent-soft);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(110px, 24vw, 270px);
+-  font-style: italic;
+-  line-height: 0.72;
 +.quick-backdrop,
 +.panel-backdrop {
 +  position: absolute;
@@ -11794,19 +12175,16 @@ index 990b8b9..c547067 100644
 +  backdrop-filter: blur(6px);
 +  -webkit-backdrop-filter: blur(6px);
 +  animation: fade-in 0.3s var(--ease-out) both;
- }
- 
--.profile-skeleton-group {
--  display: grid;
--  width: min(100%, 420px);
--  gap: 12px;
++}
++
 +@keyframes fade-in {
 +  from { opacity: 0; }
 +  to { opacity: 1; }
  }
  
--.profile-skeleton--short {
--  width: 56%;
+-.not-found-page > p:not(.eyebrow, .not-found-page__code) {
+-  max-width: 520px;
+-  margin: 0 0 24px;
 +.quick-sheet {
 +  position: relative;
 +  z-index: 1;
@@ -11818,11 +12196,8 @@ index 990b8b9..c547067 100644
 +  background: var(--surface-solid);
 +  box-shadow: var(--shadow-pop);
 +  animation: sheet-up 0.42s var(--ease-out) both;
- }
- 
--.profile-card--error {
--  grid-template-columns: 1fr auto;
--  color: var(--danger);
++}
++
 +@keyframes sheet-up {
 +  from {
 +    opacity: 0;
@@ -11832,39 +12207,24 @@ index 990b8b9..c547067 100644
 +    opacity: 1;
 +    transform: none;
 +  }
- }
- 
--.not-found-page {
--  display: grid;
--  min-height: calc(100vh - 190px);
--  align-content: center;
--  justify-items: start;
++}
++
 +.quick-sheet__handle {
 +  width: 44px;
 +  height: 4px;
 +  margin: 0 auto 18px;
 +  border-radius: 999px;
 +  background: var(--line-strong);
- }
- 
--.not-found-page__code {
--  margin: 0 0 -24px;
--  color: var(--accent-soft);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(110px, 24vw, 270px);
--  font-style: italic;
--  line-height: 0.72;
++}
++
 +.quick-sheet h2 {
 +  margin: 12px 0 8px;
 +  font-family: var(--font-display);
 +  font-size: 28px;
 +  font-weight: 600;
 +  letter-spacing: -0.01em;
- }
- 
--.not-found-page > p:not(.eyebrow, .not-found-page__code) {
--  max-width: 520px;
--  margin: 0 0 24px;
++}
++
 +.quick-sheet > p:not(.eyebrow) {
    color: var(--muted);
 -  font-size: 18px;
@@ -11969,7 +12329,7 @@ index 990b8b9..c547067 100644
 +  color: var(--accent-strong);
 +  transform: translateX(3px);
  }
- 
+-
 -.panel-backdrop,
 -.quick-backdrop {
 -  position: absolute;
@@ -11979,6 +12339,7 @@ index 990b8b9..c547067 100644
 -  background: rgba(8, 7, 6, 0.58);
 -  cursor: default;
 -  backdrop-filter: blur(5px);
++
 +/* ---------------------------------------------------------- */
 +/* Painel de configurações                                    */
 +/* ---------------------------------------------------------- */
@@ -12558,10 +12919,18 @@ index 990b8b9..c547067 100644
    }
  }
 diff --git a/frontend/src/types/reading.ts b/frontend/src/types/reading.ts
-index 35fd421..dec1a14 100644
+index 35fd421..2b9fd0e 100644
 --- a/frontend/src/types/reading.ts
 +++ b/frontend/src/types/reading.ts
-@@ -45,4 +45,4 @@ export interface ReadingStatusesResponse {
+@@ -14,6 +14,7 @@ export interface ShelfReading {
+   editora: string
+   tradutor: string
+   ano: number | null
++  ano_obra?: number | null
+   isbn: string
+   capa_url: string
+   paginas: number | null
+@@ -45,4 +46,4 @@ export interface ReadingStatusesResponse {
    custom: CustomReadingStatus[]
  }
  
