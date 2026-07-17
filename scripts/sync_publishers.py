@@ -388,9 +388,10 @@ SOURCES = [
         "group": "trade",
     },
     {
-        # NOTA: no 1º dry_run a coleta HTML pegou só 1 página (~4 livros). O crawl
-        # agora semeia entradas de catálogo (/catalogo, /livros...) além da home
-        # (ver collect_via_html_crawl) — confirmar o ganho num run real.
+        # NOTA: catálogo renderizado por JS. Com o seed de crawl o run passou a
+        # visitar 5 páginas de listagem (antes 1), mas o HTML bruto expõe só ~4
+        # links de livro — o grid vem via JavaScript. Cobertura completa exigiria
+        # Playwright (fora do escopo deste grupo). Mantida pelos 4 livros válidos.
         "slug": "melhoramentos",
         "name": "Editora Melhoramentos",
         "base_url": "https://www.editoramelhoramentos.com.br",
