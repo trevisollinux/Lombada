@@ -1354,6 +1354,181 @@ index 746cb2a..8e47bf3 100644
        </div>
        {aside && <div className="page-header__aside">{aside}</div>}
      </header>
+diff --git a/frontend/src/components/SelectMenu.tsx b/frontend/src/components/SelectMenu.tsx
+new file mode 100644
+index 0000000..e617bd8
+--- /dev/null
++++ b/frontend/src/components/SelectMenu.tsx
+@@ -0,0 +1,148 @@
++import { useEffect, useId, useMemo, useRef, useState } from 'react'
++
++import { Icon } from './Icon'
++
++export interface SelectOption {
++  value: string
++  label: string
++  /** texto auxiliar à direita (ex.: contagem de obras) */
++  hint?: string
++}
++
++interface SelectMenuProps {
++  /** rótulo em caixa-alta acima do gatilho (opcional) */
++  label?: string
++  value: string
++  options: SelectOption[]
++  onChange: (value: string) => void
++  /** rótulo do gatilho quando nada está selecionado */
++  placeholder?: string
++  ariaLabel?: string
++  /** mostra um campo de filtro no topo (para listas longas, ex.: editoras) */
++  searchable?: boolean
++  searchPlaceholder?: string
++  emptyLabel?: string
++  className?: string
++}
++
++/* Dropdown editorial no lugar do <select> nativo: no v1 os filtros nunca usam
++   picker nativo (que abre a folha do sistema, fora do estilo). Mesma mecânica
++   do menu de filtro da estante — gatilho + lista custom, fecha no Esc/fora. */
++export function SelectMenu({
++  label,
++  value,
++  options,
++  onChange,
++  placeholder,
++  ariaLabel,
++  searchable = false,
++  searchPlaceholder,
++  emptyLabel = '—',
++  className = '',
++}: SelectMenuProps) {
++  const [open, setOpen] = useState(false)
++  const [query, setQuery] = useState('')
++  const searchRef = useRef<HTMLInputElement>(null)
++  const rootId = useId()
++
++  const selected = options.find((option) => option.value === value)
++  const triggerLabel = selected?.label ?? placeholder ?? ''
++
++  const filtered = useMemo(() => {
++    if (!searchable || !query.trim()) return options
++    const q = query
++      .trim()
++      .toLowerCase()
++      .normalize('NFD')
++      .replace(/[\u0300-\u036f]/g, '')
++    return options.filter((option) =>
++      option.label
++        .toLowerCase()
++        .normalize('NFD')
++        .replace(/[\u0300-\u036f]/g, '')
++        .includes(q),
++    )
++  }, [options, query, searchable])
++
++  useEffect(() => {
++    if (!open) {
++      setQuery('')
++      return
++    }
++    const onKeyDown = (event: KeyboardEvent) => {
++      if (event.key === 'Escape') setOpen(false)
++    }
++    document.addEventListener('keydown', onKeyDown)
++    if (searchable) searchRef.current?.focus()
++    return () => document.removeEventListener('keydown', onKeyDown)
++  }, [open, searchable])
++
++  function choose(next: string) {
++    onChange(next)
++    setOpen(false)
++  }
++
++  return (
++    <div className={`select-menu ${className}`.trim()}>
++      {label && (
++        <span className="select-menu__label" id={`${rootId}-label`}>
++          {label}
++        </span>
++      )}
++      <button
++        type="button"
++        className="select-menu__trigger"
++        aria-haspopup="listbox"
++        aria-expanded={open}
++        aria-labelledby={label ? `${rootId}-label ${rootId}-value` : undefined}
++        aria-label={label ? undefined : ariaLabel}
++        onClick={() => setOpen((current) => !current)}
++      >
++        <span id={`${rootId}-value`} className="select-menu__value">
++          {triggerLabel}
++        </span>
++        <Icon name="chevron-down" size={15} />
++      </button>
++
++      {open && (
++        <>
++          <button
++            className="select-menu__backdrop"
++            type="button"
++            aria-hidden="true"
++            tabIndex={-1}
++            onClick={() => setOpen(false)}
++          />
++          <div className="select-menu__panel" role="listbox" aria-label={ariaLabel || label}>
++            {searchable && (
++              <input
++                ref={searchRef}
++                className="select-menu__search"
++                type="text"
++                value={query}
++                placeholder={searchPlaceholder || 'Filtrar…'}
++                onChange={(event) => setQuery(event.target.value)}
++              />
++            )}
++            <div className="select-menu__list">
++              {filtered.map((option) => (
++                <button
++                  key={option.value || '__none__'}
++                  type="button"
++                  role="option"
++                  aria-selected={option.value === value}
++                  className={option.value === value ? 'is-active' : ''}
++                  onClick={() => choose(option.value)}
++                >
++                  <span>{option.label}</span>
++                  {option.hint && <small>{option.hint}</small>}
++                </button>
++              ))}
++              {filtered.length === 0 && <p className="select-menu__empty">{emptyLabel}</p>}
++            </div>
++          </div>
++        </>
++      )}
++    </div>
++  )
++}
+diff --git a/frontend/src/features/catalog/SearchResultCard.tsx b/frontend/src/features/catalog/SearchResultCard.tsx
+index cd41264..678b0d3 100644
+--- a/frontend/src/features/catalog/SearchResultCard.tsx
++++ b/frontend/src/features/catalog/SearchResultCard.tsx
+@@ -6,6 +6,7 @@ import type { Locale } from '../../i18n'
+ import { trackProductEvent } from '../../services/analytics'
+ import type { CatalogWork } from '../../types/catalog'
+ import { catalogText } from './catalogI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface SearchResultCardProps {
+   work: CatalogWork
+@@ -57,7 +58,7 @@ export function SearchResultCard({ work, locale, source = 'search' }: SearchResu
+             {[work.ano, work.editora].filter(Boolean).join(' · ') || catalogText(locale, 'edition')}
+           </p>
+           <h2>{work.titulo}</h2>
+-          <p className="catalog-result__author">{work.autor || '—'}</p>
++          <p className="catalog-result__author">{formatAuthor(work.autor) || '—'}</p>
+         </div>
+ 
+         {social.length > 0 && (
 diff --git a/frontend/src/features/catalog/catalog.css b/frontend/src/features/catalog/catalog.css
 index 3844aaf..5869083 100644
 --- a/frontend/src/features/catalog/catalog.css
@@ -2413,33 +2588,54 @@ index 3844aaf..5869083 100644
 +    padding: 13px 18px;
    }
  }
+diff --git a/frontend/src/features/diary/DiaryEntryForm.tsx b/frontend/src/features/diary/DiaryEntryForm.tsx
+index 91a7f61..a7c2567 100644
+--- a/frontend/src/features/diary/DiaryEntryForm.tsx
++++ b/frontend/src/features/diary/DiaryEntryForm.tsx
+@@ -10,6 +10,7 @@ import {
+ import type { ChapterSuggestion, DiaryEntry, DiaryMutation, DiaryProgressType } from '../../types/diary'
+ import type { ShelfReading } from '../../types/reading'
+ import { diaryText } from './diaryI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface DiaryEntryFormProps {
+   readings: ShelfReading[]
+@@ -190,7 +191,7 @@ export function DiaryEntryForm({
+           <option value="" disabled>{diaryText(locale, 'select_book')}</option>
+           {readings.map((reading) => (
+             <option key={reading.leitura_id} value={reading.leitura_id}>
+-              {reading.titulo}{reading.autor ? ` — ${reading.autor}` : ''}
++              {reading.titulo}{formatAuthor(reading.autor) ? ` — ${formatAuthor(reading.autor)}` : ''}
+             </option>
+           ))}
+         </select>
 diff --git a/frontend/src/features/diary/diary.css b/frontend/src/features/diary/diary.css
-index 3359bdd..3bd048f 100644
+index 3359bdd..3f5dc3c 100644
 --- a/frontend/src/features/diary/diary.css
 +++ b/frontend/src/features/diary/diary.css
-@@ -1,624 +1,447 @@
+@@ -1,624 +1,435 @@
 -.page--diary {
 -  position: relative;
--}
--
--.diary-toolbar {
--  display: flex;
--  align-items: flex-end;
--  justify-content: space-between;
--  gap: 18px;
--  margin: 28px 0 30px;
 -}
 +/* ============================================================
 +   Diário — linha do tempo de leitura
 +   ============================================================ */
  
- .diary-toolbar label {
-   display: grid;
+ .diary-toolbar {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: flex-end;
+-  justify-content: space-between;
+-  gap: 18px;
+-  margin: 28px 0 30px;
+-}
+-
+-.diary-toolbar label {
+-  display: grid;
 -  width: min(440px, 100%);
-   gap: 8px;
-+  min-width: min(100%, 300px);
- }
- 
+-  gap: 8px;
+-}
+-
 -.diary-toolbar label > span,
 -.diary-form__field > span,
 -.diary-form__types legend {
@@ -2447,12 +2643,7 @@ index 3359bdd..3bd048f 100644
 -  font-family: "Space Mono", monospace;
 -  font-size: 9px;
 -  letter-spacing: 0.06em;
-+.diary-toolbar label > span {
-+  font-family: var(--font-mono);
-+  font-size: 9.5px;
-+  font-weight: 700;
-+  letter-spacing: 0.2em;
-   text-transform: uppercase;
+-  text-transform: uppercase;
 -}
 -
 -.diary-toolbar select,
@@ -2562,7 +2753,7 @@ index 3359bdd..3bd048f 100644
 -  padding: 0 10px;
 -  border: 1px solid var(--line);
 -  border-radius: 999px;
-   color: var(--muted);
+-  color: var(--muted);
 -  background: var(--bg-soft);
 -  cursor: pointer;
 -  font-family: "Space Mono", monospace;
@@ -2581,7 +2772,8 @@ index 3359bdd..3bd048f 100644
 -  display: grid;
 -  grid-template-columns: repeat(2, minmax(0, 1fr));
 -  align-items: end;
--  gap: 14px;
+   gap: 14px;
++  margin-bottom: 24px;
  }
  
 -.diary-form__known-total {
@@ -2591,20 +2783,21 @@ index 3359bdd..3bd048f 100644
 -  gap: 10px;
 -  padding: 0 14px;
 -  border: 1px solid var(--line);
-+.diary-toolbar select {
-+  padding: 12px 15px;
-+  border: 1px solid var(--line-strong);
-   border-radius: 12px;
+-  border-radius: 12px;
 -  color: var(--muted);
 -  background: var(--bg-soft);
--}
--
++.diary-toolbar__filter {
++  flex: 1 1 240px;
++  max-width: min(100%, 340px);
+ }
+ 
 -.diary-form__known-total strong {
-   color: var(--text);
+-  color: var(--text);
 -  font-family: "Fraunces", serif;
 -  font-size: 24px;
 -  font-weight: 500;
-+  background: var(--surface-inset);
++.diary-toolbar .button {
++  flex: 0 0 auto;
  }
  
 -.diary-form__percentage {
@@ -2672,12 +2865,8 @@ index 3359bdd..3bd048f 100644
 -  color: #c86262;
 -  background: color-mix(in srgb, #a43f3f 10%, var(--surface));
 -  font-size: 13px;
-+.diary-toolbar select:focus {
-+  border-color: var(--accent-line);
-+  box-shadow: 0 0 0 3px var(--accent-soft);
-+  outline: none;
- }
- 
+-}
+-
 -.diary-form__actions {
 -  display: flex;
 -  flex-wrap: wrap;
@@ -3968,8 +4157,29 @@ index aa8e856..ff98dcd 100644
            <h2 id="reading-now-title">{feedText(locale, 'reading_now')}</h2>
          </div>
          <span>{items.length}</span>
+diff --git a/frontend/src/features/feed/FeedItemCard.tsx b/frontend/src/features/feed/FeedItemCard.tsx
+index f52877b..9eaae25 100644
+--- a/frontend/src/features/feed/FeedItemCard.tsx
++++ b/frontend/src/features/feed/FeedItemCard.tsx
+@@ -16,6 +16,7 @@ import { feedText } from './feedI18n'
+ import { FollowButton } from './FollowButton'
+ import { reportReview } from './reportReview'
+ import { ReviewComments } from './ReviewComments'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface FeedItemCardProps {
+   item: FeedItem
+@@ -191,7 +192,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
+           <Link to={{ pathname: '/obra', search: `?${workParams.toString()}` }} state={workState}>
+             <h2>{item.livro.titulo}</h2>
+           </Link>
+-          <p>{item.livro.autor}</p>
++          <p>{formatAuthor(item.livro.autor)}</p>
+           {editionMeta && <small>{feedText(locale, 'edition')} · {editionMeta}</small>}
+           {reading.nota !== null && (
+             <span className="feed-card__rating">
 diff --git a/frontend/src/features/feed/feed.css b/frontend/src/features/feed/feed.css
-index 07610d0..29f6f2f 100644
+index 07610d0..4e2b69f 100644
 --- a/frontend/src/features/feed/feed.css
 +++ b/frontend/src/features/feed/feed.css
 @@ -1,89 +1,79 @@
@@ -4129,12 +4339,12 @@ index 07610d0..29f6f2f 100644
 +  font-family: var(--font-mono);
 +  font-size: 11px;
 +  color: var(--subtle);
- }
- 
-+.feed-panel__heading > svg {
-+  color: var(--accent);
 +}
 +
++.feed-panel__heading > svg {
++  color: var(--accent);
+ }
+ 
 +/* trilho horizontal "lendo agora" */
  .reading-now-rail {
    display: grid;
@@ -4816,7 +5026,7 @@ index 07610d0..29f6f2f 100644
    background: var(--accent-soft);
  }
  
-@@ -591,36 +507,126 @@
+@@ -591,36 +507,135 @@
    fill: currentColor;
  }
  
@@ -4851,8 +5061,8 @@ index 07610d0..29f6f2f 100644
 +  font-size: 21px;
    font-weight: 600;
 +  letter-spacing: -0.01em;
- }
- 
++}
++
 +.feed-text-entry > p:not(.eyebrow) {
 +  color: var(--text-soft);
 +  font-size: 15px;
@@ -4867,15 +5077,17 @@ index 07610d0..29f6f2f 100644
 +  color: var(--accent-strong);
 +  font-size: 13.5px;
 +  font-style: italic;
-+}
-+
+ }
+ 
 +/* ---------------------------------------------------------- */
 +/*   Avatar, seguir, comentários */
 +
 +.feed-avatar {
++  position: relative;
 +  display: inline-grid;
 +  place-items: center;
 +  flex: 0 0 auto;
++  overflow: hidden;
 +  border-radius: 50%;
 +  font-family: var(--font-display);
 +  font-style: italic;
@@ -4883,6 +5095,13 @@ index 07610d0..29f6f2f 100644
 +  background: radial-gradient(120% 120% at 20% 15%, var(--accent-strong), var(--accent-deep));
 +  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 +  text-transform: uppercase;
++}
++
++/* a foto precisa preencher e ser clipada pelo círculo; sem isto ela
++   renderiza no tamanho natural e estoura o layout (quadrado gigante) */
++.feed-avatar img {
++  width: 100%;
++  height: 100%;
 +  object-fit: cover;
 +}
 +
@@ -4958,7 +5177,7 @@ index 07610d0..29f6f2f 100644
  }
  
  .review-comments__list {
-@@ -630,293 +636,142 @@
+@@ -630,293 +645,142 @@
  
  .review-comment {
    display: grid;
@@ -5268,9 +5487,8 @@ index 07610d0..29f6f2f 100644
 -  }
 -
 -  .feed-card__header-actions .follow-action {
-+  .feed-card__header-actions time {
-     display: none;
-   }
+-    display: none;
+-  }
 -
 -  .feed-card__book {
 -    grid-template-columns: 75px minmax(0, 1fr);
@@ -5286,8 +5504,9 @@ index 07610d0..29f6f2f 100644
 -  }
 -
 -  .feed-card__book-link {
--    display: none;
--  }
++  .feed-card__header-actions time {
+     display: none;
+   }
 -
 -  .feed-review {
 -    padding: 14px;
@@ -5324,11 +5543,59 @@ index 07610d0..29f6f2f 100644
 -    width: 100%;
 -  }
  }
+diff --git a/frontend/src/features/profile/ProfileLibrary.tsx b/frontend/src/features/profile/ProfileLibrary.tsx
+index 3669551..692d891 100644
+--- a/frontend/src/features/profile/ProfileLibrary.tsx
++++ b/frontend/src/features/profile/ProfileLibrary.tsx
+@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon'
+ import type { Locale } from '../../i18n'
+ import type { ProfileReading } from '../../types/profile'
+ import { profileText } from './profileI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface ProfileShelfProps {
+   readings: ProfileReading[]
+@@ -89,7 +90,7 @@ export function ProfileShelf({ readings, locale }: ProfileShelfProps) {
+                 <div>
+                   <span className={`profile-status profile-status--${statusClass(reading.status)}`}>{reading.status}</span>
+                   <Link to={link.to} state={link.state}><h3>{reading.titulo}</h3></Link>
+-                  <p>{reading.autor}</p>
++                  <p>{formatAuthor(reading.autor)}</p>
+                   {edition && <small>{edition}</small>}
+                   {reading.nota !== null && <strong className="profile-book-card__rating">{reading.nota.toFixed(1)}/5</strong>}
+                 </div>
+@@ -127,7 +128,7 @@ export function ProfileHighlights({ readingNow, favorites, locale }: ProfileHigh
+                   <Link to={link.to} state={link.state}>
+                     <BookCover title={reading.titulo} author={reading.autor} url={reading.capa_url} />
+                     <strong>{reading.titulo}</strong>
+-                    <small>{reading.autor}</small>
++                    <small>{formatAuthor(reading.autor)}</small>
+                   </Link>
+                 </article>
+               )
+@@ -150,7 +151,7 @@ export function ProfileHighlights({ readingNow, favorites, locale }: ProfileHigh
+                   <span>{String(index + 1).padStart(2, '0')}</span>
+                   <div>
+                     <strong>{reading.titulo}</strong>
+-                    <small>{reading.autor}</small>
++                    <small>{formatAuthor(reading.autor)}</small>
+                   </div>
+                   {reading.nota !== null && <b>{reading.nota.toFixed(1)}</b>}
+                   <Icon name="arrow" size={15} />
+@@ -202,7 +203,7 @@ export function ProfileReviews({ readings, locale }: ProfileReviewsProps) {
+                   <BookCover title={reading.titulo} author={reading.autor} url={reading.capa_url} />
+                   <div>
+                     <h3>{reading.titulo}</h3>
+-                    <p>{reading.autor}</p>
++                    <p>{formatAuthor(reading.autor)}</p>
+                     {reading.nota !== null && <strong>{reading.nota.toFixed(1)}/5</strong>}
+                   </div>
+                 </Link>
 diff --git a/frontend/src/features/profile/profile.css b/frontend/src/features/profile/profile.css
-index fc9242a..5f41d49 100644
+index fc9242a..99072d5 100644
 --- a/frontend/src/features/profile/profile.css
 +++ b/frontend/src/features/profile/profile.css
-@@ -1,316 +1,329 @@
+@@ -1,316 +1,332 @@
 -.page--profile {
 -  display: grid;
 -  gap: 0;
@@ -5377,6 +5644,9 @@ index fc9242a..5f41d49 100644
 -  font-size: 20px;
 +.profile-hero__identity .feed-avatar,
 +.profile-hero__identity .account-avatar {
++  width: 72px;
++  height: 72px;
++  font-size: 25px;
 +  box-shadow:
 +    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
 +    0 0 0 3px var(--bg),
@@ -5826,7 +6096,7 @@ index fc9242a..5f41d49 100644
    background: var(--surface);
  }
  
-@@ -319,678 +332,718 @@
+@@ -319,678 +335,718 @@
    align-items: center;
    justify-content: space-between;
    gap: 12px;
@@ -5852,13 +6122,13 @@ index fc9242a..5f41d49 100644
    overflow-x: auto;
    padding-bottom: 8px;
 -  scroll-snap-type: inline mandatory;
- }
- 
+-}
+-
 -.profile-highlight-rail article {
 -  min-width: 0;
 -  scroll-snap-align: start;
--}
--
+ }
+ 
 -.profile-highlight-rail a {
 -  display: block;
 -  color: inherit;
@@ -6632,19 +6902,19 @@ index fc9242a..5f41d49 100644
 -  font-family: "Fraunces", serif;
 -  font-size: 27px;
 -  font-weight: 500;
--}
--
++.profile-text-card__delete.is-confirming {
++  color: var(--danger) !important;
++  border-color: color-mix(in srgb, var(--danger) 45%, transparent) !important;
+ }
+ 
 -.profile-text-card > p {
 -  margin: 13px 0 0;
 -  font-family: "Spectral", serif;
 -  font-size: 16px;
 -  line-height: 1.65;
 -  white-space: pre-wrap;
-+.profile-text-card__delete.is-confirming {
-+  color: var(--danger) !important;
-+  border-color: color-mix(in srgb, var(--danger) 45%, transparent) !important;
- }
- 
+-}
+-
 -.profile-text-card > a {
 -  display: inline-flex;
 -  align-items: center;
@@ -6896,7 +7166,7 @@ index fc9242a..5f41d49 100644
  
  .profile-loading__metrics {
    display: grid;
-@@ -999,27 +1052,47 @@
+@@ -999,27 +1055,47 @@
  }
  
  .profile-loading__metrics i {
@@ -6953,7 +7223,7 @@ index fc9242a..5f41d49 100644
    .profile-metric-grid {
      grid-template-columns: repeat(3, minmax(0, 1fr));
    }
-@@ -1027,151 +1100,15 @@
+@@ -1027,151 +1103,15 @@
    .profile-highlights {
      grid-template-columns: 1fr;
    }
@@ -7107,6 +7377,27 @@ index fc9242a..5f41d49 100644
 -    grid-template-columns: repeat(2, minmax(0, 1fr));
 -  }
  }
+diff --git a/frontend/src/features/progress/ReadingRitualCard.tsx b/frontend/src/features/progress/ReadingRitualCard.tsx
+index 06fbb59..e169e36 100644
+--- a/frontend/src/features/progress/ReadingRitualCard.tsx
++++ b/frontend/src/features/progress/ReadingRitualCard.tsx
+@@ -9,6 +9,7 @@ import type { ShelfReading } from '../../types/reading'
+ import { getReadingProgress } from './progressApi'
+ import { ProgressQuickDialog } from './ProgressQuickDialog'
+ import { progressText } from './progressI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface ReadingRitualCardProps {
+   reading: ShelfReading
+@@ -49,7 +50,7 @@ export function ReadingRitualCard({ reading, locale }: ReadingRitualCardProps) {
+         <div className="reading-ritual__copy">
+           <p className="eyebrow">{progressText(locale, 'continue_reading')}</p>
+           <h2 id="reading-ritual-title">{reading.titulo}</h2>
+-          <p className="reading-ritual__author">{reading.autor || '—'}</p>
++          <p className="reading-ritual__author">{formatAuthor(reading.autor) || '—'}</p>
+           {progressLabel && <strong className="reading-ritual__position">{progressLabel}</strong>}
+           <div className="reading-ritual__metrics">
+             {summary && <span>{summary.sessoes} {progressText(locale, 'sessions')}</span>}
 diff --git a/frontend/src/features/progress/progress.css b/frontend/src/features/progress/progress.css
 index c3d40ef..12c6cb4 100644
 --- a/frontend/src/features/progress/progress.css
@@ -7139,11 +7430,40 @@ index c3d40ef..12c6cb4 100644
    .reading-ritual__cover {
      width: 112px;
    }
+diff --git a/frontend/src/features/shelf/ReadingDetailPanel.tsx b/frontend/src/features/shelf/ReadingDetailPanel.tsx
+index 6cf28b5..4d39a30 100644
+--- a/frontend/src/features/shelf/ReadingDetailPanel.tsx
++++ b/frontend/src/features/shelf/ReadingDetailPanel.tsx
+@@ -12,6 +12,7 @@ import { ProgressQuickDialog } from '../progress/ProgressQuickDialog'
+ import { progressText } from '../progress/progressI18n'
+ import { ReadingEditorForm } from './ReadingEditorForm'
+ import { shelfText } from './shelfI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface ReadingDetailPanelProps {
+   reading: ShelfReading | null
+@@ -110,7 +111,7 @@ export function ReadingDetailPanel({
+             <div>
+               <p className="eyebrow">{shelfText(locale, 'edition')}</p>
+               <h2 id="reading-detail-title">{reading.titulo}</h2>
+-              <p className="reading-detail__author">{reading.autor || '—'}</p>
++              <p className="reading-detail__author">{formatAuthor(reading.autor) || '—'}</p>
+               {editionMeta.length > 0 && (
+                 <p className="reading-detail__edition-meta">{editionMeta.join(' · ')}</p>
+               )}
 diff --git a/frontend/src/features/shelf/ShelfBookCard.tsx b/frontend/src/features/shelf/ShelfBookCard.tsx
-index a73a692..f8d3c62 100644
+index a73a692..a578c57 100644
 --- a/frontend/src/features/shelf/ShelfBookCard.tsx
 +++ b/frontend/src/features/shelf/ShelfBookCard.tsx
-@@ -18,6 +18,14 @@ function stars(rating: number | null): string {
+@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon'
+ import type { Locale } from '../../i18n'
+ import type { ShelfReading, ShelfView } from '../../types/reading'
+ import { shelfText } from './shelfI18n'
++import { formatAuthor } from '../../utils/text'
+ 
+ interface ShelfBookCardProps {
+   reading: ShelfReading
+@@ -18,6 +19,14 @@ function stars(rating: number | null): string {
    return `${'★'.repeat(full)}${half ? '½' : ''}`
  }
  
@@ -7158,7 +7478,7 @@ index a73a692..f8d3c62 100644
  export function ShelfBookCard({ reading, view, locale, onOpen }: ShelfBookCardProps) {
    const meta = [reading.editora, reading.ano, reading.tradutor].filter(Boolean)
    const rating = stars(reading.nota)
-@@ -37,7 +45,9 @@ export function ShelfBookCard({ reading, view, locale, onOpen }: ShelfBookCardPr
+@@ -37,9 +46,11 @@ export function ShelfBookCard({ reading, view, locale, onOpen }: ShelfBookCardPr
            className="shelf-book__cover"
          />
          <span className="shelf-book__body">
@@ -7167,18 +7487,22 @@ index a73a692..f8d3c62 100644
 +            {reading.status}
 +          </span>
            <strong>{reading.titulo}</strong>
-           <span className="shelf-book__author">{reading.autor || '—'}</span>
+-          <span className="shelf-book__author">{reading.autor || '—'}</span>
++          <span className="shelf-book__author">{formatAuthor(reading.autor) || '—'}</span>
            {meta.length > 0 && <span className="shelf-book__meta">{meta.join(' · ')}</span>}
+           <span className="shelf-book__footer">
+             <span className={rating ? 'shelf-book__rating' : 'shelf-book__rating is-empty'}>
 diff --git a/frontend/src/features/shelf/SpineShelf.tsx b/frontend/src/features/shelf/SpineShelf.tsx
 new file mode 100644
-index 0000000..2f10756
+index 0000000..a97744d
 --- /dev/null
 +++ b/frontend/src/features/shelf/SpineShelf.tsx
-@@ -0,0 +1,114 @@
+@@ -0,0 +1,115 @@
 +import type { CSSProperties } from 'react'
 +
 +import type { Locale } from '../../i18n'
 +import type { ShelfReading } from '../../types/reading'
++import { formatAuthor } from '../../utils/text'
 +
 +interface SpineShelfProps {
 +  readings: ShelfReading[]
@@ -7241,7 +7565,7 @@ index 0000000..2f10756
 +      {readings.map((reading) => {
 +        const spec = spineSpec(reading)
 +        const titulo = (reading.titulo || '').trim() || '—'
-+        const autor = (reading.autor || '').trim()
++        const autor = formatAuthor(reading.autor)
 +        const editora = (reading.editora || '').trim()
 +        // título auto-ajustado pela altura livre, como nas lombadas reais:
 +        // título longo fica com letra menor pra caber inteiro
@@ -9362,10 +9686,25 @@ index 556d021..23e0e25 100644
      search_preview: 'Search the catalog and log the right edition on your shelf.',
      feed_eyebrow: 'community',
 diff --git a/frontend/src/pages/DiaryPage.tsx b/frontend/src/pages/DiaryPage.tsx
-index 9e03940..ce50075 100644
+index 9e03940..8183a66 100644
 --- a/frontend/src/pages/DiaryPage.tsx
 +++ b/frontend/src/pages/DiaryPage.tsx
-@@ -133,16 +133,24 @@ export function DiaryPage() {
+@@ -3,12 +3,14 @@ import { Link } from 'react-router'
+ 
+ import { Icon } from '../components/Icon'
+ import { PageHeader } from '../components/PageHeader'
++import { SelectMenu } from '../components/SelectMenu'
+ import { DiaryEntryCard } from '../features/diary/DiaryEntryCard'
+ import { DiaryEntryForm } from '../features/diary/DiaryEntryForm'
+ import { diaryText } from '../features/diary/diaryI18n'
+ import { ShareCardDialog } from '../features/memories/ShareCardDialog'
+ import { usePreferences } from '../providers/PreferencesProvider'
+ import { useSession } from '../providers/SessionProvider'
++import { formatAuthor } from '../utils/text'
+ import { getDiary, getShelf } from '../services/api'
+ import type { DiaryEntry } from '../types/diary'
+ import type { ShareCardPayload } from '../types/memories'
+@@ -133,16 +135,24 @@ export function DiaryPage() {
    return (
      <section className="page page--diary">
        <PageHeader
@@ -9392,7 +9731,44 @@ index 9e03940..ce50075 100644
        {notice && (
          <div className="diary-notice" role="status" aria-live="polite">
            {notice}
-@@ -215,7 +223,6 @@ export function DiaryPage() {
+@@ -151,20 +161,22 @@ export function DiaryPage() {
+ 
+       {status === 'ready' && (
+         <div className="diary-toolbar">
+-          <label>
+-            <span>{diaryText(locale, 'filter_book')}</span>
+-            <select
+-              value={filterReadingId ?? ''}
+-              onChange={(event) => setFilterReadingId(event.target.value ? Number(event.target.value) : null)}
+-            >
+-              <option value="">{diaryText(locale, 'all_books')}</option>
+-              {readings.map((reading) => (
+-                <option key={reading.leitura_id} value={reading.leitura_id}>
+-                  {reading.titulo}{reading.autor ? ` — ${reading.autor}` : ''}
+-                </option>
+-              ))}
+-            </select>
+-          </label>
++          <SelectMenu
++            className="diary-toolbar__filter"
++            label={diaryText(locale, 'filter_book')}
++            value={filterReadingId != null ? String(filterReadingId) : ''}
++            placeholder={diaryText(locale, 'all_books')}
++            searchable={readings.length > 8}
++            onChange={(value) => setFilterReadingId(value ? Number(value) : null)}
++            options={[
++              { value: '', label: diaryText(locale, 'all_books') },
++              ...readings.map((reading) => ({
++                value: String(reading.leitura_id),
++                label: reading.titulo,
++                hint: formatAuthor(reading.autor, 24) || undefined,
++              })),
++            ]}
++          />
+           <button
+             className="button button--primary"
+             type="button"
+@@ -215,7 +227,6 @@ export function DiaryPage() {
          <section className="diary-state diary-state--empty">
            <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
            <div>
@@ -9400,7 +9776,7 @@ index 9e03940..ce50075 100644
              <h2>{diaryText(locale, 'empty_title')}</h2>
              <p>{diaryText(locale, 'no_readings')}</p>
              <Link className="button button--primary" to="/">
-@@ -230,7 +237,6 @@ export function DiaryPage() {
+@@ -230,7 +241,6 @@ export function DiaryPage() {
          <section className="diary-state diary-state--empty">
            <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
            <div>
@@ -9409,10 +9785,30 @@ index 9e03940..ce50075 100644
              <p>{diaryText(locale, 'empty_copy')}</p>
              <button className="button button--primary" type="button" onClick={openCreate}>
 diff --git a/frontend/src/pages/ExplorePage.tsx b/frontend/src/pages/ExplorePage.tsx
-index 8636a71..41c2cc3 100644
+index 8636a71..04dca39 100644
 --- a/frontend/src/pages/ExplorePage.tsx
 +++ b/frontend/src/pages/ExplorePage.tsx
-@@ -40,6 +40,10 @@ function validSort(value: string): CatalogSort {
+@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
+ 
+ import { Icon } from '../components/Icon'
+ import { PageHeader } from '../components/PageHeader'
++import { SelectMenu } from '../components/SelectMenu'
+ import { SearchResultCard } from '../features/catalog/SearchResultCard'
+ import { exploreText } from '../features/explore/exploreI18n'
+ import type { Locale } from '../i18n'
+@@ -26,6 +27,11 @@ const genres = [
+   'fantasia', 'ficção científica', 'terror', 'policial', 'infantil', 'juvenil', 'crônica', 'quadrinhos',
+ ]
+ 
++/* Filtros de gênero e literatura dependem de metadados (generos_json / origem)
++   que o catálogo ainda não tem populados, então retornam vazio ou não filtram.
++   Escondidos até virarem funcionais — trocar para true religa tudo de uma vez. */
++const TAXONOMY_FILTERS_ENABLED = false
++
+ const booleanParams = ['criticas', 'lendo', 'capa', 'isbn', 'pt'] as const
+ type BooleanParam = (typeof booleanParams)[number]
+ 
+@@ -40,6 +46,10 @@ function validSort(value: string): CatalogSort {
  export function ExplorePage() {
    const { locale } = usePreferences()
    const [searchParams, setSearchParams] = useSearchParams()
@@ -9423,7 +9819,19 @@ index 8636a71..41c2cc3 100644
    const [popularWorks, setPopularWorks] = useState<CatalogWork[]>([])
    const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
    const [literatures, setLiteratures] = useState<CatalogLiterature[]>([])
-@@ -147,22 +151,24 @@ export function ExplorePage() {
+@@ -49,8 +59,9 @@ export function ExplorePage() {
+   const [error, setError] = useState<string | null>(null)
+   const [retryVersion, setRetryVersion] = useState(0)
+ 
+-  const genre = searchParams.get('genero') || ''
+-  const literature = searchParams.get('literatura') || ''
++  // taxonomia desligada: ignora params antigos p/ links legados não caírem em vazio
++  const genre = TAXONOMY_FILTERS_ENABLED ? searchParams.get('genero') || '' : ''
++  const literature = TAXONOMY_FILTERS_ENABLED ? searchParams.get('literatura') || '' : ''
+   const publisher = searchParams.get('editora') || ''
+   const sort = validSort(searchParams.get('ordem') || '')
+   const withReviews = enabled(searchParams, 'criticas')
+@@ -147,22 +158,24 @@ export function ExplorePage() {
    return (
      <section className="page page--explore">
        <PageHeader
@@ -9459,15 +9867,116 @@ index 8636a71..41c2cc3 100644
            {hasFilters && (
              <button className="text-button" type="button" onClick={() => setSearchParams({})}>
                {exploreText(locale, 'clear')}
-@@ -170,6 +176,7 @@ export function ExplorePage() {
+@@ -170,50 +183,68 @@ export function ExplorePage() {
            )}
          </div>
  
 +        {filtersOpen && (<>
          <div className="explore-filter-grid">
-           <label>
-             <span>{exploreText(locale, 'publisher')}</span>
-@@ -221,6 +228,7 @@ export function ExplorePage() {
+-          <label>
+-            <span>{exploreText(locale, 'publisher')}</span>
+-            <select value={publisher} onChange={(event) => setParam('editora', event.target.value)}>
+-              <option value="">{exploreText(locale, 'all_publishers')}</option>
+-              {publishers.map((item) => (
+-                <option key={item.slug} value={item.editora}>{item.editora} · {item.obras_count}</option>
+-              ))}
+-            </select>
+-          </label>
+-
+-          <label>
+-            <span>{exploreText(locale, 'literature')}</span>
+-            <select value={literature} onChange={(event) => setParam('literatura', event.target.value)}>
+-              <option value="">{exploreText(locale, 'all_literatures')}</option>
+-              {literatures.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
+-            </select>
+-          </label>
+-
+-          <label>
+-            <span>{exploreText(locale, 'sort')}</span>
+-            <select value={sort} onChange={(event) => setParam('ordem', event.target.value)}>
+-              <option value="">{exploreText(locale, 'relevance')}</option>
+-              <option value="popular">{exploreText(locale, 'most_read')}</option>
+-              <option value="avaliacao">{exploreText(locale, 'best_rated')}</option>
+-              <option value="recentes">{exploreText(locale, 'recent')}</option>
+-            </select>
+-          </label>
+-        </div>
++          <SelectMenu
++            label={exploreText(locale, 'publisher')}
++            value={publisher}
++            placeholder={exploreText(locale, 'all_publishers')}
++            searchable
++            searchPlaceholder={exploreText(locale, 'all_publishers')}
++            onChange={(value) => setParam('editora', value)}
++            options={[
++              { value: '', label: exploreText(locale, 'all_publishers') },
++              ...publishers.map((item) => ({
++                value: item.editora,
++                label: item.editora,
++                hint: String(item.obras_count),
++              })),
++            ]}
++          />
++
++          {TAXONOMY_FILTERS_ENABLED && (
++            <SelectMenu
++              label={exploreText(locale, 'literature')}
++              value={literature}
++              placeholder={exploreText(locale, 'all_literatures')}
++              onChange={(value) => setParam('literatura', value)}
++              options={[
++                { value: '', label: exploreText(locale, 'all_literatures') },
++                ...literatures.map((item) => ({ value: item.slug, label: item.label })),
++              ]}
++            />
++          )}
+ 
+-        <div className="explore-genre-row" aria-label={exploreText(locale, 'genres')}>
+-          {genres.map((item) => (
+-            <button
+-              key={item}
+-              type="button"
+-              className={genre === item ? 'is-active' : ''}
+-              aria-pressed={genre === item}
+-              onClick={() => setParam('genero', genre === item ? '' : item)}
+-            >
+-              {item}
+-            </button>
+-          ))}
++          <SelectMenu
++            label={exploreText(locale, 'sort')}
++            value={sort}
++            placeholder={exploreText(locale, 'relevance')}
++            onChange={(value) => setParam('ordem', value)}
++            options={[
++              { value: '', label: exploreText(locale, 'relevance') },
++              { value: 'popular', label: exploreText(locale, 'most_read') },
++              { value: 'avaliacao', label: exploreText(locale, 'best_rated') },
++              { value: 'recentes', label: exploreText(locale, 'recent') },
++            ]}
++          />
+         </div>
+ 
++        {TAXONOMY_FILTERS_ENABLED && (
++          <div className="explore-genre-row" aria-label={exploreText(locale, 'genres')}>
++            {genres.map((item) => (
++              <button
++                key={item}
++                type="button"
++                className={genre === item ? 'is-active' : ''}
++                aria-pressed={genre === item}
++                onClick={() => setParam('genero', genre === item ? '' : item)}
++              >
++                {item}
++              </button>
++            ))}
++          </div>
++        )}
++
+         <div className="explore-toggle-row">
+           <Toggle active={withReviews} label={exploreText(locale, 'with_reviews')} onClick={() => setParam('criticas', !withReviews)} />
+           <Toggle active={readingNow} label={exploreText(locale, 'reading_now')} onClick={() => setParam('lendo', !readingNow)} />
+@@ -221,6 +252,7 @@ export function ExplorePage() {
            <Toggle active={withIsbn} label={exploreText(locale, 'with_isbn')} onClick={() => setParam('isbn', !withIsbn)} />
            <Toggle active={portuguese} label={exploreText(locale, 'portuguese')} onClick={() => setParam('pt', !portuguese)} />
          </div>
@@ -9475,7 +9984,7 @@ index 8636a71..41c2cc3 100644
  
          {activeLabels.length > 0 && (
            <div className="explore-active-filters" aria-label={exploreText(locale, 'active_filters')}>
-@@ -287,11 +295,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
+@@ -287,11 +319,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
      )
    }
    return (
@@ -9497,7 +10006,67 @@ index 8636a71..41c2cc3 100644
    )
  }
  
-@@ -385,9 +398,14 @@ function DiscoveryHome({
+@@ -339,31 +376,35 @@ function DiscoveryHome({
+         </section>
+       )}
+ 
+-      <section className="explore-section">
+-        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'literatures')} />
+-        <div className="explore-path-grid">
+-          {literatures.slice(0, 10).map((item, index) => (
+-            <button key={item.slug} type="button" onClick={() => chooseLiterature(item.slug)}>
+-              <span>{String(index + 1).padStart(2, '0')}</span>
+-              <strong>{item.label}</strong>
+-              <small>{item.pais || item.regiao}</small>
+-              <Icon name="arrow" size={17} />
+-            </button>
+-          ))}
+-        </div>
+-      </section>
++      {TAXONOMY_FILTERS_ENABLED && (
++        <section className="explore-section">
++          <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'literatures')} />
++          <div className="explore-path-grid">
++            {literatures.slice(0, 10).map((item, index) => (
++              <button key={item.slug} type="button" onClick={() => chooseLiterature(item.slug)}>
++                <span>{String(index + 1).padStart(2, '0')}</span>
++                <strong>{item.label}</strong>
++                <small>{item.pais || item.regiao}</small>
++                <Icon name="arrow" size={17} />
++              </button>
++            ))}
++          </div>
++        </section>
++      )}
+ 
+-      <section className="explore-section">
+-        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'genres')} />
+-        <div className="explore-genre-wall">
+-          {genres.map((item, index) => (
+-            <button key={item} type="button" onClick={() => chooseGenre(item)}>
+-              <span>{String(index + 1).padStart(2, '0')}</span>
+-              <strong>{item}</strong>
+-            </button>
+-          ))}
+-        </div>
+-      </section>
++      {TAXONOMY_FILTERS_ENABLED && (
++        <section className="explore-section">
++          <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'genres')} />
++          <div className="explore-genre-wall">
++            {genres.map((item, index) => (
++              <button key={item} type="button" onClick={() => chooseGenre(item)}>
++                <span>{String(index + 1).padStart(2, '0')}</span>
++                <strong>{item}</strong>
++              </button>
++            ))}
++          </div>
++        </section>
++      )}
+ 
+       {publishers.length > 0 && (
+         <section className="explore-section">
+@@ -385,9 +426,14 @@ function DiscoveryHome({
  }
  
  function SectionHeading({ eyebrow, title, count }: { eyebrow: string; title: string; count?: number }) {
@@ -10508,7 +11077,7 @@ index 0000000..8d9bd1b
 +  return fail(`Rota demo não implementada: ${method} ${pathname}`)
 +}
 diff --git a/frontend/src/styles.css b/frontend/src/styles.css
-index 990b8b9..cd8972e 100644
+index 990b8b9..d0646c9 100644
 --- a/frontend/src/styles.css
 +++ b/frontend/src/styles.css
 @@ -1,55 +1,121 @@
@@ -10792,39 +11361,384 @@ index 990b8b9..cd8972e 100644
  }
  
  .sr-only {
-@@ -130,198 +239,357 @@ button:disabled {
+@@ -130,1203 +239,1414 @@ button:disabled {
    border: 0;
  }
  
+-.app-frame {
+-  position: relative;
+-  z-index: 1;
+-  width: min(100%, 1440px);
+-  min-height: 100vh;
+-  margin: 0 auto;
+-  padding: 0 clamp(14px, 3vw, 34px) 116px;
+-}
+-
+-.app-header {
+-  position: sticky;
+-  top: 0;
+-  z-index: 30;
+-  display: flex;
+-  min-height: 78px;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 20px;
+-  border-bottom: 1px solid var(--line);
+-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+-  backdrop-filter: blur(18px);
+-}
 +/* ---------------------------------------------------------- */
 +/* Tipografia utilitária                                      */
 +/* ---------------------------------------------------------- */
-+
+ 
+-.brand {
 +.eyebrow {
-+  display: inline-flex;
-+  align-items: center;
-+  gap: 12px;
+   display: inline-flex;
+   align-items: center;
+   gap: 12px;
+-  min-width: 0;
+-}
+-
+-.brand-mark {
+-  display: grid;
+-  width: 40px;
+-  height: 40px;
+-  flex: 0 0 auto;
+-  place-items: center;
+-  border: 1px solid var(--text);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: 23px;
+-  font-style: italic;
+-  line-height: 1;
+-  box-shadow: 4px 5px 0 var(--accent-soft);
 +  font-family: var(--font-mono);
 +  font-size: 10.5px;
 +  font-weight: 700;
 +  letter-spacing: 0.24em;
 +  text-transform: uppercase;
 +  color: var(--accent);
-+}
-+
+ }
+ 
+-.wordmark {
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: 24px;
+-  font-style: italic;
+-  font-weight: 600;
+-  letter-spacing: -0.025em;
+-}
 +/* sem o filete antes do label: no v1 os rótulos de seção são só o texto */
-+
+ 
+-.wordmark span {
+-  color: var(--accent);
+-}
++/* ---------------------------------------------------------- */
++/* Dropdown editorial (substitui o <select> nativo)           */
++/* ---------------------------------------------------------- */
+ 
+-.app-header__meta {
+-  display: flex;
+-  align-items: center;
+-  gap: 12px;
++.select-menu {
++  position: relative;
++  display: grid;
++  gap: 8px;
+ }
+ 
+-.migration-chip,
+-.stage-stamp,
+-.eyebrow,
+-.migration-note {
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
+-  letter-spacing: 0.13em;
++.select-menu__label {
++  font-family: var(--font-mono);
++  font-size: 9.5px;
++  font-weight: 700;
++  letter-spacing: 0.2em;
+   text-transform: uppercase;
+-}
+-
+-.migration-chip {
+-  padding: 7px 10px;
+-  border: 1px solid var(--line);
+-  border-radius: 999px;
+   color: var(--muted);
+-  background: var(--surface);
+ }
+ 
+-.account-trigger {
+-  display: inline-flex;
+-  min-height: 48px;
++.select-menu__trigger {
++  display: flex;
++  width: 100%;
+   align-items: center;
+-  gap: 10px;
+-  padding: 5px 9px 5px 6px;
+-  border: 1px solid var(--line);
+-  border-radius: 999px;
++  justify-content: space-between;
++  gap: 12px;
++  padding: 13px 15px;
++  border: 1px solid var(--line-strong);
++  border-radius: 12px;
+   color: var(--text);
+-  background: var(--surface);
+-  cursor: pointer;
++  background: var(--surface-inset);
++  font-size: 15px;
++  text-align: left;
++  transition: border-color 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out);
+ }
+ 
+-.account-trigger:hover {
+-  border-color: var(--line-strong);
+-  background: var(--surface-raised);
++.select-menu__trigger:hover,
++.select-menu__trigger[aria-expanded="true"] {
++  border-color: var(--accent-line);
+ }
+ 
+-.account-trigger__copy {
+-  display: none;
+-  min-width: 0;
+-  text-align: left;
++.select-menu__trigger[aria-expanded="true"] {
++  box-shadow: 0 0 0 3px var(--accent-soft);
+ }
+ 
+-.account-trigger__copy strong,
+-.account-trigger__copy small {
+-  display: block;
+-  max-width: 150px;
++.select-menu__value {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+ }
+ 
+-.account-trigger__copy strong {
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
+-  letter-spacing: 0.02em;
+-}
+-
+-.account-trigger__copy small {
+-  margin-top: 2px;
+-  color: var(--muted);
+-  font-size: 12px;
+-}
+-
+-.account-avatar {
+-  display: grid;
++.select-menu__trigger svg {
+   flex: 0 0 auto;
+-  place-items: center;
+-  object-fit: cover;
+-  border: 1px solid var(--line-strong);
+-  border-radius: 50%;
+-  color: var(--bg);
+-  background: var(--accent);
+-  font-family: "Space Mono", monospace;
+-  font-weight: 700;
++  color: var(--muted);
++  transition: transform 0.22s var(--ease-out);
+ }
+ 
+-.account-avatar--small {
+-  width: 34px;
+-  height: 34px;
+-  font-size: 10px;
++.select-menu__trigger[aria-expanded="true"] svg {
++  transform: rotate(180deg);
+ }
+ 
+-.account-avatar--medium {
+-  width: 48px;
+-  height: 48px;
+-  font-size: 13px;
++.select-menu__backdrop {
++  position: fixed;
++  inset: 0;
++  z-index: 40;
++  cursor: default;
++  background: transparent;
+ }
+ 
+-.account-avatar--large {
+-  width: 82px;
+-  height: 82px;
+-  font-size: 21px;
++.select-menu__panel {
++  position: absolute;
++  top: calc(100% + 6px);
++  left: 0;
++  right: 0;
++  z-index: 41;
++  display: grid;
++  gap: 6px;
++  padding: 6px;
++  border: 1px solid var(--line-strong);
++  border-radius: var(--radius-lg);
++  background: var(--surface-solid);
++  box-shadow: var(--shadow-pop);
+ }
+ 
+-.global-notice {
+-  display: flex;
+-  width: min(100%, var(--content-width));
+-  min-height: 42px;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 12px;
+-  margin: 14px auto 0;
+-  padding: 9px 12px;
+-  border: 1px solid color-mix(in srgb, var(--danger) 52%, var(--line));
++.select-menu__search {
++  padding: 10px 12px;
++  border: 1px solid var(--line);
+   border-radius: var(--radius-sm);
+-  color: var(--danger);
+-  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
++  color: var(--text);
++  background: var(--surface-inset);
+   font-size: 14px;
++  outline: none;
+ }
+ 
+-.global-notice button,
+-.text-button {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: 7px;
+-  padding: 0;
+-  border: 0;
+-  color: inherit;
+-  background: none;
+-  cursor: pointer;
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
+-  letter-spacing: 0.08em;
+-  text-transform: uppercase;
++.select-menu__search:focus {
++  border-color: var(--accent-line);
+ }
+ 
+-.desktop-layout {
++.select-menu__list {
+   display: grid;
+-  width: min(100%, 1260px);
+-  margin: 0 auto;
+-}
+-
+-.desktop-rail {
+-  display: none;
++  max-height: 46vh;
++  overflow-y: auto;
++  gap: 2px;
+ }
+ 
+-.app-content {
+-  width: min(100%, var(--content-width));
+-  min-width: 0;
+-  margin: 0 auto;
++.select-menu__list button {
++  display: flex;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 18px;
++  padding: 11px 12px;
++  border-radius: var(--radius-sm);
++  color: var(--text-soft);
++  font-size: 14.5px;
++  text-align: left;
++  transition: background 0.18s var(--ease-out), color 0.18s var(--ease-out);
+ }
+ 
+-.page {
+-  min-height: calc(100vh - 210px);
+-  padding: clamp(40px, 7vw, 86px) 0 60px;
+-  animation: page-enter 280ms ease both;
++.select-menu__list button:hover {
++  color: var(--text);
++  background: var(--surface-raised);
+ }
+ 
+-@keyframes page-enter {
+-  from {
+-    opacity: 0;
+-    transform: translateY(8px);
+-  }
+-  to {
+-    opacity: 1;
+-    transform: translateY(0);
+-  }
++.select-menu__list button.is-active {
++  color: var(--accent-strong);
++  background: var(--accent-soft);
+ }
+ 
+-.page-header {
+-  display: grid;
+-  grid-template-columns: minmax(0, 1fr) auto;
+-  align-items: start;
+-  gap: 28px;
+-  padding-bottom: clamp(32px, 6vw, 58px);
+-  border-bottom: 1px solid var(--line);
++.select-menu__list button small {
++  flex: 0 0 auto;
++  font-family: var(--font-mono);
++  font-size: 10px;
++  color: var(--subtle);
+ }
+ 
+-.eyebrow {
+-  margin: 0;
++.select-menu__list button.is-active small {
+   color: var(--accent);
+ }
+ 
+-.page-header h1,
+-.not-found-page h1 {
+-  max-width: 820px;
+-  margin: 12px 0 18px;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(46px, 7vw, 84px);
++.select-menu__empty {
++  padding: 14px 12px;
++  color: var(--subtle);
+   font-style: italic;
+-  font-weight: 400;
+-  line-height: 0.98;
+-  letter-spacing: -0.045em;
+ }
+ 
+-.page-header__description {
+-  max-width: 670px;
+-  margin: 0;
+-  color: var(--text-soft);
+-  font-size: clamp(17px, 2.3vw, 21px);
+-  line-height: 1.55;
+-}
 +/* ---------------------------------------------------------- */
 +/* Botões                                                     */
 +/* ---------------------------------------------------------- */
-+
+ 
+-.stage-stamp {
 +.button {
-+  display: inline-flex;
+   display: inline-flex;
+-  padding: 10px 12px;
+-  border: 1px solid var(--line);
 +  align-items: center;
 +  justify-content: center;
 +  gap: 10px;
 +  padding: 14px 24px;
-+  border-radius: 999px;
+   border-radius: 999px;
+-  color: var(--muted);
+-  background: var(--surface);
+-  white-space: nowrap;
 +  border: 1px solid transparent;
 +  font-family: var(--font-mono);
 +  font-size: 11.5px;
@@ -10837,36 +11751,65 @@ index 990b8b9..cd8972e 100644
 +    background 0.28s var(--ease-out),
 +    border-color 0.28s var(--ease-out),
 +    color 0.28s var(--ease-out);
-+}
-+
+ }
+ 
+-.search-form {
+-  display: grid;
+-  grid-template-columns: auto minmax(0, 1fr) auto;
+-  align-items: center;
+-  gap: 14px;
+-  margin-top: clamp(34px, 6vw, 58px);
+-  padding: 10px 10px 10px 18px;
+-  border: 1px solid var(--line-strong);
+-  border-radius: var(--radius-md);
+-  background: var(--surface-raised);
+-  box-shadow: 0 18px 50px color-mix(in srgb, var(--bg) 32%, transparent);
 +/* CTA como no v1: pílula chapada — salmão com tinta escura no escuro,
 +   vinho com creme no claro; sem gradiente, sombra ou "lift" no hover */
 +.button--primary {
 +  color: var(--button-primary-ink, var(--on-accent));
 +  background: var(--button-primary-bg, var(--accent));
-+}
-+
+ }
+ 
+-.search-form > svg {
+-  color: var(--accent);
 +.button--primary:hover {
 +  background: var(--button-primary-bg-hover, var(--accent-strong));
-+}
-+
+ }
+ 
+-.search-form input {
+-  width: 100%;
+-  min-height: 52px;
+-  border: 0;
+-  outline: 0;
 +.button--primary:active {
 +  transform: translateY(1px);
 +}
 +
 +.button--secondary {
-+  color: var(--text);
-+  background: transparent;
+   color: var(--text);
+   background: transparent;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(20px, 3vw, 28px);
+-  font-style: italic;
 +  border-color: var(--line-strong);
-+}
-+
+ }
+ 
+-.search-form input::placeholder {
+-  color: var(--subtle);
 +.button--secondary:hover {
 +  color: var(--accent-strong);
 +  border-color: var(--accent-line);
 +  background: var(--accent-soft);
 +  transform: translateY(-2px);
-+}
-+
+ }
+ 
+-.search-form button,
+-.button {
+-  display: inline-flex;
+-  min-height: 44px;
+-  align-items: center;
+-  justify-content: center;
 +.button--ghost {
 +  color: var(--muted);
 +  padding-inline: 14px;
@@ -10880,7 +11823,9 @@ index 990b8b9..cd8972e 100644
 +.text-button {
 +  display: inline-flex;
 +  align-items: center;
-+  gap: 8px;
+   gap: 8px;
+-  padding: 0 16px;
+-  border: 1px solid transparent;
 +  color: var(--accent-strong);
 +  font-size: 14px;
 +  font-style: italic;
@@ -10920,40 +11865,32 @@ index 990b8b9..cd8972e 100644
 +/* Estrutura: moldura, cabeçalho mobile, trilho desktop       */
 +/* ---------------------------------------------------------- */
 +
- .app-frame {
-   position: relative;
-   z-index: 1;
--  width: min(100%, 1440px);
-   min-height: 100vh;
--  margin: 0 auto;
--  padding: 0 clamp(14px, 3vw, 34px) 116px;
- }
- 
- .app-header {
-   position: sticky;
-   top: 0;
--  z-index: 30;
++.app-frame {
++  position: relative;
++  z-index: 1;
++  min-height: 100vh;
++}
++
++.app-header {
++  position: sticky;
++  top: 0;
 +  z-index: 40;
-   display: flex;
--  min-height: 78px;
++  display: flex;
 +  min-height: 68px;
-   align-items: center;
-   justify-content: space-between;
--  gap: 20px;
++  align-items: center;
++  justify-content: space-between;
 +  gap: 18px;
 +  padding: 0 18px;
-   border-bottom: 1px solid var(--line);
--  background: color-mix(in srgb, var(--bg) 82%, transparent);
++  border-bottom: 1px solid var(--line);
 +  background: color-mix(in srgb, var(--bg) 96%, transparent);
-   backdrop-filter: blur(18px);
++  backdrop-filter: blur(18px);
 +  -webkit-backdrop-filter: blur(18px);
- }
- 
--.brand {
++}
++
 +.app-header__meta {
-   display: inline-flex;
-   align-items: center;
-   gap: 12px;
++  display: inline-flex;
++  align-items: center;
++  gap: 12px;
 +}
 +
 +/* no mobile o topo fica só com a marca e o avatar; o aviso de migração
@@ -10966,23 +11903,13 @@ index 990b8b9..cd8972e 100644
 +  display: inline-flex;
 +  align-items: center;
 +  gap: 2px;
-   min-width: 0;
- }
- 
- .brand-mark {
--  display: grid;
--  width: 40px;
--  height: 40px;
++  min-width: 0;
++}
++
++.brand-mark {
 +  display: flex;
 +  height: 34px;
-   flex: 0 0 auto;
--  place-items: center;
--  border: 1px solid var(--text);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: 23px;
--  font-style: italic;
--  line-height: 1;
--  box-shadow: 4px 5px 0 var(--accent-soft);
++  flex: 0 0 auto;
 +  align-items: center;
 +  color: var(--text);
 +  transition: transform 0.3s var(--ease-out);
@@ -10996,30 +11923,24 @@ index 990b8b9..cd8972e 100644
 +
 +.brand:hover .brand-mark {
 +  transform: translateY(-1px);
- }
- 
- .wordmark {
--  font-family: "Fraunces", Georgia, serif;
--  font-size: 24px;
--  font-style: italic;
++}
++
++.wordmark {
 +  font-family: var(--font-display);
 +  font-size: 23px;
-   font-weight: 600;
--  letter-spacing: -0.025em;
++  font-weight: 600;
 +  letter-spacing: -0.05em;
 +  line-height: 1;
 +  white-space: nowrap;
- }
- 
--.wordmark span {
++}
++
 +.wordmark i {
 +  font-style: normal;
-   color: var(--accent);
- }
- 
--.app-header__meta {
++  color: var(--accent);
++}
++
 +.rail-brand__text {
-   display: flex;
++  display: flex;
 +  flex-direction: column;
 +  gap: 5px;
 +  min-width: 0;
@@ -11027,124 +11948,93 @@ index 990b8b9..cd8972e 100644
 +
 +.brand-lockup {
 +  display: inline-flex;
-   align-items: center;
--  gap: 12px;
++  align-items: center;
 +  gap: 2px;
- }
- 
--.migration-chip,
--.stage-stamp,
--.eyebrow,
--.migration-note {
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
--  letter-spacing: 0.13em;
++}
++
 +.rail-tagline {
 +  font-family: var(--font-mono);
 +  font-size: 9.5px;
 +  letter-spacing: 0.3em;
-   text-transform: uppercase;
++  text-transform: uppercase;
 +  color: var(--muted);
- }
- 
- .migration-chip {
--  padding: 7px 10px;
--  border: 1px solid var(--line);
++}
++
++.migration-chip {
 +  display: inline-flex;
 +  align-items: center;
 +  padding: 5px 11px;
 +  border: 1px dashed var(--accent-line);
    border-radius: 999px;
--  color: var(--muted);
--  background: var(--surface);
+-  cursor: pointer;
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
+-  letter-spacing: 0.1em;
 +  font-family: var(--font-mono);
 +  font-size: 9.5px;
 +  letter-spacing: 0.16em;
-+  text-transform: uppercase;
+   text-transform: uppercase;
 +  color: var(--accent);
 +  white-space: nowrap;
  }
  
- .account-trigger {
-   display: inline-flex;
--  min-height: 48px;
-   align-items: center;
--  gap: 10px;
--  padding: 5px 9px 5px 6px;
--  border: 1px solid var(--line);
+-.search-form button,
+-.button--primary {
+-  color: var(--bg);
+-  background: var(--accent-strong);
++.account-trigger {
++  display: inline-flex;
++  align-items: center;
 +  gap: 11px;
 +  padding: 7px 9px;
-   border-radius: 999px;
--  color: var(--text);
--  background: var(--surface);
--  cursor: pointer;
++  border-radius: 999px;
 +  border: 1px solid transparent;
 +  color: var(--text-soft);
 +  transition: border-color 0.22s var(--ease-out), background 0.22s var(--ease-out);
  }
  
- .account-trigger:hover {
+-.button--secondary {
++.account-trigger:hover {
    border-color: var(--line-strong);
--  background: var(--surface-raised);
 +  background: var(--surface);
- }
- 
- .account-trigger__copy {
--  display: none;
++}
++
++.account-trigger__copy {
 +  display: flex;
 +  flex-direction: column;
 +  align-items: flex-start;
 +  gap: 1px;
-   min-width: 0;
-   text-align: left;
- }
- 
--.account-trigger__copy strong,
--.account-trigger__copy small {
--  display: block;
++  min-width: 0;
++  text-align: left;
++}
++
 +.account-trigger__copy strong {
-   max-width: 150px;
-   overflow: hidden;
++  max-width: 150px;
++  overflow: hidden;
 +  font-size: 14px;
 +  font-weight: 500;
-   text-overflow: ellipsis;
-   white-space: nowrap;
- }
- 
--.account-trigger__copy strong {
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
--  letter-spacing: 0.02em;
--}
--
- .account-trigger__copy small {
--  margin-top: 2px;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.account-trigger__copy small {
 +  font-family: var(--font-mono);
 +  font-size: 9.5px;
 +  letter-spacing: 0.18em;
 +  text-transform: uppercase;
-   color: var(--muted);
--  font-size: 12px;
++  color: var(--muted);
 +}
 +
 +.account-trigger--compact {
 +  padding: 3px;
 +  border-radius: 50%;
- }
- 
- .account-avatar {
--  display: grid;
--  flex: 0 0 auto;
++}
++
++.account-avatar {
 +  display: inline-grid;
-   place-items: center;
--  object-fit: cover;
--  border: 1px solid var(--line-strong);
++  place-items: center;
 +  flex: 0 0 auto;
-   border-radius: 50%;
--  color: var(--bg);
--  background: var(--accent);
--  font-family: "Space Mono", monospace;
--  font-weight: 700;
++  border-radius: 50%;
 +  object-fit: cover;
 +  font-family: var(--font-display);
 +  font-style: italic;
@@ -11152,28 +12042,21 @@ index 990b8b9..cd8972e 100644
 +  background:
 +    radial-gradient(120% 120% at 20% 15%, var(--accent-strong), var(--accent-deep));
 +  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
- }
- 
- .account-avatar--small {
-   width: 34px;
-   height: 34px;
--  font-size: 10px;
++}
++
++.account-avatar--small {
++  width: 34px;
++  height: 34px;
 +  font-size: 13px;
- }
- 
- .account-avatar--medium {
--  width: 48px;
--  height: 48px;
--  font-size: 13px;
++}
++
++.account-avatar--medium {
 +  width: 46px;
 +  height: 46px;
 +  font-size: 17px;
- }
- 
- .account-avatar--large {
--  width: 82px;
--  height: 82px;
--  font-size: 21px;
++}
++
++.account-avatar--large {
 +  width: 64px;
 +  height: 64px;
 +  font-size: 23px;
@@ -11181,101 +12064,65 @@ index 990b8b9..cd8972e 100644
 +
 +.account-avatar--fallback {
 +  text-transform: uppercase;
- }
- 
++}
++
 +/* aviso global de erro de sessão */
- .global-notice {
++.global-notice {
 +  position: sticky;
 +  top: 68px;
 +  z-index: 35;
-   display: flex;
--  width: min(100%, var(--content-width));
--  min-height: 42px;
-   align-items: center;
-   justify-content: space-between;
--  gap: 12px;
--  margin: 14px auto 0;
--  padding: 9px 12px;
--  border: 1px solid color-mix(in srgb, var(--danger) 52%, var(--line));
--  border-radius: var(--radius-sm);
--  color: var(--danger);
--  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
 +  gap: 14px;
 +  margin: 0;
 +  padding: 11px 20px;
-   font-size: 14px;
++  font-size: 14px;
 +  color: var(--danger);
 +  background: color-mix(in srgb, var(--wine-soft) 70%, var(--bg));
 +  border-bottom: 1px solid var(--wine);
 +  backdrop-filter: blur(14px);
- }
- 
--.global-notice button,
--.text-button {
++}
++
 +.global-notice button {
-   display: inline-flex;
-   align-items: center;
-   gap: 7px;
--  padding: 0;
--  border: 0;
--  color: inherit;
--  background: none;
--  cursor: pointer;
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
--  letter-spacing: 0.08em;
++  display: inline-flex;
++  align-items: center;
++  gap: 7px;
 +  font-family: var(--font-mono);
 +  font-size: 10.5px;
 +  letter-spacing: 0.14em;
-   text-transform: uppercase;
++  text-transform: uppercase;
 +  color: var(--text);
- }
- 
++}
++
 +/* ---------------------------------------------------------- */
 +/* Layout desktop: trilho lateral + conteúdo                  */
 +/* ---------------------------------------------------------- */
 +
- .desktop-layout {
--  display: grid;
--  width: min(100%, 1260px);
--  margin: 0 auto;
++.desktop-layout {
 +  display: block;
- }
- 
- .desktop-rail {
-@@ -329,1004 +597,912 @@ button:disabled {
- }
- 
- .app-content {
--  width: min(100%, var(--content-width));
--  min-width: 0;
++}
++
++.desktop-rail {
++  display: none;
++}
++
++.app-content {
 +  width: min(100% - 36px, var(--content-width));
-   margin: 0 auto;
++  margin: 0 auto;
 +  padding: 22px 0 120px;
- }
- 
--.page {
--  min-height: calc(100vh - 210px);
--  padding: clamp(40px, 7vw, 86px) 0 60px;
--  animation: page-enter 280ms ease both;
--}
++}
++
 +@media (min-width: 1024px) {
 +  .app-header {
 +    display: none;
 +  }
- 
--@keyframes page-enter {
--  from {
--    opacity: 0;
--    transform: translateY(8px);
++
 +  .desktop-layout {
 +    display: grid;
 +    grid-template-columns: var(--rail-width) minmax(0, 1fr);
 +    align-items: start;
-   }
--  to {
--    opacity: 1;
--    transform: translateY(0);
++  }
 +
 +  .desktop-rail {
 +    position: sticky;
@@ -11289,44 +12136,20 @@ index 990b8b9..cd8972e 100644
 +    background:
 +      linear-gradient(180deg, color-mix(in srgb, var(--bg-soft) 72%, transparent), transparent 34%),
 +      transparent;
-   }
--}
- 
--.page-header {
--  display: grid;
--  grid-template-columns: minmax(0, 1fr) auto;
--  align-items: start;
--  gap: 28px;
--  padding-bottom: clamp(32px, 6vw, 58px);
--  border-bottom: 1px solid var(--line);
--}
++  }
++
 +  .rail-head {
 +    padding-bottom: 16px;
 +    border-bottom: 1px solid var(--line);
 +  }
- 
--.eyebrow {
--  margin: 0;
--  color: var(--accent);
--}
++
 +  .rail-nav {
 +    display: flex;
 +    flex: 1;
 +    flex-direction: column;
 +    gap: 3px;
 +  }
- 
--.page-header h1,
--.not-found-page h1 {
--  max-width: 820px;
--  margin: 12px 0 18px;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(46px, 7vw, 84px);
--  font-style: italic;
--  font-weight: 400;
--  line-height: 0.98;
--  letter-spacing: -0.045em;
--}
++
 +  .rail-label {
 +    margin: 0 0 12px 14px;
 +    font-family: var(--font-mono);
@@ -11335,14 +12158,7 @@ index 990b8b9..cd8972e 100644
 +    text-transform: uppercase;
 +    color: var(--subtle);
 +  }
- 
--.page-header__description {
--  max-width: 670px;
--  margin: 0;
--  color: var(--text-soft);
--  font-size: clamp(17px, 2.3vw, 21px);
--  line-height: 1.55;
--}
++
 +  .rail-link {
 +    position: relative;
 +    display: flex;
@@ -11357,33 +12173,12 @@ index 990b8b9..cd8972e 100644
 +      background 0.22s var(--ease-out),
 +      transform 0.22s var(--ease-out);
 +  }
- 
--.stage-stamp {
--  display: inline-flex;
--  padding: 10px 12px;
--  border: 1px solid var(--line);
--  border-radius: 999px;
--  color: var(--muted);
--  background: var(--surface);
--  white-space: nowrap;
--}
++
 +  .rail-link svg {
 +    opacity: 0.8;
 +    transition: opacity 0.22s var(--ease-out), transform 0.22s var(--ease-out);
 +  }
- 
--.search-form {
--  display: grid;
--  grid-template-columns: auto minmax(0, 1fr) auto;
--  align-items: center;
--  gap: 14px;
--  margin-top: clamp(34px, 6vw, 58px);
--  padding: 10px 10px 10px 18px;
--  border: 1px solid var(--line-strong);
--  border-radius: var(--radius-md);
--  background: var(--surface-raised);
--  box-shadow: 0 18px 50px color-mix(in srgb, var(--bg) 32%, transparent);
--}
++
 +  .rail-link::before {
 +    position: absolute;
 +    left: -20px;
@@ -11396,26 +12191,13 @@ index 990b8b9..cd8972e 100644
 +    transform: translateY(-50%);
 +    transition: height 0.26s var(--ease-out);
 +  }
- 
--.search-form > svg {
--  color: var(--accent);
--}
++
 +  .rail-link:hover {
 +    color: var(--text);
 +    background: var(--surface);
 +    transform: translateX(2px);
 +  }
- 
--.search-form input {
--  width: 100%;
--  min-height: 52px;
--  border: 0;
--  outline: 0;
--  color: var(--text);
--  background: transparent;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(20px, 3vw, 28px);
--  font-style: italic;
++
 +  .rail-link.is-active {
 +    color: var(--accent-strong);
 +    background: linear-gradient(90deg, var(--accent-soft), transparent 85%);
@@ -11471,10 +12253,8 @@ index 990b8b9..cd8972e 100644
 +    width: min(100% - 64px, var(--content-width));
 +    padding: 52px 0 120px;
 +  }
- }
- 
--.search-form input::placeholder {
--  color: var(--subtle);
++}
++
 +/* ---------------------------------------------------------- */
 +/* Navegação inferior (mobile)                                */
 +/* ---------------------------------------------------------- */
@@ -11492,44 +12272,24 @@ index 990b8b9..cd8972e 100644
 +  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
 +  border-top: 1px solid var(--line);
 +  background: var(--bg);
- }
- 
--.search-form button,
--.button {
--  display: inline-flex;
--  min-height: 44px;
++}
++
 +.bottom-navigation__item {
 +  display: flex;
 +  min-width: 62px;
 +  flex-direction: column;
-   align-items: center;
--  justify-content: center;
--  gap: 8px;
--  padding: 0 16px;
--  border: 1px solid transparent;
--  border-radius: 999px;
--  cursor: pointer;
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
++  align-items: center;
 +  gap: 4px;
 +  padding: 7px 8px 6px;
 +  border-radius: var(--radius-md);
 +  color: var(--muted);
 +  font-family: var(--font-mono);
 +  font-size: 9px;
-   letter-spacing: 0.1em;
-   text-transform: uppercase;
++  letter-spacing: 0.1em;
++  text-transform: uppercase;
 +  transition: color 0.22s var(--ease-out), background 0.22s var(--ease-out);
- }
- 
--.search-form button,
--.button--primary {
--  color: var(--bg);
--  background: var(--accent-strong);
--}
--
--.button--secondary {
--  border-color: var(--line-strong);
++}
++
 +.bottom-navigation__item.is-active {
    color: var(--text);
    background: var(--surface-raised);
@@ -11553,61 +12313,27 @@ index 990b8b9..cd8972e 100644
 +    inset 0 1px 0 rgba(255, 255, 255, 0.35),
 +    0 12px 26px rgba(139, 46, 31, 0.4);
 +  transition: transform 0.3s var(--ease-out);
- }
- 
--.search-form button:hover,
--.button--primary:hover {
--  filter: brightness(1.06);
++}
++
 +.bottom-navigation__add:hover,
 +.bottom-navigation__add.is-active {
 +  transform: rotate(90deg);
- }
- 
--.suggestion-row {
--  display: flex;
--  flex-wrap: wrap;
--  gap: 8px;
--  margin-top: 14px;
++}
++
 +@media (min-width: 1024px) {
 +  .bottom-navigation {
 +    display: none;
 +  }
- }
- 
--.suggestion-row button {
--  min-height: 34px;
--  padding: 0 12px;
--  border: 1px solid var(--line);
--  border-radius: 999px;
--  color: var(--muted);
--  background: transparent;
--  cursor: pointer;
--  font-family: "Space Mono", monospace;
--  font-size: 9px;
--  letter-spacing: 0.03em;
--}
++}
++
 +/* ---------------------------------------------------------- */
 +/* Cabeçalho de página + carimbo                              */
 +/* ---------------------------------------------------------- */
- 
--.suggestion-row button:hover {
--  border-color: var(--accent);
--  color: var(--text);
--  background: var(--accent-soft);
++
 +.page {
 +  animation: page-in 0.5s var(--ease-out) both;
- }
- 
--.migration-preview {
--  display: grid;
--  grid-template-columns: auto minmax(0, 1fr) auto;
--  align-items: center;
--  gap: clamp(18px, 4vw, 34px);
--  margin-top: clamp(48px, 9vw, 84px);
--  padding: clamp(24px, 5vw, 42px);
--  border-top: 1px solid var(--line);
--  border-bottom: 1px solid var(--line);
--  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
++}
++
 +@keyframes page-in {
 +  from {
 +    opacity: 0;
@@ -11617,31 +12343,16 @@ index 990b8b9..cd8972e 100644
 +    opacity: 1;
 +    transform: none;
 +  }
- }
- 
--.migration-preview__number {
--  color: var(--accent);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(54px, 8vw, 92px);
--  font-style: italic;
--  line-height: 1;
++}
++
 +.page-header {
 +  display: flex;
 +  align-items: flex-start;
 +  justify-content: space-between;
 +  gap: 28px;
 +  margin-bottom: 22px;
- }
- 
--.migration-preview h2,
--.empty-library h2,
--.diary-preview h2 {
--  margin: 8px 0 8px;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(24px, 4vw, 38px);
--  font-style: italic;
--  font-weight: 400;
--  line-height: 1.08;
++}
++
 +.page-header h1 {
 +  margin: 10px 0 0;
 +  font-family: var(--font-display);
@@ -11649,40 +12360,21 @@ index 990b8b9..cd8972e 100644
 +  font-weight: 600;
 +  letter-spacing: -0.045em;
 +  line-height: 1.02;
- }
- 
--.migration-preview p:last-child,
--.empty-library p:last-child,
--.diary-preview__entry p:last-child {
--  margin: 0;
++}
++
 +.page-header__description {
 +  max-width: 58ch;
-   color: var(--muted);
--  line-height: 1.5;
++  color: var(--muted);
 +  font-size: 16.5px;
 +  font-style: italic;
 +  line-height: 1.6;
- }
- 
--.preview-list {
--  display: grid;
--  gap: 14px;
--  margin-top: 42px;
++}
++
 +.page-header__aside {
 +  flex: 0 0 auto;
 +  padding-top: 18px;
- }
- 
--.feed-preview-card {
--  display: grid;
--  grid-template-columns: auto minmax(0, 1fr) 62px;
--  align-items: center;
--  gap: 18px;
--  min-height: 112px;
--  padding: 16px;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-md);
--  background: var(--surface);
++}
++
 +.stage-stamp {
 +  display: inline-block;
 +  padding: 11px 15px;
@@ -11697,25 +12389,12 @@ index 990b8b9..cd8972e 100644
 +  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-soft) 60%, transparent);
 +  transform: rotate(3deg);
 +  transition: transform 0.3s var(--ease-out);
- }
- 
--.preview-avatar {
--  display: grid;
--  width: 44px;
--  height: 44px;
--  place-items: center;
--  border: 1px solid var(--line-strong);
--  border-radius: 50%;
--  color: var(--accent);
--  font-family: "Space Mono", monospace;
--  font-size: 10px;
++}
++
 +.stage-stamp:hover {
 +  transform: rotate(0deg) scale(1.04);
- }
- 
--.preview-lines {
--  display: grid;
--  gap: 9px;
++}
++
 +/* no mobile o aside fica ao lado do título (engrenagem do perfil, como no v1) */
 +@media (max-width: 640px) {
 +  .page-header {
@@ -11726,38 +12405,22 @@ index 990b8b9..cd8972e 100644
 +  .page-header__aside {
 +    padding-top: 6px;
 +  }
- }
- 
--.preview-lines span,
--.profile-skeleton {
++}
++
 +/* ---------------------------------------------------------- */
 +/* Capa de livro                                              */
 +/* ---------------------------------------------------------- */
 +
 +.book-cover {
 +  position: relative;
-   display: block;
--  height: 9px;
--  border-radius: 999px;
--  background: linear-gradient(90deg, var(--line), var(--line-strong), var(--line));
--  background-size: 200% 100%;
--  animation: shimmer 1.8s linear infinite;
++  display: block;
 +  overflow: hidden;
 +  aspect-ratio: 2 / 3;
 +  border-radius: 3px 9px 9px 3px;
 +  background: var(--surface-raised);
 +  box-shadow: var(--shadow-cover);
- }
- 
--.preview-cover {
--  width: 48px;
--  height: 74px;
--  justify-self: end;
--  border: 1px solid var(--line);
--  border-radius: 4px 8px 8px 4px;
--  background:
--    linear-gradient(120deg, var(--wine), color-mix(in srgb, var(--wine) 65%, var(--accent)));
--  box-shadow: 4px 5px 0 var(--accent-soft);
++}
++
 +.book-cover::before {
 +  position: absolute;
 +  inset: 0 auto 0 0;
@@ -11774,8 +12437,9 @@ index 990b8b9..cd8972e 100644
 +  pointer-events: none;
  }
  
--@keyframes shimmer {
--  to { background-position: -200% 0; }
+-.search-form button:hover,
+-.button--primary:hover {
+-  filter: brightness(1.06);
 +.book-cover::after {
 +  position: absolute;
 +  inset: 0;
@@ -11785,21 +12449,28 @@ index 990b8b9..cd8972e 100644
 +  pointer-events: none;
  }
  
--.migration-note {
--  margin: 24px 0 0;
--  color: var(--subtle);
--  text-align: center;
+-.suggestion-row {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: 8px;
+-  margin-top: 14px;
 +.book-cover img {
 +  width: 100%;
 +  height: 100%;
 +  object-fit: cover;
  }
  
--.stat-grid {
--  display: grid;
--  grid-template-columns: repeat(2, minmax(0, 1fr));
--  gap: 12px;
--  margin-top: 36px;
+-.suggestion-row button {
+-  min-height: 34px;
+-  padding: 0 12px;
+-  border: 1px solid var(--line);
+-  border-radius: 999px;
+-  color: var(--muted);
+-  background: transparent;
+-  cursor: pointer;
+-  font-family: "Space Mono", monospace;
+-  font-size: 9px;
+-  letter-spacing: 0.03em;
 +/* capa gerada: mesma arte "papel creme + tinta" do app legado (.cover-art) */
 +.book-cover--generated {
 +  display: flex;
@@ -11812,12 +12483,10 @@ index 990b8b9..cd8972e 100644
 +  background: var(--cover-paper, #f1e6d2);
  }
  
--.stat-card {
--  min-height: 126px;
--  padding: 20px;
--  border: 1px solid var(--line);
--  border-radius: var(--radius-md);
--  background: var(--surface);
+-.suggestion-row button:hover {
+-  border-color: var(--accent);
+-  color: var(--text);
+-  background: var(--accent-soft);
 +.book-cover--generated::before {
 +  position: absolute;
 +  inset: 0;
@@ -11828,18 +12497,29 @@ index 990b8b9..cd8972e 100644
 +  content: "";
  }
  
--.stat-card strong {
--  display: block;
--  color: var(--accent);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(36px, 6vw, 56px);
+-.migration-preview {
+-  display: grid;
+-  grid-template-columns: auto minmax(0, 1fr) auto;
+-  align-items: center;
+-  gap: clamp(18px, 4vw, 34px);
+-  margin-top: clamp(48px, 9vw, 84px);
+-  padding: clamp(24px, 5vw, 42px);
+-  border-top: 1px solid var(--line);
+-  border-bottom: 1px solid var(--line);
+-  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
 +.book-cover--generated .book-cover__rule {
 +  width: 38%;
 +  height: 5px;
 +  margin-bottom: 8px;
 +  background: currentColor;
-+}
-+
+ }
+ 
+-.migration-preview__number {
+-  color: var(--accent);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(54px, 8vw, 92px);
+-  font-style: italic;
+-  line-height: 1;
 +.book-cover--generated .book-cover__copy {
 +  display: flex;
 +  flex: 1;
@@ -11847,16 +12527,21 @@ index 990b8b9..cd8972e 100644
 +  gap: 8px;
 +  justify-content: center;
 +  min-height: 0;
-+}
-+
+ }
+ 
+-.migration-preview h2,
+-.empty-library h2,
+-.diary-preview h2 {
+-  margin: 8px 0 8px;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(24px, 4vw, 38px);
 +.book-cover--generated strong {
 +  font-family: var(--font-display);
 +  font-size: 15.5px;
    font-style: italic;
 -  font-weight: 400;
--  line-height: 1;
 +  font-weight: 700;
-+  line-height: 1.08;
+   line-height: 1.08;
 +  letter-spacing: -0.02em;
 +  overflow-wrap: anywhere;
 +  display: -webkit-box;
@@ -11865,34 +12550,28 @@ index 990b8b9..cd8972e 100644
 +  -webkit-line-clamp: 4;
  }
  
--.stat-card span {
--  display: block;
--  margin-top: 12px;
+-.migration-preview p:last-child,
+-.empty-library p:last-child,
+-.diary-preview__entry p:last-child {
+-  margin: 0;
 -  color: var(--muted);
--  font-family: "Space Mono", monospace;
+-  line-height: 1.5;
 +.book-cover--generated small {
 +  font-family: var(--font-mono);
-   font-size: 9px;
--  letter-spacing: 0.08em;
++  font-size: 9px;
 +  line-height: 1.25;
 +  letter-spacing: 0.12em;
-   text-transform: uppercase;
++  text-transform: uppercase;
 +  display: -webkit-box;
 +  overflow: hidden;
 +  -webkit-box-orient: vertical;
 +  -webkit-line-clamp: 2;
  }
  
--.empty-library {
+-.preview-list {
 -  display: grid;
--  grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr);
--  align-items: end;
--  gap: clamp(28px, 6vw, 68px);
--  margin-top: 40px;
--  padding: clamp(28px, 6vw, 54px);
--  border: 1px solid var(--line);
--  border-radius: var(--radius-lg);
--  background: var(--surface);
+-  gap: 14px;
+-  margin-top: 42px;
 +.book-cover--generated .book-cover__brand {
 +  font-family: var(--font-mono);
 +  font-size: 8px;
@@ -11902,55 +12581,70 @@ index 990b8b9..cd8972e 100644
 +  opacity: 0.72;
  }
  
--.book-spines {
--  display: flex;
--  min-height: 180px;
--  align-items: end;
--  justify-content: center;
--  gap: 5px;
--  border-bottom: 1px solid var(--line-strong);
+-.feed-preview-card {
+-  display: grid;
+-  grid-template-columns: auto minmax(0, 1fr) 62px;
 +.book-cover--generated[data-layout="classic"] {
-+  align-items: center;
+   align-items: center;
+-  gap: 18px;
+-  min-height: 112px;
+-  padding: 16px;
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-md);
+-  background: var(--surface);
+-}
+-
+-.preview-avatar {
+-  display: grid;
+-  width: 44px;
+-  height: 44px;
+-  place-items: center;
+-  border: 1px solid var(--line-strong);
+-  border-radius: 50%;
+-  color: var(--accent);
+-  font-family: "Space Mono", monospace;
+-  font-size: 10px;
 +  text-align: center;
 +  border: 8px solid var(--cover-paper);
 +  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cover-ink), transparent 35%);
  }
  
--.book-spines span {
--  display: block;
--  width: clamp(18px, 3vw, 28px);
--  border: 1px solid var(--line-strong);
--  border-radius: 3px 3px 0 0;
--  background: var(--wine);
+-.preview-lines {
+-  display: grid;
+-  gap: 9px;
 +.book-cover--generated[data-layout="modern"] {
 +  align-items: stretch;
 +  text-align: left;
  }
  
--.book-spines span:nth-child(1) { height: 116px; }
--.book-spines span:nth-child(2) { height: 150px; background: var(--accent); }
--.book-spines span:nth-child(3) { height: 132px; background: var(--surface-raised); }
--.book-spines span:nth-child(4) { height: 164px; background: color-mix(in srgb, var(--wine) 75%, var(--accent)); }
--.book-spines span:nth-child(5) { height: 126px; background: var(--text-soft); }
+-.preview-lines span,
+-.profile-skeleton {
+-  display: block;
+-  height: 9px;
+-  border-radius: 999px;
+-  background: linear-gradient(90deg, var(--line), var(--line-strong), var(--line));
+-  background-size: 200% 100%;
+-  animation: shimmer 1.8s linear infinite;
 +.book-cover--generated[data-layout="modern"] small {
 +  text-align: right;
-+}
+ }
  
--.diary-preview {
--  margin-top: 36px;
--  border-top: 1px solid var(--line);
+-.preview-cover {
+-  width: 48px;
+-  height: 74px;
+-  justify-self: end;
+-  border: 1px solid var(--line);
+-  border-radius: 4px 8px 8px 4px;
+-  background:
+-    linear-gradient(120deg, var(--wine), color-mix(in srgb, var(--wine) 65%, var(--accent)));
+-  box-shadow: 4px 5px 0 var(--accent-soft);
 +.book-cover--generated[data-layout="modern"] strong {
 +  font-weight: 500;
 +  font-style: normal;
  }
  
--.diary-preview__entry {
--  display: grid;
--  grid-template-columns: 54px 1px minmax(0, 1fr) auto;
--  align-items: center;
--  gap: 20px;
--  min-height: 144px;
--  border-bottom: 1px solid var(--line);
+-@keyframes shimmer {
+-  to { background-position: -200% 0; }
 +.book-cover--generated[data-layout="modern"] .book-cover__rule {
 +  width: 8px;
 +  height: 8px;
@@ -11959,15 +12653,37 @@ index 990b8b9..cd8972e 100644
 +  background: var(--cover-ink-2, currentColor);
  }
  
--.diary-preview__entry time {
+-.migration-note {
+-  margin: 24px 0 0;
+-  color: var(--subtle);
 +.book-cover--generated[data-layout="minimal"] {
 +  align-items: center;
    text-align: center;
  }
  
--.diary-preview__entry time strong,
--.diary-preview__entry time span {
+-.stat-grid {
+-  display: grid;
+-  grid-template-columns: repeat(2, minmax(0, 1fr));
+-  gap: 12px;
+-  margin-top: 36px;
+-}
+-
+-.stat-card {
+-  min-height: 126px;
+-  padding: 20px;
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-md);
+-  background: var(--surface);
+-}
+-
+-.stat-card strong {
 -  display: block;
+-  color: var(--accent);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(36px, 6vw, 56px);
+-  font-style: italic;
+-  font-weight: 400;
+-  line-height: 1;
 +.book-cover--generated[data-layout="minimal"] .book-cover__rule {
 +  width: 28px;
 +  height: 2px;
@@ -11975,27 +12691,31 @@ index 990b8b9..cd8972e 100644
 +  background: var(--cover-ink-2, currentColor);
  }
  
--.diary-preview__entry time strong {
--  color: var(--accent);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: 36px;
--  font-style: italic;
--  font-weight: 400;
--  line-height: 1;
+-.stat-card span {
+-  display: block;
+-  margin-top: 12px;
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
+-  font-size: 9px;
+-  letter-spacing: 0.08em;
+-  text-transform: uppercase;
 +.book-cover--generated[data-layout="bold"] {
 +  color: var(--cover-paper);
 +  background: var(--cover-ink);
  }
  
--.diary-preview__entry time span {
--  margin-top: 5px;
--  color: var(--muted);
--  font-family: "Space Mono", monospace;
--  font-size: 9px;
--  text-transform: uppercase;
+-.empty-library {
 +.book-cover--generated[data-layout="bold"]::before {
 +  content: attr(data-initial);
-+  display: grid;
+   display: grid;
+-  grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr);
+-  align-items: end;
+-  gap: clamp(28px, 6vw, 68px);
+-  margin-top: 40px;
+-  padding: clamp(28px, 6vw, 54px);
+-  border: 1px solid var(--line);
+-  border-radius: var(--radius-lg);
+-  background: var(--surface);
 +  place-items: center;
 +  font-family: var(--font-display);
 +  font-size: 92px;
@@ -12006,13 +12726,102 @@ index 990b8b9..cd8972e 100644
 +  opacity: 0.1;
  }
  
+-.book-spines {
+-  display: flex;
+-  min-height: 180px;
+-  align-items: end;
+-  justify-content: center;
+-  gap: 5px;
+-  border-bottom: 1px solid var(--line-strong);
++.book-cover--generated[data-layout="bold"] strong {
++  font-weight: 800;
++  font-style: normal;
+ }
+ 
+-.book-spines span {
+-  display: block;
+-  width: clamp(18px, 3vw, 28px);
+-  border: 1px solid var(--line-strong);
+-  border-radius: 3px 3px 0 0;
+-  background: var(--wine);
++.book-cover--generated[data-layout="bold"] .book-cover__rule {
++  width: 100%;
++  height: 4px;
++  background: var(--cover-ink-2);
+ }
+ 
+-.book-spines span:nth-child(1) { height: 116px; }
+-.book-spines span:nth-child(2) { height: 150px; background: var(--accent); }
+-.book-spines span:nth-child(3) { height: 132px; background: var(--surface-raised); }
+-.book-spines span:nth-child(4) { height: 164px; background: color-mix(in srgb, var(--wine) 75%, var(--accent)); }
+-.book-spines span:nth-child(5) { height: 126px; background: var(--text-soft); }
+-
+-.diary-preview {
+-  margin-top: 36px;
+-  border-top: 1px solid var(--line);
++.book-cover--generated[data-layout="stripe"] {
++  color: var(--cover-ink);
++  background: linear-gradient(to bottom, var(--cover-ink-2) 0 25%, var(--cover-paper) 25%);
+ }
+ 
+-.diary-preview__entry {
+-  display: grid;
+-  grid-template-columns: 54px 1px minmax(0, 1fr) auto;
+-  align-items: center;
+-  gap: 20px;
+-  min-height: 144px;
+-  border-bottom: 1px solid var(--line);
++.book-cover--generated[data-layout="stripe"] .book-cover__rule {
++  display: none;
+ }
+ 
+-.diary-preview__entry time {
++.book-cover--generated[data-layout="stripe"] .book-cover__copy {
+   text-align: center;
+ }
+ 
+-.diary-preview__entry time strong,
+-.diary-preview__entry time span {
+-  display: block;
++.book-cover--generated[data-layout="stripe"] strong {
++  margin: auto 0;
+ }
+ 
+-.diary-preview__entry time strong {
+-  color: var(--accent);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: 36px;
+-  font-style: italic;
+-  font-weight: 400;
+-  line-height: 1;
++.book-cover--generated[data-layout="stripe"] small {
++  order: -1;
++  font-weight: 700;
++  color: var(--cover-paper);
+ }
+ 
+-.diary-preview__entry time span {
+-  margin-top: 5px;
+-  color: var(--muted);
+-  font-family: "Space Mono", monospace;
+-  font-size: 9px;
+-  text-transform: uppercase;
+-}
++/* ---------------------------------------------------------- */
++/* Estados de carregamento                                    */
++/* ---------------------------------------------------------- */
+ 
 -.diary-preview__line {
 -  width: 1px;
 -  height: 76px;
 -  background: var(--line-strong);
-+.book-cover--generated[data-layout="bold"] strong {
-+  font-weight: 800;
-+  font-style: normal;
++.loading-dot {
++  display: inline-block;
++  width: 9px;
++  height: 9px;
++  border-radius: 50%;
++  background: var(--accent);
++  animation: loading-pulse 1s ease-in-out infinite;
  }
  
 -.profile-card {
@@ -12026,80 +12835,6 @@ index 990b8b9..cd8972e 100644
 -  border-radius: var(--radius-lg);
 -  background: var(--surface);
 -  box-shadow: var(--shadow);
-+.book-cover--generated[data-layout="bold"] .book-cover__rule {
-+  width: 100%;
-+  height: 4px;
-+  background: var(--cover-ink-2);
- }
- 
--.profile-card__identity h2 {
--  margin: 8px 0 2px;
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(30px, 5vw, 48px);
--  font-style: italic;
--  font-weight: 400;
--  line-height: 1;
-+.book-cover--generated[data-layout="stripe"] {
-+  color: var(--cover-ink);
-+  background: linear-gradient(to bottom, var(--cover-ink-2) 0 25%, var(--cover-paper) 25%);
- }
- 
--.profile-handle {
--  margin: 0;
--  color: var(--accent);
--  font-family: "Space Mono", monospace;
--  font-size: 11px;
-+.book-cover--generated[data-layout="stripe"] .book-cover__rule {
-+  display: none;
- }
- 
--.profile-bio {
--  max-width: 580px;
--  margin: 18px 0 0;
--  color: var(--text-soft);
--  line-height: 1.5;
-+.book-cover--generated[data-layout="stripe"] .book-cover__copy {
-+  text-align: center;
- }
- 
--.profile-card__actions,
--.account-card__actions {
--  display: flex;
--  flex-wrap: wrap;
--  justify-content: flex-end;
--  gap: 8px;
-+.book-cover--generated[data-layout="stripe"] strong {
-+  margin: auto 0;
- }
- 
--.profile-card--loading {
--  min-height: 160px;
-+.book-cover--generated[data-layout="stripe"] small {
-+  order: -1;
-+  font-weight: 700;
-+  color: var(--cover-paper);
- }
- 
--.profile-skeleton--avatar {
--  width: 82px;
--  height: 82px;
-+/* ---------------------------------------------------------- */
-+/* Estados de carregamento                                    */
-+/* ---------------------------------------------------------- */
-+
-+.loading-dot {
-+  display: inline-block;
-+  width: 9px;
-+  height: 9px;
-   border-radius: 50%;
-+  background: var(--accent);
-+  animation: loading-pulse 1s ease-in-out infinite;
- }
- 
--.profile-skeleton-group {
--  display: grid;
--  width: min(100%, 420px);
--  gap: 12px;
 +@keyframes loading-pulse {
 +  0%, 100% {
 +    opacity: 0.3;
@@ -12111,17 +12846,24 @@ index 990b8b9..cd8972e 100644
 +  }
  }
  
--.profile-skeleton--short {
--  width: 56%;
+-.profile-card__identity h2 {
+-  margin: 8px 0 2px;
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(30px, 5vw, 48px);
+-  font-style: italic;
+-  font-weight: 400;
+-  line-height: 1;
 +.skeleton-shimmer {
 +  position: relative;
 +  overflow: hidden;
 +  background: var(--surface-raised);
  }
  
--.profile-card--error {
--  grid-template-columns: 1fr auto;
--  color: var(--danger);
+-.profile-handle {
+-  margin: 0;
+-  color: var(--accent);
+-  font-family: "Space Mono", monospace;
+-  font-size: 11px;
 +.skeleton-shimmer::after {
 +  position: absolute;
 +  inset: 0;
@@ -12130,11 +12872,21 @@ index 990b8b9..cd8972e 100644
 +  animation: shimmer 1.6s infinite;
  }
  
--.not-found-page {
+-.profile-bio {
+-  max-width: 580px;
+-  margin: 18px 0 0;
+-  color: var(--text-soft);
+-  line-height: 1.5;
 +:root[data-theme="light"] .skeleton-shimmer::after {
 +  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
-+}
-+
+ }
+ 
+-.profile-card__actions,
+-.account-card__actions {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: flex-end;
+-  gap: 8px;
 +@keyframes shimmer {
 +  from {
 +    transform: translateX(-100%);
@@ -12142,8 +12894,10 @@ index 990b8b9..cd8972e 100644
 +  to {
 +    transform: translateX(100%);
 +  }
-+}
-+
+ }
+ 
+-.profile-card--loading {
+-  min-height: 160px;
 +/* ---------------------------------------------------------- */
 +/* Folha de ações rápidas                                     */
 +/* ---------------------------------------------------------- */
@@ -12153,20 +12907,14 @@ index 990b8b9..cd8972e 100644
 +  position: fixed;
 +  inset: 0;
 +  z-index: 60;
-   display: grid;
--  min-height: calc(100vh - 190px);
--  align-content: center;
--  justify-items: start;
++  display: grid;
 +  place-items: end center;
  }
  
--.not-found-page__code {
--  margin: 0 0 -24px;
--  color: var(--accent-soft);
--  font-family: "Fraunces", Georgia, serif;
--  font-size: clamp(110px, 24vw, 270px);
--  font-style: italic;
--  line-height: 0.72;
+-.profile-skeleton--avatar {
+-  width: 82px;
+-  height: 82px;
+-  border-radius: 50%;
 +.quick-backdrop,
 +.panel-backdrop {
 +  position: absolute;
@@ -12175,16 +12923,19 @@ index 990b8b9..cd8972e 100644
 +  backdrop-filter: blur(6px);
 +  -webkit-backdrop-filter: blur(6px);
 +  animation: fade-in 0.3s var(--ease-out) both;
-+}
-+
+ }
+ 
+-.profile-skeleton-group {
+-  display: grid;
+-  width: min(100%, 420px);
+-  gap: 12px;
 +@keyframes fade-in {
 +  from { opacity: 0; }
 +  to { opacity: 1; }
  }
  
--.not-found-page > p:not(.eyebrow, .not-found-page__code) {
--  max-width: 520px;
--  margin: 0 0 24px;
+-.profile-skeleton--short {
+-  width: 56%;
 +.quick-sheet {
 +  position: relative;
 +  z-index: 1;
@@ -12196,8 +12947,11 @@ index 990b8b9..cd8972e 100644
 +  background: var(--surface-solid);
 +  box-shadow: var(--shadow-pop);
 +  animation: sheet-up 0.42s var(--ease-out) both;
-+}
-+
+ }
+ 
+-.profile-card--error {
+-  grid-template-columns: 1fr auto;
+-  color: var(--danger);
 +@keyframes sheet-up {
 +  from {
 +    opacity: 0;
@@ -12207,24 +12961,39 @@ index 990b8b9..cd8972e 100644
 +    opacity: 1;
 +    transform: none;
 +  }
-+}
-+
+ }
+ 
+-.not-found-page {
+-  display: grid;
+-  min-height: calc(100vh - 190px);
+-  align-content: center;
+-  justify-items: start;
 +.quick-sheet__handle {
 +  width: 44px;
 +  height: 4px;
 +  margin: 0 auto 18px;
 +  border-radius: 999px;
 +  background: var(--line-strong);
-+}
-+
+ }
+ 
+-.not-found-page__code {
+-  margin: 0 0 -24px;
+-  color: var(--accent-soft);
+-  font-family: "Fraunces", Georgia, serif;
+-  font-size: clamp(110px, 24vw, 270px);
+-  font-style: italic;
+-  line-height: 0.72;
 +.quick-sheet h2 {
 +  margin: 12px 0 8px;
 +  font-family: var(--font-display);
 +  font-size: 28px;
 +  font-weight: 600;
 +  letter-spacing: -0.01em;
-+}
-+
+ }
+ 
+-.not-found-page > p:not(.eyebrow, .not-found-page__code) {
+-  max-width: 520px;
+-  margin: 0 0 24px;
 +.quick-sheet > p:not(.eyebrow) {
    color: var(--muted);
 -  font-size: 18px;
@@ -12329,7 +13098,7 @@ index 990b8b9..cd8972e 100644
 +  color: var(--accent-strong);
 +  transform: translateX(3px);
  }
--
+ 
 -.panel-backdrop,
 -.quick-backdrop {
 -  position: absolute;
@@ -12339,20 +13108,21 @@ index 990b8b9..cd8972e 100644
 -  background: rgba(8, 7, 6, 0.58);
 -  cursor: default;
 -  backdrop-filter: blur(5px);
-+
+-}
 +/* ---------------------------------------------------------- */
 +/* Painel de configurações                                    */
 +/* ---------------------------------------------------------- */
-+
-+.panel-layer {
-+  place-items: stretch end;
- }
  
- .settings-panel {
+-.settings-panel {
 -  position: absolute;
 -  top: 0;
 -  right: 0;
 -  width: min(100%, 430px);
++.panel-layer {
++  place-items: stretch end;
++}
++
++.settings-panel {
 +  position: relative;
 +  z-index: 1;
 +  display: flex;
@@ -12936,6 +13706,25 @@ index 35fd421..2b9fd0e 100644
  
 -export type ShelfView = 'grid' | 'list'
 +export type ShelfView = 'grid' | 'list' | 'spines'
+diff --git a/frontend/src/utils/text.ts b/frontend/src/utils/text.ts
+new file mode 100644
+index 0000000..567d80f
+--- /dev/null
++++ b/frontend/src/utils/text.ts
+@@ -0,0 +1,13 @@
++/* Limpa o campo autor para exibição. Parte do catálogo tem o campo sujo com
++   metadados concatenados na ingestão — ex.: "Fiódor Dostoiévski Autor: Fiódor
++   Dostoievski Tradutor: Franci" — que estouram cards e dropdowns. Cortamos no
++   primeiro marcador de papel (Autor/Tradutor/Editor…) e limitamos o tamanho.
++   É defensivo: autor limpo passa intacto. */
++const ROLE_MARKER = /\s+(?:Autor|Autora|Tradutor|Tradutora|Tradução|Translator|Author|Ilustrador|Organizador|Organizadora|Editor|Editora)\s*:/i
++
++export function formatAuthor(raw: string | null | undefined, maxLength = 80): string {
++  if (!raw) return ''
++  let value = raw.split(ROLE_MARKER)[0].replace(/\s+/g, ' ').trim()
++  if (value.length > maxLength) value = `${value.slice(0, maxLength - 1).trimEnd()}…`
++  return value
++}
 diff --git a/frontend/vite.config.ts b/frontend/vite.config.ts
 index 84e32f1..ab2b633 100644
 --- a/frontend/vite.config.ts
