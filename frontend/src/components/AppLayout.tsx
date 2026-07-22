@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { usePreferences } from '../providers/PreferencesProvider'
 import { useSession } from '../providers/SessionProvider'
 import { AccountAvatar } from './AccountAvatar'
+import { ColdStartNotice } from './ColdStartNotice'
 import { Icon, type IconName } from './Icon'
 import { SettingsPanel } from './SettingsPanel'
 
@@ -32,7 +33,7 @@ export function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [quickOpen, setQuickOpen] = useState(false)
   const { t } = usePreferences()
-  const { account, status, refresh } = useSession()
+  const { account, status, errorKind, refresh } = useSession()
   const location = useLocation()
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export function AppLayout() {
 
   return (
     <div className="app-frame">
+      <ColdStartNotice />
       <header className="app-header">
         <Link className="brand" to="/" aria-label={t('app_v2')}>
           <span className="brand-mark" aria-hidden="true">L</span>
@@ -76,7 +78,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      {status === 'error' && (
+      {status === 'error' && errorKind !== 'network' && (
         <div className="global-notice" role="status">
           <span>{t('account_error')}</span>
           <button type="button" onClick={() => void refresh()}>

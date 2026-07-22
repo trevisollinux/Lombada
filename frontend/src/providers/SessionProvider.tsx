@@ -8,13 +8,14 @@ import {
   type PropsWithChildren,
 } from 'react'
 
-import { getCurrentAccount } from '../services/api'
-import type { Account, SessionStatus } from '../types/account'
+import { ApiError, getCurrentAccount } from '../services/api'
+import type { Account, SessionErrorKind, SessionStatus } from '../types/account'
 
 interface SessionContextValue {
   account: Account | null
   status: SessionStatus
   error: string | null
+  errorKind: SessionErrorKind | null
   refresh: () => Promise<void>
 }
 
@@ -24,10 +25,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [account, setAccount] = useState<Account | null>(null)
   const [status, setStatus] = useState<SessionStatus>('loading')
   const [error, setError] = useState<string | null>(null)
+  const [errorKind, setErrorKind] = useState<SessionErrorKind | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setStatus('loading')
     setError(null)
+    setErrorKind(null)
 
     try {
       const nextAccount = await getCurrentAccount(signal)
@@ -40,6 +43,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setAccount(null)
       setStatus('error')
       setError(cause instanceof Error ? cause.message : 'Erro inesperado')
+      setErrorKind(cause instanceof ApiError ? 'http' : 'network')
     }
   }, [])
 
@@ -54,9 +58,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
       account,
       status,
       error,
+      errorKind,
       refresh: async () => load(),
     }),
-    [account, error, load, status],
+    [account, error, errorKind, load, status],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

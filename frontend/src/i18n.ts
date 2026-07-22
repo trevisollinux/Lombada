@@ -51,6 +51,11 @@ export type TranslationKey =
   | 'loading_account'
   | 'account_error'
   | 'retry'
+  | 'cold_start_title'
+  | 'cold_start_hint'
+  | 'cold_start_error'
+  | 'cold_start_error_hint'
+  | 'cold_start_reload'
   | 'followers'
   | 'following'
   | 'owned_editions'
@@ -120,6 +125,11 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     loading_account: 'Carregando sua conta…',
     account_error: 'Não foi possível carregar a conta agora.',
     retry: 'Tentar novamente',
+    cold_start_title: 'acordando a estante…',
+    cold_start_hint: 'a primeira visita depois de um tempo parado pode levar até 30 segundos.',
+    cold_start_error: 'Não consegui carregar agora.',
+    cold_start_error_hint: 'Verifique a conexão ou recarregue a página.',
+    cold_start_reload: 'Recarregar',
     followers: 'seguidores',
     following: 'seguindo',
     owned_editions: 'edições na coleção',
@@ -188,6 +198,11 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     loading_account: 'Loading your account…',
     account_error: 'The account could not be loaded right now.',
     retry: 'Try again',
+    cold_start_title: 'waking up the shelf…',
+    cold_start_hint: 'the first visit after a while can take up to 30 seconds.',
+    cold_start_error: "Couldn't load right now.",
+    cold_start_error_hint: 'Check your connection or reload the page.',
+    cold_start_reload: 'Reload',
     followers: 'followers',
     following: 'following',
     owned_editions: 'editions owned',

@@ -17,3 +17,7 @@ export interface Account {
 }
 
 export type SessionStatus = 'loading' | 'ready' | 'error'
+
+/* 'network': o backend não respondeu (cold start, queda, offline);
+   'http': respondeu com erro — o servidor está de pé. */
+export type SessionErrorKind = 'network' | 'http'
