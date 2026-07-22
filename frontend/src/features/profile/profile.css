@@ -91,6 +91,13 @@
   gap: 8px;
 }
 
+.profile-editor__avatar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
 .profile-editor__avatar small {
   max-width: 520px;
   color: var(--subtle);

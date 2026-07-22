@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 
-import { AccountAvatar } from '../../components/AccountAvatar'
 import type { Locale } from '../../i18n'
 import {
   removeProfileAvatar,
@@ -132,8 +131,9 @@ export function ProfileIdentityEditor({ account, locale, onChanged }: ProfileIde
 
   return (
     <section className="profile-editor" aria-labelledby="profile-editor-title">
+      {/* o avatar já aparece grande no hero logo acima; aqui ficam só os
+          controles de foto, sem repetir a imagem */}
       <div className="profile-editor__avatar">
-        <AccountAvatar account={account} size="large" />
         <div>
           <input
             ref={fileInput}
@@ -142,24 +142,26 @@ export function ProfileIdentityEditor({ account, locale, onChanged }: ProfileIde
             accept="image/jpeg,image/png,image/webp,image/*"
             onChange={(event) => void changeAvatar(event)}
           />
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={avatarBusy}
-            onClick={() => fileInput.current?.click()}
-          >
-            {avatarBusy ? profileText(locale, 'avatar_processing') : profileText(locale, 'avatar_change')}
-          </button>
-          {account.avatar_custom && (
+          <div className="profile-editor__avatar-actions">
             <button
-              className="text-button profile-editor__remove-avatar"
+              className="button button--secondary"
               type="button"
               disabled={avatarBusy}
-              onClick={() => void removeAvatar()}
+              onClick={() => fileInput.current?.click()}
             >
-              {profileText(locale, 'avatar_remove')}
+              {avatarBusy ? profileText(locale, 'avatar_processing') : profileText(locale, 'avatar_change')}
             </button>
-          )}
+            {account.avatar_custom && (
+              <button
+                className="text-button profile-editor__remove-avatar"
+                type="button"
+                disabled={avatarBusy}
+                onClick={() => void removeAvatar()}
+              >
+                {profileText(locale, 'avatar_remove')}
+              </button>
+            )}
+          </div>
           <small>{profileText(locale, 'avatar_hint')}</small>
         </div>
       </div>

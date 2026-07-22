@@ -12,6 +12,7 @@ import './features/feed/feed.css'
 import './features/profile/profile.css'
 import './features/memories/memories.css'
 import './features/progress/progress.css'
+import './features/notifications/notifications.css'
 
 const rootElement = document.getElementById('root')
 
