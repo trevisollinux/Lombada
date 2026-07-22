@@ -8,6 +8,7 @@ export type ShelfTextKey =
   | 'other'
   | 'grid'
   | 'list'
+  | 'spines'
   | 'loading'
   | 'error'
   | 'empty_title'
@@ -65,13 +66,14 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     other: 'Outros',
     grid: 'Grade',
     list: 'Lista',
+    spines: 'Lombadas',
     loading: 'Carregando sua estante…',
     error: 'Não foi possível carregar sua estante.',
     empty_title: 'Sua estante ainda está vazia',
     empty_copy: 'Registre uma leitura para começar a construir sua biblioteca pessoal.',
     empty_filtered: 'Nenhuma leitura corresponde a este filtro.',
     register: 'Buscar um livro',
-    books_count: 'leituras',
+    books_count: 'livros',
     status: 'Status',
     rating: 'Sua nota',
     no_rating: 'sem nota',
@@ -121,13 +123,14 @@ const messages: Record<Locale, Record<ShelfTextKey, string>> = {
     other: 'Other',
     grid: 'Grid',
     list: 'List',
+    spines: 'Spines',
     loading: 'Loading your shelf…',
     error: 'Your shelf could not be loaded.',
     empty_title: 'Your shelf is still empty',
     empty_copy: 'Log a reading to start building your personal library.',
     empty_filtered: 'No reading matches this filter.',
     register: 'Find a book',
-    books_count: 'readings',
+    books_count: 'books',
     status: 'Status',
     rating: 'Your rating',
     no_rating: 'not rated',

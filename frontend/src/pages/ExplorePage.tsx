@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
+import { SelectMenu } from '../components/SelectMenu'
 import { SearchResultCard } from '../features/catalog/SearchResultCard'
 import { exploreText } from '../features/explore/exploreI18n'
 import type { Locale } from '../i18n'
@@ -26,6 +27,11 @@ const genres = [
   'fantasia', 'ficção científica', 'terror', 'policial', 'infantil', 'juvenil', 'crônica', 'quadrinhos',
 ]
 
+/* Filtros de gênero e literatura dependem de metadados (generos_json / origem)
+   que o catálogo ainda não tem populados, então retornam vazio ou não filtram.
+   Escondidos até virarem funcionais — trocar para true religa tudo de uma vez. */
+const TAXONOMY_FILTERS_ENABLED = false
+
 const booleanParams = ['criticas', 'lendo', 'capa', 'isbn', 'pt'] as const
 type BooleanParam = (typeof booleanParams)[number]
 
@@ -40,6 +46,10 @@ function validSort(value: string): CatalogSort {
 export function ExplorePage() {
   const { locale } = usePreferences()
   const [searchParams, setSearchParams] = useSearchParams()
+  // filtros abertos por padrão só no desktop; no mobile o painel ocupa a tela
+  const [filtersOpen, setFiltersOpen] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches,
+  )
   const [popularWorks, setPopularWorks] = useState<CatalogWork[]>([])
   const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
   const [literatures, setLiteratures] = useState<CatalogLiterature[]>([])
@@ -49,8 +59,9 @@ export function ExplorePage() {
   const [error, setError] = useState<string | null>(null)
   const [retryVersion, setRetryVersion] = useState(0)
 
-  const genre = searchParams.get('genero') || ''
-  const literature = searchParams.get('literatura') || ''
+  // taxonomia desligada: ignora params antigos p/ links legados não caírem em vazio
+  const genre = TAXONOMY_FILTERS_ENABLED ? searchParams.get('genero') || '' : ''
+  const literature = TAXONOMY_FILTERS_ENABLED ? searchParams.get('literatura') || '' : ''
   const publisher = searchParams.get('editora') || ''
   const sort = validSort(searchParams.get('ordem') || '')
   const withReviews = enabled(searchParams, 'criticas')
@@ -147,22 +158,24 @@ export function ExplorePage() {
   return (
     <section className="page page--explore">
       <PageHeader
-        eyebrow={exploreText(locale, 'eyebrow')}
         title={exploreText(locale, 'title')}
-        description={
-          hasFilters && resultsStatus === 'ready'
-            ? `${results.length} ${exploreText(locale, 'results')}`
-            : exploreText(locale, 'copy')
-        }
-        aside={<span className="stage-stamp">07 · descoberta</span>}
+        description={exploreText(locale, 'copy')}
       />
 
       <section className="explore-filter-panel" aria-labelledby="explore-filter-title">
         <div className="explore-filter-panel__heading">
-          <div>
-            <p className="eyebrow">{exploreText(locale, 'filters')}</p>
-            <h2 id="explore-filter-title">{exploreText(locale, 'filter_copy')}</h2>
-          </div>
+          <button
+            id="explore-filter-title"
+            className="explore-filter-panel__toggle"
+            type="button"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            <Icon name="explore" size={15} />
+            <span>{exploreText(locale, 'filters')}</span>
+            {activeLabels.length > 0 && <strong>{activeLabels.length}</strong>}
+            <i aria-hidden="true">{filtersOpen ? '−' : '+'}</i>
+          </button>
           {hasFilters && (
             <button className="text-button" type="button" onClick={() => setSearchParams({})}>
               {exploreText(locale, 'clear')}
@@ -170,49 +183,67 @@ export function ExplorePage() {
           )}
         </div>
 
+        {filtersOpen && (<>
         <div className="explore-filter-grid">
-          <label>
-            <span>{exploreText(locale, 'publisher')}</span>
-            <select value={publisher} onChange={(event) => setParam('editora', event.target.value)}>
-              <option value="">{exploreText(locale, 'all_publishers')}</option>
-              {publishers.map((item) => (
-                <option key={item.slug} value={item.editora}>{item.editora} · {item.obras_count}</option>
-              ))}
-            </select>
-          </label>
+          <SelectMenu
+            label={exploreText(locale, 'publisher')}
+            value={publisher}
+            placeholder={exploreText(locale, 'all_publishers')}
+            searchable
+            searchPlaceholder={exploreText(locale, 'all_publishers')}
+            onChange={(value) => setParam('editora', value)}
+            options={[
+              { value: '', label: exploreText(locale, 'all_publishers') },
+              ...publishers.map((item) => ({
+                value: item.editora,
+                label: item.editora,
+                hint: String(item.obras_count),
+              })),
+            ]}
+          />
 
-          <label>
-            <span>{exploreText(locale, 'literature')}</span>
-            <select value={literature} onChange={(event) => setParam('literatura', event.target.value)}>
-              <option value="">{exploreText(locale, 'all_literatures')}</option>
-              {literatures.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
-            </select>
-          </label>
+          {TAXONOMY_FILTERS_ENABLED && (
+            <SelectMenu
+              label={exploreText(locale, 'literature')}
+              value={literature}
+              placeholder={exploreText(locale, 'all_literatures')}
+              onChange={(value) => setParam('literatura', value)}
+              options={[
+                { value: '', label: exploreText(locale, 'all_literatures') },
+                ...literatures.map((item) => ({ value: item.slug, label: item.label })),
+              ]}
+            />
+          )}
 
-          <label>
-            <span>{exploreText(locale, 'sort')}</span>
-            <select value={sort} onChange={(event) => setParam('ordem', event.target.value)}>
-              <option value="">{exploreText(locale, 'relevance')}</option>
-              <option value="popular">{exploreText(locale, 'most_read')}</option>
-              <option value="avaliacao">{exploreText(locale, 'best_rated')}</option>
-              <option value="recentes">{exploreText(locale, 'recent')}</option>
-            </select>
-          </label>
+          <SelectMenu
+            label={exploreText(locale, 'sort')}
+            value={sort}
+            placeholder={exploreText(locale, 'relevance')}
+            onChange={(value) => setParam('ordem', value)}
+            options={[
+              { value: '', label: exploreText(locale, 'relevance') },
+              { value: 'popular', label: exploreText(locale, 'most_read') },
+              { value: 'avaliacao', label: exploreText(locale, 'best_rated') },
+              { value: 'recentes', label: exploreText(locale, 'recent') },
+            ]}
+          />
         </div>
 
-        <div className="explore-genre-row" aria-label={exploreText(locale, 'genres')}>
-          {genres.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={genre === item ? 'is-active' : ''}
-              aria-pressed={genre === item}
-              onClick={() => setParam('genero', genre === item ? '' : item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
+        {TAXONOMY_FILTERS_ENABLED && (
+          <div className="explore-genre-row" aria-label={exploreText(locale, 'genres')}>
+            {genres.map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={genre === item ? 'is-active' : ''}
+                aria-pressed={genre === item}
+                onClick={() => setParam('genero', genre === item ? '' : item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="explore-toggle-row">
           <Toggle active={withReviews} label={exploreText(locale, 'with_reviews')} onClick={() => setParam('criticas', !withReviews)} />
@@ -221,6 +252,7 @@ export function ExplorePage() {
           <Toggle active={withIsbn} label={exploreText(locale, 'with_isbn')} onClick={() => setParam('isbn', !withIsbn)} />
           <Toggle active={portuguese} label={exploreText(locale, 'portuguese')} onClick={() => setParam('pt', !portuguese)} />
         </div>
+        </>)}
 
         {activeLabels.length > 0 && (
           <div className="explore-active-filters" aria-label={exploreText(locale, 'active_filters')}>
@@ -287,11 +319,16 @@ function FilteredResults({ locale, status, results, error, retry }: FilteredResu
     )
   }
   return (
-    <div className="catalog-results explore-results">
-      {results.map((work) => (
-        <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} />
-      ))}
-    </div>
+    <>
+      <p className="explore-results-count">
+        {results.length} {exploreText(locale, 'results')}
+      </p>
+      <div className="catalog-results explore-results">
+        {results.map((work) => (
+          <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} />
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -339,31 +376,35 @@ function DiscoveryHome({
         </section>
       )}
 
-      <section className="explore-section">
-        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'literatures')} />
-        <div className="explore-path-grid">
-          {literatures.slice(0, 10).map((item, index) => (
-            <button key={item.slug} type="button" onClick={() => chooseLiterature(item.slug)}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{item.label}</strong>
-              <small>{item.pais || item.regiao}</small>
-              <Icon name="arrow" size={17} />
-            </button>
-          ))}
-        </div>
-      </section>
+      {TAXONOMY_FILTERS_ENABLED && (
+        <section className="explore-section">
+          <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'literatures')} />
+          <div className="explore-path-grid">
+            {literatures.slice(0, 10).map((item, index) => (
+              <button key={item.slug} type="button" onClick={() => chooseLiterature(item.slug)}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{item.label}</strong>
+                <small>{item.pais || item.regiao}</small>
+                <Icon name="arrow" size={17} />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="explore-section">
-        <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'genres')} />
-        <div className="explore-genre-wall">
-          {genres.map((item, index) => (
-            <button key={item} type="button" onClick={() => chooseGenre(item)}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{item}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
+      {TAXONOMY_FILTERS_ENABLED && (
+        <section className="explore-section">
+          <SectionHeading eyebrow={exploreText(locale, 'paths')} title={exploreText(locale, 'genres')} />
+          <div className="explore-genre-wall">
+            {genres.map((item, index) => (
+              <button key={item} type="button" onClick={() => chooseGenre(item)}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{item}</strong>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {publishers.length > 0 && (
         <section className="explore-section">
@@ -385,9 +426,14 @@ function DiscoveryHome({
 }
 
 function SectionHeading({ eyebrow, title, count }: { eyebrow: string; title: string; count?: number }) {
+  // eyebrow igual ao título não repete o texto
+  const repetido = eyebrow.trim().toLowerCase() === title.trim().toLowerCase()
   return (
     <div className="explore-section__heading">
-      <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
+      <div>
+        {!repetido && <p className="eyebrow">{eyebrow}</p>}
+        <h2>{title}</h2>
+      </div>
       {count !== undefined && <span>{count}</span>}
     </div>
   )

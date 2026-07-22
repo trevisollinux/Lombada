@@ -186,14 +186,12 @@ export function SearchPage() {
   return (
     <section className="page page--search">
       <PageHeader
-        eyebrow={t('search_eyebrow')}
         title={t('search_title')}
         description={
           status === 'ready' && activeQuery
             ? `${results.length} ${catalogText(locale, 'results')}`
             : t('search_copy')
         }
-        aside={<span className="stage-stamp">06 · catálogo</span>}
       />
 
       {showOnboarding && (
@@ -203,7 +201,6 @@ export function SearchPage() {
       {showRitual && readingNow && <ReadingRitualCard reading={readingNow} locale={locale} />}
 
       <form className="search-form catalog-search-form" onSubmit={submit} role="search">
-        <Icon name="search" size={24} />
         <input
           ref={inputRef}
           value={query}
@@ -212,7 +209,9 @@ export function SearchPage() {
           aria-label={t('search_placeholder')}
           autoComplete="off"
         />
-        <button type="submit">{t('search_button')}</button>
+        <button type="submit" aria-label={t('search_button')}>
+          <Icon name="search" size={21} />
+        </button>
       </form>
 
       {!activeQuery && (

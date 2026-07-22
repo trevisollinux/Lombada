@@ -3,12 +3,14 @@ import { Link } from 'react-router'
 
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
+import { SelectMenu } from '../components/SelectMenu'
 import { DiaryEntryCard } from '../features/diary/DiaryEntryCard'
 import { DiaryEntryForm } from '../features/diary/DiaryEntryForm'
 import { diaryText } from '../features/diary/diaryI18n'
 import { ShareCardDialog } from '../features/memories/ShareCardDialog'
 import { usePreferences } from '../providers/PreferencesProvider'
 import { useSession } from '../providers/SessionProvider'
+import { formatAuthor } from '../utils/text'
 import { getDiary, getShelf } from '../services/api'
 import type { DiaryEntry } from '../types/diary'
 import type { ShareCardPayload } from '../types/memories'
@@ -133,15 +135,23 @@ export function DiaryPage() {
   return (
     <section className="page page--diary">
       <PageHeader
-        eyebrow={t('diary_eyebrow')}
         title={t('diary_title')}
         description={
           status === 'ready'
             ? `${entries.length} ${diaryText(locale, 'entries')}`
             : t('diary_copy')
         }
-        aside={<span className="stage-stamp">05 · memória real</span>}
       />
+
+      {/* como no v1, estante e diário são irmãos no mesmo segmento */}
+      <div className="shelf-diary-segment" role="tablist" aria-label={t('shelf_title')}>
+        <Link className="shelf-diary-segment__btn" role="tab" aria-selected="false" to="/estante">
+          {t('shelf_title')}
+        </Link>
+        <span className="shelf-diary-segment__btn is-active" role="tab" aria-selected="true">
+          {t('diary_title')}
+        </span>
+      </div>
 
       {notice && (
         <div className="diary-notice" role="status" aria-live="polite">
@@ -151,20 +161,22 @@ export function DiaryPage() {
 
       {status === 'ready' && (
         <div className="diary-toolbar">
-          <label>
-            <span>{diaryText(locale, 'filter_book')}</span>
-            <select
-              value={filterReadingId ?? ''}
-              onChange={(event) => setFilterReadingId(event.target.value ? Number(event.target.value) : null)}
-            >
-              <option value="">{diaryText(locale, 'all_books')}</option>
-              {readings.map((reading) => (
-                <option key={reading.leitura_id} value={reading.leitura_id}>
-                  {reading.titulo}{reading.autor ? ` — ${reading.autor}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectMenu
+            className="diary-toolbar__filter"
+            label={diaryText(locale, 'filter_book')}
+            value={filterReadingId != null ? String(filterReadingId) : ''}
+            placeholder={diaryText(locale, 'all_books')}
+            searchable={readings.length > 8}
+            onChange={(value) => setFilterReadingId(value ? Number(value) : null)}
+            options={[
+              { value: '', label: diaryText(locale, 'all_books') },
+              ...readings.map((reading) => ({
+                value: String(reading.leitura_id),
+                label: reading.titulo,
+                hint: formatAuthor(reading.autor, 24) || undefined,
+              })),
+            ]}
+          />
           <button
             className="button button--primary"
             type="button"
@@ -215,7 +227,6 @@ export function DiaryPage() {
         <section className="diary-state diary-state--empty">
           <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
           <div>
-            <p className="eyebrow">{t('diary_eyebrow')}</p>
             <h2>{diaryText(locale, 'empty_title')}</h2>
             <p>{diaryText(locale, 'no_readings')}</p>
             <Link className="button button--primary" to="/">
@@ -230,7 +241,6 @@ export function DiaryPage() {
         <section className="diary-state diary-state--empty">
           <div className="diary-empty-mark" aria-hidden="true"><span /><span /><span /></div>
           <div>
-            <p className="eyebrow">{t('diary_eyebrow')}</p>
             <h2>{diaryText(locale, 'empty_title')}</h2>
             <p>{diaryText(locale, 'empty_copy')}</p>
             <button className="button button--primary" type="button" onClick={openCreate}>

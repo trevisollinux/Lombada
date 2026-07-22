@@ -5,6 +5,7 @@ export type TranslationKey =
   | 'development_label'
   | 'settings'
   | 'close'
+  | 'nav_menu'
   | 'nav_search'
   | 'nav_explore'
   | 'nav_feed'
@@ -79,6 +80,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     development_label: 'frontend React em migração',
     settings: 'Configurações',
     close: 'Fechar',
+    nav_menu: 'menu',
     nav_search: 'Buscar',
     nav_explore: 'Explorar',
     nav_feed: 'Feed',
@@ -90,7 +92,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     search_eyebrow: 'descobrir · registrar · lembrar',
     search_title: 'O que você está lendo?',
     search_copy: 'Busque por título, autor ou ISBN e escolha a edição que entrou na sua história.',
-    search_placeholder: 'título, autor ou ISBN…',
+    search_placeholder: 'que livro você está lendo agora?',
     search_button: 'buscar',
     search_preview: 'Consulte o catálogo e registre a edição certa na sua estante.',
     feed_eyebrow: 'comunidade',
@@ -152,6 +154,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     development_label: 'React frontend migration',
     settings: 'Settings',
     close: 'Close',
+    nav_menu: 'menu',
     nav_search: 'Search',
     nav_explore: 'Explore',
     nav_feed: 'Feed',
@@ -163,7 +166,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     search_eyebrow: 'discover · log · remember',
     search_title: 'What are you reading?',
     search_copy: 'Search by title, author or ISBN and choose the edition that became part of your story.',
-    search_placeholder: 'title, author or ISBN…',
+    search_placeholder: 'what book are you reading right now?',
     search_button: 'search',
     search_preview: 'Search the catalog and log the right edition on your shelf.',
     feed_eyebrow: 'community',

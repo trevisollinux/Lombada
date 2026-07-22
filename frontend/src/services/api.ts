@@ -42,6 +42,7 @@ import type {
   ReadingStatusesResponse,
   ShelfReading,
 } from '../types/reading'
+import { DEMO_MODE, demoApiRequest } from './demo'
 
 export class ApiError extends Error {
   readonly status: number
@@ -73,6 +74,10 @@ async function readError(response: Response): Promise<{ message: string; detail?
 }
 
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
+  if (DEMO_MODE) {
+    return demoApiRequest<T>(path, init)
+  }
+
   const response = await fetch(path, {
     credentials: 'same-origin',
     headers: {

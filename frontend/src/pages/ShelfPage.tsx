@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { ReadingDetailPanel } from '../features/shelf/ReadingDetailPanel'
 import { ShelfBookCard } from '../features/shelf/ShelfBookCard'
+import { SpineShelf } from '../features/shelf/SpineShelf'
 import { shelfText, type ShelfTextKey } from '../features/shelf/shelfI18n'
 import { usePreferences } from '../providers/PreferencesProvider'
 import { getShelf } from '../services/api'
@@ -33,9 +34,10 @@ const filters: FilterOption[] = [
 ]
 
 function initialView(): ShelfView {
-  return localStorage.getItem(VIEW_KEY) === 'list' || localStorage.getItem(VIEW_KEY) === 'lista'
-    ? 'list'
-    : 'grid'
+  const stored = localStorage.getItem(VIEW_KEY)
+  if (stored === 'list' || stored === 'lista') return 'list'
+  if (stored === 'spines' || stored === 'lombadas') return 'spines'
+  return 'grid'
 }
 
 export function ShelfPage() {
@@ -44,6 +46,7 @@ export function ShelfPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<ShelfFilter>('all')
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false)
   const [view, setViewState] = useState<ShelfView>(initialView)
   const [selected, setSelected] = useState<ShelfReading | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -69,6 +72,15 @@ export function ShelfPage() {
   }, [load])
 
   useEffect(() => {
+    if (!filterMenuOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFilterMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [filterMenuOpen])
+
+  useEffect(() => {
     if (!notice) return
     const timer = window.setTimeout(() => setNotice(null), 3500)
     return () => window.clearTimeout(timer)
@@ -90,7 +102,10 @@ export function ShelfPage() {
 
   function setView(nextView: ShelfView) {
     setViewState(nextView)
-    localStorage.setItem(VIEW_KEY, nextView === 'list' ? 'lista' : 'grade')
+    localStorage.setItem(
+      VIEW_KEY,
+      nextView === 'list' ? 'lista' : nextView === 'spines' ? 'lombadas' : 'grade',
+    )
   }
 
   function handleUpdated(updated: ShelfReading) {
@@ -110,15 +125,32 @@ export function ShelfPage() {
   return (
     <section className="page page--shelf">
       <PageHeader
-        eyebrow={t('shelf_eyebrow')}
         title={t('shelf_title')}
         description={
           status === 'ready'
             ? `${readings.length} ${shelfText(locale, 'books_count')}`
             : t('shelf_copy')
         }
-        aside={<span className="stage-stamp">04 · edição</span>}
       />
+
+      {/* como no v1, estante e diário são irmãos no mesmo segmento */}
+      <div className="shelf-diary-segment" role="tablist" aria-label={t('shelf_title')}>
+        <span className="shelf-diary-segment__btn is-active" role="tab" aria-selected="true">
+          {t('shelf_title')}
+        </span>
+        <Link className="shelf-diary-segment__btn" role="tab" aria-selected="false" to="/diario">
+          {t('diary_title')}
+        </Link>
+      </div>
+
+      {status === 'ready' && readings.length > 0 && (
+        <p className="shelf-summary">
+          {readings.length} {shelfText(locale, 'books_count')}
+          {' · '}{counts.read} {shelfText(locale, 'read').toLocaleLowerCase(locale)}
+          {' · '}{counts.reading} {shelfText(locale, 'reading').toLocaleLowerCase(locale)}
+          {' · '}{counts.want} {shelfText(locale, 'want').toLocaleLowerCase(locale)}
+        </p>
+      )}
 
       {notice && (
         <div className="shelf-notice" role="status" aria-live="polite">
@@ -127,23 +159,50 @@ export function ShelfPage() {
       )}
 
       <div className="shelf-toolbar">
-        <div className="shelf-filters" role="group" aria-label={t('shelf_title')}>
-          {filters.map((option) => {
-            const count = counts[option.id]
-            if (option.id === 'other' && count === 0) return null
-            return (
+        <div className="shelf-filter-menu">
+          <button
+            type="button"
+            className="shelf-filter-menu__trigger"
+            aria-haspopup="listbox"
+            aria-expanded={filterMenuOpen}
+            onClick={() => setFilterMenuOpen((current) => !current)}
+          >
+            <span>{shelfText(locale, (filters.find((option) => option.id === filter) ?? filters[0]).label)}</span>
+            <small>{counts[filter]}</small>
+            <Icon name="chevron-down" size={14} />
+          </button>
+          {filterMenuOpen && (
+            <>
               <button
-                key={option.id}
+                className="shelf-filter-menu__backdrop"
                 type="button"
-                className={filter === option.id ? 'is-active' : ''}
-                aria-pressed={filter === option.id}
-                onClick={() => setFilter(option.id)}
-              >
-                <span>{shelfText(locale, option.label)}</span>
-                <small>{count}</small>
-              </button>
-            )
-          })}
+                aria-label={t('close')}
+                onClick={() => setFilterMenuOpen(false)}
+              />
+              <div className="shelf-filter-menu__list" role="listbox" aria-label={t('shelf_title')}>
+                {filters.map((option) => {
+                  const count = counts[option.id]
+                  if (option.id === 'other' && count === 0) return null
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="option"
+                      aria-selected={filter === option.id}
+                      className={filter === option.id ? 'is-active' : ''}
+                      onClick={() => {
+                        setFilter(option.id)
+                        setFilterMenuOpen(false)
+                      }}
+                    >
+                      <span>{shelfText(locale, option.label)}</span>
+                      <small>{count}</small>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="shelf-view-toggle" role="group" aria-label="Visualização">
@@ -164,6 +223,15 @@ export function ShelfPage() {
           >
             <span className="view-icon view-icon--list" aria-hidden="true"><i /><i /><i /></span>
             <span className="sr-only">{shelfText(locale, 'list')}</span>
+          </button>
+          <button
+            type="button"
+            className={view === 'spines' ? 'is-active' : ''}
+            aria-pressed={view === 'spines'}
+            onClick={() => setView('spines')}
+          >
+            <span className="view-icon view-icon--spines" aria-hidden="true"><i /><i /><i /><i /></span>
+            <span className="sr-only">{shelfText(locale, 'spines')}</span>
           </button>
         </div>
       </div>
@@ -218,17 +286,21 @@ export function ShelfPage() {
       )}
 
       {status === 'ready' && visibleReadings.length > 0 && (
-        <div className={`shelf-books shelf-books--${view}`}>
-          {visibleReadings.map((reading) => (
-            <ShelfBookCard
-              key={reading.leitura_id}
-              reading={reading}
-              view={view}
-              locale={locale}
-              onOpen={setSelected}
-            />
-          ))}
-        </div>
+        view === 'spines' ? (
+          <SpineShelf readings={visibleReadings} locale={locale} onOpen={setSelected} />
+        ) : (
+          <div className={`shelf-books shelf-books--${view}`}>
+            {visibleReadings.map((reading) => (
+              <ShelfBookCard
+                key={reading.leitura_id}
+                reading={reading}
+                view={view}
+                locale={locale}
+                onOpen={setSelected}
+              />
+            ))}
+          </div>
+        )
       )}
 
       <ReadingDetailPanel

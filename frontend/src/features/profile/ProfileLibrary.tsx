@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon'
 import type { Locale } from '../../i18n'
 import type { ProfileReading } from '../../types/profile'
 import { profileText } from './profileI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface ProfileShelfProps {
   readings: ProfileReading[]
@@ -89,7 +90,7 @@ export function ProfileShelf({ readings, locale }: ProfileShelfProps) {
                 <div>
                   <span className={`profile-status profile-status--${statusClass(reading.status)}`}>{reading.status}</span>
                   <Link to={link.to} state={link.state}><h3>{reading.titulo}</h3></Link>
-                  <p>{reading.autor}</p>
+                  <p>{formatAuthor(reading.autor)}</p>
                   {edition && <small>{edition}</small>}
                   {reading.nota !== null && <strong className="profile-book-card__rating">{reading.nota.toFixed(1)}/5</strong>}
                 </div>
@@ -127,7 +128,7 @@ export function ProfileHighlights({ readingNow, favorites, locale }: ProfileHigh
                   <Link to={link.to} state={link.state}>
                     <BookCover title={reading.titulo} author={reading.autor} url={reading.capa_url} />
                     <strong>{reading.titulo}</strong>
-                    <small>{reading.autor}</small>
+                    <small>{formatAuthor(reading.autor)}</small>
                   </Link>
                 </article>
               )
@@ -150,7 +151,7 @@ export function ProfileHighlights({ readingNow, favorites, locale }: ProfileHigh
                   <span>{String(index + 1).padStart(2, '0')}</span>
                   <div>
                     <strong>{reading.titulo}</strong>
-                    <small>{reading.autor}</small>
+                    <small>{formatAuthor(reading.autor)}</small>
                   </div>
                   {reading.nota !== null && <b>{reading.nota.toFixed(1)}</b>}
                   <Icon name="arrow" size={15} />
@@ -202,7 +203,7 @@ export function ProfileReviews({ readings, locale }: ProfileReviewsProps) {
                   <BookCover title={reading.titulo} author={reading.autor} url={reading.capa_url} />
                   <div>
                     <h3>{reading.titulo}</h3>
-                    <p>{reading.autor}</p>
+                    <p>{formatAuthor(reading.autor)}</p>
                     {reading.nota !== null && <strong>{reading.nota.toFixed(1)}/5</strong>}
                   </div>
                 </Link>

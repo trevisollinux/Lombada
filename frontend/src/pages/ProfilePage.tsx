@@ -103,10 +103,21 @@ export function ProfilePage() {
   return (
     <section className="page page--profile">
       <PageHeader
-        eyebrow={owner ? t('profile_eyebrow') : profileText(locale, 'public_profile')}
         title={owner ? t('profile_title') : profile?.nome || profileText(locale, 'public_profile')}
         description={owner ? t('profile_copy') : profile?.bio || `@${targetHandle}`}
-        aside={<span className="stage-stamp">09 · identidade</span>}
+        aside={
+          owner ? (
+            /* engrenagem no topo do perfil, como no v1 */
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={t('settings')}
+              onClick={() => window.dispatchEvent(new Event('lombada:open-settings'))}
+            >
+              <Icon name="settings" size={19} />
+            </button>
+          ) : undefined
+        }
       />
 
       {status === 'loading' && <ProfileLoading />}

@@ -9,6 +9,7 @@ import type { ShelfReading } from '../../types/reading'
 import { getReadingProgress } from './progressApi'
 import { ProgressQuickDialog } from './ProgressQuickDialog'
 import { progressText } from './progressI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface ReadingRitualCardProps {
   reading: ShelfReading
@@ -49,7 +50,7 @@ export function ReadingRitualCard({ reading, locale }: ReadingRitualCardProps) {
         <div className="reading-ritual__copy">
           <p className="eyebrow">{progressText(locale, 'continue_reading')}</p>
           <h2 id="reading-ritual-title">{reading.titulo}</h2>
-          <p className="reading-ritual__author">{reading.autor || '—'}</p>
+          <p className="reading-ritual__author">{formatAuthor(reading.autor) || '—'}</p>
           {progressLabel && <strong className="reading-ritual__position">{progressLabel}</strong>}
           <div className="reading-ritual__metrics">
             {summary && <span>{summary.sessoes} {progressText(locale, 'sessions')}</span>}

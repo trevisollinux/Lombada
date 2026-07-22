@@ -16,6 +16,7 @@ import { feedText } from './feedI18n'
 import { FollowButton } from './FollowButton'
 import { reportReview } from './reportReview'
 import { ReviewComments } from './ReviewComments'
+import { formatAuthor } from '../../utils/text'
 
 interface FeedItemCardProps {
   item: FeedItem
@@ -191,7 +192,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
           <Link to={{ pathname: '/obra', search: `?${workParams.toString()}` }} state={workState}>
             <h2>{item.livro.titulo}</h2>
           </Link>
-          <p>{item.livro.autor}</p>
+          <p>{formatAuthor(item.livro.autor)}</p>
           {editionMeta && <small>{feedText(locale, 'edition')} · {editionMeta}</small>}
           {reading.nota !== null && (
             <span className="feed-card__rating">

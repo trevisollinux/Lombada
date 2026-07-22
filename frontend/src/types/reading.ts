@@ -14,6 +14,7 @@ export interface ShelfReading {
   editora: string
   tradutor: string
   ano: number | null
+  ano_obra?: number | null
   isbn: string
   capa_url: string
   paginas: number | null
@@ -45,4 +46,4 @@ export interface ReadingStatusesResponse {
   custom: CustomReadingStatus[]
 }
 
-export type ShelfView = 'grid' | 'list'
+export type ShelfView = 'grid' | 'list' | 'spines'

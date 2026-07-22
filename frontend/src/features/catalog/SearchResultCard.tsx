@@ -6,6 +6,7 @@ import type { Locale } from '../../i18n'
 import { trackProductEvent } from '../../services/analytics'
 import type { CatalogWork } from '../../types/catalog'
 import { catalogText } from './catalogI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface SearchResultCardProps {
   work: CatalogWork
@@ -57,7 +58,7 @@ export function SearchResultCard({ work, locale, source = 'search' }: SearchResu
             {[work.ano, work.editora].filter(Boolean).join(' · ') || catalogText(locale, 'edition')}
           </p>
           <h2>{work.titulo}</h2>
-          <p className="catalog-result__author">{work.autor || '—'}</p>
+          <p className="catalog-result__author">{formatAuthor(work.autor) || '—'}</p>
         </div>
 
         {social.length > 0 && (
