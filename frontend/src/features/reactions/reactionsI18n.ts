@@ -7,6 +7,10 @@ export type ReactionsTextKey =
   | 'error'
   | 'reactions_one'
   | 'reactions_many'
+  | 'inbox_label'
+  | 'inbox_title'
+  | 'inbox_empty'
+  | 'unread'
 
 const labels: Record<Locale, Record<ReactionType, string>> = {
   'pt-BR': {
@@ -28,6 +32,10 @@ const messages: Record<Locale, Record<ReactionsTextKey, string>> = {
     error: 'Não consegui atualizar sua reação agora.',
     reactions_one: '1 reação',
     reactions_many: '{count} reações',
+    inbox_label: 'retorno social',
+    inbox_title: 'Reações às suas críticas',
+    inbox_empty: 'Ninguém reagiu às suas críticas ainda.',
+    unread: 'nova',
   },
   en: {
     heading: 'Literary reactions',
@@ -35,7 +43,16 @@ const messages: Record<Locale, Record<ReactionsTextKey, string>> = {
     error: "I couldn't update your reaction right now.",
     reactions_one: '1 reaction',
     reactions_many: '{count} reactions',
+    inbox_label: 'social return',
+    inbox_title: 'Reactions to your reviews',
+    inbox_empty: 'No one has reacted to your reviews yet.',
+    unread: 'new',
   },
+}
+
+export function reactionsCountLabel(locale: Locale, count: number): string {
+  const template = count === 1 ? messages[locale].reactions_one : messages[locale].reactions_many
+  return template.replace('{count}', String(count))
 }
 
 export const reactionIcons: Record<ReactionType, string> = {

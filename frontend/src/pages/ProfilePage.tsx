@@ -10,6 +10,8 @@ import { ProfileHighlights, ProfileReviews, ProfileShelf } from '../features/pro
 import { ProfilePeoplePanel } from '../features/profile/ProfilePeoplePanel'
 import { ProfileTexts } from '../features/profile/ProfileTexts'
 import { profileText } from '../features/profile/profileI18n'
+import { ReactionInbox } from '../features/reactions/ReactionInbox'
+import { useFeatureFlags } from '../providers/FeatureFlagsProvider'
 import { usePreferences } from '../providers/PreferencesProvider'
 import { useSession } from '../providers/SessionProvider'
 import { getMyProfileTexts, getPublicProfile } from '../services/api'
@@ -21,6 +23,7 @@ type PeopleDirection = 'followers' | 'following'
 export function ProfilePage() {
   const { handle: routeHandle } = useParams<{ handle?: string }>()
   const { locale, t } = usePreferences()
+  const { enabled } = useFeatureFlags()
   const { account, status: sessionStatus, refresh } = useSession()
   const [profile, setProfile] = useState<PublicProfileResponse | null>(null)
   const [myTexts, setMyTexts] = useState<ProfileText[]>([])
@@ -174,6 +177,10 @@ export function ProfilePage() {
 
           {owner && (
             <ProfileIdentityEditor account={account} locale={locale} onChanged={reloadProfile} />
+          )}
+
+          {owner && account.logado && enabled('literary_reactions') && (
+            <ReactionInbox locale={locale} />
           )}
 
           <div className="profile-metric-grid">

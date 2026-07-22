@@ -27,7 +27,12 @@ import type {
 } from '../types/feed'
 import type { PeriodRecap, RecapPeriod } from '../types/memories'
 import type { AppNotification, UnreadNotificationsResponse } from '../types/notifications'
-import type { ReactionMutationResponse, ReactionSummary, ReactionType } from '../types/reactions'
+import type {
+  ReactionInboxResponse,
+  ReactionMutationResponse,
+  ReactionSummary,
+  ReactionType,
+} from '../types/reactions'
 import type {
   AvatarMutationResponse,
   ProfileMutation,
@@ -388,5 +393,15 @@ export function setReviewReaction(
 export function removeReviewReaction(readingId: number): Promise<ReactionMutationResponse> {
   return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
     method: 'DELETE',
+  })
+}
+
+export function getReactionInbox(signal?: AbortSignal): Promise<ReactionInboxResponse> {
+  return apiGet<ReactionInboxResponse>('/api/eu/reacoes-literarias', signal)
+}
+
+export function markReactionInboxSeen(): Promise<{ seen: boolean; seen_at: string }> {
+  return apiRequest<{ seen: boolean; seen_at: string }>('/api/eu/reacoes-literarias/vistas', {
+    method: 'POST',
   })
 }

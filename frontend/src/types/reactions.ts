@@ -20,3 +20,21 @@ export interface ReactionMutationResponse extends ReactionSummary {
   action: string
   removed?: boolean
 }
+
+export interface ReactionInboxGroup {
+  reading_id: number
+  counts: Record<ReactionType, number>
+  total: number
+  last_at: string
+  unread: boolean
+  title: string
+  author: string
+  cover_url: string
+}
+
+export interface ReactionInboxResponse {
+  groups: ReactionInboxGroup[]
+  unread_groups: number
+  grouped: boolean
+  individual_notifications: boolean
+}
