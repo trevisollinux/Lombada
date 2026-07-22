@@ -1796,3 +1796,40 @@ button:disabled {
   background: #f4efe6;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------- */
+/* Aviso de nova versão (checagem de /api/version)            */
+/* ---------------------------------------------------------- */
+
+.version-banner {
+  position: fixed;
+  right: 16px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  left: 16px;
+  z-index: 70;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 460px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-line);
+  border-radius: 14px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-pop);
+  font-size: 14px;
+}
+
+.version-banner__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .version-banner {
+    bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}

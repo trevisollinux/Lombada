@@ -57,6 +57,9 @@ export type TranslationKey =
   | 'cold_start_error'
   | 'cold_start_error_hint'
   | 'cold_start_reload'
+  | 'update_available'
+  | 'update_action'
+  | 'update_dismiss'
   | 'followers'
   | 'following'
   | 'owned_editions'
@@ -132,6 +135,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     cold_start_error: 'Não consegui carregar agora.',
     cold_start_error_hint: 'Verifique a conexão ou recarregue a página.',
     cold_start_reload: 'Recarregar',
+    update_available: 'Nova versão da Lombada disponível.',
+    update_action: 'Atualizar',
+    update_dismiss: 'Agora não',
     followers: 'seguidores',
     following: 'seguindo',
     owned_editions: 'edições na coleção',
@@ -206,6 +212,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     cold_start_error: "Couldn't load right now.",
     cold_start_error_hint: 'Check your connection or reload the page.',
     cold_start_reload: 'Reload',
+    update_available: 'A new version of Lombada is available.',
+    update_action: 'Update',
+    update_dismiss: 'Not now',
     followers: 'followers',
     following: 'following',
     owned_editions: 'editions owned',

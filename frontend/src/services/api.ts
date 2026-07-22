@@ -401,6 +401,15 @@ export function removeReviewReaction(readingId: number): Promise<ReactionMutatio
   })
 }
 
+export interface AppVersion {
+  version: string
+  app: string
+}
+
+export function getAppVersion(signal?: AbortSignal): Promise<AppVersion> {
+  return apiGet<AppVersion>('/api/version', signal)
+}
+
 export interface AppConfig {
   amazon_tag: string
 }

@@ -8,6 +8,7 @@ import { AccountAvatar } from './AccountAvatar'
 import { ColdStartNotice } from './ColdStartNotice'
 import { Icon, type IconName } from './Icon'
 import { SettingsPanel } from './SettingsPanel'
+import { VersionWatcher } from './VersionWatcher'
 
 /* Glifo "L" da lombada, o mesmo do favicon e do selo do app legado. */
 function BrandGlyph() {
@@ -225,6 +226,7 @@ export function AppLayout() {
       )}
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <VersionWatcher />
     </div>
   )
 }
