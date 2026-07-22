@@ -1075,10 +1075,19 @@ index c23ab7d..6fc9f89 100644
                <Route element={<AppLayout />}>
                  <Route index element={<SearchPage />} />
 diff --git a/frontend/src/components/AppLayout.tsx b/frontend/src/components/AppLayout.tsx
-index 1be8f2d..125a5ac 100644
+index b83496d..0be2864 100644
 --- a/frontend/src/components/AppLayout.tsx
 +++ b/frontend/src/components/AppLayout.tsx
-@@ -8,6 +8,24 @@ import { ColdStartNotice } from './ColdStartNotice'
+@@ -1,14 +1,32 @@
+ import { useEffect, useState } from 'react'
+ import { Link, NavLink, Outlet, useLocation } from 'react-router'
+ 
++import { NotificationsCenter } from '../features/notifications/NotificationsCenter'
+ import { usePreferences } from '../providers/PreferencesProvider'
+ import { useSession } from '../providers/SessionProvider'
+-import { NotificationsCenter } from '../features/notifications/NotificationsCenter'
+ import { AccountAvatar } from './AccountAvatar'
+ import { ColdStartNotice } from './ColdStartNotice'
  import { Icon, type IconName } from './Icon'
  import { SettingsPanel } from './SettingsPanel'
  
@@ -1103,7 +1112,7 @@ index 1be8f2d..125a5ac 100644
  interface NavigationItem {
    to: string
    label: 'nav_search' | 'nav_explore' | 'nav_feed' | 'nav_shelf' | 'nav_diary' | 'nav_memories' | 'nav_profile'
-@@ -25,7 +43,9 @@ const navigationItems: NavigationItem[] = [
+@@ -26,7 +44,9 @@ const navigationItems: NavigationItem[] = [
    { to: '/perfil', label: 'nav_profile', icon: 'profile' },
  ]
  
@@ -1114,7 +1123,7 @@ index 1be8f2d..125a5ac 100644
    navigationItems.find((item) => item.to === path) as NavigationItem
  ))
  
-@@ -42,6 +62,13 @@ export function AppLayout() {
+@@ -43,6 +63,13 @@ export function AppLayout() {
      window.scrollTo({ top: 0, behavior: 'auto' })
    }, [location.pathname])
  
@@ -1128,7 +1137,7 @@ index 1be8f2d..125a5ac 100644
    useEffect(() => {
      if (!quickOpen) return
      const onKeyDown = (event: KeyboardEvent) => {
-@@ -51,31 +78,18 @@ export function AppLayout() {
+@@ -52,32 +79,20 @@ export function AppLayout() {
      return () => document.removeEventListener('keydown', onKeyDown)
    }, [quickOpen])
  
@@ -1139,7 +1148,8 @@ index 1be8f2d..125a5ac 100644
      <div className="app-frame">
        <ColdStartNotice />
        <header className="app-header">
-+        {/* topo do v1: só a marca — ajustes ficam na engrenagem do Perfil */}
++        {/* topo do v1: marca à esquerda, sino de atividade à direita —
++            ajustes ficam na engrenagem do Perfil */}
          <Link className="brand" to="/" aria-label={t('app_v2')}>
 -          <span className="brand-mark" aria-hidden="true">L</span>
 -          <span className="wordmark">lombada<span>.</span></span>
@@ -1149,6 +1159,7 @@ index 1be8f2d..125a5ac 100644
 -
 -        <div className="app-header__meta">
 -          <span className="migration-chip">{t('migration_badge')}</span>
+-          <NotificationsCenter />
 -          <button
 -            className="account-trigger"
 -            type="button"
@@ -1163,10 +1174,11 @@ index 1be8f2d..125a5ac 100644
 -            <Icon name="settings" size={19} />
 -          </button>
 -        </div>
++        <NotificationsCenter />
        </header>
  
        {status === 'error' && errorKind !== 'network' && (
-@@ -90,7 +104,20 @@ export function AppLayout() {
+@@ -92,7 +107,20 @@ export function AppLayout() {
  
        <div className="desktop-layout">
          <aside className="desktop-rail" aria-label="Navegação principal">
@@ -1188,7 +1200,7 @@ index 1be8f2d..125a5ac 100644
              {navigationItems.map((item) => (
                <NavLink
                  key={item.to}
-@@ -98,15 +125,33 @@ export function AppLayout() {
+@@ -100,15 +128,33 @@ export function AppLayout() {
                  to={item.to}
                  end={item.end}
                >
@@ -1306,7 +1318,7 @@ index 014ba5e..7bad6a3 100644
    )
  }
 diff --git a/frontend/src/components/Icon.tsx b/frontend/src/components/Icon.tsx
-index f99a58c..0e7436f 100644
+index 16b16c3..5b5ba2b 100644
 --- a/frontend/src/components/Icon.tsx
 +++ b/frontend/src/components/Icon.tsx
 @@ -21,6 +21,7 @@ export type IconName =
@@ -1314,10 +1326,10 @@ index f99a58c..0e7436f 100644
    | 'refresh'
    | 'external'
 +  | 'chevron-down'
+   | 'bell'
  
  interface IconProps extends SVGProps<SVGSVGElement> {
-   name: IconName
-@@ -42,6 +43,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
+@@ -43,6 +44,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
  
    const paths: Record<IconName, ReactNode> = {
      search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
@@ -5593,10 +5605,10 @@ index 3669551..692d891 100644
                    </div>
                  </Link>
 diff --git a/frontend/src/features/profile/profile.css b/frontend/src/features/profile/profile.css
-index fc9242a..99072d5 100644
+index 801b7d9..bb19ef3 100644
 --- a/frontend/src/features/profile/profile.css
 +++ b/frontend/src/features/profile/profile.css
-@@ -1,316 +1,332 @@
+@@ -1,94 +1,126 @@
 -.page--profile {
 -  display: grid;
 -  gap: 0;
@@ -5765,6 +5777,10 @@ index fc9242a..99072d5 100644
 +  flex-wrap: wrap;
 +  align-items: center;
 +  gap: 10px;
+ }
+ 
+ .profile-editor__avatar-actions {
+@@ -99,225 +131,209 @@
  }
  
  .profile-editor__avatar small {
@@ -6097,7 +6113,7 @@ index fc9242a..99072d5 100644
    background: var(--surface);
  }
  
-@@ -319,678 +335,718 @@
+@@ -326,678 +342,718 @@
    align-items: center;
    justify-content: space-between;
    gap: 12px;
@@ -7167,7 +7183,7 @@ index fc9242a..99072d5 100644
  
  .profile-loading__metrics {
    display: grid;
-@@ -999,27 +1055,47 @@
+@@ -1006,27 +1062,47 @@
  }
  
  .profile-loading__metrics i {
@@ -7224,7 +7240,7 @@ index fc9242a..99072d5 100644
    .profile-metric-grid {
      grid-template-columns: repeat(3, minmax(0, 1fr));
    }
-@@ -1027,151 +1103,15 @@
+@@ -1034,151 +1110,15 @@
    .profile-highlights {
      grid-template-columns: 1fr;
    }
@@ -10393,10 +10409,10 @@ index e2b7e24..039c3cf 100644
  
        <ReadingDetailPanel
 diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
-index 2161ecf..3c9e7d6 100644
+index ea67438..919de73 100644
 --- a/frontend/src/services/api.ts
 +++ b/frontend/src/services/api.ts
-@@ -41,6 +41,7 @@ import type {
+@@ -42,6 +42,7 @@ import type {
    ReadingStatusesResponse,
    ShelfReading,
  } from '../types/reading'
@@ -10404,7 +10420,7 @@ index 2161ecf..3c9e7d6 100644
  
  export class ApiError extends Error {
    readonly status: number
-@@ -72,6 +73,10 @@ async function readError(response: Response): Promise<{ message: string; detail?
+@@ -73,6 +74,10 @@ async function readError(response: Response): Promise<{ message: string; detail?
  }
  
  async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
