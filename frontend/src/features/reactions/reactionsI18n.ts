@@ -23,6 +23,11 @@ const labels: Record<Locale, Record<ReactionType, string>> = {
     moved_me: 'This one stayed with me',
     good_reading: 'Good reading',
   },
+  es: {
+    want_to_read: 'Quiero leerlo también',
+    moved_me: 'Este me marcó',
+    good_reading: 'Buena lectura',
+  },
 }
 
 const messages: Record<Locale, Record<ReactionsTextKey, string>> = {
@@ -47,6 +52,17 @@ const messages: Record<Locale, Record<ReactionsTextKey, string>> = {
     inbox_title: 'Reactions to your reviews',
     inbox_empty: 'No one has reacted to your reviews yet.',
     unread: 'new',
+  },
+  es: {
+    heading: 'Reacciones literarias',
+    connect: 'Conecta Google para reaccionar',
+    error: 'No pude actualizar tu reacción ahora.',
+    reactions_one: '1 reacción',
+    reactions_many: '{count} reacciones',
+    inbox_label: 'retorno social',
+    inbox_title: 'Reacciones a tus reseñas',
+    inbox_empty: 'Nadie ha reaccionado a tus reseñas todavía.',
+    unread: 'nueva',
   },
 }
 

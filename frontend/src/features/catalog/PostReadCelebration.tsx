@@ -36,6 +36,17 @@ const copy = {
     later: 'Not now',
     untitled: 'Untitled book',
   },
+  es: {
+    kicker: 'tras la lectura',
+    title: 'Lectura registrada.',
+    message: (t: string) => `${t} se añadió a tus libros leídos.`,
+    milestone: (n: number) => `tu ${n}º libro leído`,
+    share: 'Compartir lectura',
+    diary: 'Escribir en el diario',
+    shelf: 'Ver en la estantería',
+    later: 'Ahora no',
+    untitled: 'Libro sin título',
+  },
 } as const
 
 function ordinal(n: number): string {

@@ -102,6 +102,14 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             >
               {t('english')}
             </button>
+            <button
+              type="button"
+              className={locale === 'es' ? 'is-active' : ''}
+              aria-pressed={locale === 'es'}
+              onClick={() => setLocale('es')}
+            >
+              {t('spanish')}
+            </button>
           </div>
         </section>
 

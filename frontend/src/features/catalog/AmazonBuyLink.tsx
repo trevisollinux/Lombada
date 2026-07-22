@@ -45,7 +45,8 @@ export function AmazonBuyLink({ isbn, fallback, locale, className = '' }: Amazon
   if (!term) return null
 
   const url = `https://www.amazon.com.br/s?k=${encodeURIComponent(term)}&tag=${encodeURIComponent(tag)}`
-  const label = locale === 'en' ? 'Buy on Amazon' : 'Comprar na Amazon'
+  const label =
+    locale === 'en' ? 'Buy on Amazon' : locale === 'es' ? 'Comprar en Amazon' : 'Comprar na Amazon'
 
   return (
     <a

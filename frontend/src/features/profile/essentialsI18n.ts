@@ -58,6 +58,25 @@ const messages: Record<Locale, Record<EssentialsTextKey, string>> = {
     close: 'Close essentials editor',
     position: 'Position {n}',
   },
+  es: {
+    label: 'identidad literaria',
+    title: 'Cuatro esenciales',
+    hint: 'Hasta cuatro libros de tu estantería que dicen algo sobre ti como lector.',
+    empty: 'Tu retrato literario empieza con un libro.',
+    choose: 'Elegir mis esenciales',
+    edit: 'Editar esenciales',
+    editor_title: 'Elige tus esenciales',
+    editor_hint: 'Toca para añadir o quitar. El orden sigue tu elección; hasta cuatro.',
+    selected: 'Seleccionados',
+    shelf: 'Tu estantería',
+    save: 'Guardar esenciales',
+    saving: 'Guardando…',
+    cancel: 'Cancelar',
+    no_shelf: 'Añade libros a tu estantería antes de elegir tus esenciales.',
+    save_error: 'No pude guardar tus esenciales ahora.',
+    close: 'Cerrar editor de esenciales',
+    position: 'Posición {n}',
+  },
 }
 
 export function essentialsText(locale: Locale, key: EssentialsTextKey): string {
