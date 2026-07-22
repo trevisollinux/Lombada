@@ -37,6 +37,10 @@ export type ExploreTextKey =
   | 'coverage'
   | 'explore_publisher'
   | 'active_filters'
+  | 'search_filters_title'
+  | 'search_filters_hint'
+  | 'see_results'
+  | 'open_filters'
 
 const messages: Record<Locale, Record<ExploreTextKey, string>> = {
   'pt-BR': {
@@ -76,6 +80,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     coverage: 'com capa',
     explore_publisher: 'Explorar editora',
     active_filters: 'Filtros ativos',
+    search_filters_title: 'Filtros da busca',
+    search_filters_hint: 'Refine por editora, ordenação e sinais da comunidade.',
+    see_results: 'Ver resultados',
+    open_filters: 'Filtros',
   },
   en: {
     eyebrow: 'editorial discovery',
@@ -114,6 +122,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     coverage: 'with covers',
     explore_publisher: 'Explore publisher',
     active_filters: 'Active filters',
+    search_filters_title: 'Search filters',
+    search_filters_hint: 'Refine by publisher, sorting and community signals.',
+    see_results: 'See results',
+    open_filters: 'Filters',
   },
 }
 
