@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 
 import { usePreferences } from '../providers/PreferencesProvider'
 import { useSession } from '../providers/SessionProvider'
+import { NotificationsCenter } from '../features/notifications/NotificationsCenter'
 import { AccountAvatar } from './AccountAvatar'
 import { ColdStartNotice } from './ColdStartNotice'
 import { Icon, type IconName } from './Icon'
@@ -62,6 +63,7 @@ export function AppLayout() {
 
         <div className="app-header__meta">
           <span className="migration-chip">{t('migration_badge')}</span>
+          <NotificationsCenter />
           <button
             className="account-trigger"
             type="button"

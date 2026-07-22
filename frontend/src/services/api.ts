@@ -26,6 +26,7 @@ import type {
   ReviewStateResponse,
 } from '../types/feed'
 import type { PeriodRecap, RecapPeriod } from '../types/memories'
+import type { AppNotification, UnreadNotificationsResponse } from '../types/notifications'
 import type {
   AvatarMutationResponse,
   ProfileMutation,
@@ -343,4 +344,20 @@ export function getPeriodRecap(
 ): Promise<PeriodRecap> {
   const params = new URLSearchParams({ period, offset: String(offset) })
   return apiGet<PeriodRecap>(`/api/eu/retrospectiva?${params.toString()}`, signal)
+}
+
+export function getUnreadNotifications(
+  signal?: AbortSignal,
+): Promise<UnreadNotificationsResponse> {
+  return apiGet<UnreadNotificationsResponse>('/api/notificacoes/nao-lidas', signal)
+}
+
+/* Abrir a central já marca tudo como lido no servidor — por isso o GET
+   também zera a contagem de não-lidas. */
+export function getNotifications(
+  limit = 30,
+  signal?: AbortSignal,
+): Promise<AppNotification[]> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  return apiGet<AppNotification[]>(`/api/notificacoes?${params.toString()}`, signal)
 }

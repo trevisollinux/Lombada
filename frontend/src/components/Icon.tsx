@@ -21,6 +21,7 @@ export type IconName =
   | 'arrow'
   | 'refresh'
   | 'external'
+  | 'bell'
 
 interface IconProps extends SVGProps<SVGSVGElement> {
   name: IconName
@@ -61,6 +62,7 @@ export function Icon({ name, size = 22, ...props }: IconProps) {
     arrow: <><path d="M5 12h14" /><path d="m14 7 5 5-5 5" /></>,
     refresh: <><path d="M20 6v5h-5" /><path d="M4 18v-5h5" /><path d="M6.1 9A7 7 0 0 1 18.5 6.5L20 11" /><path d="M17.9 15A7 7 0 0 1 5.5 17.5L4 13" /></>,
     external: <><path d="M14 5h5v5" /><path d="m10 14 9-9" /><path d="M19 13v6H5V5h6" /></>,
+    bell: <><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10.5 20a2 2 0 0 0 3 0" /></>,
   }
 
   return <svg {...common} {...props}>{paths[name]}</svg>
