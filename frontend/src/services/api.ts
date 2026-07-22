@@ -401,6 +401,14 @@ export function removeReviewReaction(readingId: number): Promise<ReactionMutatio
   })
 }
 
+export interface AppConfig {
+  amazon_tag: string
+}
+
+export function getAppConfig(signal?: AbortSignal): Promise<AppConfig> {
+  return apiGet<AppConfig>('/api/config', signal)
+}
+
 export interface ManualBookPayload {
   titulo: string
   autor: string

@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router'
 
 import { BookCover } from '../components/BookCover'
 import { Icon } from '../components/Icon'
+import { AmazonBuyLink } from '../features/catalog/AmazonBuyLink'
 import { PostReadCelebration } from '../features/catalog/PostReadCelebration'
 import { ReadingRegistrationForm } from '../features/catalog/ReadingRegistrationForm'
 import { catalogText } from '../features/catalog/catalogI18n'
@@ -327,6 +328,11 @@ export function WorkPage() {
                   >
                     {catalogText(locale, 'register')}
                   </button>
+                  <AmazonBuyLink
+                    isbn={edition.isbn}
+                    fallback={`${work.titulo} ${work.autor}`.trim()}
+                    locale={locale}
+                  />
                 </div>
               </article>
             )
