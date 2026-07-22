@@ -24,3 +24,13 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>,
 )
+
+/* PWA: o sw.js cacheia o shell (offline + instalável). Só em produção —
+   no dev o Vite serve módulos soltos e o worker atrapalharia o HMR. */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch(() => {})
+  })
+}
