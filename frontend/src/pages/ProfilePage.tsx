@@ -10,6 +10,7 @@ import { ProfileHighlights, ProfileReviews, ProfileShelf } from '../features/pro
 import { ProfilePeoplePanel } from '../features/profile/ProfilePeoplePanel'
 import { ProfileTexts } from '../features/profile/ProfileTexts'
 import { profileText } from '../features/profile/profileI18n'
+import { EssentialBooks } from '../features/profile/EssentialBooks'
 import { ReactionInbox } from '../features/reactions/ReactionInbox'
 import { useFeatureFlags } from '../providers/FeatureFlagsProvider'
 import { usePreferences } from '../providers/PreferencesProvider'
@@ -181,6 +182,15 @@ export function ProfilePage() {
 
           {owner && account.logado && enabled('literary_reactions') && (
             <ReactionInbox locale={locale} />
+          )}
+
+          {enabled('favorite_books') && (
+            <EssentialBooks
+              handle={profile.handle}
+              owner={owner}
+              canEdit={owner && account.logado}
+              locale={locale}
+            />
           )}
 
           <div className="profile-metric-grid">

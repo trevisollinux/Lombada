@@ -25,6 +25,11 @@ import type {
   ReviewSavedResponse,
   ReviewStateResponse,
 } from '../types/feed'
+import type {
+  EssentialBook,
+  MyEssentialsResponse,
+  PublicEssentialsResponse,
+} from '../types/essentials'
 import type { PeriodRecap, RecapPeriod } from '../types/memories'
 import type { AppNotification, UnreadNotificationsResponse } from '../types/notifications'
 import type {
@@ -393,6 +398,26 @@ export function setReviewReaction(
 export function removeReviewReaction(readingId: number): Promise<ReactionMutationResponse> {
   return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
     method: 'DELETE',
+  })
+}
+
+export function getMyEssentials(signal?: AbortSignal): Promise<MyEssentialsResponse> {
+  return apiGet<MyEssentialsResponse>('/api/eu/essenciais', signal)
+}
+
+export function getPublicEssentials(
+  handle: string,
+  signal?: AbortSignal,
+): Promise<PublicEssentialsResponse> {
+  return apiGet<PublicEssentialsResponse>(`/api/u/${encodeURIComponent(handle)}/essenciais`, signal)
+}
+
+export function putEssentials(
+  workKeys: string[],
+): Promise<{ books: EssentialBook[]; saved: boolean; limit: number }> {
+  return apiRequest('/api/eu/essenciais', {
+    method: 'PUT',
+    body: JSON.stringify({ work_keys: workKeys }),
   })
 }
 
