@@ -401,6 +401,34 @@ export function removeReviewReaction(readingId: number): Promise<ReactionMutatio
   })
 }
 
+export interface ManualBookPayload {
+  titulo: string
+  autor: string
+  ano_obra?: number | null
+  idioma_original?: string
+  titulo_edicao?: string
+  editora?: string
+  tradutor?: string
+  isbn?: string
+  idioma?: string
+  ano_edicao?: number | null
+  capa_url?: string
+  paginas?: number | null
+}
+
+export interface ManualBookResponse {
+  suggestion_id: number
+  status: string
+  message: string
+}
+
+export function submitManualBook(payload: ManualBookPayload): Promise<ManualBookResponse> {
+  return apiRequest<ManualBookResponse>('/api/manual', {
+    method: 'POST',
+    body: JSON.stringify({ work_key: '', status: 'Lido', ...payload }),
+  })
+}
+
 export function getMyEssentials(signal?: AbortSignal): Promise<MyEssentialsResponse> {
   return apiGet<MyEssentialsResponse>('/api/eu/essenciais', signal)
 }

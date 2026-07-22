@@ -754,3 +754,176 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------- */
+/* Cadastro manual de livro                                   */
+/* ---------------------------------------------------------- */
+
+.catalog-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.manual-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.manual-form {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 24px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-pop);
+}
+
+.manual-form__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.manual-form__header h2 {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 600;
+}
+
+.manual-form__body {
+  display: grid;
+  gap: 18px;
+}
+
+.manual-form__group {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.manual-form__group legend {
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.manual-form__row {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .manual-form__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.manual-form__field {
+  display: grid;
+  gap: 6px;
+}
+
+.manual-form__field > span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.manual-form__field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  color: var(--text);
+  background: var(--surface-inset);
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.manual-form__field input:focus {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+.manual-form__error {
+  color: var(--danger);
+  font-size: 13.5px;
+  font-style: italic;
+}
+
+.manual-form__actions {
+  position: sticky;
+  bottom: calc(-24px - env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 -24px calc(-24px - env(safe-area-inset-bottom));
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--surface-solid) 74%, transparent);
+}
+
+.manual-form__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.manual-form__done-glyph {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 24px;
+}
+
+.manual-form__done h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.manual-form__done p {
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}

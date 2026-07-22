@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { BookCover } from '../../components/BookCover'
 import { Icon } from '../../components/Icon'
+import { Portal } from '../../components/Portal'
 import type { Locale } from '../../i18n'
 import {
   getMyEssentials,
@@ -180,6 +181,7 @@ function EssentialsEditor({ locale, initial, onClose, onSaved }: EssentialsEdito
   }
 
   return (
+    <Portal>
     <div className="panel-layer" role="presentation">
       <button className="panel-backdrop" type="button" aria-label={essentialsText(locale, 'close')} onClick={saving ? undefined : onClose} />
       <section className="essentials-editor" role="dialog" aria-modal="true" aria-labelledby="essentials-editor-title">
@@ -266,5 +268,6 @@ function EssentialsEditor({ locale, initial, onClose, onSaved }: EssentialsEdito
         </footer>
       </section>
     </div>
+    </Portal>
   )
 }

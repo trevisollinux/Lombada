@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { Icon } from '../../components/Icon'
+import { Portal } from '../../components/Portal'
 import { SelectMenu } from '../../components/SelectMenu'
 import type { Locale } from '../../i18n'
 import type { CatalogPublisher, CatalogSort } from '../../types/catalog'
@@ -61,6 +62,7 @@ export function SearchFilterSheet({
   const active = countActiveFilters(filters)
 
   return (
+    <Portal>
     <div className="panel-layer" role="presentation">
       <button
         className="panel-backdrop"
@@ -163,6 +165,7 @@ export function SearchFilterSheet({
         </footer>
       </section>
     </div>
+    </Portal>
   )
 }
 

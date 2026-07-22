@@ -9,7 +9,9 @@ import {
   countActiveFilters,
   type SearchFilters,
 } from '../features/catalog/SearchFilterSheet'
+import { ManualBookForm } from '../features/catalog/ManualBookForm'
 import { catalogText } from '../features/catalog/catalogI18n'
+import { manualText } from '../features/catalog/manualI18n'
 import { exploreText } from '../features/explore/exploreI18n'
 import {
   ONBOARDING_DISMISSED,
@@ -88,6 +90,7 @@ export function SearchPage() {
   const [error, setError] = useState<string | null>(null)
   const [publishers, setPublishers] = useState<CatalogPublisher[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
 
   // filtros derivam da URL (mesmas chaves do Explorar); a string dos params
   // vira a chave estável do efeito de busca
@@ -381,20 +384,41 @@ export function SearchPage() {
           <Icon name="search" size={32} />
           <h2>{catalogText(locale, 'no_results')}</h2>
           <p>{catalogText(locale, 'no_results_copy')}</p>
-          {activeFilters > 0 && (
-            <button className="button button--secondary" type="button" onClick={clearFilters}>
-              {exploreText(locale, 'clear')}
+          <div className="catalog-state__actions">
+            {activeFilters > 0 && (
+              <button className="button button--secondary" type="button" onClick={clearFilters}>
+                {exploreText(locale, 'clear')}
+              </button>
+            )}
+            <button className="button button--primary" type="button" onClick={() => setManualOpen(true)}>
+              {manualText(locale, 'cta_button')}
             </button>
-          )}
+          </div>
         </section>
       )}
 
       {status === 'ready' && results.length > 0 && (
-        <div className="catalog-results">
-          {results.map((work) => (
-            <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} source={resultSource} />
-          ))}
-        </div>
+        <>
+          <div className="catalog-results">
+            {results.map((work) => (
+              <SearchResultCard key={`${work.work_key}-${work.titulo}`} work={work} locale={locale} source={resultSource} />
+            ))}
+          </div>
+          <p className="manual-cta">
+            <span>{manualText(locale, 'cta_text')}</span>
+            <button type="button" className="text-button" onClick={() => setManualOpen(true)}>
+              {manualText(locale, 'cta_button')}
+            </button>
+          </p>
+        </>
+      )}
+
+      {manualOpen && (
+        <ManualBookForm
+          locale={locale}
+          initialTitle={activeQuery}
+          onClose={() => setManualOpen(false)}
+        />
       )}
     </section>
   )
