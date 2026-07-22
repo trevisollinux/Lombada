@@ -927,3 +927,107 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+/* ---------------------------------------------------------- */
+/* Celebração pós-leitura (confete + marco)                   */
+/* ---------------------------------------------------------- */
+
+.post-read .post-read__card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(440px, 100%);
+  margin: auto;
+  padding: 34px 28px 26px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-pop);
+  text-align: center;
+}
+
+.post-read__kicker {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.post-read__card h2 {
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 600;
+}
+
+.post-read__message {
+  max-width: 34ch;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.post-read__milestone {
+  margin-top: 2px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.post-read__actions {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.post-read__later {
+  margin-top: 4px;
+}
+
+/* confete */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -12px;
+  width: 9px;
+  height: 14px;
+  opacity: 0;
+  animation: confetti-fall var(--dur, 1600ms) var(--delay, 0ms) ease-in forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, -10px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx, 0), 105vh) rotate(var(--rot, 360deg));
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+}
