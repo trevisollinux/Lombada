@@ -1,0 +1,116 @@
+/* ---------------------------------------------------------- */
+/* Reações literárias (barra em críticas públicas)            */
+/* ---------------------------------------------------------- */
+
+.literary-reactions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.literary-reactions[aria-busy='true'] {
+  opacity: 0.62;
+}
+
+.literary-reactions__label {
+  margin-bottom: 9px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.literary-reactions__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.literary-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: border-color 0.2s var(--ease-out), color 0.2s var(--ease-out), background 0.2s var(--ease-out);
+}
+
+.literary-reaction-chip:not(:disabled):hover {
+  border-color: var(--accent-line);
+  color: var(--accent-strong);
+}
+
+.literary-reaction-chip.is-active {
+  border-color: var(--accent-line);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.literary-reaction-chip.is-readonly {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.literary-reaction-chip:disabled:not(.is-readonly) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.literary-reaction-chip__icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.literary-reaction-chip b {
+  min-width: 16px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  font-size: 9px;
+  text-align: center;
+}
+
+.literary-reactions__error,
+.literary-reactions__connect {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.literary-reactions__connect a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .literary-reactions__chips {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .literary-reaction-chip {
+    justify-content: flex-start;
+  }
+
+  .literary-reaction-chip b {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .literary-reaction-chip {
+    transition: none;
+  }
+}

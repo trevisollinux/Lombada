@@ -13,6 +13,7 @@ import './features/profile/profile.css'
 import './features/memories/memories.css'
 import './features/progress/progress.css'
 import './features/notifications/notifications.css'
+import './features/reactions/reactions.css'
 
 const rootElement = document.getElementById('root')
 

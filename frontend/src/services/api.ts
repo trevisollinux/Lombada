@@ -27,6 +27,7 @@ import type {
 } from '../types/feed'
 import type { PeriodRecap, RecapPeriod } from '../types/memories'
 import type { AppNotification, UnreadNotificationsResponse } from '../types/notifications'
+import type { ReactionMutationResponse, ReactionSummary, ReactionType } from '../types/reactions'
 import type {
   AvatarMutationResponse,
   ProfileMutation,
@@ -365,4 +366,27 @@ export function getNotifications(
 ): Promise<AppNotification[]> {
   const params = new URLSearchParams({ limit: String(limit) })
   return apiGet<AppNotification[]>(`/api/notificacoes?${params.toString()}`, signal)
+}
+
+export function getReviewReactions(
+  readingId: number,
+  signal?: AbortSignal,
+): Promise<ReactionSummary> {
+  return apiGet<ReactionSummary>(`/api/reviews/${readingId}/reactions`, signal)
+}
+
+export function setReviewReaction(
+  readingId: number,
+  reactionType: ReactionType,
+): Promise<ReactionMutationResponse> {
+  return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
+    method: 'PUT',
+    body: JSON.stringify({ reaction_type: reactionType }),
+  })
+}
+
+export function removeReviewReaction(readingId: number): Promise<ReactionMutationResponse> {
+  return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
+    method: 'DELETE',
+  })
 }
