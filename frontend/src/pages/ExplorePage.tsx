@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
@@ -419,6 +419,10 @@ function DiscoveryHome({
               </button>
             ))}
           </div>
+          <Link className="explore-see-all" to="/editoras">
+            {exploreText(locale, 'see_all_publishers')}
+            <Icon name="arrow" size={16} />
+          </Link>
         </section>
       )}
     </div>

@@ -8,6 +8,7 @@ import { FeedPage } from './pages/FeedPage'
 import { MemoriesPage } from './pages/MemoriesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { PublishersPage } from './pages/PublishersPage'
 import { SearchPage } from './pages/SearchPage'
 import { ShelfPage } from './pages/ShelfPage'
 import { WorkPage } from './pages/WorkPage'
@@ -26,6 +27,7 @@ export function App() {
               <Route element={<AppLayout />}>
                 <Route index element={<SearchPage />} />
                 <Route path="explorar" element={<ExplorePage />} />
+                <Route path="editoras" element={<PublishersPage />} />
                 <Route path="obra" element={<WorkPage />} />
                 <Route path="feed" element={<FeedPage />} />
                 <Route path="estante" element={<ShelfPage />} />
