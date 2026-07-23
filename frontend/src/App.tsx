@@ -21,7 +21,7 @@ export function App() {
       <FeatureFlagsProvider>
         <SessionProvider>
           <ProductAnalyticsBridge />
-          <BrowserRouter basename="/app-v2">
+          <BrowserRouter basename={import.meta.env.VITE_BASENAME || '/app-v2'}>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route index element={<SearchPage />} />

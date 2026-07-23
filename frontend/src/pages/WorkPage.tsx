@@ -3,10 +3,13 @@ import { Link, useLocation, useSearchParams } from 'react-router'
 
 import { BookCover } from '../components/BookCover'
 import { Icon } from '../components/Icon'
+import { AmazonBuyLink } from '../features/catalog/AmazonBuyLink'
+import { PostReadCelebration } from '../features/catalog/PostReadCelebration'
 import { ReadingRegistrationForm } from '../features/catalog/ReadingRegistrationForm'
 import { catalogText } from '../features/catalog/catalogI18n'
 import { usePreferences } from '../providers/PreferencesProvider'
 import {
+  getShelf,
   getWorkEditions,
   getWorkSocial,
   searchCatalog,
@@ -118,6 +121,7 @@ export function WorkPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedEdition, setSelectedEdition] = useState<CatalogEdition | null>(null)
   const [registered, setRegistered] = useState<ReadingCreateResponse | null>(null)
+  const [celebration, setCelebration] = useState<{ title: string; milestone: number } | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -183,9 +187,19 @@ export function WorkPage() {
     [editions, selectedEdition, work.capa_url],
   )
 
-  function handleRegistered(result: ReadingCreateResponse) {
+  function handleRegistered(result: ReadingCreateResponse, meta: { status: string; title: string }) {
     setRegistered(result)
     setSelectedEdition(null)
+    // livro concluído: celebração com confete + marco (Nº livro lido)
+    if (meta.status === 'Lido') {
+      setCelebration({ title: meta.title, milestone: 0 })
+      void getShelf()
+        .then((rows) => {
+          const lidos = Array.isArray(rows) ? rows.filter((row) => row.status === 'Lido').length : 0
+          setCelebration((current) => (current ? { ...current, milestone: lidos } : current))
+        })
+        .catch(() => {})
+    }
   }
 
   return (
@@ -314,11 +328,25 @@ export function WorkPage() {
                   >
                     {catalogText(locale, 'register')}
                   </button>
+                  <AmazonBuyLink
+                    isbn={edition.isbn}
+                    fallback={`${work.titulo} ${work.autor}`.trim()}
+                    locale={locale}
+                  />
                 </div>
               </article>
             )
           })}
         </div>
+      )}
+
+      {celebration && (
+        <PostReadCelebration
+          locale={locale}
+          title={celebration.title}
+          milestone={celebration.milestone}
+          onClose={() => setCelebration(null)}
+        />
       )}
     </section>
   )

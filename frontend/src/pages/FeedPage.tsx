@@ -101,10 +101,8 @@ export function FeedPage() {
   return (
     <section className="page page--feed">
       <PageHeader
-        eyebrow={t('feed_eyebrow')}
         title={t('feed_title')}
         description={t('feed_copy')}
-        aside={<span className="stage-stamp">08 · social</span>}
       />
 
       <div className="feed-toolbar">

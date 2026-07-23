@@ -10,6 +10,7 @@ import {
 import type { ChapterSuggestion, DiaryEntry, DiaryMutation, DiaryProgressType } from '../../types/diary'
 import type { ShelfReading } from '../../types/reading'
 import { diaryText } from './diaryI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface DiaryEntryFormProps {
   readings: ShelfReading[]
@@ -190,7 +191,7 @@ export function DiaryEntryForm({
           <option value="" disabled>{diaryText(locale, 'select_book')}</option>
           {readings.map((reading) => (
             <option key={reading.leitura_id} value={reading.leitura_id}>
-              {reading.titulo}{reading.autor ? ` — ${reading.autor}` : ''}
+              {reading.titulo}{formatAuthor(reading.autor) ? ` — ${formatAuthor(reading.autor)}` : ''}
             </option>
           ))}
         </select>

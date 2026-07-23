@@ -29,7 +29,8 @@ function initialTheme(): Theme {
 }
 
 function initialLocale(): Locale {
-  return localStorage.getItem(LOCALE_KEY) === 'en' ? 'en' : 'pt-BR'
+  const stored = localStorage.getItem(LOCALE_KEY)
+  return stored === 'en' || stored === 'es' ? stored : 'pt-BR'
 }
 
 export function PreferencesProvider({ children }: PropsWithChildren) {

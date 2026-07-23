@@ -25,8 +25,19 @@ import type {
   ReviewSavedResponse,
   ReviewStateResponse,
 } from '../types/feed'
+import type {
+  EssentialBook,
+  MyEssentialsResponse,
+  PublicEssentialsResponse,
+} from '../types/essentials'
 import type { PeriodRecap, RecapPeriod } from '../types/memories'
 import type { AppNotification, UnreadNotificationsResponse } from '../types/notifications'
+import type {
+  ReactionInboxResponse,
+  ReactionMutationResponse,
+  ReactionSummary,
+  ReactionType,
+} from '../types/reactions'
 import type {
   AvatarMutationResponse,
   ProfileMutation,
@@ -42,6 +53,7 @@ import type {
   ReadingStatusesResponse,
   ShelfReading,
 } from '../types/reading'
+import { DEMO_MODE, demoApiRequest } from './demo'
 
 export class ApiError extends Error {
   readonly status: number
@@ -73,6 +85,10 @@ async function readError(response: Response): Promise<{ message: string; detail?
 }
 
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
+  if (DEMO_MODE) {
+    return demoApiRequest<T>(path, init)
+  }
+
   const response = await fetch(path, {
     credentials: 'same-origin',
     headers: {
@@ -360,4 +376,102 @@ export function getNotifications(
 ): Promise<AppNotification[]> {
   const params = new URLSearchParams({ limit: String(limit) })
   return apiGet<AppNotification[]>(`/api/notificacoes?${params.toString()}`, signal)
+}
+
+export function getReviewReactions(
+  readingId: number,
+  signal?: AbortSignal,
+): Promise<ReactionSummary> {
+  return apiGet<ReactionSummary>(`/api/reviews/${readingId}/reactions`, signal)
+}
+
+export function setReviewReaction(
+  readingId: number,
+  reactionType: ReactionType,
+): Promise<ReactionMutationResponse> {
+  return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
+    method: 'PUT',
+    body: JSON.stringify({ reaction_type: reactionType }),
+  })
+}
+
+export function removeReviewReaction(readingId: number): Promise<ReactionMutationResponse> {
+  return apiRequest<ReactionMutationResponse>(`/api/reviews/${readingId}/reaction`, {
+    method: 'DELETE',
+  })
+}
+
+export interface AppVersion {
+  version: string
+  app: string
+}
+
+export function getAppVersion(signal?: AbortSignal): Promise<AppVersion> {
+  return apiGet<AppVersion>('/api/version', signal)
+}
+
+export interface AppConfig {
+  amazon_tag: string
+}
+
+export function getAppConfig(signal?: AbortSignal): Promise<AppConfig> {
+  return apiGet<AppConfig>('/api/config', signal)
+}
+
+export interface ManualBookPayload {
+  titulo: string
+  autor: string
+  ano_obra?: number | null
+  idioma_original?: string
+  titulo_edicao?: string
+  editora?: string
+  tradutor?: string
+  isbn?: string
+  idioma?: string
+  ano_edicao?: number | null
+  capa_url?: string
+  paginas?: number | null
+}
+
+export interface ManualBookResponse {
+  suggestion_id: number
+  status: string
+  message: string
+}
+
+export function submitManualBook(payload: ManualBookPayload): Promise<ManualBookResponse> {
+  return apiRequest<ManualBookResponse>('/api/manual', {
+    method: 'POST',
+    body: JSON.stringify({ work_key: '', status: 'Lido', ...payload }),
+  })
+}
+
+export function getMyEssentials(signal?: AbortSignal): Promise<MyEssentialsResponse> {
+  return apiGet<MyEssentialsResponse>('/api/eu/essenciais', signal)
+}
+
+export function getPublicEssentials(
+  handle: string,
+  signal?: AbortSignal,
+): Promise<PublicEssentialsResponse> {
+  return apiGet<PublicEssentialsResponse>(`/api/u/${encodeURIComponent(handle)}/essenciais`, signal)
+}
+
+export function putEssentials(
+  workKeys: string[],
+): Promise<{ books: EssentialBook[]; saved: boolean; limit: number }> {
+  return apiRequest('/api/eu/essenciais', {
+    method: 'PUT',
+    body: JSON.stringify({ work_keys: workKeys }),
+  })
+}
+
+export function getReactionInbox(signal?: AbortSignal): Promise<ReactionInboxResponse> {
+  return apiGet<ReactionInboxResponse>('/api/eu/reacoes-literarias', signal)
+}
+
+export function markReactionInboxSeen(): Promise<{ seen: boolean; seen_at: string }> {
+  return apiRequest<{ seen: boolean; seen_at: string }>('/api/eu/reacoes-literarias/vistas', {
+    method: 'POST',
+  })
 }

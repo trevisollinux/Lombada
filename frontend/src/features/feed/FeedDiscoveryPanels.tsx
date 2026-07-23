@@ -20,7 +20,6 @@ export function ReadingNowRail({ items, locale }: ReadingNowRailProps) {
     <section className="feed-panel feed-panel--reading-now" aria-labelledby="reading-now-title">
       <div className="feed-panel__heading">
         <div>
-          <p className="eyebrow">{feedText(locale, 'reading_now')}</p>
           <h2 id="reading-now-title">{feedText(locale, 'reading_now')}</h2>
         </div>
         <span>{items.length}</span>

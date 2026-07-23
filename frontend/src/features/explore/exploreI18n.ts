@@ -37,6 +37,10 @@ export type ExploreTextKey =
   | 'coverage'
   | 'explore_publisher'
   | 'active_filters'
+  | 'search_filters_title'
+  | 'search_filters_hint'
+  | 'see_results'
+  | 'open_filters'
 
 const messages: Record<Locale, Record<ExploreTextKey, string>> = {
   'pt-BR': {
@@ -76,6 +80,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     coverage: 'com capa',
     explore_publisher: 'Explorar editora',
     active_filters: 'Filtros ativos',
+    search_filters_title: 'Filtros da busca',
+    search_filters_hint: 'Refine por editora, ordenação e sinais da comunidade.',
+    see_results: 'Ver resultados',
+    open_filters: 'Filtros',
   },
   en: {
     eyebrow: 'editorial discovery',
@@ -114,6 +122,52 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     coverage: 'with covers',
     explore_publisher: 'Explore publisher',
     active_filters: 'Active filters',
+    search_filters_title: 'Search filters',
+    search_filters_hint: 'Refine by publisher, sorting and community signals.',
+    see_results: 'See results',
+    open_filters: 'Filters',
+  },
+  es: {
+    eyebrow: 'descubrimiento editorial',
+    title: 'Explorar',
+    copy: 'Encuentra libros por género, origen, editorial y señales reales de la comunidad.',
+    popular: 'Más leídos en Lombada',
+    paths: 'Caminos para descubrir',
+    genres: 'Géneros',
+    literatures: 'Literaturas',
+    publishers: 'Editoriales en el catálogo',
+    filters: 'Refinar descubrimiento',
+    filter_copy: 'Combina caminos editoriales y señales de calidad.',
+    publisher: 'Editorial',
+    all_publishers: 'Todas las editoriales',
+    literature: 'Literatura',
+    all_literatures: 'Todas las literaturas',
+    sort: 'Ordenar',
+    relevance: 'Relevancia',
+    most_read: 'Más leídos',
+    best_rated: 'Mejor valorados',
+    recent: 'Ediciones recientes',
+    with_reviews: 'Con reseñas públicas',
+    reading_now: 'Leyendo ahora',
+    with_cover: 'Con portada',
+    with_isbn: 'Con ISBN',
+    portuguese: 'En portugués',
+    clear: 'Limpiar filtros',
+    results: 'resultados',
+    loading: 'Preparando tu vitrina…',
+    error: 'No se pudo cargar Explorar.',
+    empty: 'No hay libros en este camino',
+    empty_copy: 'Quita un filtro o prueba otro género, literatura o editorial.',
+    show_all: 'Ver todo',
+    works: 'obras',
+    editions: 'ediciones',
+    coverage: 'con portada',
+    explore_publisher: 'Explorar editorial',
+    active_filters: 'Filtros activos',
+    search_filters_title: 'Filtros de búsqueda',
+    search_filters_hint: 'Refina por editorial, orden y señales de la comunidad.',
+    see_results: 'Ver resultados',
+    open_filters: 'Filtros',
   },
 }
 

@@ -247,12 +247,22 @@
     grid-template-columns: 1fr;
   }
 
+  /* no mobile as lombadas decorativas viram um bloco baixo e contido:
+     sem margem negativa (que sobrepunha o texto) e com altura suficiente
+     para as barras absolutas não vazarem para cima do título. */
   .onboarding-value__mark {
-    min-height: 105px;
-    transform: scale(.65);
-    transform-origin: left bottom;
-    margin-bottom: -28px;
+    min-height: 96px;
+    margin-bottom: 6px;
+    transform: none;
   }
+
+  .onboarding-value__mark span {
+    width: 26px;
+  }
+
+  .onboarding-value__mark span:nth-child(1) { left: 6px; height: 76px; }
+  .onboarding-value__mark span:nth-child(2) { left: 42px; height: 92px; }
+  .onboarding-value__mark span:nth-child(3) { left: 78px; height: 64px; }
 
   .reading-ritual__cover {
     width: 112px;

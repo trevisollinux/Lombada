@@ -16,7 +16,7 @@ interface ReadingRegistrationFormProps {
   edition: CatalogEdition
   locale: Locale
   onCancel: () => void
-  onRegistered: (result: ReadingCreateResponse) => void
+  onRegistered: (result: ReadingCreateResponse, meta: { status: string; title: string }) => void
 }
 
 const DEFAULT_STATUSES = ['Lido', 'Lendo', 'Quero ler']
@@ -118,7 +118,7 @@ export function ReadingRegistrationForm({
           // A leitura já foi salva; o armazenamento efêmero não pode bloquear o fluxo.
         }
       }
-      onRegistered(result)
+      onRegistered(result, { status, title: work.titulo })
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409) {
         setError(catalogText(locale, 'duplicate'))

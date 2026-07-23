@@ -1,9 +1,13 @@
-"""Entrega o frontend React em /app-v2 sem alterar o aplicativo legado em /."""
+"""Entrega o frontend React em /app-v2 sem alterar o aplicativo legado em /.
+
+O redesign v3 foi promovido a frontend/src (o preview /v3-kimi separado deixou
+de existir), então /app-v2 já serve o redesign. As rotas /v3-kimi ficam como
+redirecionamento permanente para /app-v2 para não quebrar links antigos."""
 
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 
 
 DEFAULT_DIST_DIR = Path(__file__).resolve().parent / "frontend" / "dist"
@@ -84,6 +88,17 @@ def create_frontend_v2_router(dist_dir: Path = DEFAULT_DIST_DIR) -> APIRouter:
     @router.get("/app-v2/{relative_path:path}")
     def app_v2_path(relative_path: str) -> Response:
         return serve(relative_path)
+
+    # /v3-kimi era o preview do redesign, hoje promovido a /app-v2. Mantém os
+    # links antigos vivos com redirect permanente, preservando o subcaminho.
+    @router.get("/v3-kimi")
+    @router.get("/v3-kimi/")
+    def v3_kimi_index_redirect() -> Response:
+        return RedirectResponse("/app-v2/", status_code=308)
+
+    @router.get("/v3-kimi/{relative_path:path}")
+    def v3_kimi_path_redirect(relative_path: str) -> Response:
+        return RedirectResponse(f"/app-v2/{relative_path}", status_code=308)
 
     return router
 

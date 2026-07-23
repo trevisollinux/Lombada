@@ -1,10 +1,11 @@
-export type Locale = 'pt-BR' | 'en'
+export type Locale = 'pt-BR' | 'en' | 'es'
 
 export type TranslationKey =
   | 'app_v2'
   | 'development_label'
   | 'settings'
   | 'close'
+  | 'nav_menu'
   | 'nav_search'
   | 'nav_explore'
   | 'nav_feed'
@@ -40,6 +41,7 @@ export type TranslationKey =
   | 'language'
   | 'portuguese'
   | 'english'
+  | 'spanish'
   | 'account'
   | 'account_anonymous'
   | 'account_google'
@@ -56,6 +58,9 @@ export type TranslationKey =
   | 'cold_start_error'
   | 'cold_start_error_hint'
   | 'cold_start_reload'
+  | 'update_available'
+  | 'update_action'
+  | 'update_dismiss'
   | 'followers'
   | 'following'
   | 'owned_editions'
@@ -79,6 +84,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     development_label: 'frontend React em migração',
     settings: 'Configurações',
     close: 'Fechar',
+    nav_menu: 'menu',
     nav_search: 'Buscar',
     nav_explore: 'Explorar',
     nav_feed: 'Feed',
@@ -90,7 +96,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     search_eyebrow: 'descobrir · registrar · lembrar',
     search_title: 'O que você está lendo?',
     search_copy: 'Busque por título, autor ou ISBN e escolha a edição que entrou na sua história.',
-    search_placeholder: 'título, autor ou ISBN…',
+    search_placeholder: 'que livro você está lendo agora?',
     search_button: 'buscar',
     search_preview: 'Consulte o catálogo e registre a edição certa na sua estante.',
     feed_eyebrow: 'comunidade',
@@ -114,6 +120,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     language: 'Idioma',
     portuguese: 'Português',
     english: 'English',
+    spanish: 'Español',
     account: 'Conta',
     account_anonymous: 'Conta anônima',
     account_google: 'Conta Google',
@@ -130,6 +137,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     cold_start_error: 'Não consegui carregar agora.',
     cold_start_error_hint: 'Verifique a conexão ou recarregue a página.',
     cold_start_reload: 'Recarregar',
+    update_available: 'Nova versão da Lombada disponível.',
+    update_action: 'Atualizar',
+    update_dismiss: 'Agora não',
     followers: 'seguidores',
     following: 'seguindo',
     owned_editions: 'edições na coleção',
@@ -152,6 +162,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     development_label: 'React frontend migration',
     settings: 'Settings',
     close: 'Close',
+    nav_menu: 'menu',
     nav_search: 'Search',
     nav_explore: 'Explore',
     nav_feed: 'Feed',
@@ -163,7 +174,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     search_eyebrow: 'discover · log · remember',
     search_title: 'What are you reading?',
     search_copy: 'Search by title, author or ISBN and choose the edition that became part of your story.',
-    search_placeholder: 'title, author or ISBN…',
+    search_placeholder: 'what book are you reading right now?',
     search_button: 'search',
     search_preview: 'Search the catalog and log the right edition on your shelf.',
     feed_eyebrow: 'community',
@@ -187,6 +198,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     language: 'Language',
     portuguese: 'Português',
     english: 'English',
+    spanish: 'Español',
     account: 'Account',
     account_anonymous: 'Anonymous account',
     account_google: 'Google account',
@@ -203,6 +215,9 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     cold_start_error: "Couldn't load right now.",
     cold_start_error_hint: 'Check your connection or reload the page.',
     cold_start_reload: 'Reload',
+    update_available: 'A new version of Lombada is available.',
+    update_action: 'Update',
+    update_dismiss: 'Not now',
     followers: 'followers',
     following: 'following',
     owned_editions: 'editions owned',
@@ -219,6 +234,84 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     go_home: 'Back to search',
     migration_badge: 'v2 in progress',
     feature_next: 'next migration step',
+  },
+  es: {
+    app_v2: 'Lombada v2',
+    development_label: 'Migración del frontend React',
+    settings: 'Ajustes',
+    close: 'Cerrar',
+    nav_menu: 'menú',
+    nav_search: 'Buscar',
+    nav_explore: 'Explorar',
+    nav_feed: 'Feed',
+    nav_shelf: 'Estantería',
+    nav_diary: 'Diario',
+    nav_memories: 'Memorias',
+    nav_profile: 'Perfil',
+    quick_action: 'Añadir',
+    search_eyebrow: 'descubre · registra · recuerda',
+    search_title: '¿Qué estás leyendo?',
+    search_copy: 'Busca por título, autor o ISBN y elige la edición que entró en tu historia.',
+    search_placeholder: '¿qué libro estás leyendo ahora?',
+    search_button: 'buscar',
+    search_preview: 'Consulta el catálogo y registra la edición correcta en tu estantería.',
+    feed_eyebrow: 'comunidad',
+    feed_title: 'Feed',
+    feed_copy: 'Lecturas, reseñas y textos de la comunidad, con interacciones en tiempo real.',
+    shelf_eyebrow: 'tu biblioteca',
+    shelf_title: 'Estantería',
+    shelf_copy: 'Todas tus lecturas, ediciones y notas en un solo lugar.',
+    diary_eyebrow: 'durante la lectura',
+    diary_title: 'Diario',
+    diary_copy: 'Progreso, impresiones y capítulos organizados a lo largo de la lectura.',
+    memories_eyebrow: 'memoria de lectura',
+    memories_title: 'Memorias',
+    memories_copy: 'Tarjetas, retrospectivas e imágenes listas para compartir o guardar.',
+    profile_eyebrow: 'tu identidad lectora',
+    profile_title: 'Perfil',
+    profile_copy: 'Los datos de abajo ya vienen de la cuenta y la sesión actuales de Lombada.',
+    appearance: 'Apariencia',
+    theme_dark: 'Oscuro',
+    theme_light: 'Claro',
+    language: 'Idioma',
+    portuguese: 'Português',
+    english: 'English',
+    spanish: 'Español',
+    account: 'Cuenta',
+    account_anonymous: 'Cuenta anónima',
+    account_google: 'Cuenta Google',
+    anonymous_hint: 'Tus lecturas quedan en esta sesión. Entra con Google para protegerlas y sincronizarlas.',
+    logged_hint: 'Tu sesión de Google usa el mismo acervo que la app actual.',
+    sign_in: 'Entrar con Google',
+    sign_out: 'Cerrar sesión',
+    open_legacy: 'Abrir app actual',
+    loading_account: 'Cargando tu cuenta…',
+    account_error: 'No se pudo cargar la cuenta ahora.',
+    retry: 'Reintentar',
+    cold_start_title: 'despertando la estantería…',
+    cold_start_hint: 'la primera visita tras un tiempo inactiva puede tardar hasta 30 segundos.',
+    cold_start_error: 'No pude cargar ahora.',
+    cold_start_error_hint: 'Revisa la conexión o recarga la página.',
+    cold_start_reload: 'Recargar',
+    update_available: 'Hay una nueva versión de Lombada.',
+    update_action: 'Actualizar',
+    update_dismiss: 'Ahora no',
+    followers: 'seguidores',
+    following: 'siguiendo',
+    owned_editions: 'ediciones en la colección',
+    wanted_editions: 'ediciones deseadas',
+    public_profile: 'Abrir perfil público',
+    quick_title: 'Registrar una lectura',
+    quick_copy: 'Busca la obra, elige la edición o añade una nota al diario.',
+    quick_register: 'Buscar y añadir',
+    quick_diary: 'Abrir diario',
+    quick_memories: 'Crear tarjeta o retrospectiva',
+    quick_legacy: 'Abrir app actual',
+    route_not_found: 'Página no encontrada',
+    route_not_found_copy: 'Esta ruta aún no existe en Lombada v2.',
+    go_home: 'Volver a buscar',
+    migration_badge: 'v2 en construcción',
+    feature_next: 'siguiente etapa de la migración',
   },
 }
 

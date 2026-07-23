@@ -7,23 +7,36 @@ interface BookCoverProps {
   className?: string
 }
 
-const palettes = [
-  ['#68272b', '#d7aa61'],
-  ['#243c48', '#d8c49a'],
-  ['#52402e', '#d7b56f'],
-  ['#353251', '#d0b8de'],
-  ['#315041', '#d9c58c'],
-] as const
+/* Arte de capa idêntica à do app legado (capaArteDados): mesmo hash FNV-1a
+   sem acentos, mesmas tintas sobre papel creme e mesmos cinco layouts, para
+   o mesmo livro ganhar a mesma capa no v1 e aqui. */
+const COVER_INKS = ['#8B0E20', '#11100E', '#1E2F3F', '#1F3A2E', '#9A4A2F', '#DCCEB6'] as const
+const COVER_PAPER = '#F1E6D2'
+const COVER_LAYOUTS = ['classic', 'modern', 'minimal', 'bold', 'stripe'] as const
 
-function hash(value: string): number {
-  return Array.from(value).reduce((total, character) => {
-    return (total * 31 + character.charCodeAt(0)) >>> 0
-  }, 7)
+function bookHash(title: string, author: string): number {
+  const text = `${title || ''}|${author || ''}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  let hash = 2166136261
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
 }
 
 export function BookCover({ title, author, url, className = '' }: BookCoverProps) {
   const [failed, setFailed] = useState(false)
-  const palette = useMemo(() => palettes[hash(`${title}|${author}`) % palettes.length], [author, title])
+  const art = useMemo(() => {
+    const hash = bookHash(title, author)
+    return {
+      layout: COVER_LAYOUTS[hash % COVER_LAYOUTS.length],
+      ink: COVER_INKS[hash % COVER_INKS.length],
+      ink2: COVER_INKS[Math.floor(hash / 7) % COVER_INKS.length],
+    }
+  }, [author, title])
   const safeUrl = url?.trim()
 
   if (safeUrl && !failed) {
@@ -42,17 +55,22 @@ export function BookCover({ title, author, url, className = '' }: BookCoverProps
   return (
     <span
       className={`book-cover book-cover--generated ${className}`.trim()}
+      data-layout={art.layout}
+      data-initial={(title || '?').charAt(0).toUpperCase()}
       style={{
-        '--cover-primary': palette[0],
-        '--cover-accent': palette[1],
+        '--cover-ink': art.ink,
+        '--cover-ink-2': art.ink2,
+        '--cover-paper': COVER_PAPER,
       } as CSSProperties}
       role="img"
       aria-label={`Capa gerada para ${title}`}
     >
       <span className="book-cover__rule" />
-      <strong>{title}</strong>
-      <small>{author || 'Lombada'}</small>
-      <span className="book-cover__brand">lombada.</span>
+      <span className="book-cover__copy">
+        <strong>{title}</strong>
+        {author && <small>{author}</small>}
+      </span>
+      <span className="book-cover__brand">Lombada</span>
     </span>
   )
 }

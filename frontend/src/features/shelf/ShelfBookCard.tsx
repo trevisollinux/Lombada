@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon'
 import type { Locale } from '../../i18n'
 import type { ShelfReading, ShelfView } from '../../types/reading'
 import { shelfText } from './shelfI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface ShelfBookCardProps {
   reading: ShelfReading
@@ -16,6 +17,14 @@ function stars(rating: number | null): string {
   const full = Math.floor(rating)
   const half = rating - full >= 0.5
   return `${'★'.repeat(full)}${half ? '½' : ''}`
+}
+
+function statusSlug(status: string): string {
+  const normalized = status.trim().toLowerCase()
+  if (normalized === 'lido') return 'lido'
+  if (normalized === 'lendo') return 'lendo'
+  if (normalized === 'quero ler') return 'quero'
+  return 'outro'
 }
 
 export function ShelfBookCard({ reading, view, locale, onOpen }: ShelfBookCardProps) {
@@ -37,9 +46,11 @@ export function ShelfBookCard({ reading, view, locale, onOpen }: ShelfBookCardPr
           className="shelf-book__cover"
         />
         <span className="shelf-book__body">
-          <span className="shelf-book__status">{reading.status}</span>
+          <span className={`shelf-book__status shelf-book__status--${statusSlug(reading.status)}`}>
+            {reading.status}
+          </span>
           <strong>{reading.titulo}</strong>
-          <span className="shelf-book__author">{reading.autor || '—'}</span>
+          <span className="shelf-book__author">{formatAuthor(reading.autor) || '—'}</span>
           {meta.length > 0 && <span className="shelf-book__meta">{meta.join(' · ')}</span>}
           <span className="shelf-book__footer">
             <span className={rating ? 'shelf-book__rating' : 'shelf-book__rating is-empty'}>

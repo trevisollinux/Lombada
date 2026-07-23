@@ -16,6 +16,9 @@ import { feedText } from './feedI18n'
 import { FollowButton } from './FollowButton'
 import { reportReview } from './reportReview'
 import { ReviewComments } from './ReviewComments'
+import { LiteraryReactions } from '../reactions/LiteraryReactions'
+import { useFeatureFlags } from '../../providers/FeatureFlagsProvider'
+import { formatAuthor } from '../../utils/text'
 
 interface FeedItemCardProps {
   item: FeedItem
@@ -51,6 +54,7 @@ export function FeedItemCard({ item, locale, loggedIn, onFollowChange }: FeedIte
 }
 
 function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCardProps & { item: FeedReviewItem }) {
+  const { enabled } = useFeatureFlags()
   const [reading, setReading] = useState(item.leitura)
   const [spoilerVisible, setSpoilerVisible] = useState(!item.leitura.spoiler)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -191,7 +195,7 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
           <Link to={{ pathname: '/obra', search: `?${workParams.toString()}` }} state={workState}>
             <h2>{item.livro.titulo}</h2>
           </Link>
-          <p>{item.livro.autor}</p>
+          <p>{formatAuthor(item.livro.autor)}</p>
           {editionMeta && <small>{feedText(locale, 'edition')} · {editionMeta}</small>}
           {reading.nota !== null && (
             <span className="feed-card__rating">
@@ -269,6 +273,9 @@ function FeedReviewCard({ item, locale, loggedIn, onFollowChange }: FeedItemCard
               {actionError}{' '}
               {!loggedIn && <a href="/api/auth/google/login">{feedText(locale, 'sign_in')}</a>}
             </p>
+          )}
+          {enabled('literary_reactions') && (
+            <LiteraryReactions readingId={reading.leitura_id} locale={locale} loggedIn={loggedIn} />
           )}
         </footer>
       )}

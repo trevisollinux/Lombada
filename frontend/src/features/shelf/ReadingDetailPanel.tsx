@@ -12,6 +12,7 @@ import { ProgressQuickDialog } from '../progress/ProgressQuickDialog'
 import { progressText } from '../progress/progressI18n'
 import { ReadingEditorForm } from './ReadingEditorForm'
 import { shelfText } from './shelfI18n'
+import { formatAuthor } from '../../utils/text'
 
 interface ReadingDetailPanelProps {
   reading: ShelfReading | null
@@ -110,7 +111,7 @@ export function ReadingDetailPanel({
             <div>
               <p className="eyebrow">{shelfText(locale, 'edition')}</p>
               <h2 id="reading-detail-title">{reading.titulo}</h2>
-              <p className="reading-detail__author">{reading.autor || '—'}</p>
+              <p className="reading-detail__author">{formatAuthor(reading.autor) || '—'}</p>
               {editionMeta.length > 0 && (
                 <p className="reading-detail__edition-meta">{editionMeta.join(' · ')}</p>
               )}

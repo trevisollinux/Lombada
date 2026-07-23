@@ -71,6 +71,26 @@ class FrontendV2Test(unittest.TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_v3_kimi_redireciona_para_app_v2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = Path(tmp) / "dist"
+            dist.mkdir(parents=True)
+            (dist / "index.html").write_text("<h1>App React</h1>", encoding="utf-8")
+
+            with self._client(dist) as client:
+                raiz = client.get("/v3-kimi", follow_redirects=False)
+                subpagina = client.get("/v3-kimi/estante", follow_redirects=False)
+                asset = client.get(
+                    "/v3-kimi/assets/index-abc.js", follow_redirects=False
+                )
+
+        self.assertEqual(raiz.status_code, 308)
+        self.assertEqual(raiz.headers["location"], "/app-v2/")
+        self.assertEqual(subpagina.status_code, 308)
+        self.assertEqual(subpagina.headers["location"], "/app-v2/estante")
+        self.assertEqual(asset.status_code, 308)
+        self.assertEqual(asset.headers["location"], "/app-v2/assets/index-abc.js")
+
     def test_safe_file_bloqueia_path_traversal(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

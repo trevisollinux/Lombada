@@ -90,10 +90,8 @@ export function MemoriesPage() {
   return (
     <section className="page page--memories">
       <PageHeader
-        eyebrow={memoriesText(locale, 'eyebrow')}
         title={memoriesText(locale, 'title')}
         description={memoriesText(locale, 'copy')}
-        aside={<span className="stage-stamp">10 · compartilhar</span>}
       />
 
       <section className="memories-period" aria-labelledby="memories-period-title">

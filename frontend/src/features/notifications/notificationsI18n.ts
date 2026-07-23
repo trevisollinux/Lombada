@@ -62,6 +62,27 @@ const messages: Record<Locale, Record<NotificationsTextKey, string>> = {
     hours: '{n}h ago',
     days: '{n}d ago',
   },
+  es: {
+    title: 'Actividad',
+    open: 'Abrir actividad',
+    close: 'Cerrar actividad',
+    loading: 'cargando actividad…',
+    error: 'no pude cargar la actividad ahora.',
+    retry: 'Reintentar',
+    empty:
+      'aún no hay actividad. cuando alguien te siga o le guste una reseña, aparecerá aquí.',
+    login_required: 'entra con Google para ver tu actividad.',
+    demo_badge: 'demo',
+    follow: '{nome} empezó a seguirte',
+    like: '{nome} le gustó tu reseña',
+    like_book: '{nome} le gustó tu reseña sobre {titulo}',
+    comment: '{nome} comentó tu reseña',
+    comment_book: '{nome} comentó tu reseña sobre {titulo}',
+    now: 'ahora',
+    minutes: 'hace {n} min',
+    hours: 'hace {n} h',
+    days: 'hace {n} d',
+  },
 }
 
 export function notificationsText(locale: Locale, key: NotificationsTextKey): string {
