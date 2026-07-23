@@ -41,6 +41,10 @@ export type ExploreTextKey =
   | 'search_filters_hint'
   | 'see_results'
   | 'open_filters'
+  | 'publishers_copy'
+  | 'search_publisher'
+  | 'no_publisher_match'
+  | 'see_all_publishers'
 
 const messages: Record<Locale, Record<ExploreTextKey, string>> = {
   'pt-BR': {
@@ -84,6 +88,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     search_filters_hint: 'Refine por editora, ordenação e sinais da comunidade.',
     see_results: 'Ver resultados',
     open_filters: 'Filtros',
+    publishers_copy: 'Toque em uma editora para ver todas as obras dela no catálogo.',
+    search_publisher: 'Buscar editora',
+    no_publisher_match: 'Nenhuma editora corresponde à busca.',
+    see_all_publishers: 'Ver todas as editoras',
   },
   en: {
     eyebrow: 'editorial discovery',
@@ -126,6 +134,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     search_filters_hint: 'Refine by publisher, sorting and community signals.',
     see_results: 'See results',
     open_filters: 'Filters',
+    publishers_copy: 'Tap a publisher to see all of its works in the catalog.',
+    search_publisher: 'Search publisher',
+    no_publisher_match: 'No publisher matches your search.',
+    see_all_publishers: 'See all publishers',
   },
   es: {
     eyebrow: 'descubrimiento editorial',
@@ -168,6 +180,10 @@ const messages: Record<Locale, Record<ExploreTextKey, string>> = {
     search_filters_hint: 'Refina por editorial, orden y señales de la comunidad.',
     see_results: 'Ver resultados',
     open_filters: 'Filtros',
+    publishers_copy: 'Toca una editorial para ver todas sus obras en el catálogo.',
+    search_publisher: 'Buscar editorial',
+    no_publisher_match: 'Ninguna editorial coincide con la búsqueda.',
+    see_all_publishers: 'Ver todas las editoriales',
   },
 }
 

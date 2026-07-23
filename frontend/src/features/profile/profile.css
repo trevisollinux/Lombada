@@ -46,14 +46,14 @@
 
 .profile-hero__identity h2 {
   margin-top: 8px;
-  overflow: hidden;
   font-family: var(--font-display);
   font-size: clamp(24px, 3vw, 32px);
   font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.08;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* nome completo sempre visível: quebra em mais de uma linha em vez de
+     cortar com reticências (nomes longos sumiam pela direita) */
+  overflow-wrap: anywhere;
 }
 
 .profile-hero__handle {
