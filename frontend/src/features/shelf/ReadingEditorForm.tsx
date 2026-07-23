@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
+import { StarRating } from '../../components/StarRating'
 import type { Locale } from '../../i18n'
 import { trackProductEvent } from '../../services/analytics'
 import { deleteReading, getReadingStatuses, updateReading } from '../../services/api'
@@ -15,7 +16,6 @@ interface ReadingEditorFormProps {
 }
 
 const DEFAULT_STATUSES = ['Lido', 'Lendo', 'Quero ler']
-const RATING_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) / 2)
 
 function uniqueStatuses(values: string[]): string[] {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
@@ -150,19 +150,16 @@ export function ReadingEditorForm({
           </select>
         </label>
 
-        <label className="reading-editor__field">
+        <div className="reading-editor__field">
           <span>{shelfText(locale, 'rating')}</span>
-          <select
-            value={rating === null ? '' : String(rating)}
-            onChange={(event) => setRating(event.target.value ? Number(event.target.value) : null)}
+          <StarRating
+            value={rating}
+            onChange={setRating}
             disabled={busy}
-          >
-            <option value="">{shelfText(locale, 'no_rating')}</option>
-            {RATING_OPTIONS.map((value) => (
-              <option key={value} value={value}>{value.toFixed(1)}</option>
-            ))}
-          </select>
-        </label>
+            clearLabel={shelfText(locale, 'no_rating')}
+            ariaLabel={shelfText(locale, 'rating')}
+          />
+        </div>
       </div>
 
       <label className="reading-editor__field">
