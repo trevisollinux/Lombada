@@ -3,7 +3,7 @@
    Assets do Vite (assets/, nomes com hash): cache-first, imutáveis.
    APIs, login e o app legado ficam fora do escopo do worker. */
 
-const CACHE_NAME = 'lombada-v2-shell-v1';
+const CACHE_NAME = 'lombada-v2-shell-v2';
 
 /* Ex.: '/app-v2/' ou '/v3-kimi/' — o mesmo sw.js serve qualquer base. */
 const scopePath = new URL(self.registration.scope).pathname;
