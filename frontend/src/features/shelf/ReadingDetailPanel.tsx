@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { BookCover } from '../../components/BookCover'
 import { Icon } from '../../components/Icon'
+import { Portal } from '../../components/Portal'
 import type { Locale } from '../../i18n'
 import { useFeatureFlags } from '../../providers/FeatureFlagsProvider'
 import { useSession } from '../../providers/SessionProvider'
@@ -47,10 +48,24 @@ export function ReadingDetailPanel({
     setProgressOpen(false)
   }, [reading?.leitura_id])
 
+  const isOpen = Boolean(reading)
+
+  // Trava a rolagem do fundo só quando o painel abre/fecha. Não pode depender de
+  // editing/sharing/progressOpen: reexecutar aqui a cada troca de estado faz o
+  // overflow do body oscilar e, com os diálogos aninhados (progresso/share) que
+  // também travam o body, sobra um `overflow: hidden` preso — o app inteiro fica
+  // sem rolar.
   useEffect(() => {
-    if (!reading) return
+    if (!isOpen) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!reading) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || sharing || progressOpen) return
       if (editing) setEditing(false)
@@ -58,7 +73,6 @@ export function ReadingDetailPanel({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.body.style.overflow = previous
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [editing, onClose, progressOpen, reading, sharing])
@@ -72,7 +86,7 @@ export function ReadingDetailPanel({
   ].filter(Boolean)
 
   return (
-    <>
+    <Portal>
       <div className="reading-detail-layer">
         <button
           className="reading-detail-backdrop"
@@ -203,6 +217,6 @@ export function ReadingDetailPanel({
         locale={locale}
         onClose={() => setSharing(false)}
       />
-    </>
+    </Portal>
   )
 }

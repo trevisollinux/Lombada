@@ -1532,8 +1532,15 @@ button:disabled {
   box-shadow: 0 4px 12px rgba(88, 66, 38, 0.14), inset 0 0 0 1px var(--accent-line);
 }
 
+/* idioma tem 3 opções (pt/en/es) — não cabe no grid de 2 colunas do controle
+   padrão (tema), então vira 3 colunas próprias */
+.segmented-control--text {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .segmented-control--text button {
   font-size: 13.5px;
+  padding-inline: 6px;
 }
 
 .account-state {
