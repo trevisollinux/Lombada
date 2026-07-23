@@ -1680,11 +1680,10 @@ button:disabled {
 }
 
 .account-card__identity strong {
-  overflow: hidden;
   font-size: 17px;
   font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* nome completo visível: quebra em vez de cortar com reticências */
+  overflow-wrap: anywhere;
 }
 
 .account-card__identity span {
