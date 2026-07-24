@@ -563,3 +563,22 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s var(--ease-out) infinite;
 }
+
+/* ---------------------------------------------------------- */
+/* Comunidade (feed) em destaque no topo do Explorar          */
+/* ---------------------------------------------------------- */
+
+.explore-community {
+  margin-bottom: 30px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.explore-community .explore-section__heading {
+  margin-bottom: 14px;
+}
+
+/* dentro do Explorar o feed não é a página inteira: tira o respiro do topo */
+.explore-community .community-feed {
+  margin-top: 0;
+}

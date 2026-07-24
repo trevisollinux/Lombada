@@ -10,6 +10,7 @@ import { ProfileHighlights, ProfileReviews, ProfileShelf } from '../features/pro
 import { ProfilePeoplePanel } from '../features/profile/ProfilePeoplePanel'
 import { ProfileTexts } from '../features/profile/ProfileTexts'
 import { profileText } from '../features/profile/profileI18n'
+import { memoriesText } from '../features/memories/memoriesI18n'
 import { EssentialBooks } from '../features/profile/EssentialBooks'
 import { ReactionInbox } from '../features/reactions/ReactionInbox'
 import { useFeatureFlags } from '../providers/FeatureFlagsProvider'
@@ -103,6 +104,12 @@ export function ProfilePage() {
 
   const loggedIn = Boolean(account?.logado)
   const profileTexts = owner ? myTexts : profile?.textos || []
+
+  // no próprio perfil a estante é redundante com a página Estante dedicada;
+  // a aba some e a navegação começa nas Críticas
+  useEffect(() => {
+    if (owner && tab === 'shelf') setTab('reviews')
+  }, [owner, tab])
 
   return (
     <section className="page page--profile">
@@ -225,6 +232,16 @@ export function ProfilePage() {
             <span><strong>{profile.edicoes_desejadas}</strong>{profileText(locale, 'wanted_editions')}</span>
           </div>
 
+          {owner && (
+            <Link className="profile-recap-link" to="/memorias">
+              <span>
+                <span className="eyebrow">{memoriesText(locale, 'eyebrow')}</span>
+                <strong>{memoriesText(locale, 'period_title')}</strong>
+              </span>
+              <Icon name="arrow" size={18} />
+            </Link>
+          )}
+
           <ProfileHighlights
             readingNow={profile.lendo_agora}
             favorites={profile.favoritos}
@@ -232,9 +249,11 @@ export function ProfilePage() {
           />
 
           <nav className="profile-tabs" aria-label={profileText(locale, 'public_profile')}>
-            <button type="button" className={tab === 'shelf' ? 'is-active' : ''} onClick={() => setTab('shelf')}>
-              {profileText(locale, 'shelf')} <span>{profile.leituras.length}</span>
-            </button>
+            {!owner && (
+              <button type="button" className={tab === 'shelf' ? 'is-active' : ''} onClick={() => setTab('shelf')}>
+                {profileText(locale, 'shelf')} <span>{profile.leituras.length}</span>
+              </button>
+            )}
             <button type="button" className={tab === 'reviews' ? 'is-active' : ''} onClick={() => setTab('reviews')}>
               {profileText(locale, 'reviews')} <span>{profile.criticas_publicas.length}</span>
             </button>
@@ -243,7 +262,7 @@ export function ProfilePage() {
             </button>
           </nav>
 
-          {tab === 'shelf' && <ProfileShelf readings={profile.leituras} locale={locale} />}
+          {tab === 'shelf' && !owner && <ProfileShelf readings={profile.leituras} locale={locale} />}
           {tab === 'reviews' && <ProfileReviews readings={profile.criticas_publicas} locale={locale} />}
           {tab === 'texts' && (
             <ProfileTexts

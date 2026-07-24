@@ -297,6 +297,49 @@
   margin-bottom: 34px;
 }
 
+/* atalho pra retrospectiva (página Memórias), como o card "Sua retrospectiva"
+   do app legado */
+.profile-recap-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 34px;
+  padding: 18px 20px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--text);
+  transition: border-color 0.22s var(--ease-out), background 0.22s var(--ease-out);
+}
+
+.profile-recap-link > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-recap-link strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.profile-recap-link svg {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  transition: transform 0.22s var(--ease-out);
+}
+
+.profile-recap-link:hover {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent-strong) 12%);
+}
+
+.profile-recap-link:hover svg {
+  transform: translateX(3px);
+}
+
 .profile-edition-metrics span {
   display: inline-flex;
   align-items: baseline;
