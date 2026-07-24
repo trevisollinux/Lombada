@@ -196,10 +196,6 @@ export function ReadingDetailPanel({
                 <button className="button button--secondary" type="button" onClick={() => setEditing(true)}>
                   {shelfText(locale, 'edit_reading')}
                 </button>
-                <a className="button button--ghost reading-detail__legacy" href="/">
-                  {shelfText(locale, 'open_legacy')}
-                  <Icon name="external" size={16} />
-                </a>
               </div>
             </>
           )}

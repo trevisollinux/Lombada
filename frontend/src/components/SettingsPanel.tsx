@@ -160,10 +160,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     {t('sign_in')}
                   </a>
                 )}
-                <a className="button button--ghost" href="/">
-                  {t('open_legacy')}
-                  <Icon name="external" size={16} />
-                </a>
               </div>
             </div>
           )}

@@ -154,7 +154,6 @@ export function AppLayout() {
               </span>
               <Icon name="settings" size={17} />
             </button>
-            <span className="migration-chip">{t('migration_badge')}</span>
           </div>
         </aside>
 
@@ -200,11 +199,6 @@ export function AppLayout() {
                 <span>{t('quick_register')}</span>
                 <Icon name="arrow" size={18} />
               </Link>
-              <Link className="quick-action-card" to="/feed">
-                <Icon name="feed" />
-                <span>{t('nav_feed')}</span>
-                <Icon name="arrow" size={18} />
-              </Link>
               <Link className="quick-action-card" to="/diario">
                 <Icon name="diary" />
                 <span>{t('quick_diary')}</span>
@@ -215,11 +209,6 @@ export function AppLayout() {
                 <span>{t('quick_memories')}</span>
                 <Icon name="arrow" size={18} />
               </Link>
-              <a className="quick-action-card" href="/">
-                <Icon name="external" />
-                <span>{t('quick_legacy')}</span>
-                <Icon name="arrow" size={18} />
-              </a>
             </div>
           </section>
         </div>

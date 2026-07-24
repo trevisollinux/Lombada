@@ -5,6 +5,7 @@ import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
 import { SelectMenu } from '../components/SelectMenu'
 import { SearchResultCard } from '../features/catalog/SearchResultCard'
+import { CommunityFeed } from '../features/feed/CommunityFeed'
 import { exploreText } from '../features/explore/exploreI18n'
 import type { Locale } from '../i18n'
 import { usePreferences } from '../providers/PreferencesProvider'
@@ -44,7 +45,7 @@ function validSort(value: string): CatalogSort {
 }
 
 export function ExplorePage() {
-  const { locale } = usePreferences()
+  const { locale, t } = usePreferences()
   const [searchParams, setSearchParams] = useSearchParams()
   // filtros abertos por padrão só no desktop; no mobile o painel ocupa a tela
   const [filtersOpen, setFiltersOpen] = useState(
@@ -161,6 +162,19 @@ export function ExplorePage() {
         title={exploreText(locale, 'title')}
         description={exploreText(locale, 'copy')}
       />
+
+      {/* comunidade em destaque no topo do Explorar (stories + feed) */}
+      {!hasFilters && (
+        <section className="explore-community" aria-label={t('feed_title')}>
+          <div className="explore-section__heading">
+            <div>
+              <p className="eyebrow">{exploreText(locale, 'eyebrow')}</p>
+              <h2>{t('feed_title')}</h2>
+            </div>
+          </div>
+          <CommunityFeed />
+        </section>
+      )}
 
       <section className="explore-filter-panel" aria-labelledby="explore-filter-title">
         <div className="explore-filter-panel__heading">
