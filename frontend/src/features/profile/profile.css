@@ -947,6 +947,7 @@
   inset: 0;
   z-index: 60;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: stretch end;
 }
 
