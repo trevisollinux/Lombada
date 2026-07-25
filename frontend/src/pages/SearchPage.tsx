@@ -313,8 +313,9 @@ export function SearchPage() {
           className={`search-filter-trigger${activeFilters > 0 ? ' has-filters' : ''}`}
           onClick={() => setFiltersOpen(true)}
           aria-haspopup="dialog"
+          aria-label={exploreText(locale, 'open_filters')}
         >
-          <Icon name="explore" size={16} />
+          <Icon name="filter" size={18} />
           <span>{exploreText(locale, 'open_filters')}</span>
           {activeFilters > 0 && <strong>{activeFilters}</strong>}
         </button>

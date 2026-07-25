@@ -35,10 +35,11 @@ interface NavigationItem {
   end?: boolean
 }
 
+/* o Feed não entra no menu: ele é o topo da Comunidade. A rota /feed segue
+   viva para links diretos. */
 const navigationItems: NavigationItem[] = [
   { to: '/', label: 'nav_search', icon: 'search', end: true },
-  { to: '/explorar', label: 'nav_explore', icon: 'explore' },
-  { to: '/feed', label: 'nav_feed', icon: 'feed' },
+  { to: '/explorar', label: 'nav_explore', icon: 'people' },
   { to: '/estante', label: 'nav_shelf', icon: 'shelf' },
   { to: '/diario', label: 'nav_diary', icon: 'diary' },
   { to: '/memorias', label: 'nav_memories', icon: 'memory' },

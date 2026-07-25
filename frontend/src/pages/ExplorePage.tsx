@@ -158,22 +158,26 @@ export function ExplorePage() {
 
   return (
     <section className="page page--explore">
+      {/* a aba se chama Comunidade: o feed lidera a página e a descoberta
+          do catálogo vem abaixo */}
       <PageHeader
-        title={exploreText(locale, 'title')}
+        title={t('nav_explore')}
         description={exploreText(locale, 'copy')}
       />
 
-      {/* comunidade em destaque no topo do Explorar (stories + feed) */}
       {!hasFilters && (
-        <section className="explore-community" aria-label={t('feed_title')}>
-          <div className="explore-section__heading">
+        <>
+          <section className="explore-community" aria-label={t('feed_title')}>
+            <CommunityFeed />
+          </section>
+
+          <div className="explore-section__heading explore-catalog-heading">
             <div>
               <p className="eyebrow">{exploreText(locale, 'eyebrow')}</p>
-              <h2>{t('feed_title')}</h2>
+              <h2>{exploreText(locale, 'title')}</h2>
             </div>
           </div>
-          <CommunityFeed />
-        </section>
+        </>
       )}
 
       <section className="explore-filter-panel" aria-labelledby="explore-filter-title">
