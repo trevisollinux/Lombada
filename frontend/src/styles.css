@@ -194,6 +194,7 @@ a {
 
 img {
   display: block;
+  max-width: 100%;
 }
 
 button,
@@ -520,6 +521,15 @@ button:disabled {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  /* Conteúdo que estoura na horizontal faz o Chrome do Android alargar o layout
+     viewport para caber, e aí tudo que é `fixed` (drawer de ajustes, barra
+     inferior) passa a se alinhar à borda desse viewport inflado em vez da borda
+     da tela, aparecendo cortado. Clipando aqui o estouro morre antes de virar
+     largura de documento. Vai no app-frame, e não no html/body, porque o
+     overflow do body precisa seguir propagando para o viewport: é dele que os
+     painéis dependem para travar a rolagem de fundo. `clip` (e não `hidden`)
+     não cria scroll container, então o cabeçalho sticky segue firme. */
+  overflow-x: clip;
 }
 
 .app-header {
@@ -1317,6 +1327,9 @@ button:disabled {
   inset: 0;
   z-index: 60;
   display: grid;
+  /* trilha explícita: a implícita é `auto`, que cresce além do container quando
+     o min-content do painel é maior que a tela e empurra a folha para fora */
+  grid-template-columns: minmax(0, 1fr);
   place-items: end center;
 }
 
