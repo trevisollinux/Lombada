@@ -6,8 +6,18 @@ raspagem de sites de editoras brasileiras.
 
 - **Produção:** [lombada-production.up.railway.app](https://lombada-production.up.railway.app) — deploy
   automático no Railway **a cada merge na `main`**.
-- **Stack:** FastAPI + SQLModel, aplicação e PostgreSQL no Railway, frontend SPA sem build
-  (`static/app.js` + `static/app.css` + `index.html`).
+- **Stack:** FastAPI + SQLModel, aplicação no Railway, **PostgreSQL numa VM do
+  Oracle Cloud** (migrado do Railway em julho/2026), frontend legado SPA sem
+  build (`static/app.js` + `static/app.css` + `index.html`) e frontend React em
+  `/app-v2` (`frontend/`, Vite + TypeScript).
+- **`DATABASE_URL` vive em dois lugares** e os dois precisam apontar pro mesmo
+  banco: a env do serviço no Railway (usada pelo app) e o **secret do
+  repositório** em Settings → Secrets and variables → Actions (usado por todos
+  os workflows de sync/promote). Divergência entre os dois não dá erro — o sync
+  grava num banco que o app não lê, e o catálogo simplesmente para de crescer.
+  Se o banco estiver numa VM do OCI, liberar a porta na security list da VCN
+  **não basta**: as imagens Oracle Linux/Ubuntu sobem com iptables local
+  bloqueando tudo além da 22.
 
 ---
 
@@ -55,13 +65,28 @@ As fontes são divididas em **grupos** (campo `group` no `SOURCES`; sem campo =
 `principal`), e cada grupo tem um workflow de sync próprio que roda **em
 paralelo** aos outros (concurrency groups distintos no Actions):
 
-| grupo | workflow | cron | fontes |
-|---|---|---|---|
-| `principal` | `sync-publishers.yml` | `:13` | Record, Intrínseca, Todavia, Sextante, Autêntica |
-| `cia` | `sync-publishers-cia.yml` | `:51 a cada 2h` | Companhia das Letras (isolada: a coleta via `categoria_json` varre ~218 categorias × ~16 páginas e demora mais que as outras — ver abaixo) |
-| `editora34` | `sync-publishers-editora34.yml` | `:37 a cada 6h` | Editora 34 (isolada: `id_range` numa faixa esgotada — sem o cache de mortos re-baixava ~2200 páginas mortas/execução, ~37 min — ver abaixo) |
-| `expansao` | `sync-publishers-expansao.yml` | `:29` | Rocco, Arqueiro, Aleph, DarkSide, Boitempo, Ubu, Antofágica, Carambaia, Alta Books, L&PM |
-| `universitaria` | `sync-publishers-universitarias.yml` | `:43` | Edusp, Unesp, Unicamp, UFMG, EDUFBA, UFSC, EDIPUCRS, UnB |
+Os crons abaixo estão em **UTC** (horário BR = UTC−3), como o Actions exige. Vale
+saber que o **horário nominal não é o horário real**: o agendador do GitHub atrasa
+disparos agendados, e na prática os runs costumam sair de 30 min a ~3h depois da
+hora marcada. Não confunda esse atraso com workflow parado.
+
+| grupo | workflow | cron (UTC) | horário BR | fontes |
+|---|---|---|---|---|
+| `principal` | `sync-publishers.yml` | `13 4` e `13 16` (2x/dia) | 01:13 e 13:13 | Record, Intrínseca, Todavia, Sextante, Autêntica |
+| `cia` | `sync-publishers-cia.yml` | `51 4` | 01:51 | Companhia das Letras (isolada: a coleta via `categoria_json` varre ~218 categorias × ~16 páginas e demora mais que as outras — ver abaixo) |
+| `editora34` | `sync-publishers-editora34.yml` | `37 5` | 02:37 | Editora 34 (isolada: `id_range` numa faixa esgotada — sem o cache de mortos re-baixava ~2200 páginas mortas/execução, ~37 min — ver abaixo) |
+| `expansao` | `sync-publishers-expansao.yml` | `29 6` | 03:29 | Rocco, Arqueiro, Aleph, DarkSide, Boitempo, Ubu, Antofágica, Carambaia, Alta Books, L&PM |
+| `universitaria` | `sync-publishers-universitarias.yml` | `43 7` | 04:43 | Edusp, Unesp, Unicamp, UFMG, EDUFBA, UFSC, EDIPUCRS, UnB |
+| `trade` | `sync-publishers-trade.yml` | `5 8` | 05:05 | Nova Fronteira, Gente, Melhoramentos, Martin Claret, Global, Grupo Pensamento |
+| `trade_lenta` | `sync-publishers-trade-lenta.yml` | `25 9` | 06:25 | Planeta (isolada por ser lenta) |
+
+São **32 fontes em 7 grupos**. O lote (`max_urls`) é de **200 livros por editora
+por execução** — o teto de páginas de um run é `200 × nº de fontes do grupo`, não
+200 no total.
+
+`sync-publishers-catalog.yml` (grupo `catalogo_a`…`catalogo_h`) é só
+`workflow_dispatch`, sem cron — é o diagnóstico do cadastro em
+`data/publishers/*.csv`, não faz parte do sync diário.
 
 O "1 sync por vez" vale **dentro de cada workflow** (grupo de concorrência
 próprio), não entre workflows. O passo de promote de todos eles é serializado
@@ -118,25 +143,35 @@ workflow). Fontes dos grupos novos entram com `platform=auto` até o
 
 - **Sync publisher source records** (`.github/workflows/sync-publishers.yml`):
   raspa → `source_records` e promove. Inputs: `dry_run`, `diagnose`, `dump_url`,
-  `max_urls`, `offset`, `slugs`, `sleep_seconds`. Tem **cron horário** e um
-  **concurrency group `sync-publishers`**. Cobre só o grupo `principal`. Não
-  instala Chromium (nenhuma fonte deste grupo usa Playwright).
+  `max_urls`, `offset`, `slugs`, `sleep_seconds`. Roda **2x por dia** (`13 4` e
+  `13 16` UTC = 01:13 e 13:13 BR) e tem **concurrency group `sync-publishers`**.
+  Cobre só o grupo `principal`. Não instala Chromium (nenhuma fonte deste grupo
+  usa Playwright).
 - **Sync publishers (Companhia das Letras)** (`sync-publishers-cia.yml`): só a
   Cia das Letras (grupo `cia`). Foi separada do principal porque a coleta via
   `categoria_json` varre todo o menu de categorias a cada execução e demora bem
-  mais que as demais — assim o principal termina rápido sem esperar por ela. Tem
-  **cron a cada 2 horas** (`:51`, contra os horários dos outros) já que a
-  ingestão é incremental e não compensa rodá-la de hora em hora. Mantém o passo
-  de Chromium (só pro input `debug_categoria_paginacao`).
+  mais que as demais — assim o principal termina rápido sem esperar por ela.
+  Cron diário (`51 4` UTC = 01:51 BR), defasado dos outros. Mantém o passo de
+  Chromium (só pro input `debug_categoria_paginacao`).
 - **Sync publishers (Editora 34)** (`sync-publishers-editora34.yml`): só a
   Editora 34 (grupo `editora34`). Separada do principal porque o `id_range` de
   uma faixa esgotada re-baixava ~2200 páginas mortas por execução (~37 min).
-  Tem **cron a cada 6 horas** (`:37`) e **não instala Chromium**. Apoia-se no
+  Cron diário (`37 5` UTC = 02:37 BR) e **não instala Chromium**. Apoia-se no
   cache de ids mortos (`publisher_dead_ids`) pra pular os mortos de graça.
-- **Sync publishers (expansão)** (`sync-publishers-expansao.yml`) e
-  **Sync publishers (universitárias)** (`sync-publishers-universitarias.yml`):
-  mesmos inputs e pipeline, cada um cobrindo seu grupo de fontes, com
-  concurrency group e cron próprios — rodam em paralelo ao principal.
+- **Sync publishers (expansão / universitárias / trade / trade lenta)**
+  (`sync-publishers-expansao.yml`, `-universitarias.yml`, `-trade.yml`,
+  `-trade-lenta.yml`): mesmos inputs e pipeline, cada um cobrindo seu grupo de
+  fontes, com concurrency group e cron diário próprios — rodam em paralelo ao
+  principal.
+- **Diagnose publisher catalog** (`sync-publishers-catalog.yml`): só
+  `workflow_dispatch`, matriz de 8 grupos (`catalogo_a`…`catalogo_h`) sobre o
+  cadastro em `data/publishers/*.csv`. **Atenção: o arquivo está inválido para o
+  Actions hoje** — o `if` de nível de job (linha 53) referencia `matrix.group`,
+  contexto que não existe nesse ponto (job-level `if` é avaliado antes da matriz
+  expandir; só `github`, `needs`, `vars` e `inputs` estão disponíveis). O YAML é
+  válido, o schema do Actions não, e o sintoma é um run **sem jobs**, com o
+  caminho do arquivo no lugar do nome, falhando **a cada push**. A correção é
+  mover a condição para os steps.
 - **Promote source records to catalog** (`.github/workflows/promote-catalog.yml`):
   só promove (sem raspar). Inputs: `dry_run`, `min_confidence`, `limit`. Ideal
   para backfill de campos (autor/descrição) sem re-scrape.
@@ -161,9 +196,19 @@ dump_url=https://www.editora34.com.br/livro/1000   (dry_run=true)
 Promote source records to catalog → dry_run=false, limit=5000
 ```
 
-## Banco de dados (Railway PostgreSQL)
+## Banco de dados (PostgreSQL na VM do Oracle Cloud)
 
-O app usa **FastAPI + SQLModel/SQLAlchemy**. Não há Alembic neste repositório; as tabelas são declaradas em `models.py` e o boot do app executa `SQLModel.metadata.create_all(engine)` seguido de `migrar()`, que aplica DDLs idempotentes. Para preparar um banco PostgreSQL novo do Railway sem depender do Neon e sem apagar dados existentes, use sempre a `DATABASE_URL` fornecida pelo ambiente.
+O app usa **FastAPI + SQLModel/SQLAlchemy**. Não há Alembic neste repositório; as tabelas são declaradas em `models.py` e o boot do app executa `SQLModel.metadata.create_all(engine)` seguido de `migrar()`, que aplica DDLs idempotentes. Para preparar um banco PostgreSQL novo sem apagar dados existentes, use sempre a `DATABASE_URL` fornecida pelo ambiente.
+
+O banco já morou no Neon, no Railway e (brevemente) no Supabase; hoje é um
+**PostgreSQL numa VM do Oracle Cloud**. O código não sabe disso e não deve
+saber: `models.py:12` só lê `DATABASE_URL`, normaliza `postgres://` para
+`postgresql://` e entrega pro SQLAlchemy. Trocar de provedor é trocar a string
+nos dois lugares listados no topo deste README — **desde que continue sendo
+PostgreSQL**. Oracle Database (o produto, não a nuvem) não serviria: a camada de
+ingestão depende de `psycopg2`, `pg_advisory_lock`, colunas `jsonb`,
+`ON CONFLICT` e `CREATE TABLE IF NOT EXISTS`, nenhum deles com equivalente
+direto lá.
 
 ### Inicializar tabelas/migrações
 
