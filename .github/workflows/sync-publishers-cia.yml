@@ -28,7 +28,7 @@ on:
       max_urls:
         description: 'tamanho do lote: nº de livros por editora nesta execução'
         required: false
-        default: '100'
+        default: '200'
       offset:
         description: 'faixa: começar do livro nº (ex.: 0, depois 100, 200...). Vazio = incremental automático'
         required: false
@@ -105,7 +105,7 @@ jobs:
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
           PUBLISHER_DEBUG_CATEGORIA_PAGINACAO: ${{ inputs.debug_categoria_paginacao || 'false' }}
-          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '200' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           PUBLISHER_GROUP: 'cia'
