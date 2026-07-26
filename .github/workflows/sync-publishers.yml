@@ -25,7 +25,7 @@ on:
       max_urls:
         description: 'tamanho do lote: nº de livros por editora nesta execução'
         required: false
-        default: '100'
+        default: '200'
       offset:
         description: 'faixa: começar do livro nº (ex.: 0, depois 100, 200...). Vazio = incremental automático'
         required: false
@@ -43,10 +43,14 @@ on:
         required: false
         default: ''
   schedule:
-    # 1x por dia, na madrugada (horário BR = UTC-3), lote de 100 livros/editora.
-    # Crescimento gradual do catálogo sem estourar o banco. Horários defasados
-    # entre os workflows pra espalhar a carga.
-    - cron: "13 3 * * *"
+    # 2x por dia, lote de 200 livros/editora. Horários defasados entre os
+    # workflows pra espalhar a carga; o minuto :13 evita a hora cheia, que é
+    # onde o agendador do Actions mais atrasa.
+    # Atenção: cron do Actions é UTC (horário BR = UTC-3), e o disparo agendado
+    # costuma sair com atraso — os runs de "13 3" vinham saindo perto de 06:00
+    # UTC, ~3h depois do horário nominal.
+    - cron: "13 4 * * *"    # 01:13 BR (madrugada)
+    - cron: "13 16 * * *"   # 13:13 BR
 
 permissions:
   contents: read
@@ -103,7 +107,7 @@ jobs:
           PUBLISHER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           PUBLISHER_DIAGNOSE: ${{ inputs.diagnose || 'false' }}
           PUBLISHER_DUMP_URL: ${{ inputs.dump_url || '' }}
-          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '100' }}
+          PUBLISHER_MAX_URLS: ${{ inputs.max_urls || '200' }}
           PUBLISHER_OFFSET: ${{ inputs.offset || '' }}
           PUBLISHER_SLUGS: ${{ inputs.slugs || '' }}
           # Este workflow cobre só as fontes do grupo "principal"; as demais
