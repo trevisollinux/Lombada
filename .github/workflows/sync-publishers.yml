@@ -43,10 +43,14 @@ on:
         required: false
         default: ''
   schedule:
-    # 1x por dia, na madrugada (horário BR = UTC-3), lote de 100 livros/editora.
-    # Crescimento gradual do catálogo sem estourar o banco. Horários defasados
-    # entre os workflows pra espalhar a carga.
-    - cron: "13 3 * * *"
+    # 2x por dia, lote de 200 livros/editora. Horários defasados entre os
+    # workflows pra espalhar a carga; o minuto :13 evita a hora cheia, que é
+    # onde o agendador do Actions mais atrasa.
+    # Atenção: cron do Actions é UTC (horário BR = UTC-3), e o disparo agendado
+    # costuma sair com atraso — os runs de "13 3" vinham saindo perto de 06:00
+    # UTC, ~3h depois do horário nominal.
+    - cron: "13 4 * * *"    # 01:13 BR (madrugada)
+    - cron: "13 16 * * *"   # 13:13 BR
 
 permissions:
   contents: read
