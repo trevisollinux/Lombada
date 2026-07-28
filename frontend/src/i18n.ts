@@ -1,7 +1,7 @@
 export type Locale = 'pt-BR' | 'en' | 'es'
 
 export type TranslationKey =
-  | 'app_v2'
+  | 'app_name'
   | 'development_label'
   | 'settings'
   | 'close'
@@ -80,7 +80,7 @@ export type TranslationKey =
 
 const messages: Record<Locale, Record<TranslationKey, string>> = {
   'pt-BR': {
-    app_v2: 'Lombada v2',
+    app_name: 'Lombada',
     development_label: 'frontend React em migração',
     settings: 'Configurações',
     close: 'Fechar',
@@ -152,13 +152,13 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     quick_memories: 'Criar card ou retrospectiva',
     quick_legacy: 'Abrir app atual',
     route_not_found: 'Página não encontrada',
-    route_not_found_copy: 'Esta rota ainda não existe no Lombada v2.',
+    route_not_found_copy: 'Esta rota não existe no Lombada.',
     go_home: 'Voltar para buscar',
     migration_badge: 'v2 em construção',
     feature_next: 'próxima etapa da migração',
   },
   en: {
-    app_v2: 'Lombada v2',
+    app_name: 'Lombada',
     development_label: 'React frontend migration',
     settings: 'Settings',
     close: 'Close',
@@ -230,13 +230,13 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     quick_memories: 'Create a card or recap',
     quick_legacy: 'Open current app',
     route_not_found: 'Page not found',
-    route_not_found_copy: 'This route does not exist in Lombada v2 yet.',
+    route_not_found_copy: 'This route does not exist in Lombada.',
     go_home: 'Back to search',
     migration_badge: 'v2 in progress',
     feature_next: 'next migration step',
   },
   es: {
-    app_v2: 'Lombada v2',
+    app_name: 'Lombada',
     development_label: 'Migración del frontend React',
     settings: 'Ajustes',
     close: 'Cerrar',
@@ -308,7 +308,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
     quick_memories: 'Crear tarjeta o retrospectiva',
     quick_legacy: 'Abrir app actual',
     route_not_found: 'Página no encontrada',
-    route_not_found_copy: 'Esta ruta aún no existe en Lombada v2.',
+    route_not_found_copy: 'Esta ruta no existe en Lombada.',
     go_home: 'Volver a buscar',
     migration_badge: 'v2 en construcción',
     feature_next: 'siguiente etapa de la migración',

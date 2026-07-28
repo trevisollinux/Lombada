@@ -45,11 +45,13 @@ class ReactV2ParityRitualTest(unittest.TestCase):
         self.assertIn("inputRef.current?.focus()", search)
         self.assertIn("onDismiss", card)
 
-    def test_v1_and_root_route_remain_available(self):
+    def test_onboarding_aponta_para_a_home_do_app(self):
+        # Antes do corte para `/`, este teste também exigia um link de volta ao
+        # app legado dentro do detalhe da estante. Esse link não existe mais:
+        # a raiz agora é o próprio React, e o legado virou rota de escape em
+        # /app-v1, fora dos fluxos do app.
         card = self.read("features/progress/OnboardingValueCard.tsx")
-        detail = self.read("features/shelf/ReadingDetailPanel.tsx")
         self.assertIn('href="/"', card)
-        self.assertIn('href="/"', detail)
 
 
 if __name__ == "__main__":

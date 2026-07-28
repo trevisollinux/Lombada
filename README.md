@@ -6,8 +6,8 @@ raspagem de sites de editoras brasileiras.
 
 - **Produção:** [lombada-production.up.railway.app](https://lombada-production.up.railway.app) — deploy
   automático no Railway **a cada merge na `main`**.
-- **Stack:** FastAPI + SQLModel, aplicação e PostgreSQL no Railway, frontend SPA sem build
-  (`static/app.js` + `static/app.css` + `index.html`).
+- **Stack:** FastAPI + SQLModel, aplicação e PostgreSQL no Railway, frontend React +
+  TypeScript + Vite (`frontend/`) servido na raiz `/`.
 
 ---
 
@@ -24,10 +24,18 @@ raspagem de sites de editoras brasileiras.
   de sequence/identity dos `id`).
 - **`auth.py`** — `usuario_sessao()` cria um usuário anônimo automático; **login
   não é obrigatório** para registrar leitura.
-- **`static/app.js` / `static/app.css` / `index.html`** — SPA. `salvar()` envia
-  `/api/prateleira`; o card "Edição escolhida" mostra título/autor/meta e a
-  **sinopse** (`escolha.descricao`). CSS/JS têm cache-bust `?v=…` no
+- **`frontend/`** — SPA React + TypeScript + Vite, compilada no build do Docker
+  e servida em **`/`** por `frontend_app.py`. Rotas em `frontend/src/App.tsx`.
+  Ao criar uma rota nova, some o primeiro segmento dela a `SPA_ROUTES`
+  (`frontend_app.py`) e a `APP_ROUTES` (`frontend/public/sw.js`) — senão o
+  acesso direto e o refresh nela dão 404. Ver `frontend/README.md`.
+- **`static/app.js` / `static/app.css` / `index.html`** — app legado, hoje em
+  **`/app-v1`** como rota de escape para o que ainda não tem paridade no React.
+  `salvar()` envia `/api/prateleira`. CSS/JS têm cache-bust `?v=…` no
   `index.html` — **bump ao alterar** CSS/JS, senão o navegador serve o antigo.
+- **Páginas renderizadas no servidor**, fora do React: `/u/{handle}`,
+  `/editoras`, `/editora/{slug}`, `/blog`, `/sobre`, `/quem-somos`,
+  `/contribua`, `/privacidade`, `/api-docs` e `/admin`.
 
 ### Modelo de dados do catálogo
 - **`obra`** = obra (título, autor, ano, **descricao**).

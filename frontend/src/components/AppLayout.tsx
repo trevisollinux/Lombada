@@ -82,7 +82,7 @@ export function AppLayout() {
   }, [quickOpen])
 
   const accountName =
-    status === 'ready' && account ? account.nome || `@${account.handle}` : t('app_v2')
+    status === 'ready' && account ? account.nome || `@${account.handle}` : t('app_name')
 
   return (
     <div className="app-frame">
@@ -90,7 +90,7 @@ export function AppLayout() {
       <header className="app-header">
         {/* topo do v1: marca à esquerda, sino de atividade à direita —
             ajustes ficam na engrenagem do Perfil */}
-        <Link className="brand" to="/" aria-label={t('app_v2')}>
+        <Link className="brand" to="/" aria-label={t('app_name')}>
           <BrandGlyph />
           <span className="wordmark">ombada<i>.</i></span>
         </Link>
@@ -110,7 +110,7 @@ export function AppLayout() {
       <div className="desktop-layout">
         <aside className="desktop-rail" aria-label="Navegação principal">
           <div className="rail-head">
-            <Link className="brand" to="/" aria-label={t('app_v2')}>
+            <Link className="brand" to="/" aria-label={t('app_name')}>
               <span className="rail-brand__text">
                 <span className="brand-lockup">
                   <BrandGlyph />

@@ -50,7 +50,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       >
         <div className="settings-panel__header">
           <div>
-            <p className="eyebrow">{t('app_v2')}</p>
+            <p className="eyebrow">{t('app_name')}</p>
             <h2 id="settings-title">{t('settings')}</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>

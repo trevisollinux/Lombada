@@ -1,12 +1,31 @@
-/* Lombada (frontend React) — service worker do app shell.
+/* Lombada — service worker do app shell (frontend React, escopo `/`).
    Navegações: network-first com fallback offline (nunca prende HTML antigo).
    Assets do Vite (assets/, nomes com hash): cache-first, imutáveis.
-   APIs, login e o app legado ficam fora do escopo do worker. */
+   APIs, login e as páginas renderizadas no servidor ficam fora do worker. */
 
-const CACHE_NAME = 'lombada-v2-shell-v2';
+const CACHE_NAME = 'lombada-v2-shell-v3';
 
-/* Ex.: '/app-v2/' ou '/v3-kimi/' — o mesmo sw.js serve qualquer base. */
+/* Caches do app legado, que controlava o escopo `/` antes do corte para a
+   raiz. Precisam ser apagados no activate: senão quem já tinha o PWA
+   instalado continuaria recebendo o shell antigo de `/` e `/index.html`. */
+const LEGACY_CACHE_PREFIX = 'lombada-shell-';
+
+/* Normalmente '/'. Mantém o preview estático ('./') e bases antigas
+   funcionando com o mesmo arquivo. */
 const scopePath = new URL(self.registration.scope).pathname;
+
+/* Rotas do React Router (espelham App.tsx). Só elas compartilham o shell:
+   /u/…, /editoras, /blog, /admin e /app-v1 são HTML do servidor e não podem
+   receber o shell cacheado nem offline. */
+const APP_ROUTES = ['explorar', 'obra', 'feed', 'estante', 'diario', 'memorias', 'perfil'];
+
+function isAppRoute(pathname) {
+  if (!pathname.startsWith(scopePath)) return false;
+  const rest = pathname.slice(scopePath.length).replace(/^\/+/, '');
+  if (!rest) return true;
+  const first = rest.split('/')[0];
+  return APP_ROUTES.includes(first);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -25,7 +44,11 @@ self.addEventListener('activate', (event) => {
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter((key) => key.startsWith('lombada-v2-shell-') && key !== CACHE_NAME)
+        .filter(
+          (key) =>
+            key.startsWith(LEGACY_CACHE_PREFIX) ||
+            (key.startsWith('lombada-v2-shell-') && key !== CACHE_NAME),
+        )
         .map((key) => caches.delete(key)),
     );
     await self.clients.claim();
@@ -41,6 +64,7 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith(scopePath)) return;
 
   if (request.mode === 'navigate') {
+    if (!isAppRoute(url.pathname)) return;
     event.respondWith(navigationNetworkFirst(request));
     return;
   }
@@ -54,10 +78,12 @@ async function navigationNetworkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
     const response = await fetch(request);
-    if (response && response.ok) cache.put(request, response.clone());
+    /* Toda rota do app devolve o mesmo index.html: guarda uma cópia só, sob
+       a raiz do escopo, em vez de uma entrada por caminho visitado. */
+    if (response && response.ok) cache.put(scopePath, response.clone());
     return response;
   } catch (error) {
-    const cached = (await cache.match(request)) || (await cache.match(scopePath));
+    const cached = await cache.match(scopePath);
     if (cached) return cached;
     return new Response(offlineHTML(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },

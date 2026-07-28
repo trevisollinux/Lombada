@@ -30,6 +30,16 @@ Esperado:
 
 ## 3. Aplicativo e navegação
 
+- [ ] Abrir `/` em janela anônima e confirmar que carrega o app React.
+- [ ] Recarregar direto em `/estante` e `/diario` (sem navegar até lá) — a rota
+      precisa responder o app, não 404.
+- [ ] Confirmar que `/app-v2` e `/v3-kimi` redirecionam para a raiz.
+- [ ] Confirmar que `/app-v1` ainda abre o app legado.
+- [ ] Confirmar que `/editoras`, `/u/{handle}`, `/blog` e `/sobre` continuam
+      servindo o HTML do servidor.
+- [ ] Com o PWA já instalado antes do corte, abrir o app e confirmar que ele
+      carrega a interface nova (o worker antigo é network-first: se ficar preso
+      no shell legado, o cache `lombada-shell-*` não foi apagado).
 - [ ] Abrir o aplicativo em janela anônima.
 - [ ] Confirmar criação automática de usuário anônimo.
 - [ ] Navegar entre Estante, Buscar, Explorar e Perfil.

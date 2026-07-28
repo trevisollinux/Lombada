@@ -437,7 +437,7 @@ function DiscoveryHome({
               </button>
             ))}
           </div>
-          <Link className="explore-see-all" to="/editoras">
+          <Link className="explore-see-all" to="/explorar/editoras">
             {exploreText(locale, 'see_all_publishers')}
             <Icon name="arrow" size={16} />
           </Link>

@@ -3884,23 +3884,15 @@ def render_index() -> HTMLResponse:
     )
 
 
-@app.get("/")
+# A raiz `/` passou a ser do frontend React (`frontend_app.py`, instalado no
+# app_entry). A SPA legada continua inteira aqui em `/app-v1`, como rota de
+# escape para os fluxos sem paridade no React. O `/sw.js` também virou do
+# React: o worker é um só, no escopo `/`.
+@app.get("/app-v1")
+@app.get("/app-v1/")
+@app.get("/app-v1/index.html")
 def home():
     return render_index()
-
-
-@app.get("/index.html")
-def index_html():
-    return render_index()
-
-
-@app.get("/sw.js")
-def service_worker():
-    return FileResponse(
-        AQUI / "sw.js",
-        media_type="application/javascript",
-        headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
-    )
 
 
 @app.get("/manifest.json")
