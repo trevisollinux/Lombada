@@ -121,10 +121,6 @@
 }
 
 .catalog-result {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 16px;
-  padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -142,13 +138,22 @@
   box-shadow: var(--shadow-card);
 }
 
-.catalog-result__cover-link {
-  display: block;
-  align-self: start;
+/* o link cobre o card inteiro: qualquer toque dentro da caixa abre a obra */
+.catalog-result__link {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px;
+  border-radius: inherit;
+}
+
+.catalog-result:active {
+  background: var(--surface-raised);
 }
 
 .catalog-result__cover {
   width: 96px;
+  align-self: start;
   transition: transform 0.32s var(--ease-out), box-shadow 0.32s var(--ease-out);
 }
 
@@ -216,12 +221,12 @@
   transition: transform 0.24s var(--ease-out);
 }
 
-.catalog-result__action:hover {
+.catalog-result:hover .catalog-result__action {
   color: var(--accent);
   border-color: var(--accent-line);
 }
 
-.catalog-result__action:hover svg {
+.catalog-result:hover .catalog-result__action svg {
   transform: translateX(4px);
 }
 
@@ -504,6 +509,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
+  cursor: pointer;
   transition: border-color 0.24s var(--ease-out), background 0.24s var(--ease-out);
 }
 

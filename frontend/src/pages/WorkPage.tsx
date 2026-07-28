@@ -202,6 +202,12 @@ export function WorkPage() {
     }
   }
 
+  function openEdition(edition: CatalogEdition) {
+    setRegistered(null)
+    setSelectedEdition(edition)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <section className="page page--work">
       <Link className="catalog-back" to={`/?q=${encodeURIComponent(work.titulo)}`}>
@@ -295,7 +301,16 @@ export function WorkPage() {
               edition.estado?.quero ? catalogText(locale, 'wanted') : '',
             ].filter(Boolean)
             return (
-              <article className={`catalog-edition${selectedEdition && editionKey(selectedEdition) === key ? ' is-selected' : ''}`} key={key}>
+              <article
+                className={`catalog-edition${selectedEdition && editionKey(selectedEdition) === key ? ' is-selected' : ''}`}
+                key={key}
+                /* tocar em qualquer ponto da caixa abre o registro; o botão e o
+                   link da Amazon continuam com o comportamento próprio */
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest('a, button')) return
+                  openEdition(edition)
+                }}
+              >
                 <BookCover
                   title={edition.titulo_edicao || work.titulo}
                   author={work.autor}
@@ -320,11 +335,7 @@ export function WorkPage() {
                   <button
                     className="button button--primary"
                     type="button"
-                    onClick={() => {
-                      setRegistered(null)
-                      setSelectedEdition(edition)
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
+                    onClick={() => openEdition(edition)}
                   >
                     {catalogText(locale, 'register')}
                   </button>
