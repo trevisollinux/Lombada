@@ -37,8 +37,9 @@ export function SearchResultCard({ work, locale, source = 'search' }: SearchResu
 
   return (
     <article className="catalog-result">
+      {/* o card inteiro é o link: tocar em qualquer ponto abre a obra */}
       <Link
-        className="catalog-result__cover-link"
+        className="catalog-result__link"
         to={`/obra?${params.toString()}`}
         state={{ work }}
         aria-label={`${catalogText(locale, 'open_work')}: ${work.titulo}`}
@@ -50,28 +51,28 @@ export function SearchResultCard({ work, locale, source = 'search' }: SearchResu
           url={work.capa_url}
           className="catalog-result__cover"
         />
-      </Link>
 
-      <div className="catalog-result__body">
-        <div>
-          <p className="eyebrow">
-            {[work.ano, work.editora].filter(Boolean).join(' · ') || catalogText(locale, 'edition')}
-          </p>
-          <h2>{work.titulo}</h2>
-          <p className="catalog-result__author">{formatAuthor(work.autor) || '—'}</p>
-        </div>
-
-        {social.length > 0 && (
-          <div className="catalog-result__social">
-            {social.map((item) => <span key={item}>{item}</span>)}
+        <div className="catalog-result__body">
+          <div>
+            <p className="eyebrow">
+              {[work.ano, work.editora].filter(Boolean).join(' · ') || catalogText(locale, 'edition')}
+            </p>
+            <h2>{work.titulo}</h2>
+            <p className="catalog-result__author">{formatAuthor(work.autor) || '—'}</p>
           </div>
-        )}
 
-        <Link className="catalog-result__action" to={`/obra?${params.toString()}`} state={{ work }} onClick={trackOpen}>
-          {catalogText(locale, 'open_work')}
-          <Icon name="arrow" size={16} />
-        </Link>
-      </div>
+          {social.length > 0 && (
+            <div className="catalog-result__social">
+              {social.map((item) => <span key={item}>{item}</span>)}
+            </div>
+          )}
+
+          <span className="catalog-result__action">
+            {catalogText(locale, 'open_work')}
+            <Icon name="arrow" size={16} />
+          </span>
+        </div>
+      </Link>
     </article>
   )
 }
