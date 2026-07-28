@@ -56,6 +56,28 @@ Quando a funcionalidade estiver protegida por flag:
 4. confirmar que dados já gravados permanecem íntegros;
 5. abrir correção em nova branch — não reaproveitar produção como ambiente de teste.
 
+## Frontend na raiz
+
+Desde o corte do React para `/`, o app legado continua inteiro em `/app-v1`.
+Ele é a mitigação imediata quando a regressão está na interface nova: mandar as
+pessoas afetadas para `/app-v1` não exige deploy nem revert.
+
+Para devolver a raiz ao app legado, a mudança mínima é remover a chamada de
+`install_frontend(app, …)` no fim de `app_entry.py` e reapontar as rotas `/` e
+`/index.html` de `main.py` para `render_index()`. É um revert pequeno e isolado
+— não é preciso reverter o build do React nem a árvore `frontend/`.
+
+Duas armadilhas ao reverter:
+
+- **service worker.** O worker do React controla o escopo `/` e apagou os
+  caches `lombada-shell-*`. Voltando ao legado, o worker antigo é reinstalado
+  pelo `static/app.js` e o cache se refaz na primeira visita — mas quem estiver
+  com o worker do React ativo só troca no próximo `activate`. Confirme em
+  janela anônima antes de concluir que o revert não funcionou.
+- **`/app-v2` e `/v3-kimi`** passaram a redirecionar 308 para a raiz. Como 308
+  é cacheado pelo navegador de forma persistente, esses caminhos não voltam a
+  servir o React sozinhos depois de um revert.
+
 ## Banco de dados
 
 Migrações da fase Lombada 2.0 devem ser aditivas. Assim, o código anterior deve funcionar mesmo que tabelas ou colunas novas permaneçam no banco.

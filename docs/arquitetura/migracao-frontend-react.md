@@ -5,6 +5,12 @@
 > Escopo: frontend interativo do Lombada  
 > Backend: permanece em FastAPI + SQLModel + PostgreSQL
 
+> **Nota de estado.** Este documento é o registro da decisão e descreve o plano
+> como foi aprovado — incluindo a etapa em que o React vivia em `/app-v2`. Essa
+> etapa terminou: o React assumiu a raiz `/` e o app legado ficou em `/app-v1`.
+> O estado atual da execução está em
+> [roadmap-migracao-frontend.md](./roadmap-migracao-frontend.md).
+
 ## 1. Resumo executivo
 
 O Lombada já chegou ao ponto em que React faz sentido.

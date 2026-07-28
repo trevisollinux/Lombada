@@ -1,25 +1,47 @@
 # Frontend React do Lombada
 
-Este diretório contém a migração incremental do frontend interativo para React, TypeScript e Vite.
+Este diretório contém o frontend do Lombada em React, TypeScript e Vite.
 
 ## Estado atual
 
-O frontend React é compilado durante o build do Docker e servido pelo entrypoint de produção em `/app-v2`.
+O frontend React é compilado durante o build do Docker e **serve a raiz `/`**.
+Ele é o aplicativo do Lombada e a PWA instalável.
 
-O aplicativo legado continua responsável pela rota `/` e por todos os fluxos reais. A rota nova existe como ambiente seguro para a migração gradual, sem substituir a experiência atual.
+O aplicativo legado (`index.html` + `static/app.js`) continua inteiro em
+**`/app-v1`**, como rota de escape para os fluxos que ainda não têm paridade
+(quatro essenciais, reações literárias, gestão de status personalizados, visão
+de lombadas, Amazon, busca avançada e espanhol). Ele não é mais instalável:
+não declara manifest e não registra service worker.
 
-O shell v2 já possui:
+O que o React responde:
 
-- React Router com `basename=/app-v2`;
+- React Router com `basename=/` e rotas `/`, `/explorar`, `/explorar/editoras`,
+  `/obra`, `/feed`, `/estante`, `/diario`, `/memorias`, `/perfil`;
 - navegação responsiva para celular e desktop;
-- tema claro/escuro compartilhado com o app legado;
-- idioma português/inglês compartilhado com o app legado;
+- tema claro/escuro e idioma PT/EN compartilhados com o app legado;
 - sessão e conta carregadas por `/api/eu`;
 - estados de loading, erro e retry;
-- rotas estruturais para busca, feed, estante, diário e perfil;
 - painel de configurações e ações rápidas.
 
-Quando o diretório `frontend/dist` não existe, `/app-v2` responde com status 503 e informa que o frontend ainda não foi compilado. Isso permite importar e testar o backend sem exigir Node em todos os ambientes Python.
+Continuam renderizadas no servidor pelo FastAPI, fora do React: `/u/{handle}`,
+`/editoras`, `/editora/{slug}`, `/blog`, `/sobre`, `/quem-somos`, `/contribua`,
+`/privacidade`, `/api-docs` e `/admin`. São páginas públicas (busca,
+compartilhamento) e telas administrativas.
+
+Quando `frontend/dist` não existe — ambiente Python sem Node, build quebrado —
+a raiz **cai para o app legado** em vez de derrubar o site. Isso permite
+importar e testar o backend sem exigir Node em todos os ambientes.
+
+## Rotas da SPA e o backend
+
+`SPA_ROUTES`, em `frontend_app.py`, espelha o primeiro segmento de cada rota
+declarada em `src/App.tsx`. O backend só devolve o `index.html` para elas;
+qualquer outro caminho desconhecido continua sendo 404 do servidor.
+
+**Ao adicionar uma rota nova no React Router**, inclua o primeiro segmento dela
+em `SPA_ROUTES` e em `APP_ROUTES` (`public/sw.js`). Sem isso, o acesso direto e
+o refresh na rota nova respondem 404 — a navegação interna do app esconde a
+quebra. `tests/test_frontend_app.py` verifica as três listas.
 
 ## Requisitos
 
@@ -36,36 +58,42 @@ npm run build
 npm run preview
 ```
 
-Durante o desenvolvimento, chamadas para `/api` e `/auth` são encaminhadas pelo Vite para `http://localhost:8000`.
+Durante o desenvolvimento, chamadas para `/api` e `/auth` são encaminhadas pelo
+Vite para `http://localhost:8000`.
 
 Para testar o build integrado localmente:
 
 ```bash
-docker build -t lombada-app-v2 .
-docker run --rm -p 8000:8000 lombada-app-v2
+docker build -t lombada .
+docker run --rm -p 8000:8000 lombada
 ```
 
-Depois, abra `/app-v2` no servidor local.
+Depois, abra `/` no servidor local (e `/app-v1` para comparar com o legado).
 
-## Cache
+## Cache e PWA
 
 - `index.html` e rotas da SPA: `no-cache`;
-- assets versionados do Vite em `/app-v2/assets/`: cache longo e imutável;
-- assets inexistentes: 404, sem fallback indevido para HTML.
+- assets versionados do Vite em `/assets/`: cache longo e imutável;
+- assets inexistentes: 404, sem fallback indevido para HTML;
+- `/sw.js` (escopo `/`): nunca cacheado, servido a partir do build.
 
-## Próximas funcionalidades
+O service worker apaga no `activate` os caches `lombada-shell-*` do app legado,
+que antes controlava o escopo `/`. Sem isso, quem já tinha o PWA instalado
+continuaria recebendo o shell antigo depois do corte.
 
-1. estante somente leitura consumindo `/api/prateleira`;
-2. detalhes e mutações de leitura;
-3. diário real;
-4. busca, obra e edições;
-5. feed, explorar e perfil completos.
+O worker só intercepta navegações das rotas do app: `/u/…`, `/blog`, `/admin` e
+`/app-v1` são HTML do servidor e passam direto.
+
+## Pendências de paridade
+
+1. quatro essenciais, reações literárias e gestão de status personalizados;
+2. visão de lombadas, Amazon, busca avançada e polimentos recentes do legado;
+3. espanhol.
 
 ## Regras da migração
 
 - manter FastAPI, banco, autenticação e APIs atuais;
 - preservar a identidade visual do Lombada;
 - migrar por funcionalidades pequenas e reversíveis;
-- não remover fluxos legados antes da paridade;
-- não alterar a PWA nesta fase;
+- manter `/app-v1` disponível enquanto houver pendência de paridade;
 - adicionar o lockfile antes de ampliar significativamente as dependências.

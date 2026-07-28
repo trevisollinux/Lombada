@@ -90,4 +90,4 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Build production image
-        run: docker build --tag lombada-app-v2:ci .
+        run: docker build --tag lombada:ci .

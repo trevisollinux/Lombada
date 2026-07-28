@@ -15,9 +15,10 @@ function normalize(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-/* Página dedicada de editoras, como no app legado (/editoras): a lista
+/* Página dedicada de editoras dentro do app (/explorar/editoras): a lista
    completa do catálogo, com busca. Cada editora abre suas obras no Explorar
-   filtrado (/explorar?editora=…). */
+   filtrado (/explorar?editora=…). A raiz /editoras é a versão pública
+   renderizada no servidor, voltada para busca e compartilhamento. */
 export function PublishersPage() {
   const { locale } = usePreferences()
   const [publishers, setPublishers] = useState<CatalogPublisher[]>([])

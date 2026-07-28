@@ -525,6 +525,9 @@ function registrarPwa(){
     toast(t('pwa_installed'));
   });
   if(!('serviceWorker' in navigator)) return;
+  // Em /app-v1 este app é rota de escape, não o app instalável: quem controla
+  // o escopo `/` é o worker do frontend React servido na raiz.
+  if(location.pathname.startsWith('/app-v1')) return;
   window.addEventListener('load', async () => {
     try{
       const registration=await navigator.serviceWorker.register('/sw.js');

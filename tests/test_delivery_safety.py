@@ -22,11 +22,17 @@ class DeliverySafetyContractTest(unittest.TestCase):
             self.assertIn(f'@app.get("{route}")', source)
 
     def test_pwa_release_contract_remains_declared(self):
+        # A PWA instalável é o frontend React servido na raiz.
+        react_index = self._read("frontend/index.html")
+        self.assertIn('rel="manifest"', react_index)
+        self.assertTrue((ROOT / "manifest.json").exists())
+        self.assertTrue((ROOT / "frontend" / "public" / "sw.js").exists())
+
+    def test_legacy_app_release_contract_remains_declared(self):
+        # O app legado continua servido em /app-v1 com cache-bust por versão.
         index = self._read("index.html")
-        self.assertIn('rel="manifest"', index)
         self.assertIn('/static/app.js?v={{APP_VERSION}}', index)
         self.assertIn('/static/app.css?v={{APP_VERSION}}', index)
-        self.assertTrue((ROOT / "manifest.json").exists())
         self.assertTrue((ROOT / "sw.js").exists())
 
     def test_boot_migration_contains_no_destructive_ddl(self):

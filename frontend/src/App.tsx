@@ -22,12 +22,14 @@ export function App() {
       <FeatureFlagsProvider>
         <SessionProvider>
           <ProductAnalyticsBridge />
-          <BrowserRouter basename={import.meta.env.VITE_BASENAME || '/app-v2'}>
+          <BrowserRouter basename={import.meta.env.VITE_BASENAME || '/'}>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route index element={<SearchPage />} />
                 <Route path="explorar" element={<ExplorePage />} />
-                <Route path="editoras" element={<PublishersPage />} />
+                {/* /editoras (raiz) continua sendo a página pública renderizada
+                    no servidor; a lista dentro do app vive sob /explorar. */}
+                <Route path="explorar/editoras" element={<PublishersPage />} />
                 <Route path="obra" element={<WorkPage />} />
                 <Route path="feed" element={<FeedPage />} />
                 <Route path="estante" element={<ShelfPage />} />

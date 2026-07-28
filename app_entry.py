@@ -14,7 +14,7 @@ from essential_books import (
     router as essential_books_router,
 )
 from feature_flags import router as feature_flags_router
-from frontend_v2 import install_frontend_v2
+from frontend_app import install_frontend
 from literary_reaction_cascade import install_literary_reaction_cascades
 from literary_reactions import (
     install_product_analytics_contract as install_reaction_analytics_contract,
@@ -68,8 +68,6 @@ busca_module._CACHE_SCHEMA_VERSION = max(
 )
 app = main.app
 
-install_frontend_v2(app)
-
 if not getattr(app.state, "feature_flags_router_installed", False):
     app.include_router(feature_flags_router)
     app.state.feature_flags_router_installed = True
@@ -97,3 +95,7 @@ if not getattr(app.state, "literary_reactions_router_installed", False):
 if not getattr(app.state, "author_search_patch_installed", False):
     app.add_middleware(SearchQuerySanitizerMiddleware)
     app.state.author_search_patch_installed = True
+
+# Por último, sempre: o frontend React responde a raiz e tem um catch-all de
+# SPA que engoliria qualquer rota registrada depois dele.
+install_frontend(app, legacy_index=main.render_index)
